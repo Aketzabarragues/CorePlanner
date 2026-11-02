@@ -95,7 +95,7 @@ async def test_el_seed_produce_la_sobrecarga_de_sebastian(seeded_session):
 
     report = await load_project_capacity(seeded_session, project.id)
 
-    sebastian = next(row for row in report.rows if row.name == "Sebastian")
+    sebastian = next(row for row in report.rows if row.name == "Sebastián")
     cells = {cell.week: cell for cell in sebastian.cells}
     assert cells["2026-W45"].hours == 24.0
     assert cells["2026-W46"].hours == 48.0
@@ -109,6 +109,6 @@ async def test_el_seed_no_sobrecarga_a_los_demas(seeded_session):
     report = await load_project_capacity(seeded_session, project.id)
 
     for row in report.rows:
-        if row.name == "Sebastian":
+        if row.name == "Sebastián":
             continue
         assert row.has_overload is False, f"{row.name} aparece sobrecargado"

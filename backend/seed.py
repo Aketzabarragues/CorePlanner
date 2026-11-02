@@ -65,7 +65,7 @@ async def populate(session) -> int:
         weekly_base_hours=40,
     )
     sebastian = User(
-        name="Sebastian",
+        name="Sebastián",
         email="sebastian@example.com",
         hashed_password=hash_password(DEFAULT_PASSWORD),
         weekly_base_hours=40,
@@ -139,7 +139,7 @@ async def populate(session) -> int:
                 estimated_hours=10,
             ),
             # Concentra 12 h mas en la segunda semana: 48 h frente a las 40 h
-            # base de Sebastian, que es lo que activa la sobrecarga.
+            # base de Sebastián, que es lo que activa la sobrecarga.
             Task(
                 project_id=project.id,
                 assigned_to=sebastian.id,

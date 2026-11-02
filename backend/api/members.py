@@ -34,7 +34,7 @@ async def list_members(
             email=user.email,
             role_id=role.id,
             role_name=role.name,
-            weekly_base_hours=float(user.weekly_base_hours),
+            weekly_base_hours=user.weekly_base_hours,
         )
         for member, user, role in result.all()
     ]

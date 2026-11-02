@@ -4,8 +4,29 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    PlainSerializer,
+    model_validator,
+)
+
+from .services.capacity import hours_to_json
+
+Hours = Annotated[
+    Decimal,
+    PlainSerializer(hours_to_json, return_type=float, when_used="json"),
+]
+"""Horas de la respuesta.
+
+Se transportan como Decimal y salen como numero JSON gracias al unico punto
+de paso a JSON del motor, de modo que el contrato no dependa de coma
+flotante por el camino.
+"""
 
 
 class LoginRequest(BaseModel):
@@ -20,7 +41,7 @@ class UserOut(BaseModel):
     name: str
     email: str
     is_global_admin: bool
-    weekly_base_hours: float
+    weekly_base_hours: Hours
 
 
 class TokenOut(BaseModel):
@@ -48,7 +69,7 @@ class MemberOut(BaseModel):
     email: str
     role_id: int
     role_name: str
-    weekly_base_hours: float
+    weekly_base_hours: Hours
 
 
 class TaskOut(BaseModel):
@@ -61,7 +82,7 @@ class TaskOut(BaseModel):
     status: str
     start_date: date | None = None
     end_date: date | None = None
-    estimated_hours: float
+    estimated_hours: Hours
 
 
 class TaskCreate(BaseModel):

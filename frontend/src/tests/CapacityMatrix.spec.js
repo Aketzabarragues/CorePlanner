@@ -1,10 +1,15 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
 
-const report = {
+const members = [
+  { user_id: 1, name: 'Ana', email: 'ana@example.com', role_id: 1, role_name: 'Project Manager', weekly_base_hours: 40 },
+  { user_id: 2, name: 'Sebastian', email: 's@example.com', role_id: 2, role_name: 'Ingeniero', weekly_base_hours: 40 },
+]
+
+const capacityReport = {
   weeks: ['2026-W45', '2026-W46'],
   rows: [
     {
@@ -32,52 +37,58 @@ const report = {
   ],
 }
 
-function mockFetch() {
-  global.fetch = vi.fn(async (url) => {
+const projectTasks = [
+  { id: 10, project_id: 1, assigned_to: 2, title: 'Puesta en marcha', status: 'todo', start_date: '2026-11-09', end_date: '2026-11-11', estimated_hours: 12 },
+  { id: 11, project_id: 1, assigned_to: 1, title: 'Esquemas EPLAN', status: 'todo', start_date: '2026-11-02', end_date: '2026-11-04', estimated_hours: 10 },
+]
+
+function jsonResponse(payload, ok = true, status = 200) {
+  return { ok, status, json: async () => payload }
+}
+
+function setupFetch(overrides = {}) {
+  const calls = []
+  global.fetch = vi.fn(async (url, options = {}) => {
+    calls.push({ url, method: options.method ?? 'GET', body: options.body })
+    if (overrides[url]) return overrides[url](options)
     if (url.endsWith('/auth/login')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          access_token: 'tok-demo',
-          token_type: 'bearer',
-          user: { id: 9, name: 'Admin', email: 'admin@example.com' },
-        }),
-      }
+      return jsonResponse({ access_token: 'tok-demo', token_type: 'bearer', user: { id: 9, name: 'Admin' } })
     }
+    if (url.includes('/capacity')) return jsonResponse(capacityReport)
+    if (url.includes('/members')) return jsonResponse(members)
+    if (url.includes('/tasks')) return jsonResponse(projectTasks)
     if (url.endsWith('/projects')) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => [{ id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active' }],
-      }
+      return jsonResponse([{ id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active' }])
     }
-    if (url.includes('/capacity')) {
-      return { ok: true, status: 200, json: async () => report }
-    }
-    return { ok: false, status: 404, json: async () => ({ detail: 'no encontrado' }) }
+    return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
+  return calls
+}
+
+async function mountMatrix() {
+  const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
+  await flushPromises()
+  await flushPromises()
+  return wrapper
 }
 
 describe('CapacityMatrix', () => {
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())
-    mockFetch()
   })
 
   it('hace login automatico y guarda el token', async () => {
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Sebastian'))
+    setupFetch()
+    const wrapper = await mountMatrix()
 
-    const loginCall = global.fetch.mock.calls.find(([url]) => url.endsWith('/auth/login'))
-    expect(loginCall).toBeDefined()
+    expect(wrapper.text()).toContain('Sebastian')
     expect(localStorage.getItem('coreplanner_token')).toBe('tok-demo')
   })
 
   it('pinta en rojo la celda sobrecargada', async () => {
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Sebastian'))
+    setupFetch()
+    const wrapper = await mountMatrix()
 
     const overloaded = wrapper.findAll('td.bg-red-200')
     expect(overloaded).toHaveLength(1)
@@ -85,46 +96,160 @@ describe('CapacityMatrix', () => {
     expect(overloaded[0].classes()).toContain('text-red-900')
   })
 
-  it('deja las celdas dentro de la base sin marcar', async () => {
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Sebastian'))
+  it('muestra el boton de nueva tarea', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
 
-    expect(wrapper.findAll('td.bg-red-200')).toHaveLength(1)
-    expect(wrapper.findAll('td.bg-red-100')).toHaveLength(0)
+    expect(wrapper.text()).toContain('+ Nueva Tarea')
   })
 
-  it('muestra una celda por persona y semana', async () => {
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Sebastian'))
+  it('abre el modal de nueva tarea con el desplegable de miembros', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
 
-    const headers = wrapper.findAll('thead th').map((th) => th.text())
-    expect(headers[1]).toBe('2026-W45')
-    expect(headers[2]).toBe('2026-W46')
-    expect(wrapper.findAll('tbody tr')).toHaveLength(2)
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    const select = wrapper.find('select')
+    expect(select.exists()).toBe(true)
+    const options = select.findAll('option').map((o) => o.text())
+    expect(options.some((o) => o.includes('Ana'))).toBe(true)
+    expect(options.some((o) => o.includes('Sebastian'))).toBe(true)
   })
 
-  it('muestra un aviso cuando hay sobrecarga', async () => {
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Sebastian'))
+  it('al guardar una tarea llama a la API y recarga la matriz', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
 
-    expect(wrapper.text()).toContain('En rojo')
+    await wrapper.find('button').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('input[type="text"]').setValue('Nueva tarea')
+    const dateInputs = wrapper.findAll('input[type="date"]')
+    await dateInputs[0].setValue('2026-11-09')
+    await dateInputs[1].setValue('2026-11-11')
+    await wrapper.find('input[type="number"]').setValue('8')
+
+    const form = wrapper.find('form')
+    await form.trigger('submit')
+    await flushPromises()
+
+    const create = calls.find((c) => c.method === 'POST' && c.url.includes('/tasks'))
+    expect(create).toBeDefined()
+    expect(JSON.parse(create.body).title).toBe('Nueva tarea')
+    expect(JSON.parse(create.body).estimated_hours).toBe('8.00')
+
+    // La matriz se vuelve a pedir tras el cambio.
+    const capacityCalls = calls.filter((c) => c.url.includes('/capacity'))
+    expect(capacityCalls.length).toBeGreaterThan(1)
+  })
+
+  it('al pulsar una celda abre el desglose de tareas', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Sebastian en 2026-W46')
+    expect(wrapper.text()).toContain('Puesta en marcha')
+  })
+
+  it('el desglose permite editar una tarea', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    const editar = wrapper.findAll('button').find((b) => b.text() === 'Editar')
+    await editar.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Editar tarea')
+
+    await wrapper.find('input[type="number"]').setValue('6')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body).estimated_hours).toBe('6.00')
+  })
+
+  it('el selector de reasignar solo aparece en una tarea', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    const reasignar = wrapper.findAll('button').find((b) => b.text() === 'Reasignar')
+    await reasignar.trigger('click')
+    await flushPromises()
+
+    // Un solo selector abierto, no uno por tarea.
+    const selects = wrapper.findAll('select')
+    expect(selects).toHaveLength(1)
+    expect(wrapper.findAll('button').filter((b) => b.text() === 'Mover')).toHaveLength(1)
+  })
+
+  it('el desglose permite reasignar una tarea a otra persona', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    const reasignar = wrapper.findAll('button').find((b) => b.text() === 'Reasignar')
+    await reasignar.trigger('click')
+    await flushPromises()
+
+    // Se abre un selector con el resto de miembros del proyecto.
+    const select = wrapper.findAll('select').at(-1)
+    expect(select.exists()).toBe(true)
+    expect(select.findAll('option').map((o) => o.text())).toContain('Ana')
+
+    const mover = wrapper.findAll('button').find((b) => b.text() === 'Mover')
+    await mover.trigger('click')
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body).assigned_to).toBe(1)
+  })
+
+  it('el desglose permite eliminar una tarea', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    const eliminar = wrapper.findAll('button').find((b) => b.text() === 'Eliminar')
+    await eliminar.trigger('click')
+    await flushPromises()
+
+    const del = calls.find((c) => c.method === 'DELETE')
+    expect(del).toBeDefined()
+    expect(del.url).toContain('/tasks/10')
   })
 
   it('informa cuando no hay proyectos visibles', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ access_token: 'tok', user: { name: 'Admin' } }),
-        }
+        return jsonResponse({ access_token: 'tok', user: { name: 'Admin' } })
       }
-      return { ok: true, status: 200, json: async () => [] }
+      return jsonResponse([])
     })
 
-    const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
-    await vi.waitFor(() => expect(wrapper.text()).toContain('No hay proyectos'))
-
+    const wrapper = await mountMatrix()
+    expect(wrapper.text()).toContain('No hay proyectos')
     expect(wrapper.text()).toContain('backend/seed.py')
   })
 })

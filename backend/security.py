@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth import get_current_user
 from .database import get_db
-from .models import Project, ProjectMember, Role, User
+from .models import Project, ProjectMember, Role, Task, User
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -47,6 +47,27 @@ async def get_user_permissions(
     return list(permissions or [])
 
 
+async def check_project_permission(
+    session: AsyncSession,
+    user: User,
+    project_id: int,
+    permission: str,
+) -> Project:
+    """Comprueba el permiso del usuario sobre el proyecto indicado."""
+    project = await get_project_or_404(session, project_id)
+
+    if user.is_global_admin:
+        return project
+
+    permissions = await get_user_permissions(session, user.id, project_id)
+    if permission not in permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"No tienes permiso '{permission}' en este proyecto",
+        )
+    return project
+
+
 def require_project_permission(
     permission: str,
 ) -> Callable[..., Coroutine[Any, Any, Project]]:
@@ -61,18 +82,32 @@ def require_project_permission(
         user: CurrentUser,
         session: SessionDep,
     ) -> Project:
-        project = await get_project_or_404(session, project_id)
+        return await check_project_permission(session, user, project_id, permission)
 
-        if user.is_global_admin:
-            return project
+    return dependency
 
-        permissions = await get_user_permissions(session, user.id, project_id)
-        if permission not in permissions:
+
+def require_task_permission(
+    permission: str,
+) -> Callable[..., Coroutine[Any, Any, Task]]:
+    """Dependencia para rutas sin project_id, que lo deduce de la tarea.
+
+    Sirve para /api/tasks/{task_id}, donde el proyecto de la tarea es el que
+    decide si el usuario puede operar sobre ella.
+    """
+
+    async def dependency(
+        task_id: int,
+        user: CurrentUser,
+        session: SessionDep,
+    ) -> Task:
+        task = await session.get(Task, task_id)
+        if task is None:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"No tienes permiso '{permission}' en este proyecto",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Tarea no encontrada"
             )
-        return project
+        await check_project_permission(session, user, task.project_id, permission)
+        return task
 
     return dependency
 

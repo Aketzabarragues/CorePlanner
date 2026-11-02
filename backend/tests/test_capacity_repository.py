@@ -7,6 +7,7 @@ base de datos y que el informe refleja el estado real del proyecto.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -74,8 +75,8 @@ async def test_el_informe_desde_la_base_de_datos_reparte_igual_que_el_motor(sess
     assert row.name == "Ana"
     # Revision (50 h en W10) + Montaje (40 h: 16 en W10, 24 en W11).
     cells = {cell.week: cell for cell in row.cells}
-    assert cells["2026-W10"].hours == 50.0 + 16.0
-    assert cells["2026-W11"].hours == 24.0
+    assert cells["2026-W10"].hours == Decimal("50.00") + Decimal("16.00")
+    assert cells["2026-W11"].hours == Decimal("24.00")
     assert cells["2026-W10"].is_overloaded is True
     assert cells["2026-W11"].is_overloaded is False
 

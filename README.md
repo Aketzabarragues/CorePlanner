@@ -91,7 +91,9 @@ coreplanner/
 ├── backend/
 │   ├── api/
 │   │   ├── auth.py           # login
-│   │   └── projects.py       # listado y matriz de capacidad
+│   │   ├── members.py        # miembros del proyecto
+│   │   ├── projects.py       # listado y matriz de capacidad
+│   │   └── tasks.py          # CRUD de tareas
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
 │   ├── config.py         # settings via pydantic-settings (prefijo COREPLANNER_)
 │   ├── database.py       # engine asincrono y sesion por peticion
@@ -102,7 +104,8 @@ coreplanner/
 │   ├── seed.py           # datos de demostracion
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
-│   │   └── capacity_repository.py # lectura de datos del proyecto
+│   │   ├── capacity_repository.py # lectura de datos del proyecto
+│   │   └── tasks.py              # reglas de alta, edicion y borrado
 │   ├── .env.example
 │   └── tests/
 ├── frontend/
@@ -110,7 +113,10 @@ coreplanner/
 │   │   └── verify-css.mjs  # guard del bundle CSS
 │   └── src/
 │       ├── api/client.js # cliente HTTP con token JWT
-│       ├── components/CapacityMatrix.vue  # tabla de ocupacion
+│       ├── components/
+│       │   ├── CapacityMatrix.vue  # tabla de ocupacion
+│       │   ├── CellBreakdown.vue   # desglose de una celda
+│       │   └── TaskForm.vue        # alta y edicion de tarea
 │       ├── stores/       # estado Pinia (sesion)
 │       ├── tests/        # tests de vitest
 │       ├── views/        # Login, Proyectos, Gantt
@@ -220,6 +226,30 @@ token en `localStorage`.
 | `POST` | `/api/auth/login` | publico |
 | `GET` | `/api/projects` | token valido |
 | `GET` | `/api/projects/{id}/capacity` | `capacity.read` en el proyecto |
+| `GET` | `/api/projects/{id}/tasks` | `capacity.read` en el proyecto |
+| `GET` | `/api/projects/{id}/members` | `capacity.read` en el proyecto |
+| `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
+| `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
+| `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
+
+El listado de tareas admite los filtros `assigned_to` y `week` (semana ISO,
+por ejemplo `2026-W46`).
+
+## Gestion de tareas
+
+La matriz es interactiva:
+
+- **+ Nueva Tarea** abre un formulario con titulo, persona asignada (desplegable
+  de miembros), fechas y horas estimadas.
+- **Pulsa una celda** para ver el desglose de las tareas que componen esas horas.
+- Desde el desglose se puede **editar** una tarea (cambiar titulo, persona,
+  fechas u horas), **reasignarla** a otra persona del proyecto o
+  **eliminarla**.
+- Cualquier cambio recarga la matriz, de modo que se ve al instante como una
+  celda pasa de rojo a neutro al alivar la carga de alguien.
+
+El formulario no envia campos que no se han tocado: un `PATCH` con
+`{"estimated_hours": "12.00"}` solo cambia las horas.
 
 ## Pruebas
 
@@ -248,6 +278,11 @@ tareas y miembros.
 
 ### Detalles de implementacion que conviene conocer
 
+- **No hay aritmetica en coma flotante.** Las columnas de horas son
+  `Numeric(12, 2)` y el motor trabaja con `Decimal` y centimas de hora
+  enteras. El float solo aparece en el borde JSON, donde el valor tiene como
+  maximo dos decimales. Un test comprueba que el motor nunca devuelve un
+  float.
 - **Integridad referencial en SQLite.** SQLite la tiene desactivada por
   defecto, de modo que `ON DELETE CASCADE` y `ON DELETE RESTRICT` no se
   aplicarian. `backend/database.py` activa `PRAGMA foreign_keys=ON` en cada
@@ -259,4 +294,10 @@ tareas y miembros.
   token lo lleva como string y `TokenPayload` lo recupera como entero.
 - **Coste de bcrypt.** `hash_password` rechaza contrasenas de mas de 72 bytes
   en UTF-8, que es el limite de bcrypt, en lugar de truncarlas en silencio.
+- **Rutas sin project_id.** `/api/tasks/{task_id}` deduce el proyecto de la
+  propia tarea para resolver el permiso, de modo que la ruta no puede usarse
+  para tocar una tarea de otro proyecto.
+- **PATCH parcial.** Solo se tocan los campos presentes en la peticion. Para
+  desasignar una tarea hay que enviar `assigned_to` con null de forma
+  explicita.
 

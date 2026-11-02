@@ -38,4 +38,26 @@ export const projectsApi = {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/projects/${projectId}/capacity${query ? `?${query}` : ''}`, { token })
   },
+  members: (token, projectId) => apiFetch(`/projects/${projectId}/members`, { token }),
+  tasks: (token, projectId, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/projects/${projectId}/tasks${query ? `?${query}` : ''}`, { token })
+  },
+}
+
+export const tasksApi = {
+  create: (token, projectId, task) =>
+    apiFetch(`/projects/${projectId}/tasks`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(task),
+    }),
+  update: (token, taskId, changes) =>
+    apiFetch(`/tasks/${taskId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+  remove: (token, taskId) =>
+    apiFetch(`/tasks/${taskId}`, { method: 'DELETE', token }),
 }

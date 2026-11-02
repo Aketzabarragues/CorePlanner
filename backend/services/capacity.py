@@ -22,6 +22,15 @@ HOURS_SCALE = 100
 """Centimas de hora en las que se trabaja internamente."""
 
 
+def hours_to_json(hours: Decimal) -> float:
+    """Convierte las horas a un numero JSON.
+
+    El valor viene de centimas enteras, de modo que tiene como maximo dos
+    decimales y se representa de forma exacta en JSON.
+    """
+    return float(hours)
+
+
 class CapacityError(Exception):
     """Error de calculo de capacidad."""
 
@@ -43,7 +52,7 @@ class UserLike(Protocol):
 
     id: int
     name: str
-    weekly_base_hours: float
+    weekly_base_hours: Decimal
 
 
 class TaskLike(Protocol):
@@ -53,16 +62,24 @@ class TaskLike(Protocol):
     assigned_to: int | None
     start_date: date | None
     end_date: date | None
-    estimated_hours: float
+    estimated_hours: Decimal
 
 
 @dataclass(frozen=True, slots=True)
 class WeekLoad:
-    """Carga de una persona en una semana ISO."""
+    """Carga de una persona en una semana ISO.
+
+    Las horas se guardan en centimas enteras y se exponen como Decimal, de
+    modo que la aritmetica no pasa por coma flotante.
+    """
 
     week: str
-    hours: float
+    units: int
     is_overloaded: bool
+
+    @property
+    def hours(self) -> Decimal:
+        return from_units(self.units)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,12 +88,16 @@ class UserLoad:
 
     user_id: int
     name: str
-    weekly_base_hours: float
+    weekly_base_hours: Decimal
     cells: tuple[WeekLoad, ...]
 
     @property
-    def total_hours(self) -> float:
-        return sum(cell.hours for cell in self.cells)
+    def total_units(self) -> int:
+        return sum(cell.units for cell in self.cells)
+
+    @property
+    def total_hours(self) -> Decimal:
+        return from_units(self.total_units)
 
     @property
     def has_overload(self) -> bool:
@@ -99,13 +120,13 @@ class CapacityReport:
                 {
                     "user_id": row.user_id,
                     "name": row.name,
-                    "weekly_base_hours": row.weekly_base_hours,
-                    "total_hours": row.total_hours,
+                    "weekly_base_hours": hours_to_json(row.weekly_base_hours),
+                    "total_hours": hours_to_json(row.total_hours),
                     "has_overload": row.has_overload,
                     "cells": [
                         {
                             "week": cell.week,
-                            "hours": cell.hours,
+                            "hours": hours_to_json(cell.hours),
                             "is_overloaded": cell.is_overloaded,
                         }
                         for cell in row.cells
@@ -143,26 +164,26 @@ def iso_week_key(day: date) -> str:
     return f"{iso[0]:04d}-W{iso[1]:02d}"
 
 
-def to_units(hours: float) -> int:
+def to_units(hours: Decimal | float | int) -> int:
     """Convierte horas a centimas de hora, redondeando a la mitad hacia arriba."""
+    value = hours if isinstance(hours, Decimal) else Decimal(str(hours))
     return int(
-        (Decimal(str(hours)) * HOURS_SCALE).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        (value * HOURS_SCALE).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     )
 
 
-def from_units(units: int) -> float:
+def from_units(units: int) -> Decimal:
     """Convierte centimas de hora a horas.
 
     Usa la misma politica de redondeo que to_units, de modo que el ciclo
     to_units -> from_units no introduce desviaciones.
     """
-    value = (Decimal(units) / HOURS_SCALE).quantize(
+    return (Decimal(units) / HOURS_SCALE).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
-    return float(value)
 
 
-def split_units(total_hours: float, days: int) -> list[int]:
+def split_units(total_hours: Decimal | float | int, days: int) -> list[int]:
     """Reparte las horas en centimas de forma uniforme entre los dias.
 
     El reparto es entero, de modo que la suma de las partes coincide
@@ -178,7 +199,7 @@ def split_units(total_hours: float, days: int) -> list[int]:
 def compute_task_week_units(
     start_date: date,
     end_date: date,
-    estimated_hours: float,
+    estimated_hours: Decimal | float | int,
 ) -> dict[str, int]:
     """Carga de una tarea por semana ISO, en centimas de hora.
 
@@ -208,8 +229,8 @@ def compute_task_week_units(
 def compute_task_week_load(
     start_date: date,
     end_date: date,
-    estimated_hours: float,
-) -> dict[str, float]:
+    estimated_hours: Decimal | float | int,
+) -> dict[str, Decimal]:
     """Horas de una tarea por semana ISO."""
     return {
         key: from_units(units)
@@ -257,7 +278,7 @@ def build_capacity_report(
         cells = tuple(
             WeekLoad(
                 week=week,
-                hours=from_units(user_load.get(week, 0)),
+                units=user_load.get(week, 0),
                 is_overloaded=user_load.get(week, 0) > base_units,
             )
             for week in ordered_weeks
@@ -266,7 +287,7 @@ def build_capacity_report(
             UserLoad(
                 user_id=user.id,
                 name=user.name,
-                weekly_base_hours=user.weekly_base_hours,
+                weekly_base_hours=from_units(base_units),
                 cells=cells,
             )
         )

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from datetime import date
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -33,3 +36,77 @@ class ProjectOut(BaseModel):
     name: str
     status: str
     parent_id: int | None = None
+
+
+class MemberOut(BaseModel):
+    """Persona asignada a un proyecto, con el rol que ejerce en el."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    name: str
+    email: str
+    role_id: int
+    role_name: str
+    weekly_base_hours: float
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    assigned_to: int | None = None
+    title: str
+    status: str
+    start_date: date | None = None
+    end_date: date | None = None
+    estimated_hours: float
+
+
+class TaskCreate(BaseModel):
+    """Alta de tarea. Las fechas y las horas son obligatorias."""
+
+    title: str = Field(min_length=1, max_length=255)
+    assigned_to: int | None = None
+    start_date: date
+    end_date: date
+    estimated_hours: Decimal = Field(ge=0, max_digits=8, decimal_places=2)
+
+    @model_validator(mode="after")
+    def _check_range(self) -> TaskCreate:
+        if self.end_date < self.start_date:
+            raise ValueError("La fecha de fin no puede ser anterior a la de inicio")
+        return self
+
+
+class TaskUpdate(BaseModel):
+    """Modificacion parcial de tarea. Solo se aplican los campos presentes.
+
+    Los campos ausentes no se tocan. Para desasignar una tarea hay que
+    enviar assigned_to con valor null de forma explicita, que se distingue
+    de la ausencia del campo.
+    """
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    assigned_to: int | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    estimated_hours: Decimal | None = Field(
+        default=None, ge=0, max_digits=8, decimal_places=2
+    )
+    status: str | None = None
+
+    @model_validator(mode="after")
+    def _check_range(self) -> TaskUpdate:
+        if (
+            self.start_date is not None
+            and self.end_date is not None
+            and self.end_date < self.start_date
+        ):
+            raise ValueError("La fecha de fin no puede ser anterior a la de inicio")
+        return self
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set

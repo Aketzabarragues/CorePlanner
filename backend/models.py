@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
@@ -16,11 +17,11 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Index,
     Integer,
     MetaData,
+    Numeric,
     String,
     UniqueConstraint,
     func,
@@ -75,8 +76,8 @@ class User(Base):
     is_global_admin: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
-    weekly_base_hours: Mapped[float] = mapped_column(
-        Float, nullable=False, default=40.0, server_default="40"
+    weekly_base_hours: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("40.00"), server_default="40"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -206,8 +207,8 @@ class Task(Base):
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    estimated_hours: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0.0, server_default="0"
+    estimated_hours: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00"), server_default="0"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

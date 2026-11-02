@@ -5,11 +5,17 @@
  * Hace un login automatico con el usuario administrador de demostracion y
  * guarda el token en localStorage, de modo que al abrir la aplicacion ya
  * hay datos que ver.
+ *
+ * Las celdas son clicables: al pulsar una se abre el desglose de las tareas
+ * que componen esas horas, desde donde se pueden editar. Cualquier cambio
+ * recalcula la matriz.
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { authApi, projectsApi } from '../api/client'
+import { authApi, projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import CellBreakdown from './CellBreakdown.vue'
+import TaskForm from './TaskForm.vue'
 
 const DEMO_CREDENTIALS = {
   email: 'admin@example.com',
@@ -20,21 +26,151 @@ const auth = useAuthStore()
 
 const report = ref(null)
 const project = ref(null)
+const members = ref([])
 const error = ref(null)
+const notice = ref(null)
 const loading = ref(true)
+const saving = ref(false)
+
+const showNewTask = ref(false)
+const breakdown = ref(null)
+const breakdownTasks = ref([])
 
 const weeks = computed(() => report.value?.weeks ?? [])
-
 const rows = computed(() => report.value?.rows ?? [])
 
+const canEdit = computed(() => members.value.length > 0)
+
 function cellOf(row, week) {
-  return row.cells.find((cell) => cell.week === week) ?? { hours: 0, is_overloaded: false }
+  return (
+    row.cells.find((cell) => cell.week === week) ?? {
+      week,
+      hours: 0,
+      is_overloaded: false,
+    }
+  )
 }
 
 async function loginDemo() {
   const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)
   auth.setSession(data.access_token, data.user)
   return data.access_token
+}
+
+/** Recarga matriz, miembros y tareas del proyecto. */
+async function refresh() {
+  const token = auth.token
+  const [capacity, membersData] = await Promise.all([
+    projectsApi.capacity(token, project.value.id),
+    projectsApi.members(token, project.value.id),
+  ])
+  report.value = capacity
+  members.value = membersData
+}
+
+async function reload() {
+  try {
+    await refresh()
+    if (breakdown.value) {
+      await loadBreakdownTasks()
+      syncBreakdownCell()
+    }
+    error.value = null
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+/** Actualiza las horas que muestra el desglose con las del informe nuevo. */
+function syncBreakdownCell() {
+  const row = rows.value.find((r) => r.user_id === breakdown.value.user_id)
+  if (!row) return
+  const cell = cellOf(row, breakdown.value.week)
+  breakdown.value = {
+    ...breakdown.value,
+    hours: cell.hours,
+    weekly_base_hours: row.weekly_base_hours,
+    is_overloaded: cell.is_overloaded,
+  }
+}
+
+async function openCell(row, week) {
+  const cell = cellOf(row, week)
+  breakdown.value = {
+    user_id: row.user_id,
+    name: row.name,
+    week,
+    hours: cell.hours,
+    weekly_base_hours: row.weekly_base_hours,
+    is_overloaded: cell.is_overloaded,
+  }
+  await loadBreakdownTasks()
+}
+
+/**
+ * Descarga las tareas de la persona en la semana abierta.
+ *
+ * El backend filtra por semana, asi que el filtro de persona se aplica en
+ * cliente sobre el conjunto del proyecto.
+ */
+async function loadBreakdownTasks() {
+  if (!breakdown.value) return
+  const token = auth.token
+  const tasks = await projectsApi.tasks(token, project.value.id, {
+    week: breakdown.value.week,
+  })
+  breakdownTasks.value = tasks.filter(
+    (task) => task.assigned_to === breakdown.value.user_id,
+  )
+}
+
+async function createTask(payload) {
+  saving.value = true
+  try {
+    await tasksApi.create(auth.token, project.value.id, payload)
+    showNewTask.value = false
+    notice.value = `Tarea "${payload.title}" creada.`
+    await reload()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveTask(taskId, payload) {
+  saving.value = true
+  try {
+    await tasksApi.update(auth.token, taskId, payload)
+    notice.value = 'Tarea actualizada.'
+    await reload()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteTask(task) {
+  saving.value = true
+  try {
+    await tasksApi.remove(auth.token, task.id)
+    notice.value = `Tarea "${task.title}" eliminada.`
+    await reload()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/** Reasigna una tarea a otra persona del proyecto. */
+async function reassignTask(task, targetUserId) {
+  if (targetUserId === null || targetUserId === undefined) {
+    error.value = 'No hay personas a las que reasignar la tarea.'
+    return
+  }
+  await saveTask(task.id, { assigned_to: targetUserId })
 }
 
 onMounted(async () => {
@@ -46,12 +182,13 @@ onMounted(async () => {
 
     const projects = await projectsApi.list(token)
     if (projects.length === 0) {
-      error.value = 'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
+      error.value =
+        'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
       return
     }
 
     project.value = projects[0]
-    report.value = await projectsApi.capacity(token, project.value.id)
+    await reload()
   } catch (err) {
     error.value = err.message
     auth.clear()
@@ -63,13 +200,20 @@ onMounted(async () => {
 
 <template>
   <main class="mx-auto max-w-6xl p-6">
-    <header class="mb-6">
-      <h1 class="text-xl font-semibold text-siemens-900">
-        Matriz de ocupacion
-      </h1>
-      <p v-if="project" class="mt-1 text-sm text-slate-500">
-        {{ project.name }}
-      </p>
+    <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-siemens-900">Matriz de ocupacion</h1>
+        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
+      </div>
+
+      <button
+        v-if="canEdit"
+        type="button"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        @click="showNewTask = true"
+      >
+        + Nueva Tarea
+      </button>
     </header>
 
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
@@ -81,13 +225,18 @@ onMounted(async () => {
       {{ error }}
     </p>
 
-    <div v-else class="overflow-x-auto rounded border border-slate-200 bg-white">
+    <p
+      v-else-if="notice"
+      class="mb-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+    >
+      {{ notice }}
+    </p>
+
+    <div v-if="!loading && !error" class="overflow-x-auto rounded border border-slate-200 bg-white">
       <table class="w-full border-collapse text-sm">
         <thead>
           <tr class="bg-slate-100">
-            <th
-              class="sticky left-0 border border-slate-200 bg-slate-100 px-3 py-2 text-left"
-            >
+            <th class="sticky left-0 border border-slate-200 bg-slate-100 px-3 py-2 text-left">
               Persona
             </th>
             <th
@@ -118,7 +267,14 @@ onMounted(async () => {
                 ? 'bg-red-200 font-semibold text-red-900'
                 : 'text-slate-700'"
             >
-              {{ cellOf(row, week).hours }}
+              <button
+                type="button"
+                class="w-full hover:underline"
+                :title="`Ver tareas de ${row.name} en ${week}`"
+                @click="openCell(row, week)"
+              >
+                {{ cellOf(row, week).hours }}
+              </button>
             </td>
             <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
               {{ row.total_hours }}
@@ -132,7 +288,44 @@ onMounted(async () => {
       v-if="!loading && !error && rows.some((r) => r.has_overload)"
       class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
     >
-      En rojo, las semanas que superan las horas base de la persona.
+      En rojo, las semanas que superan las horas base de la persona. Pulsa una celda
+      para ver y editar las tareas que la componen.
     </p>
+
+    <!-- Modal de nueva tarea -->
+    <div
+      v-if="showNewTask"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      @click.self="showNewTask = false"
+    >
+      <div class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+        <TaskForm
+          :members="members"
+          :saving="saving"
+          @save="createTask"
+          @cancel="showNewTask = false"
+        />
+      </div>
+    </div>
+
+    <!-- Modal de desglose de celda -->
+    <div
+      v-if="breakdown"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      @click.self="breakdown = null"
+    >
+      <div class="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+        <CellBreakdown
+          :cell="breakdown"
+          :tasks="breakdownTasks"
+          :members="members"
+          :saving="saving"
+          @save="saveTask"
+          @delete="deleteTask"
+          @reassign="reassignTask"
+          @close="breakdown = null"
+        />
+      </div>
+    </div>
   </main>
 </template>

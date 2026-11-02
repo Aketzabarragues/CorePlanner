@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import auth, projects
+from .api import auth, members, projects, tasks
 from .config import get_settings
 from .database import create_all, dispose_engine
 
@@ -38,6 +38,8 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
+app.include_router(tasks.router, prefix=settings.api_prefix)
+app.include_router(members.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["sistema"])

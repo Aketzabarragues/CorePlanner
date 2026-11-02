@@ -1,13 +1,24 @@
 const API_BASE = '/api'
 
+function extractErrorDetail(payload, status) {
+  const detail = payload?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0]
+    const field = Array.isArray(first.loc) ? first.loc[first.loc.length - 1] : null
+    return field ? `${field}: ${first.msg}` : first.msg
+  }
+  return `Error ${status}`
+}
+
 export async function apiFetch(path, { token, ...options } = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers ?? {}) }
   if (token) headers.Authorization = `Bearer ${token}`
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({}))
-    throw new Error(detail.detail ?? `Error ${response.status}`)
+    const payload = await response.json().catch(() => ({}))
+    throw new Error(extractErrorDetail(payload, response.status))
   }
   return response.status === 204 ? null : response.json()
 }

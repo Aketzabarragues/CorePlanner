@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "API de CorePlanner: capacidad de recursos, Gantt y control de acceso por proyecto."
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115,<1.0",
+    "fastapi[standard]>=0.115,<1.0",
     "uvicorn[standard]>=0.32,<1.0",
     "sqlalchemy[asyncio]>=2.0.36,<3.0",
     "aiosqlite>=0.20,<1.0",
@@ -46,3 +46,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # Depends() en los defaults es el patron de inyeccion de FastAPI.
 "backend/auth.py" = ["B008"]
+"backend/api/*.py" = ["B008"]

@@ -26,6 +26,24 @@ El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
 de modo que el paso a PostgreSQL consiste en cambiar la URL de conexion y el
 driver, sin reescribir el esquema.
 
+## Control de acceso
+
+Cada proyecto concede sus propios permisos a traves del rol de cada miembro.
+Un endpoint protegido se declara con la dependencia
+`require_project_permission(permiso)`, que comprueba que el token es valido y
+que el rol del usuario en ese proyecto incluye el permiso.
+
+| Situacion | Respuesta |
+| --- | --- |
+| Sin token o token invalido | 401 |
+| Administrador global | Acceso a cualquier proyecto |
+| Miembro con el permiso | Acceso |
+| No miembro, o miembro sin el permiso | 403 |
+| Proyecto inexistente | 404 |
+
+El token lleva los permisos por proyecto, de modo que la comprobacion no
+necesita consultar la base de datos en cada peticion.
+
 ## Motor de capacidad
 
 `backend/services/capacity.py` calcula la carga semanal por persona. Las
@@ -71,11 +89,17 @@ datos.
 ```
 coreplanner/
 ├── backend/
+│   ├── api/
+│   │   ├── auth.py           # login
+│   │   └── projects.py       # listado y matriz de capacidad
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
 │   ├── config.py         # settings via pydantic-settings (prefijo COREPLANNER_)
 │   ├── database.py       # engine asincrono y sesion por peticion
 │   ├── main.py           # aplicacion FastAPI
 │   ├── models.py         # esquema SQLAlchemy (users, roles, projects, ...)
+│   ├── schemas.py        # modelos Pydantic de la API
+│   ├── security.py       # dependencias de autorizacion por proyecto
+│   ├── seed.py           # datos de demostracion
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
 │   │   └── capacity_repository.py # lectura de datos del proyecto
@@ -86,9 +110,10 @@ coreplanner/
 │   │   └── verify-css.mjs  # guard del bundle CSS
 │   └── src/
 │       ├── api/client.js # cliente HTTP con token JWT
+│       ├── components/CapacityMatrix.vue  # tabla de ocupacion
 │       ├── stores/       # estado Pinia (sesion)
 │       ├── tests/        # tests de vitest
-│       ├── views/        # Login, Proyectos, Capacidad, Gantt
+│       ├── views/        # Login, Proyectos, Gantt
 │       └── router/
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
@@ -148,6 +173,53 @@ el backend por el proxy de Vite.
 Todas las variables usan el prefijo `COREPLANNER_`. Copia `backend/.env.example`
 a `backend/.env` y ajusta, sobre todo `COREPLANNER_JWT_SECRET_KEY`, que debe
 cambiarse en cualquier despliegue real.
+
+## Prueba en vivo
+
+Tres comandos, en este orden, desde la raiz del repositorio. El primero deja
+la base de datos con datos de demostracion, el segundo levanta la API y el
+tercero la interfaz.
+
+```powershell
+# 1. Datos semilla (borra la base de datos si existe)
+.\.venv\Scripts\python.exe backend\seed.py
+
+# 2. API
+.\.venv\Scripts\fastapi.exe dev backend\main.py --reload-dir backend
+
+# 3. Interfaz (en otra terminal)
+cd frontend
+npm run dev
+```
+
+Abre `http://localhost:5173`. La matriz aparece cargada: filas = personas,
+columnas = semanas ISO, y en rojo las semanas que superan las horas base.
+
+El `--reload-dir backend` limita la recarga automatica a la carpeta del
+backend. Sin el, el vigilante de ficheros tambien avisa de los cambios dentro
+de `.venv` y el servidor se reinicia en bucle.
+
+### Usuarios de demostracion
+
+Todos con la contrasena `coreplanner`:
+
+| Email | Rol |
+| --- | --- |
+| `admin@example.com` | Administrador global |
+| `ana@example.com` | Project Manager |
+| `sebastian@example.com` | Ingeniero |
+| `jorge@example.com` | Lector |
+
+El frontend hace login automatico con `admin@example.com` al abrir y guarda el
+token en `localStorage`.
+
+### Endpoints
+
+| Metodo | Ruta | Permiso |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | publico |
+| `GET` | `/api/projects` | token valido |
+| `GET` | `/api/projects/{id}/capacity` | `capacity.read` en el proyecto |
 
 ## Pruebas
 

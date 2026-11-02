@@ -1,7 +1,7 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import CapacityMatrix from './components/CapacityMatrix.vue'
 </script>
 
 <template>
-  <RouterView />
+  <CapacityMatrix />
 </template>

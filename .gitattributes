@@ -1,0 +1,21 @@
+# Normaliza el repositorio a LF para que el diff no cambie entre maquinas.
+* text=auto eol=lf
+
+# Scripts de Windows: PowerShell 5.1 y cmd necesitan CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.db binary
+*.sqlite binary

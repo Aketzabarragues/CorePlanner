@@ -26,6 +26,46 @@ El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
 de modo que el paso a PostgreSQL consiste en cambiar la URL de conexion y el
 driver, sin reescribir el esquema.
 
+## Motor de capacidad
+
+`backend/services/capacity.py` calcula la carga semanal por persona. Las
+funciones son puras: no tocan la base de datos ni dependen de estado global.
+
+```
+business_days(start, end)     -> dias laborables, sin sabados ni domingos
+iso_week_key(day)             -> "2026-W10"
+split_units(total_hours, days)-> reparto en centimas de hora
+compute_task_week_units(...)  -> carga de una tarea por semana ISO
+build_capacity_report(users, tasks) -> matriz de ocupacion
+```
+
+El algoritmo:
+
+1. Se cuentan los dias laborables entre `start_date` y `end_date`, excluyendo
+   sabados y domingos.
+2. Las `estimated_hours` se reparten de forma uniforme entre esos dias.
+3. Cada dia laborable imputa su carga a la semana ISO correspondiente, con el
+   formato `YYYY-Www`.
+4. La suma por persona y semana se compara con `weekly_base_hours`: si lo
+   supera, la celda queda marcada con `is_overloaded`.
+
+La aritmetica se hace en centimas de hora enteras (`Decimal` con
+`ROUND_HALF_UP`), no en coma flotante. Asi el total del informe coincide
+exactamente con la suma de las tareas y no depende del orden de las sumas.
+Cada tarea se cuantiza al entrar, con un desvio maximo de 0,005 h.
+
+El anio de la semana es el anio ISO, que puede no coincidir con el del
+calendario: el 31 de diciembre de 2026 pertenece a `2026-W53`.
+
+Las tareas sin persona asignada o sin fechas no se imputan a ninguna fila, pero
+se listan en `unassigned_task_ids` y `undated_task_ids` para que la
+planificacion incompleta siga siendo visible.
+
+`backend/services/capacity_repository.py` carga los datos del proyecto y
+devuelve el informe. `backend/tests/test_capacity.py` valida el motor puro y
+`backend/tests/test_capacity_repository.py` lo contrasta contra la base de
+datos.
+
 ## Estructura
 
 ```
@@ -36,6 +76,9 @@ coreplanner/
 │   ├── database.py       # engine asincrono y sesion por peticion
 │   ├── main.py           # aplicacion FastAPI
 │   ├── models.py         # esquema SQLAlchemy (users, roles, projects, ...)
+│   ├── services/
+│   │   ├── capacity.py           # motor de calculo (puro)
+│   │   └── capacity_repository.py # lectura de datos del proyecto
 │   ├── .env.example
 │   └── tests/
 ├── frontend/

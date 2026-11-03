@@ -6,6 +6,7 @@ import ProjectPicker from '../components/ProjectPicker.vue'
 const projects = [
   { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
   { id: 2, name: 'Red de tuberias linea 2', status: 'on_hold', department_id: 2 },
+  { id: 3, name: 'Ampliacion linea 3', status: 'active', department_id: 1 },
 ]
 
 const departments = [
@@ -28,10 +29,17 @@ describe('ProjectPicker', () => {
     expect(wrapper.text()).toContain('Automatización & SCADA')
   })
 
+  it('en el espacio global muestra la vista global', () => {
+    const wrapper = mountPicker({ currentId: null })
+
+    expect(wrapper.text()).toContain('Todos los proyectos')
+    expect(wrapper.text()).toContain('Vista global')
+  })
+
   it('avisa cuando no hay ningun proyecto visible', () => {
     const wrapper = mountPicker({ projects: [], currentId: null })
 
-    expect(wrapper.text()).toContain('Sin proyecto')
+    expect(wrapper.text()).toContain('Sin proyectos')
   })
 
   it('abre la lista de proyectos al pulsar el boton', async () => {
@@ -42,7 +50,36 @@ describe('ProjectPicker', () => {
     await wrapper.find('button').trigger('click')
 
     expect(wrapper.find('[role=listbox]').exists()).toBe(true)
-    expect(wrapper.findAll('[role=option]')).toHaveLength(2)
+  })
+
+  it('ofrece el espacio global como primera opcion', async () => {
+    const wrapper = mountPicker()
+
+    await wrapper.find('button').trigger('click')
+
+    const opciones = wrapper.findAll('[role=option]')
+    expect(opciones[0].text()).toContain('Todos los proyectos')
+  })
+
+  it('elige el espacio global y avisa con null', async () => {
+    const wrapper = mountPicker()
+
+    await wrapper.find('button').trigger('click')
+    await wrapper.findAll('[role=option]')[0].trigger('click')
+
+    expect(wrapper.emitted('select')).toEqual([[null]])
+    expect(wrapper.find('[role=listbox]').exists()).toBe(false)
+  })
+
+  it('agrupa los proyectos por departamento', async () => {
+    const wrapper = mountPicker()
+
+    await wrapper.find('button').trigger('click')
+
+    const texto = wrapper.find('[role=listbox]').text()
+    expect(texto).toContain('Automatización & SCADA')
+    expect(texto).toContain('Oficina Técnica / EPLAN')
+    expect(wrapper.findAll('[role=option]')).toHaveLength(4)
   })
 
   it('marca como seleccionado el proyecto abierto', async () => {
@@ -51,15 +88,25 @@ describe('ProjectPicker', () => {
     await wrapper.find('button').trigger('click')
 
     const opciones = wrapper.findAll('[role=option]')
-    expect(opciones[0].attributes('aria-selected')).toBe('true')
-    expect(opciones[1].attributes('aria-selected')).toBe('false')
+    expect(opciones[0].attributes('aria-selected')).toBe('false')
+    expect(opciones[1].attributes('aria-selected')).toBe('true')
+  })
+
+  it('marca el espacio global cuando es el contexto abierto', async () => {
+    const wrapper = mountPicker({ currentId: null })
+
+    await wrapper.find('button').trigger('click')
+
+    expect(wrapper.findAll('[role=option]')[0].attributes('aria-selected')).toBe('true')
   })
 
   it('elige un proyecto y cierra la lista', async () => {
     const wrapper = mountPicker()
 
     await wrapper.find('button').trigger('click')
-    await wrapper.findAll('[role=option]')[1].trigger('click')
+    // El primero es el espacio global; despues van los proyectos agrupados
+    // por departamento, y el ultimo pertenece al segundo departamento.
+    await wrapper.findAll('[role=option]')[3].trigger('click')
 
     expect(wrapper.emitted('select')).toEqual([[2]])
     expect(wrapper.find('[role=listbox]').exists()).toBe(false)
@@ -75,14 +122,5 @@ describe('ProjectPicker', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('[role=listbox]').exists()).toBe(false)
-  })
-
-  it('en modo compacto solo muestra el icono', async () => {
-    const wrapper = mountPicker({ compact: true })
-
-    expect(wrapper.text()).not.toContain('Linea Pasteurizadora SIVE')
-
-    await wrapper.find('button').trigger('click')
-    expect(wrapper.findAll('[role=option]')).toHaveLength(2)
   })
 })

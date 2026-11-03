@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_VIEW,
+  GLOBAL_SECTIONS,
+  GLOBAL_VIEWS,
   PROJECT_SECTIONS,
   PROJECT_VIEWS,
+  globalPath,
+  globalRoute,
+  globalViewName,
+  isGlobalView,
+  isProjectView,
   projectPath,
   projectRoute,
   projectStatus,
   sameProject,
+  toGlobalView,
+  toProjectView,
   viewLabel,
   viewName,
 } from '../utils/navigation'
@@ -30,6 +39,31 @@ describe('navegacion', () => {
     ])
   })
 
+  it('el menu del proyecto deja la configuracion fuera', () => {
+    const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items).map(
+      (view) => view.name,
+    )
+
+    expect(enElMenu).toEqual(['capacity', 'gantt', 'kanban', 'members'])
+  })
+
+  it('cataloga las vistas del espacio global', () => {
+    expect(GLOBAL_VIEWS.map((view) => view.name)).toEqual([
+      'projects',
+      'global-capacity',
+      'global-gantt',
+      'departments',
+    ])
+    expect(GLOBAL_SECTIONS).toHaveLength(1)
+  })
+
+  it('distingue las vistas globales de las de proyecto', () => {
+    expect(isGlobalView('global-capacity')).toBe(true)
+    expect(isGlobalView('capacity')).toBe(false)
+    expect(isProjectView('capacity')).toBe(true)
+    expect(isProjectView('global-capacity')).toBe(false)
+  })
+
   it('usa la vista de por defecto cuando la ruta no es de proyecto', () => {
     expect(viewName('projects')).toBe(DEFAULT_VIEW)
     expect(viewName(undefined)).toBe(DEFAULT_VIEW)
@@ -42,9 +76,18 @@ describe('navegacion', () => {
     expect(viewName('settings')).toBe('settings')
   })
 
+  it('usa la vista global de por defecto cuando la ruta no es global', () => {
+    expect(globalViewName('projects')).toBe('projects')
+    expect(globalViewName('global-gantt')).toBe('global-gantt')
+    expect(globalViewName('capacity')).toBe('global-capacity')
+    expect(globalViewName('inventada')).toBe('global-capacity')
+  })
+
   it('da la etiqueta legible de la vista', () => {
     expect(viewLabel('capacity')).toBe('Matriz de Capacidad')
     expect(viewLabel('gantt')).toBe('Cronograma (Gantt)')
+    expect(viewLabel('global-capacity')).toBe('Capacidad Global')
+    expect(viewLabel('departments')).toBe('Departamentos')
     expect(viewLabel('inventada')).toBe('Matriz de Capacidad')
   })
 
@@ -55,6 +98,25 @@ describe('navegacion', () => {
 
   it('construye el localizador de ruta con el identificador como texto', () => {
     expect(projectRoute('gantt', 7)).toEqual({ name: 'gantt', params: { id: '7' } })
+  })
+
+  it('construye la ruta del espacio global', () => {
+    expect(globalPath('global-capacity')).toBe('/global-capacity')
+    expect(globalRoute('departments')).toEqual({ name: 'departments' })
+  })
+
+  it('lleva de una vista de proyecto a su homologa global', () => {
+    expect(toGlobalView('capacity')).toBe('global-capacity')
+    expect(toGlobalView('gantt')).toBe('global-gantt')
+    expect(toGlobalView('kanban')).toBe('projects')
+    expect(toGlobalView('members')).toBe('projects')
+  })
+
+  it('lleva de una vista global a su homologa de proyecto', () => {
+    expect(toProjectView('global-capacity')).toBe('capacity')
+    expect(toProjectView('global-gantt')).toBe('gantt')
+    expect(toProjectView('projects')).toBe('capacity')
+    expect(toProjectView('departments')).toBe('capacity')
   })
 
   it('compara identificadores sin distinguir tipo', () => {

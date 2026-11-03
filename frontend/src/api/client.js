@@ -66,7 +66,19 @@ export const departmentsApi = {
   list: (token) => apiFetch('/departments', { token }),
 }
 
+/** Endpoints de la vista global, que no pertenecen a ningun proyecto. */
+export const overviewApi = {
+  capacity: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/capacity${query ? `?${query}` : ''}`, { token })
+  },
+  gantt: (token) => apiFetch('/gantt', { token }),
+}
 export const tasksApi = {
+  list: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/tasks${query ? `?${query}` : ''}`, { token })
+  },
   create: (token, projectId, task) =>
     apiFetch(`/projects/${projectId}/tasks`, {
       method: 'POST',

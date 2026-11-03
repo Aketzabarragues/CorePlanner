@@ -6,15 +6,40 @@ from fastapi import APIRouter, Depends, Query
 
 from ..models import Task
 from ..schemas import TaskCreate, TaskOut, TaskUpdate
-from ..security import SessionDep, require_project_permission, require_task_permission
+from ..security import (
+    CurrentUser,
+    SessionDep,
+    list_accessible_projects,
+    require_project_permission,
+    require_task_permission,
+)
 from ..services.tasks import (
     create_task,
     delete_task,
     list_project_tasks,
+    list_tasks_for_projects,
     update_task,
 )
 
 router = APIRouter(tags=["tasks"])
+
+
+@router.get("/tasks", response_model=list[TaskOut])
+async def list_visible_tasks(
+    session: SessionDep,
+    user: CurrentUser,
+    assigned_to: int | None = Query(default=None),
+    week: str | None = Query(default=None, description="Semana ISO, por ejemplo 2026-W46"),
+) -> list[Task]:
+    """Tareas de todos los proyectos visibles, con filtro opcional.
+
+    Es el listado que usa el desglose de una celda de la matriz global, donde
+    no hay un proyecto concreto de partida.
+    """
+    projects = await list_accessible_projects(session, user)
+    return await list_tasks_for_projects(
+        session, [project.id for project in projects], assigned_to, week
+    )
 
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskOut])

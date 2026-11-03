@@ -34,6 +34,8 @@ const feed = {
       progress: 0,
       dependencies: '',
       custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
     },
   ],
   members: [{ user_id: 1, name: 'Ana', css_class: 'persona-0' }],
@@ -60,9 +62,9 @@ function setupFetch() {
   return calls
 }
 
-async function mountGantt() {
+async function mountGantt(props = { id: 1 }) {
   const wrapper = mount(GanttView, {
-    props: { id: 1 },
+    props,
     global: { plugins: [createPinia()] },
   })
   await flushPromises()
@@ -156,5 +158,32 @@ describe('GanttView', () => {
       end_date: '2026-11-11',
     })
     expect(wrapper.text()).toContain('Fechas actualizadas')
+  })
+
+  it('sin proyecto pide el diagrama global', async () => {
+    const calls = setupFetch()
+
+    const wrapper = await mountGantt({ id: null })
+
+    const call = calls.find((c) => c.url.includes('/gantt'))
+    expect(call.url).toBe('/api/gantt')
+    expect(wrapper.text()).toContain('Gantt Global')
+  })
+
+  it('en el diagrama global cada barra lleva delante su proyecto', async () => {
+    setupFetch()
+
+    await mountGantt({ id: null })
+
+    const barra = ganttInstances[0].tasks[0]
+    expect(barra.name).toBe('Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
+  })
+
+  it('en el diagrama de un proyecto la barra no lleva el proyecto delante', async () => {
+    setupFetch()
+
+    await mountGantt()
+
+    expect(ganttInstances[0].tasks[0].name).toBe('Programacion SCADA WinCC · Ana')
   })
 })

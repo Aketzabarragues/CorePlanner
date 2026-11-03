@@ -69,6 +69,10 @@ function buildRouter() {
       { path: '/', name: 'home', component: Empty },
       { path: '/login', name: 'login', component: Empty },
       { path: '/projects', name: 'projects', component: Empty },
+      { path: '/capacity', name: 'global-capacity', component: Empty },
+      { path: '/gantt', name: 'global-gantt', component: Empty },
+      { path: '/departments', name: 'departments', component: Empty },
+      { path: '/projects/:id', name: 'project', component: Empty },
       { path: '/projects/:id/capacity', name: 'capacity', component: Tracked },
       { path: '/projects/:id/gantt', name: 'gantt', component: Empty },
       { path: '/projects/:id/kanban', name: 'kanban', component: Empty },
@@ -116,7 +120,35 @@ describe('AppShell', () => {
     expect(wrapper.text()).toContain('Cronograma (Gantt)')
     expect(wrapper.text()).toContain('Tablero Kanban')
     expect(wrapper.text()).toContain('Miembros y Asignaciones')
-    expect(wrapper.text()).toContain('Configuración del Proyecto')
+  })
+
+  it('en un proyecto el menu muestra el nombre y el departamento', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const cabecera = wrapper.find('aside').text()
+    expect(cabecera).toContain('Proyecto')
+    expect(cabecera).toContain('Linea Pasteurizadora SIVE')
+    expect(cabecera).toContain('Automatización & SCADA')
+  })
+
+  it('en el espacio global el menu muestra las vistas globales', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Espacio Global')
+    expect(menu).toContain('Proyectos')
+    expect(menu).toContain('Capacidad Global')
+    expect(menu).toContain('Gantt Global')
+    expect(menu).toContain('Departamentos')
+    expect(menu).not.toContain('Tablero Kanban')
+  })
+
+  it('en un proyecto el menu no muestra las vistas globales', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).not.toContain('Capacidad Global')
+    expect(menu).not.toContain('Gantt Global')
   })
 
   it('marca la vista abierta en el menu lateral', async () => {
@@ -139,10 +171,32 @@ describe('AppShell', () => {
     expect(migas).toContain('Cronograma (Gantt)')
   })
 
+  it('en el espacio global las migas de pan muestran el contexto global', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    const migas = wrapper.find('header nav').text()
+    expect(migas).toContain('Espacio Global')
+    expect(migas).toContain('Capacidad Global')
+  })
+
+  it('en el resumen del proyecto las migas dicen Resumen', async () => {
+    const { wrapper } = await mountShell('/projects/1')
+
+    const migas = wrapper.find('header nav').text()
+    expect(migas).toContain('Resumen')
+    expect(migas).not.toContain('Matriz de Capacidad')
+  })
+
   it('muestra la pila de estado del proyecto', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
     expect(wrapper.find('header').text()).toContain('Activo')
+  })
+
+  it('en el espacio global no hay pila de estado', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    expect(wrapper.find('header').text()).not.toContain('Activo')
   })
 
   it('el selector muestra el proyecto abierto y su departamento', async () => {
@@ -153,15 +207,56 @@ describe('AppShell', () => {
     expect(picker.text()).toContain('Oficina Técnica / EPLAN')
   })
 
+  it('el selector esta en la cabecera', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
+    expect(wrapper.find('aside').findComponent(ProjectPicker).exists()).toBe(false)
+  })
+
   it('elegir otro proyecto mantiene la vista abierta', async () => {
     const { wrapper, router } = await mountShell('/projects/1/kanban')
 
     await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
     const opciones = wrapper.findAll('[role=option]')
-    await opciones[1].trigger('click')
+    await opciones[2].trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/projects/2/kanban')
+  })
+
+  it('elegir el espacio global lleva a la vista global homologa', async () => {
+    const { wrapper, router } = await mountShell('/projects/1/gantt')
+
+    await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
+    await wrapper.findAll('[role=option]')[0].trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/gantt')
+  })
+
+  it('elegir un proyecto desde el espacio global entra por la vista homologa', async () => {
+    const { wrapper, router } = await mountShell('/capacity')
+
+    await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
+    await wrapper.findAll('[role=option]')[1].trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/projects/1/capacity')
+  })
+
+  it('en un proyecto hay un enlace para volver a la vista global', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const volver = linkTo(wrapper, 'Volver a vista global')
+    expect(volver).toBeDefined()
+    expect(volver.attributes('href')).toBe('/projects')
+  })
+
+  it('en el espacio global no hay enlace para volver', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    expect(linkTo(wrapper, 'Volver a vista global')).toBeUndefined()
   })
 
   it('el boton de colapsar reduce el menu lateral', async () => {

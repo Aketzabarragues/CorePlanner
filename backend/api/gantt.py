@@ -15,12 +15,12 @@ router = APIRouter(prefix="/projects", tags=["gantt"])
 async def project_gantt(
     project_id: int,
     session: SessionDep,
-    _project=Depends(require_project_permission("gantt.read")),
+    project=Depends(require_project_permission("gantt.read")),
 ) -> GanttOut:
     """Barras del diagrama de Gantt del proyecto.
 
     Cada barra lleva las fechas de la tarea, su avance y la persona
     asignada, que aparece en la etiqueta y en el color de la barra.
     """
-    feed = await load_project_gantt(session, project_id)
+    feed = await load_project_gantt(session, project)
     return GanttOut.model_validate(feed.to_dict())

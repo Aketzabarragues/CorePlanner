@@ -1,14 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
+import DepartmentsView from '../views/DepartmentsView.vue'
 import GanttView from '../views/GanttView.vue'
 import KanbanView from '../views/KanbanView.vue'
 import LoginView from '../views/LoginView.vue'
+import MembersView from '../views/MembersView.vue'
 import PendingView from '../views/PendingView.vue'
+import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import { redirectToFirstProject, requireSession } from './guards'
 
-/** Pantalla de espera mientras la raiz decide a que proyecto llevar. */
+/** Pantalla de espera mientras la raiz decide a que vista llevar. */
 const Redirecting = { name: 'Redirecting', render: () => null }
 
 const routes = [
@@ -19,11 +22,19 @@ const routes = [
     beforeEnter: redirectToFirstProject,
   },
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
+
+  // Espacio global: la organizacion entera, sin proyecto en la URL.
   { path: '/projects', name: 'projects', component: ProjectsView },
+  { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },
+  { path: '/gantt', name: 'global-gantt', component: GanttView },
+  { path: '/departments', name: 'departments', component: DepartmentsView },
+
+  // Espacio de proyecto: todo lo que cuelga de un identificador.
   {
     path: '/projects/:id',
     name: 'project',
-    redirect: (to) => ({ name: 'capacity', params: { id: to.params.id } }),
+    component: ProjectSummaryView,
+    props: true,
   },
   {
     path: '/projects/:id/capacity',
@@ -33,12 +44,7 @@ const routes = [
   },
   { path: '/projects/:id/gantt', name: 'gantt', component: GanttView, props: true },
   { path: '/projects/:id/kanban', name: 'kanban', component: KanbanView, props: true },
-  {
-    path: '/projects/:id/members',
-    name: 'members',
-    component: PendingView,
-    props: (route) => ({ section: 'members' }),
-  },
+  { path: '/projects/:id/members', name: 'members', component: MembersView, props: true },
   {
     path: '/projects/:id/settings',
     name: 'settings',

@@ -13,6 +13,7 @@ const props = defineProps({
   cell: { type: Object, required: true },
   tasks: { type: Array, required: true },
   members: { type: Array, required: true },
+  projects: { type: Array, default: () => [] },
   saving: { type: Boolean, default: false },
 })
 
@@ -25,6 +26,13 @@ const memberName = computed(() => {
   const names = {}
   for (const member of props.members) names[member.user_id] = member.name
   return names
+})
+
+/** Nombre del proyecto de una tarea, si se ha dado la lista de proyectos. */
+const projectName = computed(() => {
+  const names = {}
+  for (const project of props.projects) names[project.id] = project.name
+  return (task) => names[task.project_id] ?? ''
 })
 
 const otherMembers = computed(() =>
@@ -86,6 +94,9 @@ function taskRange(task) {
           <div class="min-w-0">
             <p class="truncate text-sm font-medium">{{ task.title }}</p>
             <p class="text-xs text-slate-500">
+              <span v-if="projectName(task)" class="font-medium text-slate-600">
+                {{ projectName(task) }} ·
+              </span>
               {{ taskRange(task) }} ·
               {{ task.assigned_to ? memberName[task.assigned_to] ?? 'Desconocido' : 'Sin asignar' }}
             </p>

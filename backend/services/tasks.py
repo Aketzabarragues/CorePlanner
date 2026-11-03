@@ -6,6 +6,7 @@ reglas sirvan al resto de la aplicacion.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 from fastapi import HTTPException, status
@@ -133,14 +134,27 @@ async def delete_task(session: AsyncSession, task: Task) -> None:
     await session.commit()
 
 
-async def list_project_tasks(
+def _task_in_week(task: Task, week: str) -> bool:
+    """Indica si la tarea toca la semana ISO indicada."""
+    if task.start_date is None or task.end_date is None:
+        return False
+    return any(
+        iso_week_key(day) == week
+        for day in business_days(task.start_date, task.end_date)
+    )
+
+
+async def list_tasks_for_projects(
     session: AsyncSession,
-    project_id: int,
+    project_ids: Sequence[int],
     assigned_to: int | None = None,
     week: str | None = None,
 ) -> list[Task]:
-    """Tareas del proyecto, con filtro opcional por persona y semana."""
-    stmt = select(Task).where(Task.project_id == project_id)
+    """Tareas de un conjunto de proyectos, con filtro por persona y semana."""
+    if not project_ids:
+        return []
+
+    stmt = select(Task).where(Task.project_id.in_(set(project_ids)))
     if assigned_to is not None:
         stmt = stmt.where(Task.assigned_to == assigned_to)
     stmt = stmt.order_by(Task.start_date, Task.id)
@@ -148,14 +162,14 @@ async def list_project_tasks(
 
     if week is None:
         return tasks
+    return [task for task in tasks if _task_in_week(task, week)]
 
-    selected = []
-    for task in tasks:
-        if task.start_date is None or task.end_date is None:
-            continue
-        if any(
-            iso_week_key(day) == week
-            for day in business_days(task.start_date, task.end_date)
-        ):
-            selected.append(task)
-    return selected
+
+async def list_project_tasks(
+    session: AsyncSession,
+    project_id: int,
+    assigned_to: int | None = None,
+    week: str | None = None,
+) -> list[Task]:
+    """Tareas del proyecto, con filtro opcional por persona y semana."""
+    return await list_tasks_for_projects(session, [project_id], assigned_to, week)

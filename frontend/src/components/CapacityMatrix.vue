@@ -1,6 +1,10 @@
 <script setup>
 /**
- * Matriz de ocupacion del proyecto.
+ * Matriz de ocupacion.
+ *
+ * Con identificador de proyecto muestra la matriz de ese proyecto. Sin el, la
+ * matriz es global: reúne las horas de todos los proyectos visibles y admite
+ * un filtro por departamento.
  *
  * Hace un login automatico con el usuario administrador de demostracion y
  * guarda el token en localStorage, de modo que al abrir la aplicacion ya
@@ -12,7 +16,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { projectsApi, tasksApi } from '../api/client'
+import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
@@ -30,11 +34,16 @@ const error = ref(null)
 const notice = ref(null)
 const loading = ref(true)
 const saving = ref(false)
+const departmentFilter = ref('')
+const globalMembers = ref([])
 
 const breakdown = ref(null)
 const breakdownTasks = ref([])
 
-const members = computed(() => store.members)
+/** Sin identificador de proyecto la matriz es global. */
+const isGlobal = computed(() => props.id === null || props.id === undefined)
+
+const members = computed(() => (isGlobal.value ? globalMembers.value : store.members))
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
 
@@ -48,9 +57,31 @@ function cellOf(row, week) {
   )
 }
 
-/** Recarga matriz, miembros y tareas del proyecto. */
+/** Junta las listas de miembros de varios proyectos sin repetir personas. */
+function mergeMembers(lists) {
+  const merged = new Map()
+  for (const list of lists) {
+    for (const member of list) {
+      if (!merged.has(member.user_id)) merged.set(member.user_id, member)
+    }
+  }
+  return [...merged.values()]
+}
+
+/** Recarga la matriz y, en el espacio global, las personas de todos los proyectos. */
 async function refresh() {
   const token = auth.token
+  if (isGlobal.value) {
+    const params = departmentFilter.value ? { department_id: departmentFilter.value } : {}
+    const [capacity, memberLists] = await Promise.all([
+      overviewApi.capacity(token, params),
+      Promise.all(store.projects.map((item) => projectsApi.members(token, item.id))),
+    ])
+    report.value = capacity
+    globalMembers.value = mergeMembers(memberLists)
+    return
+  }
+
   const [capacity] = await Promise.all([
     projectsApi.capacity(token, project.value.id),
     store.ensureMembers(token, project.value.id),
@@ -101,14 +132,14 @@ async function openCell(row, week) {
  * Descarga las tareas de la persona en la semana abierta.
  *
  * El backend filtra por semana, asi que el filtro de persona se aplica en
- * cliente sobre el conjunto del proyecto.
+ * cliente sobre el conjunto de proyectos.
  */
 async function loadBreakdownTasks() {
   if (!breakdown.value) return
   const token = auth.token
-  const tasks = await projectsApi.tasks(token, project.value.id, {
-    week: breakdown.value.week,
-  })
+  const tasks = isGlobal.value
+    ? await tasksApi.list(token, { week: breakdown.value.week })
+    : await projectsApi.tasks(token, project.value.id, { week: breakdown.value.week })
   breakdownTasks.value = tasks.filter(
     (task) => task.assigned_to === breakdown.value.user_id,
   )
@@ -150,16 +181,28 @@ async function reassignTask(task, targetUserId) {
 }
 
 /**
- * Abre el proyecto pedido y carga su matriz.
+ * Carga la matriz que toca.
  *
- * Se vuelve a llamar cuando cambia el proyecto de la ruta. El router
+ * En el espacio global no hay proyecto que abrir: se piden los datos de
+ * toda la organizacion. En un proyecto se busca entre los visibles y se
+ * carga su matriz.
+ *
+ * Se vuelve a llamar cuando cambia el identificador de la ruta. El router
  * reutiliza la misma instancia del componente cuando solo cambia el
  * parametro, de modo que sin esta recarga la matriz seguiria mostrando los
  * datos del proyecto anterior.
  */
-async function loadProject() {
+async function loadReport() {
   const token = await auth.ensureSession()
-  const projects = await store.ensureProjects(token)
+  await store.ensureProjects(token)
+
+  if (isGlobal.value) {
+    project.value = null
+    await reload()
+    return
+  }
+
+  const projects = store.projects
   if (projects.length === 0) {
     error.value =
       'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
@@ -172,7 +215,7 @@ async function loadProject() {
 
 onMounted(async () => {
   try {
-    await loadProject()
+    await loadReport()
   } catch (err) {
     error.value = err.message
     auth.clear()
@@ -186,7 +229,7 @@ watch(
   async () => {
     loading.value = true
     try {
-      await loadProject()
+      await loadReport()
     } catch (err) {
       error.value = err.message
     } finally {
@@ -194,13 +237,42 @@ watch(
     }
   },
 )
+
+watch(departmentFilter, () => {
+  if (!isGlobal.value) return
+  reload()
+})
 </script>
 
 <template>
   <div class="mx-auto max-w-6xl">
-    <header class="mb-4">
-      <h1 class="text-xl font-semibold text-siemens-900">Matriz de ocupacion</h1>
-      <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
+    <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-siemens-900">
+          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupacion' }}
+        </h1>
+        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
+        <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
+          Reparto de horas de todos los proyectos visibles.
+        </p>
+      </div>
+
+      <label v-if="isGlobal" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Departamento</span>
+        <select
+          v-model="departmentFilter"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+        >
+          <option value="">Todos los departamentos</option>
+          <option
+            v-for="department in store.departments"
+            :key="department.id"
+            :value="department.id"
+          >
+            {{ department.name }}
+          </option>
+        </select>
+      </label>
     </header>
 
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
@@ -290,6 +362,7 @@ watch(
           :cell="breakdown"
           :tasks="breakdownTasks"
           :members="members"
+          :projects="isGlobal ? store.projects : []"
           :saving="saving"
           @save="saveTask"
           @delete="deleteTask"

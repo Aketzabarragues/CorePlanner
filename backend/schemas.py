@@ -107,6 +107,8 @@ class GanttTaskOut(BaseModel):
     progress: int
     dependencies: str
     custom_class: str
+    project_id: int
+    project_name: str
 
 
 class GanttMemberOut(BaseModel):

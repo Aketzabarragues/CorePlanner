@@ -95,6 +95,7 @@ coreplanner/
 │   │   ├── gantt.py          # feed JSON del Gantt
 │   │   ├── kanban.py         # tablero por estados
 │   │   ├── members.py        # miembros del proyecto
+│   │   ├── overview.py       # capacidad y Gantt globales
 │   │   ├── projects.py       # listado y matriz de capacidad
 │   │   └── tasks.py          # CRUD de tareas
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
@@ -107,8 +108,9 @@ coreplanner/
 │   ├── seed.py           # datos de demostracion
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
-│   │   ├── capacity_repository.py # lectura de datos del proyecto
+│   │   ├── capacity_repository.py # lectura de datos de capacidad
 │   │   ├── gantt.py               # tareas y miembros del Gantt (puro)
+│   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
 │   │   ├── kanban_repository.py   # lectura del tablero
 │   │   └── tasks.py              # reglas de alta, edicion y borrado
@@ -129,7 +131,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion)
-│       ├── views/        # Login, Proyectos, Capacidad, Gantt, Kanban, Pendientes
+│       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Pendientes
 │       └── router/       # rutas y guardas de sesion
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
@@ -253,6 +255,9 @@ token en `localStorage`.
 | `GET` | `/api/projects/{id}/gantt` | `gantt.read` en el proyecto |
 | `GET` | `/api/projects/{id}/kanban` | `capacity.read` en el proyecto |
 | `GET` | `/api/departments` | token valido |
+| `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
+| `GET` | `/api/gantt` | token valido |
+| `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 | `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
@@ -263,7 +268,7 @@ por ejemplo `2026-W46`).
 ## Gestion de tareas
 
 El alta de tareas vive en la cabecera, con el boton **+ Nueva Tarea**, que
-funciona en cualquier vista del proyecto. La matriz es interactiva:
+funciona en cualquier vista del proyecto abierto. La matriz es interactiva:
 
 - **Pulsa una celda** para ver el desglose de las tareas que componen esas horas.
 - Desde el desglose se puede **editar** una tarea (cambiar titulo, persona,
@@ -313,6 +318,9 @@ vacias, para que el tablero no cambie de forma al guardar.
 departamento agrupa a las personas y es el gestor de los proyectos que
 declaran su `department_id`.
 
+La vista global `/departments` los muestra con su responsable y los proyectos
+que gestiona cada uno, con los proyectos sin departamento aparte.
+
 La asignacion de tareas es transversal: una tarea de un proyecto de
 Automatización puede llevarla alguien de Oficina Técnica, siempre que sea
 miembro del proyecto.
@@ -322,46 +330,99 @@ miembro del proyecto.
 `frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
 y una cabecera, al estilo de OpenProject o Linear.
 
-El menu lateral lleva el isotipo con su version, el selector del proyecto
-abierto con su departamento, la navegacion por grupos y, al pie, la tarjeta de
-quien esta dentro con su avatar, su departamento y el boton de cerrar sesion.
-Se puede colapsar a una tira de iconos; el estado se guarda en `localStorage`
-con la clave `coreplanner_sidebar`.
+La navegacion tiene dos contextos, y el que esta abierto lo decide la URL: si
+lleva un identificador de proyecto, se esta en el espacio de proyecto; si no,
+en el espacio global. El menu lateral, las migas y las acciones de la cabecera
+cambian con el contexto.
 
-La cabecera lleva las migas de pan (departamento, proyecto y vista), la pila con
-el estado del proyecto y el boton **+ Nueva Tarea**, que abre el alta de tarea
-en un modal sobre la vista que este abierta.
+El menu lateral lleva el isotipo con su version, un bloque de contexto que dice
+en que espacio se esta y, al pie, la tarjeta de quien esta dentro con su
+avatar, su departamento y el boton de cerrar sesion. Se puede colapsar a una
+tira de iconos; el estado se guarda en `localStorage` con la clave
+`coreplanner_sidebar`.
 
-La navegacion se agrupa en dos bloques:
+La cabecera lleva las migas de pan, el selector de contexto y las acciones
+rapidas. En el espacio de proyecto aparecen la pila con el estado del proyecto
+y el boton **+ Nueva Tarea**, que abre el alta de tarea en un modal sobre la
+vista que este abierta. En el espacio global solo queda el selector.
+
+### Selector de contexto
+
+El desplegable de la cabecera es el que salta de un contexto al otro. Su
+primera opcion es **Todos los proyectos (Global)** y a continuacion vienen los
+proyectos agrupados por su departamento gestor. Al elegir un proyecto se entra
+en la vista homologa de la que se estaba viendo; si la vista no tiene
+equivalente global se cae en el listado de proyectos, y al reves en la matriz
+del proyecto.
+
+### Menu lateral
+
+En el espacio global:
+
+| Grupo | Vistas |
+| --- | --- |
+| Espacio Global | Proyectos, Capacidad Global, Gantt Global, Departamentos |
+
+En el espacio de proyecto:
 
 | Grupo | Vistas |
 | --- | --- |
 | Planificación & ejecucion | Matriz de Capacidad, Cronograma (Gantt), Tablero Kanban |
-| Gestion & equipo | Miembros y Asignaciones, Configuracion del Proyecto |
+| Gestion & equipo | Miembros y Asignaciones |
 
-Las dos ultimas son vistas de espera (`PendingView.vue`): tienen ruta propia y
-explican lo que queda por hacer, para no dejar enlaces muertos.
+La configuracion del proyecto no esta en el menu: se llega desde el resumen
+del proyecto, que es donde tiene sentido abrirla. La ruta sigue viva y explica
+lo que queda por hacer, para no dejar enlaces muertos.
 
-| Ruta | Vista |
-| --- | --- |
-| `/` | redirige a la matriz del primer proyecto accesible |
-| `/login` | acceso, con entrada automatica si ya hay sesion guardada |
-| `/projects` | listado de proyectos |
-| `/projects/{id}/capacity` | matriz de ocupacion |
-| `/projects/{id}/gantt` | diagrama de Gantt |
-| `/projects/{id}/kanban` | tablero Kanban |
-| `/projects/{id}/members` | miembros y asignaciones (pendiente) |
-| `/projects/{id}/settings` | configuracion del proyecto (pendiente) |
+### Rutas
+
+| Ruta | Contexto | Vista |
+| --- | --- | --- |
+| `/` | - | redirige a la matriz del primer proyecto accesible |
+| `/login` | - | acceso, con entrada automatica si ya hay sesion guardada |
+| `/projects` | global | listado de proyectos |
+| `/capacity` | global | matriz de ocupacion consolidada |
+| `/gantt` | global | cronograma de todos los proyectos |
+| `/departments` | global | departamentos y sus responsables |
+| `/projects/{id}` | proyecto | resumen del proyecto |
+| `/projects/{id}/capacity` | proyecto | matriz de ocupacion |
+| `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
+| `/projects/{id}/kanban` | proyecto | tablero Kanban |
+| `/projects/{id}/members` | proyecto | miembros y asignaciones |
+| `/projects/{id}/settings` | proyecto | configuracion del proyecto (pendiente) |
 
 El proyecto abierto se toma siempre de la URL, de modo que al recargar la
-pagina se vuelve al mismo proyecto y a la misma vista. Cambiar el proyecto en
-el desplegable navega a la vista actual con el identificador nuevo.
+pagina se vuelve al mismo proyecto y a la misma vista.
 
 Las guardas del router live en `frontend/src/router/guards.js`: una comprueba
 la sesion antes de entrar en una vista privada y otra lleva la raiz al primer
 proyecto disponible. Si falta la sesion, el guard lleva al formulario de acceso
 recordando la vista que se queria abrir, y el formulario vuelve a ella al
 entrar.
+
+### Vista global
+
+Los endpoints globales no dependen de un proyecto: reunen todo lo que la
+persona que entra puede ver.
+
+| Endpoint | Que devuelve |
+| --- | --- |
+| `GET /api/capacity` | matriz de ocupacion de todos los proyectos accesibles, con filtro opcional `?department_id=` |
+| `GET /api/gantt` | barras de todos los proyectos accesibles, cada una con su `project_id` y `project_name` |
+| `GET /api/tasks` | tareas de todos los proyectos accesibles, con los filtros `assigned_to` y `week` |
+
+El alcance son los proyectos accesibles de quien entra: el administrador global
+ve todos y un miembro solo los suyos. La matriz global suma las horas de cada
+persona entre proyectos y sus filas son la union de los miembros de esos
+proyectos con las personas que tengan tareas asignadas. El filtro por
+departamento limita a los proyectos que gestiona ese departamento.
+
+El listado global de tareas es lo que permite abrir el desglose de una celda
+de la matriz global: sin el, la celda no sabria que tareas la componen.
+
+En el Gantt global cada barra lleva delante el nombre del proyecto, y el
+frontend lo antepone solo en este modo: en el espacio de proyecto la barra ya
+esta dentro de su contexto.
 
 ### Iconos y clases
 
@@ -408,10 +469,12 @@ parcial que pierda estilos sin avisar.
 
 Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
 frontend con login, listado de proyectos, armazon de aplicacion con menu
-lateral, cabecera con migas, selector de proyecto y alta de tarea, matriz de
-ocupacion con reparto semanal, CRUD de tareas, feed JSON del Gantt y tablero
-Kanban. Pendiente de implementar: la exportacion `.ics`, el alta y baja de
-miembros del proyecto y el cambio de rol.
+lateral, cabecera con migas, selector de contexto y alta de tarea, navegacion
+dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
+semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
+(por proyecto y consolidado), tablero Kanban y vista de departamentos.
+Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
+proyecto, el cambio de rol y la configuracion del proyecto.
 
 ### Detalles de implementacion que conviene conocer
 

@@ -1,51 +1,129 @@
 /**
- * Vistas del proyecto y rutas de navegacion.
+ * Vistas de la aplicacion y rutas de navegacion.
  *
- * La seccion lateral se organiza en grupos, asi que el catalogo vive aqui
- * para que el shell, el router y las pruebas hablen del mismo vocabulario.
+ * Hay dos contextos. El global reúne la organizacion entera y no lleva
+ * identificador de proyecto en la URL. El de proyecto trabaja sobre un
+ * proyecto concreto. Cada contexto tiene su propio catalogo, de modo que el
+ * menu lateral, el router y las pruebas hablen del mismo vocabulario.
  */
 
-export const PROJECT_SECTIONS = [
+const CAPACITY_VIEW = {
+  name: 'capacity',
+  label: 'Matriz de Capacidad',
+  icon: 'chart',
+  hint: 'Matriz matematica',
+}
+const GANTT_VIEW = {
+  name: 'gantt',
+  label: 'Cronograma (Gantt)',
+  icon: 'calendar',
+  hint: 'Linea temporal',
+}
+const KANBAN_VIEW = {
+  name: 'kanban',
+  label: 'Tablero Kanban',
+  icon: 'board',
+  hint: 'Tablero de flujo',
+}
+const MEMBERS_VIEW = {
+  name: 'members',
+  label: 'Miembros y Asignaciones',
+  icon: 'users',
+  hint: 'Reparto de trabajo del equipo',
+}
+const SETTINGS_VIEW = {
+  name: 'settings',
+  label: 'Configuración del Proyecto',
+  icon: 'sliders',
+  hint: 'Ajustes del proyecto',
+}
+
+export const GLOBAL_SECTIONS = [
   {
-    title: 'Planificación & ejecución',
-    items: [
-      { name: 'capacity', label: 'Matriz de Capacidad', icon: 'chart', hint: 'Matriz matematica' },
-      { name: 'gantt', label: 'Cronograma (Gantt)', icon: 'calendar', hint: 'Linea temporal' },
-      { name: 'kanban', label: 'Tablero Kanban', icon: 'board', hint: 'Tablero de flujo' },
-    ],
-  },
-  {
-    title: 'Gestión & equipo',
+    title: 'Espacio Global',
     items: [
       {
-        name: 'members',
-        label: 'Miembros y Asignaciones',
-        icon: 'users',
-        hint: 'Reparto de trabajo del equipo',
+        name: 'projects',
+        label: 'Proyectos',
+        icon: 'folder',
+        hint: 'Proyectos de la organizacion',
       },
       {
-        name: 'settings',
-        label: 'Configuración del Proyecto',
-        icon: 'sliders',
-        hint: 'Ajustes del proyecto',
+        name: 'global-capacity',
+        label: 'Capacidad Global',
+        icon: 'chart',
+        hint: 'Matriz consolidada de todos los proyectos',
+      },
+      {
+        name: 'global-gantt',
+        label: 'Gantt Global',
+        icon: 'calendar',
+        hint: 'Cronograma de todos los proyectos',
+      },
+      {
+        name: 'departments',
+        label: 'Departamentos',
+        icon: 'building',
+        hint: 'Departamentos y sus responsables',
       },
     ],
   },
 ]
 
-/** Todas las vistas de proyecto, en el orden en que aparecen en el menu. */
-export const PROJECT_VIEWS = PROJECT_SECTIONS.flatMap((section) => section.items)
+export const PROJECT_SECTIONS = [
+  {
+    title: 'Planificación & ejecución',
+    items: [CAPACITY_VIEW, GANTT_VIEW, KANBAN_VIEW],
+  },
+  {
+    title: 'Gestión & equipo',
+    items: [MEMBERS_VIEW],
+  },
+]
+
+/** Vistas del espacio global, en el orden en que aparecen en el menu. */
+export const GLOBAL_VIEWS = GLOBAL_SECTIONS.flatMap((section) => section.items)
+
+/**
+ * Vistas de proyecto.
+ *
+ * La configuracion no esta en el menu lateral: se llega desde el resumen del
+ * proyecto, que es donde tiene sentido abrirla.
+ */
+export const PROJECT_VIEWS = [
+  CAPACITY_VIEW,
+  GANTT_VIEW,
+  KANBAN_VIEW,
+  MEMBERS_VIEW,
+  SETTINGS_VIEW,
+]
 
 export const DEFAULT_VIEW = 'capacity'
+export const DEFAULT_GLOBAL_VIEW = 'global-capacity'
 
-/** Devuelve el nombre de la vista, o la de por defecto si no es conocida. */
+/** Devuelve el nombre de la vista de proyecto, o la de por defecto. */
 export function viewName(name) {
   return PROJECT_VIEWS.some((view) => view.name === name) ? name : DEFAULT_VIEW
 }
 
-/** Etiqueta legible de la vista. */
+/** Devuelve el nombre de la vista global, o la de por defecto. */
+export function globalViewName(name) {
+  return GLOBAL_VIEWS.some((view) => view.name === name) ? name : DEFAULT_GLOBAL_VIEW
+}
+
+/** Indica si un nombre de vista pertenece al espacio global. */
+export function isGlobalView(name) {
+  return GLOBAL_VIEWS.some((view) => view.name === name)
+}
+
+/** Indica si un nombre de vista pertenece al espacio de proyecto. */
+export function isProjectView(name) {
+  return PROJECT_VIEWS.some((view) => view.name === name)
+}
+
+/** Etiqueta legible de la vista, sea global o de proyecto. */
 export function viewLabel(name) {
-  const view = PROJECT_VIEWS.find((item) => item.name === name)
+  const view = [...GLOBAL_VIEWS, ...PROJECT_VIEWS].find((item) => item.name === name)
   if (view) return view.label
   const fallback = PROJECT_VIEWS.find((item) => item.name === DEFAULT_VIEW)
   return fallback ? fallback.label : DEFAULT_VIEW
@@ -59,6 +137,49 @@ export function projectPath(view, projectId) {
 /** Localizador de ruta con nombre, para que el router resuelva los parametros. */
 export function projectRoute(view, projectId) {
   return { name: viewName(view), params: { id: String(projectId) } }
+}
+
+/** Localizador de ruta de una vista del espacio global. */
+export function globalRoute(view) {
+  return { name: globalViewName(view) }
+}
+
+/** Ruta de una vista del espacio global: /capacity. */
+export function globalPath(view) {
+  return `/${globalViewName(view)}`
+}
+
+/**
+ * Vista del espacio global que corresponde a una vista de proyecto.
+ *
+ * El tablero y los miembros no tienen equivalente global: se cae en el
+ * listado de proyectos.
+ */
+export function toGlobalView(view) {
+  const counterparts = {
+    capacity: 'global-capacity',
+    gantt: 'global-gantt',
+    kanban: 'projects',
+    members: 'projects',
+    settings: 'projects',
+  }
+  return counterparts[view] ?? DEFAULT_GLOBAL_VIEW
+}
+
+/**
+ * Vista de proyecto que corresponde a una vista global.
+ *
+ * El listado de proyectos y los departamentos no son vistas de un
+ * proyecto concreto: se entra por la matriz.
+ */
+export function toProjectView(view) {
+  const counterparts = {
+    'global-capacity': 'capacity',
+    'global-gantt': 'gantt',
+    projects: 'capacity',
+    departments: 'capacity',
+  }
+  return counterparts[view] ?? DEFAULT_VIEW
 }
 
 /** Compara dos identificadores de proyecto sin distinguir tipo ni formato. */

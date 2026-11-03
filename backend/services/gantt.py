@@ -10,10 +10,15 @@ conserva su color en las dos vistas.
 
 Las tareas sin fechas no tienen sitio en el diagrama, asi que se listan
 aparte en vez de aparecer en blanco.
+
+Cada barra guarda el proyecto al que pertenece. En el diagrama de un solo
+proyecto el dato es el mismo para todas las barras; en el diagrama global
+permite agruparlas por proyecto.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
@@ -44,6 +49,7 @@ class TaskLike(Protocol):
     start_date: date | None
     end_date: date | None
     assigned_to: int | None
+    project_id: int
 
 
 class UserLike(Protocol):
@@ -78,6 +84,8 @@ class GanttTask:
     progress: int
     dependencies: str
     custom_class: str
+    project_id: int
+    project_name: str
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +96,8 @@ class GanttTask:
             "progress": self.progress,
             "dependencies": self.dependencies,
             "custom_class": self.custom_class,
+            "project_id": self.project_id,
+            "project_name": self.project_name,
         }
 
 
@@ -112,11 +122,13 @@ class GanttFeed:
 def build_gantt_feed(
     users: list[UserLike],
     tasks: list[TaskLike],
+    project_names: Mapping[int, str],
 ) -> GanttFeed:
     """Construye el diagrama a partir de las personas y las tareas.
 
     Las personas se reciben ordenadas por nombre: de ahi sale el color de
-    cada una.
+    cada una. Cada barra guarda el proyecto al que pertenece, de modo que el
+    diagrama global puede agrupar las barras por proyecto.
     """
     members = tuple(
         GanttMember(
@@ -150,6 +162,8 @@ def build_gantt_feed(
                 progress=PROGRESS_BY_STATUS.get(task.status, 0),
                 dependencies="",
                 custom_class=class_by_user.get(task.assigned_to, ""),
+                project_id=task.project_id,
+                project_name=project_names.get(task.project_id, ""),
             )
         )
 

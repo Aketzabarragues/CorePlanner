@@ -75,7 +75,10 @@ function setupFetch(overrides = {}) {
 }
 
 async function mountMatrix(props = {}) {
-  const wrapper = mount(CapacityMatrix, { props, global: { plugins: [createPinia()] } })
+  const wrapper = mount(CapacityMatrix, {
+    props: { id: 1, ...props },
+    global: { plugins: [createPinia()] },
+  })
   await flushPromises()
   await flushPromises()
   return wrapper
@@ -234,5 +237,39 @@ describe('CapacityMatrix', () => {
     const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
     expect(urls.some((url) => url.includes('/projects/1/capacity'))).toBe(true)
     expect(urls.some((url) => url.includes('/projects/2/capacity'))).toBe(true)
+  })
+
+  it('sin identificador pide la capacidad global', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
+    expect(urls.some((url) => url.endsWith('/api/capacity'))).toBe(true)
+    expect(urls.some((url) => url.includes('/projects/'))).toBe(false)
+    expect(wrapper.text()).toContain('Capacidad Global')
+  })
+
+  it('el filtro por departamento limita la capacidad global', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const filtro = wrapper.find('header select')
+    await filtro.setValue('2')
+    await flushPromises()
+
+    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
+    expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
+  })
+
+  it('el desglose global usa el listado global de tareas', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    await celda.trigger('click')
+    await flushPromises()
+
+    expect(calls.some((call) => call.url.includes('/api/tasks?week='))).toBe(true)
+    expect(wrapper.text()).toContain('Puesta en marcha')
   })
 })

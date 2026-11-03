@@ -1,22 +1,25 @@
 <script setup>
 /**
- * Diagrama de Gantt del proyecto.
+ * Diagrama de Gantt.
  *
  * Las barras llegan del backend ya con el formato que espera la libreria:
  * una por tarea, con la persona asignada en la etiqueta y su color.
+ *
+ * En el espacio global se reunen las barras de todos los proyectos visibles y
+ * cada una lleva delante el nombre de su proyecto, para saber de donde sale.
  *
  * Al mover o redimensionar una barra se guardan las fechas nuevas con un
  * PATCH de la tarea, de modo que el diagrama y la matriz de ocupacion
  * cuentan lo mismo.
  */
 import Gantt from 'frappe-gantt'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { projectsApi, tasksApi } from '../api/client'
+import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 
-const props = defineProps({ id: { type: [String, Number], required: true } })
+const props = defineProps({ id: { type: [String, Number], default: null } })
 
 const container = ref(null)
 const error = ref(null)
@@ -31,6 +34,9 @@ let gantt = null
 
 const auth = useAuthStore()
 
+/** Sin identificador de proyecto el diagrama es global. */
+const isGlobal = computed(() => props.id === null || props.id === undefined)
+
 /**
  * Prepara las tareas para la libreria.
  *
@@ -38,9 +44,15 @@ const auth = useAuthStore()
  * igualdad estricta el identificador de la tarea, que es un numero, con el
  * que lee del DOM, que es texto. Con identificadores como texto las dos
  * cosas coinciden y el arrastre encuentra su barra.
+ *
+ * En el diagrama global cada barra se antepone el nombre de su proyecto.
  */
 function toBarTasks(tasks) {
-  return tasks.map((task) => ({ ...task, id: String(task.id) }))
+  return tasks.map((task) => ({
+    ...task,
+    id: String(task.id),
+    name: isGlobal.value && task.project_name ? `${task.project_name} · ${task.name}` : task.name,
+  }))
 }
 
 function render(feed) {
@@ -59,7 +71,9 @@ function render(feed) {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    const feed = await projectsApi.gantt(token, props.id)
+    const feed = isGlobal.value
+      ? await overviewApi.gantt(token)
+      : await projectsApi.gantt(token, props.id)
     render(feed)
     error.value = null
   } catch (err) {
@@ -101,9 +115,13 @@ onBeforeUnmount(() => {
   <div class="mx-auto max-w-6xl">
     <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-lg font-semibold text-siemens-900">Diagrama de Gantt</h1>
+        <h1 class="text-lg font-semibold text-siemens-900">
+          {{ isGlobal ? 'Gantt Global' : 'Diagrama de Gantt' }}
+        </h1>
         <p class="text-xs text-slate-500">
-          Mueve o redimensiona una barra para guardar sus fechas.
+          {{ isGlobal
+            ? 'Las barras de todos los proyectos visibles, agrupadas por proyecto.'
+            : 'Mueve o redimensiona una barra para guardar sus fechas.' }}
         </p>
       </div>
       <div class="flex items-center gap-2">

@@ -2,8 +2,8 @@
 /**
  * Vista de una seccion todavia pendiente.
  *
- * Los enlaces del menu lateral llevan aqui para que no dejen un callejon
- * sin salida, y para dejar claro que queda por hacer.
+ * Los enlaces que aun no tienen pantalla llevan aqui para que no dejen un
+ * callejon sin salida, y para dejar claro que queda por hacer.
  */
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -21,20 +21,11 @@ const store = useProjectsStore()
 
 const view = computed(() => PROJECT_VIEWS.find((item) => item.name === props.section))
 
-const pending = computed(() => {
-  if (props.section === 'members') {
-    return [
-      'Anadir y quitar personas del proyecto',
-      'Cambiar el rol de cada persona y sus permisos',
-      'Dar de alta una persona con su correo y su base de horas',
-    ]
-  }
-  return [
-    'Renombrar el proyecto y cambiar su departamento gestor',
-    'Ajustar las horas base de cada persona del proyecto',
-    'Archivar el proyecto y su historial de tareas',
-  ]
-})
+const pending = computed(() => [
+  'Renombrar el proyecto y cambiar su departamento gestor',
+  'Ajustar las horas base de cada persona del proyecto',
+  'Archivar el proyecto y su historial de tareas',
+])
 </script>
 
 <template>

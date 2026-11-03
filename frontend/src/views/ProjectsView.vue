@@ -1,18 +1,19 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 
-import { projectsApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { useProjectsStore } from '../stores/projects'
 
-const projects = ref([])
 const error = ref(null)
 const loading = ref(true)
 
 const auth = useAuthStore()
+const store = useProjectsStore()
 
 onMounted(async () => {
   try {
-    projects.value = await projectsApi.list(auth.token)
+    const token = await auth.ensureSession()
+    await store.ensureProjects(token)
   } catch (err) {
     error.value = err.message
   } finally {
@@ -25,7 +26,6 @@ onMounted(async () => {
   <main class="mx-auto max-w-5xl p-6">
     <header class="mb-6 flex items-center justify-between">
       <h1 class="text-lg font-semibold text-siemens-900">Proyectos</h1>
-      <span v-if="auth.user" class="text-sm text-slate-500">{{ auth.user.name }}</span>
     </header>
 
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
@@ -33,7 +33,7 @@ onMounted(async () => {
 
     <ul v-else class="space-y-2">
       <li
-        v-for="project in projects"
+        v-for="project in store.projects"
         :key="project.id"
         class="flex items-center justify-between rounded border border-slate-200 bg-white p-4"
       >

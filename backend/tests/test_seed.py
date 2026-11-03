@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.auth import verify_password
 from backend.database import create_engine
-from backend.models import Base, Project, Task, User
+from backend.models import Base, Department, Project, Task, User
 from backend.seed import DEFAULT_PASSWORD, populate
 from backend.services.capacity_repository import load_project_capacity
 
@@ -43,9 +43,62 @@ async def test_el_seed_crea_los_usuarios_del_equipo(seeded_session):
 
 
 async def test_el_seed_crea_el_proyecto_de_pasteurizadora(seeded_session):
-    project = (await seeded_session.execute(select(Project))).scalar_one()
+    project = (
+        await seeded_session.execute(
+            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+        )
+    ).scalar_one()
 
     assert project.name == "Linea Pasteurizadora SIVE"
+
+
+async def test_el_seed_crea_un_segundo_proyecto_en_la_oficina_tecnica(
+    seeded_session,
+):
+    projects = (
+        await seeded_session.execute(
+            select(Project, Department.name)
+            .join(Department, Project.department_id == Department.id)
+            .order_by(Project.id)
+        )
+    ).all()
+
+    assert [(project.name, department) for project, department in projects] == [
+        ("Linea Pasteurizadora SIVE", "Automatización & SCADA"),
+        ("Red de tuberias linea 2", "Oficina Técnica / EPLAN"),
+    ]
+
+
+async def test_el_segundo_proyecto_reparte_gente_de_otro_departamento(
+    seeded_session,
+):
+    """La pertenencia al departamento no restringe la asignacion de tareas."""
+    office_project = (
+        await seeded_session.execute(
+            select(Project).where(Project.name == "Red de tuberias linea 2")
+        )
+    ).scalar_one()
+    ana = (
+        await seeded_session.execute(
+            select(User).where(User.email == "ana@example.com")
+        )
+    ).scalar_one()
+    automatizacion = (
+        await seeded_session.execute(
+            select(Department).where(Department.name == "Automatización & SCADA")
+        )
+    ).scalar_one()
+
+    tasks = (
+        await seeded_session.execute(
+            select(Task).where(
+                Task.project_id == office_project.id, Task.assigned_to == ana.id
+            )
+        )
+    ).scalars().all()
+
+    assert ana.department_id == automatizacion.id
+    assert [task.title for task in tasks] == ["Definicion de tags PLC"]
 
 
 async def test_el_administrador_global_es_admin(seeded_session):
@@ -91,7 +144,11 @@ async def test_las_dos_tareas_de_scada_comparten_fechas(seeded_session):
 
 
 async def test_el_seed_produce_la_sobrecarga_de_sebastian(seeded_session):
-    project = (await seeded_session.execute(select(Project))).scalar_one()
+    project = (
+        await seeded_session.execute(
+            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+        )
+    ).scalar_one()
 
     report = await load_project_capacity(seeded_session, project.id)
 
@@ -104,11 +161,29 @@ async def test_el_seed_produce_la_sobrecarga_de_sebastian(seeded_session):
 
 
 async def test_el_seed_no_sobrecarga_a_los_demas(seeded_session):
-    project = (await seeded_session.execute(select(Project))).scalar_one()
+    project = (
+        await seeded_session.execute(
+            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+        )
+    ).scalar_one()
 
     report = await load_project_capacity(seeded_session, project.id)
 
     for row in report.rows:
         if row.name == "Sebastián":
             continue
+        assert row.has_overload is False, f"{row.name} aparece sobrecargado"
+
+
+async def test_el_segundo_proyecto_no_sobrecarga_a_nadie(seeded_session):
+    project = (
+        await seeded_session.execute(
+            select(Project).where(Project.name == "Red de tuberias linea 2")
+        )
+    ).scalar_one()
+
+    report = await load_project_capacity(seeded_session, project.id)
+
+    assert {row.name for row in report.rows} == {"Ana", "Jorge", "Sebastián"}
+    for row in report.rows:
         assert row.has_overload is False, f"{row.name} aparece sobrecargado"

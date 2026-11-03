@@ -42,6 +42,11 @@ const projectTasks = [
   { id: 11, project_id: 1, assigned_to: 1, title: 'Esquemas EPLAN', status: 'todo', start_date: '2026-11-02', end_date: '2026-11-04', estimated_hours: 10 },
 ]
 
+const departments = [
+  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
+  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+]
+
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
@@ -57,16 +62,20 @@ function setupFetch(overrides = {}) {
     if (url.includes('/capacity')) return jsonResponse(capacityReport)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.includes('/tasks')) return jsonResponse(projectTasks)
+    if (url.endsWith('/departments')) return jsonResponse(departments)
     if (url.endsWith('/projects')) {
-      return jsonResponse([{ id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active' }])
+      return jsonResponse([
+        { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
+        { id: 2, name: 'Ampliacion linea 2', status: 'active', department_id: 2 },
+      ])
     }
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
   return calls
 }
 
-async function mountMatrix() {
-  const wrapper = mount(CapacityMatrix, { global: { plugins: [createPinia()] } })
+async function mountMatrix(props = {}) {
+  const wrapper = mount(CapacityMatrix, { props, global: { plugins: [createPinia()] } })
   await flushPromises()
   await flushPromises()
   return wrapper
@@ -251,5 +260,18 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
     expect(wrapper.text()).toContain('No hay proyectos')
     expect(wrapper.text()).toContain('backend/seed.py')
+  })
+
+  it('al cambiar de proyecto vuelve a pedir la matriz de ese proyecto', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: 1 })
+
+    await wrapper.setProps({ id: 2 })
+    await flushPromises()
+    await flushPromises()
+
+    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
+    expect(urls.some((url) => url.includes('/projects/1/capacity'))).toBe(true)
+    expect(urls.some((url) => url.includes('/projects/2/capacity'))).toBe(true)
   })
 })

@@ -91,6 +91,9 @@ coreplanner/
 ├── backend/
 │   ├── api/
 │   │   ├── auth.py           # login
+│   │   ├── departments.py    # listado de departamentos
+│   │   ├── gantt.py          # feed JSON del Gantt
+│   │   ├── kanban.py         # tablero por estados
 │   │   ├── members.py        # miembros del proyecto
 │   │   ├── projects.py       # listado y matriz de capacidad
 │   │   └── tasks.py          # CRUD de tareas
@@ -105,6 +108,9 @@ coreplanner/
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
 │   │   ├── capacity_repository.py # lectura de datos del proyecto
+│   │   ├── gantt.py               # tareas y miembros del Gantt (puro)
+│   │   ├── kanban.py              # agrupacion por estado (puro)
+│   │   ├── kanban_repository.py   # lectura del tablero
 │   │   └── tasks.py              # reglas de alta, edicion y borrado
 │   ├── .env.example
 │   └── tests/
@@ -114,13 +120,15 @@ coreplanner/
 │   └── src/
 │       ├── api/client.js # cliente HTTP con token JWT
 │       ├── components/
+│       │   ├── AppShell.vue      # barra superior, selector de proyecto y pestanas
 │       │   ├── CapacityMatrix.vue  # tabla de ocupacion
 │       │   ├── CellBreakdown.vue   # desglose de una celda
 │       │   └── TaskForm.vue        # alta y edicion de tarea
-│       ├── stores/       # estado Pinia (sesion)
+│       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
-│       ├── views/        # Login, Proyectos, Gantt
-│       └── router/
+│       ├── utils/        # helpers puros (gantt, kanban, navegacion)
+│       ├── views/        # Login, Proyectos, Gantt, Kanban
+│       └── router/       # rutas y guardas de sesion
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
 └── README.md
@@ -224,6 +232,13 @@ Todos con la contrasena `coreplanner`:
 El frontend hace login automatico con `admin@example.com` al abrir y guarda el
 token en `localStorage`.
 
+### Proyectos de demostracion
+
+| Proyecto | Departamento | Contenido |
+| --- | --- | --- |
+| Linea Pasteurizadora SIVE | Automatización & SCADA | Sebastián acumula 48 h en 2026-W46, por encima de su base de 40 h, y la celda aparece en rojo |
+| Red de tuberias linea 2 | Oficina Técnica / EPLAN | Ana, de Automatización, trabaja en un proyecto que gestiona la oficina técnica |
+
 ### Endpoints
 
 | Metodo | Ruta | Permiso |
@@ -301,6 +316,44 @@ La asignacion de tareas es transversal: una tarea de un proyecto de
 Automatización puede llevarla alguien de Oficina Técnica, siempre que sea
 miembro del proyecto.
 
+## Armazon de la aplicacion
+
+`frontend/src/components/AppShell.vue` envuelve a las vistas en una barra
+superior fija y una barra de pestanas.
+
+La barra superior lleva el nombre de la aplicacion, el selector de proyecto,
+la pila con el departamento del proyecto abierto, el perfil de quien esta
+dentro con su rol y el boton de cerrar sesion. Debajo, tres pestanas: Capacidad,
+Gantt y Kanban, con la activa marcada.
+
+| Ruta | Vista |
+| --- | --- |
+| `/` | redirige a la matriz del primer proyecto accesible |
+| `/login` | acceso, con entrada automatica si ya hay sesion guardada |
+| `/projects` | listado de proyectos |
+| `/projects/{id}/capacity` | matriz de ocupacion |
+| `/projects/{id}/gantt` | diagrama de Gantt |
+| `/projects/{id}/kanban` | tablero Kanban |
+
+El proyecto abierto se toma siempre de la URL, de modo que al recargar la
+pagina se vuelve al mismo proyecto y a la misma vista. Cambiar el proyecto en
+el desplegable navega a la vista actual con el identificador nuevo.
+
+Las guardas del router live en `frontend/src/router/guards.js`: una comprueba
+la sesion antes de entrar en una vista privada y otra lleva la raiz al primer
+proyecto disponible.
+
+### Datos frescos al cambiar de vista
+
+El router reutiliza la misma instancia del componente cuando solo cambia el
+parametro de la ruta, de modo que `CapacityMatrix.vue` vigila `props.id` y
+vuelve a pedir la matriz. Sin esa recarga, cambiar de proyecto en la cabecera
+dejaria en pantalla los datos del proyecto anterior.
+
+Cada pestana pide sus datos al montarse, de modo que un cambio hecho en el
+Gantt o en el Kanban se ve al volver a la capacidad. No hay cache en el
+cliente: cada peticion va al servidor.
+
 ## Pruebas
 
 ```powershell
@@ -321,7 +374,8 @@ parcial que pierda estilos sin avisar.
 ## Estado actual
 
 Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
-frontend con login, listado de proyectos, matriz de ocupacion con reparto
+frontend con login, listado de proyectos, armazon de aplicacion con barra
+superior, selector de proyecto y pestanas, matriz de ocupacion con reparto
 semanal, CRUD de tareas, feed JSON del Gantt y tablero Kanban. Pendiente de
 implementar: la exportacion `.ics`, el alta y baja de miembros del proyecto y
 el cambio de rol.
@@ -350,4 +404,12 @@ el cambio de rol.
 - **PATCH parcial.** Solo se tocan los campos presentes en la peticion. Para
   desasignar una tarea hay que enviar `assigned_to` con null de forma
   explicita.
+- **Reutilizacion de instancia en el router.** Cuando solo cambia el
+  parametro de la ruta, el router reutiliza la instancia del componente, que
+  no se vuelve a montar. Por eso las vistas que dependen del proyecto
+  vigilan `props.id` y recargan.
+- **Cierre de sesion frente a acceso automatico.** El acceso automatico con
+  `admin@example.com` no repone una sesion que el usuario cerro: el store de
+  sesion guarda esa marca en `localStorage` y el guard lleva al formulario de
+  acceso.
 

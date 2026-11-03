@@ -62,6 +62,10 @@ export const projectsApi = {
   },
 }
 
+export const departmentsApi = {
+  list: (token) => apiFetch('/departments', { token }),
+}
+
 export const tasksApi = {
   create: (token, projectId, task) =>
     apiFetch(`/projects/${projectId}/tasks`, {

@@ -1,5 +1,11 @@
 <script setup>
-import { ref } from 'vue'
+/**
+ * Formulario de acceso.
+ *
+ * Si ya hay una sesion guardada en el navegador, la vista no se muestra: se
+ * entra directamente a la aplicacion. Es el acceso automatico de desarrollo.
+ */
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { authApi } from '../api/client'
@@ -19,13 +25,17 @@ async function submit() {
   try {
     const data = await authApi.login(email.value, password.value)
     auth.setSession(data.access_token, data.user)
-    router.push('/projects')
+    router.push('/')
   } catch (err) {
     error.value = err.message
   } finally {
     pending.value = false
   }
 }
+
+onMounted(() => {
+  if (auth.token) router.replace('/')
+})
 </script>
 
 <template>

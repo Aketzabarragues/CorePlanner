@@ -10,14 +10,16 @@
  * que componen esas horas, desde donde se pueden editar. Cualquier cambio
  * recalcula la matriz.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
 import TaskForm from './TaskForm.vue'
 
 const auth = useAuthStore()
+const store = useProjectsStore()
 
 const props = defineProps({
   id: { type: [String, Number], default: null },
@@ -25,7 +27,6 @@ const props = defineProps({
 
 const report = ref(null)
 const project = ref(null)
-const members = ref([])
 const error = ref(null)
 const notice = ref(null)
 const loading = ref(true)
@@ -35,6 +36,7 @@ const showNewTask = ref(false)
 const breakdown = ref(null)
 const breakdownTasks = ref([])
 
+const members = computed(() => store.members)
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
 
@@ -53,12 +55,11 @@ function cellOf(row, week) {
 /** Recarga matriz, miembros y tareas del proyecto. */
 async function refresh() {
   const token = auth.token
-  const [capacity, membersData] = await Promise.all([
+  const [capacity] = await Promise.all([
     projectsApi.capacity(token, project.value.id),
-    projectsApi.members(token, project.value.id),
+    store.ensureMembers(token, project.value.id),
   ])
   report.value = capacity
-  members.value = membersData
 }
 
 async function reload() {
@@ -166,19 +167,30 @@ async function reassignTask(task, targetUserId) {
   await saveTask(task.id, { assigned_to: targetUserId })
 }
 
+/**
+ * Abre el proyecto pedido y carga su matriz.
+ *
+ * Se vuelve a llamar cuando cambia el proyecto de la ruta. El router
+ * reutiliza la misma instancia del componente cuando solo cambia el
+ * parametro, de modo que sin esta recarga la matriz seguiria mostrando los
+ * datos del proyecto anterior.
+ */
+async function loadProject() {
+  const token = await auth.ensureSession()
+  const projects = await store.ensureProjects(token)
+  if (projects.length === 0) {
+    error.value =
+      'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
+    return
+  }
+
+  project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
+  await reload()
+}
+
 onMounted(async () => {
   try {
-    const token = await auth.ensureSession()
-
-    const projects = await projectsApi.list(token)
-    if (projects.length === 0) {
-      error.value =
-        'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
-      return
-    }
-
-    project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
-    await reload()
+    await loadProject()
   } catch (err) {
     error.value = err.message
     auth.clear()
@@ -186,6 +198,20 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(
+  () => props.id,
+  async () => {
+    loading.value = true
+    try {
+      await loadProject()
+    } catch (err) {
+      error.value = err.message
+    } finally {
+      loading.value = false
+    }
+  },
+)
 </script>
 
 <template>

@@ -43,6 +43,7 @@ class UserOut(BaseModel):
     email: str
     is_global_admin: bool
     weekly_base_hours: Hours
+    department_id: int | None = None
 
 
 class TokenOut(BaseModel):

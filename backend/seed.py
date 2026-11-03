@@ -49,6 +49,7 @@ ROLES = {
 }
 
 PROJECT_NAME = "Linea Pasteurizadora SIVE"
+PROJECT_NAME_OFFICE = "Red de tuberias linea 2"
 
 DEPARTMENT_AUTOMATION = "Automatización & SCADA"
 DEPARTMENT_OFFICE = "Oficina Técnica / EPLAN"
@@ -182,6 +183,76 @@ async def populate(session) -> int:
         ]
     )
 
+    # Segundo proyecto, para que el selector de la cabecera tenga entre donde
+    # elegir. Lo gestiona la oficina tecnica y en el hay gente de
+    # automatizacion, que es el reparto transversal entre departamentos.
+    project_office = Project(
+        name=PROJECT_NAME_OFFICE, status="active", department_id=oficina.id
+    )
+    session.add(project_office)
+    await session.flush()
+
+    session.add_all(
+        [
+            ProjectMember(
+                user_id=jorge.id,
+                project_id=project_office.id,
+                role_id=roles["Project Manager"].id,
+            ),
+            ProjectMember(
+                user_id=ana.id,
+                project_id=project_office.id,
+                role_id=roles["Ingeniero"].id,
+            ),
+            ProjectMember(
+                user_id=sebastian.id,
+                project_id=project_office.id,
+                role_id=roles["Ingeniero"].id,
+            ),
+        ]
+    )
+
+    session.add_all(
+        [
+            Task(
+                project_id=project_office.id,
+                assigned_to=jorge.id,
+                title="Planos de tuberias",
+                status=TaskStatus.BACKLOG.value,
+                start_date=date(2026, 11, 2),
+                end_date=date(2026, 11, 4),
+                estimated_hours=12,
+            ),
+            Task(
+                project_id=project_office.id,
+                assigned_to=ana.id,
+                title="Definicion de tags PLC",
+                status=TaskStatus.IN_PROGRESS.value,
+                start_date=JUEVES,
+                end_date=MIERCOLES,
+                estimated_hours=16,
+            ),
+            Task(
+                project_id=project_office.id,
+                assigned_to=sebastian.id,
+                title="Cableado de campo",
+                status=TaskStatus.TESTING.value,
+                start_date=JUEVES,
+                end_date=MIERCOLES,
+                estimated_hours=24,
+            ),
+            Task(
+                project_id=project_office.id,
+                assigned_to=jorge.id,
+                title="Revision de parcelario",
+                status=TaskStatus.DONE.value,
+                start_date=date(2026, 11, 9),
+                end_date=date(2026, 11, 11),
+                estimated_hours=8,
+            ),
+        ]
+    )
+
     await session.commit()
     return project.id
 
@@ -221,6 +292,8 @@ async def main() -> None:
     print("Base de datos preparada.")
     print(f"  Proyecto: {PROJECT_NAME} (id={project_id})")
     print(f"    departamento: {DEPARTMENT_AUTOMATION}")
+    print(f"  Proyecto: {PROJECT_NAME_OFFICE}")
+    print(f"    departamento: {DEPARTMENT_OFFICE}")
     print("  Departamentos:")
     print(f"    {DEPARTMENT_AUTOMATION} (responsable: Ana)")
     print(f"    {DEPARTMENT_OFFICE} (responsable: Jorge)")

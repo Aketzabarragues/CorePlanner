@@ -123,3 +123,23 @@ async def test_un_departamento_sin_responsable_no_inventa_nombre(client: AsyncCl
     sin_responsable = por_nombre["Sin responsable"]
     assert sin_responsable["manager_id"] is None
     assert sin_responsable["manager_name"] is None
+
+
+async def test_el_login_devuelve_el_departamento_del_usuario(client: AsyncClient):
+    response = await client.post(
+        "/api/auth/login", json={"email": "ana@example.com", "password": PASSWORD}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["user"]["department_id"] == client.ids["automatizacion"]
+
+
+async def test_el_login_de_una_persona_sin_departamento_lo_devuelve_nulo(
+    client: AsyncClient,
+):
+    response = await client.post(
+        "/api/auth/login", json={"email": "admin@example.com", "password": PASSWORD}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["user"]["department_id"] is None

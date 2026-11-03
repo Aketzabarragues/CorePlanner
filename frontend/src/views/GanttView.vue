@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl p-6">
+  <div class="mx-auto max-w-6xl">
     <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-lg font-semibold text-siemens-900">Diagrama de Gantt</h1>
@@ -141,5 +141,5 @@ onBeforeUnmount(() => {
     </p>
 
     <div ref="container" class="overflow-x-auto rounded border border-slate-200 bg-white p-2" />
-  </main>
+  </div>
 </template>

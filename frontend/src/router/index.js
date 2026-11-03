@@ -4,6 +4,7 @@ import CapacityMatrix from '../components/CapacityMatrix.vue'
 import GanttView from '../views/GanttView.vue'
 import KanbanView from '../views/KanbanView.vue'
 import LoginView from '../views/LoginView.vue'
+import PendingView from '../views/PendingView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import { redirectToFirstProject, requireSession } from './guards'
 
@@ -32,6 +33,18 @@ const routes = [
   },
   { path: '/projects/:id/gantt', name: 'gantt', component: GanttView, props: true },
   { path: '/projects/:id/kanban', name: 'kanban', component: KanbanView, props: true },
+  {
+    path: '/projects/:id/members',
+    name: 'members',
+    component: PendingView,
+    props: (route) => ({ section: 'members' }),
+  },
+  {
+    path: '/projects/:id/settings',
+    name: 'settings',
+    component: PendingView,
+    props: (route) => ({ section: 'settings' }),
+  },
 ]
 
 const router = createRouter({

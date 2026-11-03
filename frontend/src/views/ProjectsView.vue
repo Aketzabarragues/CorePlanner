@@ -23,7 +23,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="mx-auto max-w-5xl p-6">
+  <div class="mx-auto max-w-5xl">
     <header class="mb-6 flex items-center justify-between">
       <h1 class="text-lg font-semibold text-siemens-900">Proyectos</h1>
     </header>
@@ -63,5 +63,5 @@ onMounted(async () => {
         </div>
       </li>
     </ul>
-  </main>
+  </div>
 </template>

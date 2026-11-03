@@ -16,7 +16,6 @@ import { projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
-import TaskForm from './TaskForm.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -32,15 +31,12 @@ const notice = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 
-const showNewTask = ref(false)
 const breakdown = ref(null)
 const breakdownTasks = ref([])
 
 const members = computed(() => store.members)
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
-
-const canEdit = computed(() => members.value.length > 0)
 
 function cellOf(row, week) {
   return (
@@ -116,20 +112,6 @@ async function loadBreakdownTasks() {
   breakdownTasks.value = tasks.filter(
     (task) => task.assigned_to === breakdown.value.user_id,
   )
-}
-
-async function createTask(payload) {
-  saving.value = true
-  try {
-    await tasksApi.create(auth.token, project.value.id, payload)
-    showNewTask.value = false
-    notice.value = `Tarea "${payload.title}" creada.`
-    await reload()
-  } catch (err) {
-    error.value = err.message
-  } finally {
-    saving.value = false
-  }
 }
 
 async function saveTask(taskId, payload) {
@@ -215,21 +197,10 @@ watch(
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl p-6">
-    <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Matriz de ocupacion</h1>
-        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
-      </div>
-
-      <button
-        v-if="canEdit"
-        type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-        @click="showNewTask = true"
-      >
-        + Nueva Tarea
-      </button>
+  <div class="mx-auto max-w-6xl">
+    <header class="mb-4">
+      <h1 class="text-xl font-semibold text-siemens-900">Matriz de ocupacion</h1>
+      <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
     </header>
 
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
@@ -308,22 +279,6 @@ watch(
       para ver y editar las tareas que la componen.
     </p>
 
-    <!-- Modal de nueva tarea -->
-    <div
-      v-if="showNewTask"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      @click.self="showNewTask = false"
-    >
-      <div class="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
-        <TaskForm
-          :members="members"
-          :saving="saving"
-          @save="createTask"
-          @cancel="showNewTask = false"
-        />
-      </div>
-    </div>
-
     <!-- Modal de desglose de celda -->
     <div
       v-if="breakdown"
@@ -343,5 +298,5 @@ watch(
         />
       </div>
     </div>
-  </main>
+  </div>
 </template>

@@ -120,14 +120,16 @@ coreplanner/
 │   └── src/
 │       ├── api/client.js # cliente HTTP con token JWT
 │       ├── components/
-│       │   ├── AppShell.vue      # barra superior, selector de proyecto y pestanas
+│       │   ├── AppIcon.vue        # iconos SVG de la interfaz
+│       │   ├── AppShell.vue       # menu lateral, cabecera y area de contenido
 │       │   ├── CapacityMatrix.vue  # tabla de ocupacion
 │       │   ├── CellBreakdown.vue   # desglose de una celda
+│       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   └── TaskForm.vue        # alta y edicion de tarea
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion)
-│       ├── views/        # Login, Proyectos, Gantt, Kanban
+│       ├── views/        # Login, Proyectos, Capacidad, Gantt, Kanban, Pendientes
 │       └── router/       # rutas y guardas de sesion
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
@@ -260,10 +262,9 @@ por ejemplo `2026-W46`).
 
 ## Gestion de tareas
 
-La matriz es interactiva:
+El alta de tareas vive en la cabecera, con el boton **+ Nueva Tarea**, que
+funciona en cualquier vista del proyecto. La matriz es interactiva:
 
-- **+ Nueva Tarea** abre un formulario con titulo, persona asignada (desplegable
-  de miembros), fechas y horas estimadas.
 - **Pulsa una celda** para ver el desglose de las tareas que componen esas horas.
 - Desde el desglose se puede **editar** una tarea (cambiar titulo, persona,
   fechas u horas), **reasignarla** a otra persona del proyecto o
@@ -318,13 +319,28 @@ miembro del proyecto.
 
 ## Armazon de la aplicacion
 
-`frontend/src/components/AppShell.vue` envuelve a las vistas en una barra
-superior fija y una barra de pestanas.
+`frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
+y una cabecera, al estilo de OpenProject o Linear.
 
-La barra superior lleva el nombre de la aplicacion, el selector de proyecto,
-la pila con el departamento del proyecto abierto, el perfil de quien esta
-dentro con su rol y el boton de cerrar sesion. Debajo, tres pestanas: Capacidad,
-Gantt y Kanban, con la activa marcada.
+El menu lateral lleva el isotipo con su version, el selector del proyecto
+abierto con su departamento, la navegacion por grupos y, al pie, la tarjeta de
+quien esta dentro con su avatar, su departamento y el boton de cerrar sesion.
+Se puede colapsar a una tira de iconos; el estado se guarda en `localStorage`
+con la clave `coreplanner_sidebar`.
+
+La cabecera lleva las migas de pan (departamento, proyecto y vista), la pila con
+el estado del proyecto y el boton **+ Nueva Tarea**, que abre el alta de tarea
+en un modal sobre la vista que este abierta.
+
+La navegacion se agrupa en dos bloques:
+
+| Grupo | Vistas |
+| --- | --- |
+| Planificación & ejecucion | Matriz de Capacidad, Cronograma (Gantt), Tablero Kanban |
+| Gestion & equipo | Miembros y Asignaciones, Configuracion del Proyecto |
+
+Las dos ultimas son vistas de espera (`PendingView.vue`): tienen ruta propia y
+explican lo que queda por hacer, para no dejar enlaces muertos.
 
 | Ruta | Vista |
 | --- | --- |
@@ -334,6 +350,8 @@ Gantt y Kanban, con la activa marcada.
 | `/projects/{id}/capacity` | matriz de ocupacion |
 | `/projects/{id}/gantt` | diagrama de Gantt |
 | `/projects/{id}/kanban` | tablero Kanban |
+| `/projects/{id}/members` | miembros y asignaciones (pendiente) |
+| `/projects/{id}/settings` | configuracion del proyecto (pendiente) |
 
 El proyecto abierto se toma siempre de la URL, de modo que al recargar la
 pagina se vuelve al mismo proyecto y a la misma vista. Cambiar el proyecto en
@@ -345,6 +363,17 @@ proyecto disponible. Si falta la sesion, el guard lleva al formulario de acceso
 recordando la vista que se queria abrir, y el formulario vuelve a ella al
 entrar.
 
+### Iconos y clases
+
+Los iconos salen de `AppIcon.vue`, que guarda los trazados de Heroicons. El
+tamano lo fija el elemento que envuelve al icono, nunca una propiedad: las
+clases llegan al SVG por el envoltorio, que debe ser flex o bloque, porque en
+un `span` en linea el ancho y el alto no se aplican.
+
+Las clases del aviso de estado se declaran en ramas `v-if` con su `class`
+propia, y no en un objeto `:class`, porque el guard del bundle extrae todos
+los literales de `:class` y los daba por clases de Tailwind que no existen.
+
 ### Datos frescos al cambiar de vista
 
 El router reutiliza la misma instancia del componente cuando solo cambia el
@@ -352,9 +381,11 @@ parametro de la ruta, de modo que `CapacityMatrix.vue` vigila `props.id` y
 vuelve a pedir la matriz. Sin esa recarga, cambiar de proyecto en la cabecera
 dejaria en pantalla los datos del proyecto anterior.
 
-Cada pestana pide sus datos al montarse, de modo que un cambio hecho en el
-Gantt o en el Kanban se ve al volver a la capacidad. No hay cache en el
-cliente: cada peticion va al servidor.
+Cada vista pide sus datos al montarse, de modo que un cambio hecho en el
+Gantt o en el Kanban se ve al volver a la capacidad. Para que el alta de tarea
+tambien refresque la vista abierta, el shell incrementa `store.tasksRevision` y
+el `router-view` se monta con esa marca como clave. No hay cache en el cliente:
+cada peticion va al servidor.
 
 ## Pruebas
 
@@ -376,11 +407,11 @@ parcial que pierda estilos sin avisar.
 ## Estado actual
 
 Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
-frontend con login, listado de proyectos, armazon de aplicacion con barra
-superior, selector de proyecto y pestanas, matriz de ocupacion con reparto
-semanal, CRUD de tareas, feed JSON del Gantt y tablero Kanban. Pendiente de
-implementar: la exportacion `.ics`, el alta y baja de miembros del proyecto y
-el cambio de rol.
+frontend con login, listado de proyectos, armazon de aplicacion con menu
+lateral, cabecera con migas, selector de proyecto y alta de tarea, matriz de
+ocupacion con reparto semanal, CRUD de tareas, feed JSON del Gantt y tablero
+Kanban. Pendiente de implementar: la exportacion `.ics`, el alta y baja de
+miembros del proyecto y el cambio de rol.
 
 ### Detalles de implementacion que conviene conocer
 

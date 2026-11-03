@@ -19,6 +19,7 @@ export const useProjectsStore = defineStore('projects', () => {
   const currentProjectId = ref(null)
   const loading = ref(false)
   const error = ref(null)
+  const tasksRevision = ref(0)
 
   let membersProjectId = null
   let membersPromise = null
@@ -117,6 +118,16 @@ export const useProjectsStore = defineStore('projects', () => {
     currentProjectId.value = projectId === null || projectId === undefined ? null : String(projectId)
   }
 
+  /**
+   * Avisa de que han cambiado las tareas.
+   *
+   * La vista abierta se monta de nuevo con esta marca, de modo que vuelve a
+   * pedir sus datos y no se queda con los anteriores.
+   */
+  function notifyTasksChanged() {
+    tasksRevision.value += 1
+  }
+
   return {
     projects,
     departments,
@@ -126,9 +137,11 @@ export const useProjectsStore = defineStore('projects', () => {
     currentDepartment,
     loading,
     error,
+    tasksRevision,
     load,
     ensureProjects,
     ensureMembers,
     select,
+    notifyTasksChanged,
   }
 })

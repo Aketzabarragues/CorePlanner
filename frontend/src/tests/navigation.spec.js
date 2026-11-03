@@ -2,16 +2,32 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_VIEW,
+  PROJECT_SECTIONS,
   PROJECT_VIEWS,
   projectPath,
   projectRoute,
+  projectStatus,
   sameProject,
+  viewLabel,
   viewName,
 } from '../utils/navigation'
 
 describe('navegacion', () => {
-  it('cataloga las tres vistas del proyecto', () => {
-    expect(PROJECT_VIEWS.map((view) => view.name)).toEqual(['capacity', 'gantt', 'kanban'])
+  it('organiza las vistas del proyecto en dos grupos', () => {
+    expect(PROJECT_SECTIONS.map((section) => section.title)).toEqual([
+      'Planificación & ejecución',
+      'Gestión & equipo',
+    ])
+  })
+
+  it('cataloga las vistas de planificacion y las de gestion', () => {
+    expect(PROJECT_VIEWS.map((view) => view.name)).toEqual([
+      'capacity',
+      'gantt',
+      'kanban',
+      'members',
+      'settings',
+    ])
   })
 
   it('usa la vista de por defecto cuando la ruta no es de proyecto', () => {
@@ -22,7 +38,14 @@ describe('navegacion', () => {
 
   it('respeta las vistas conocidas', () => {
     expect(viewName('gantt')).toBe('gantt')
-    expect(viewName('kanban')).toBe('kanban')
+    expect(viewName('members')).toBe('members')
+    expect(viewName('settings')).toBe('settings')
+  })
+
+  it('da la etiqueta legible de la vista', () => {
+    expect(viewLabel('capacity')).toBe('Matriz de Capacidad')
+    expect(viewLabel('gantt')).toBe('Cronograma (Gantt)')
+    expect(viewLabel('inventada')).toBe('Matriz de Capacidad')
   })
 
   it('construye la ruta del proyecto', () => {
@@ -40,5 +63,12 @@ describe('navegacion', () => {
     expect(sameProject(1, 2)).toBe(false)
     expect(sameProject(null, '1')).toBe(false)
     expect(sameProject(1, undefined)).toBe(false)
+  })
+
+  it('traduce el estado del proyecto a etiqueta y tono', () => {
+    expect(projectStatus('active')).toEqual({ label: 'Activo', tone: 'active' })
+    expect(projectStatus('on_hold')).toEqual({ label: 'Pausado', tone: 'paused' })
+    expect(projectStatus('planning')).toEqual({ label: 'Planificación', tone: 'neutral' })
+    expect(projectStatus(undefined)).toEqual({ label: 'Sin estado', tone: 'neutral' })
   })
 })

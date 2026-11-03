@@ -105,52 +105,13 @@ describe('CapacityMatrix', () => {
     expect(overloaded[0].classes()).toContain('text-red-900')
   })
 
-  it('muestra el boton de nueva tarea', async () => {
+  it('el alta de tareas no se duplica en la matriz', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    expect(wrapper.text()).toContain('+ Nueva Tarea')
-  })
-
-  it('abre el modal de nueva tarea con el desplegable de miembros', async () => {
-    setupFetch()
-    const wrapper = await mountMatrix()
-
-    await wrapper.find('button').trigger('click')
-    await flushPromises()
-
-    const select = wrapper.find('select')
-    expect(select.exists()).toBe(true)
-    const options = select.findAll('option').map((o) => o.text())
-    expect(options.some((o) => o.includes('Ana'))).toBe(true)
-    expect(options.some((o) => o.includes('Sebastian'))).toBe(true)
-  })
-
-  it('al guardar una tarea llama a la API y recarga la matriz', async () => {
-    const calls = setupFetch()
-    const wrapper = await mountMatrix()
-
-    await wrapper.find('button').trigger('click')
-    await flushPromises()
-
-    await wrapper.find('input[type="text"]').setValue('Nueva tarea')
-    const dateInputs = wrapper.findAll('input[type="date"]')
-    await dateInputs[0].setValue('2026-11-09')
-    await dateInputs[1].setValue('2026-11-11')
-    await wrapper.find('input[type="number"]').setValue('8')
-
-    const form = wrapper.find('form')
-    await form.trigger('submit')
-    await flushPromises()
-
-    const create = calls.find((c) => c.method === 'POST' && c.url.includes('/tasks'))
-    expect(create).toBeDefined()
-    expect(JSON.parse(create.body).title).toBe('Nueva tarea')
-    expect(JSON.parse(create.body).estimated_hours).toBe('8.00')
-
-    // La matriz se vuelve a pedir tras el cambio.
-    const capacityCalls = calls.filter((c) => c.url.includes('/capacity'))
-    expect(capacityCalls.length).toBeGreaterThan(1)
+    // El alta vive en la cabecera del armazon, no dentro de la matriz.
+    expect(wrapper.text()).not.toContain('Nueva Tarea')
+    expect(wrapper.findAll('button').filter((b) => b.text().includes('Nueva'))).toHaveLength(0)
   })
 
   it('al pulsar una celda abre el desglose de tareas', async () => {

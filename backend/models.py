@@ -57,11 +57,10 @@ class ProjectStatus(enum.StrEnum):
 
 
 class TaskStatus(enum.StrEnum):
-    TODO = "todo"
+    BACKLOG = "backlog"
     IN_PROGRESS = "in_progress"
-    REVIEW = "review"
+    TESTING = "testing"
     DONE = "done"
-    BLOCKED = "blocked"
 
 
 class User(Base):
@@ -79,6 +78,9 @@ class User(Base):
     weekly_base_hours: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("40.00"), server_default="40"
     )
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -94,6 +96,9 @@ class User(Base):
         CheckConstraint("weekly_base_hours >= 0", name="weekly_base_hours_positive"),
     )
 
+    department: Mapped[Department | None] = relationship(
+        back_populates="members", foreign_keys=[department_id]
+    )
     memberships: Mapped[list[ProjectMember]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
@@ -102,6 +107,31 @@ class User(Base):
     assigned_tasks: Mapped[list[Task]] = relationship(
         back_populates="assignee", passive_deletes=True
     )
+
+
+class Department(Base):
+    """Departamento: agrupa a las personas y es el gestor de un proyecto.
+
+    El responsable es una persona del propio departamento. Las personas y el
+    proyecto se relacionan con el departamento, no al reves: una tarea puede
+    asignarse a cualquiera del equipo, este o de otro departamento.
+    """
+
+    __tablename__ = "departments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    manager_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    __table_args__ = (UniqueConstraint("name", name="name"),)
+
+    manager: Mapped[User | None] = relationship(foreign_keys=[manager_id])
+    members: Mapped[list[User]] = relationship(
+        back_populates="department", foreign_keys="User.department_id"
+    )
+    projects: Mapped[list[Project]] = relationship(back_populates="department")
 
 
 class Role(Base):
@@ -133,6 +163,9 @@ class Project(Base):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ProjectStatus.PLANNING.value
     )
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -154,6 +187,7 @@ class Project(Base):
         remote_side=[id], back_populates="children"
     )
     children: Mapped[list[Project]] = relationship(back_populates="parent")
+    department: Mapped[Department | None] = relationship(back_populates="projects")
     members: Mapped[list[ProjectMember]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
@@ -190,7 +224,11 @@ class ProjectMember(Base):
 
 
 class Task(Base):
-    """Tarea asignable dentro de un proyecto."""
+    """Tarea asignable dentro de un proyecto.
+
+    La persona asignada puede ser cualquiera del proyecto, este o de otro
+    departamento: la pertenencia al departamento no restringe la asignacion.
+    """
 
     __tablename__ = "tasks"
 
@@ -203,7 +241,7 @@ class Task(Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=TaskStatus.TODO.value
+        String(32), nullable=False, default=TaskStatus.BACKLOG.value
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -222,7 +260,7 @@ class Task(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('todo', 'in_progress', 'review', 'done', 'blocked')",
+            "status IN ('backlog', 'in_progress', 'testing', 'done')",
             name="status",
         ),
         CheckConstraint("estimated_hours >= 0", name="estimated_hours_positive"),

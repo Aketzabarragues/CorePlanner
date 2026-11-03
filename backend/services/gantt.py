@@ -30,10 +30,9 @@ PERSONA_CLASSES = (
 
 PROGRESS_BY_STATUS = {
     "done": 100,
-    "review": 75,
+    "testing": 75,
     "in_progress": 50,
-    "todo": 0,
-    "blocked": 0,
+    "backlog": 0,
 }
 """Avance que muestra la barra segun el estado de la tarea."""
 

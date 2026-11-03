@@ -50,6 +50,7 @@ export const authApi = {
 export const projectsApi = {
   list: (token) => apiFetch('/projects', { token }),
   gantt: (token, projectId) => apiFetch(`/projects/${projectId}/gantt`, { token }),
+  kanban: (token, projectId) => apiFetch(`/projects/${projectId}/kanban`, { token }),
   capacity: (token, projectId, params = {}) => {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/projects/${projectId}/capacity${query ? `?${query}` : ''}`, { token })

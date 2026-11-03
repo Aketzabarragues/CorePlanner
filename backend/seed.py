@@ -19,8 +19,14 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.auth import hash_password  # noqa: E402
-from backend.database import SessionLocal, create_all, dispose_engine, engine  # noqa: E402
+from backend.database import (  # noqa: E402
+    SessionLocal,
+    create_all,
+    create_engine,
+    dispose_engine,
+)
 from backend.models import (  # noqa: E402
+    Department,
     Project,
     ProjectMember,
     Role,
@@ -43,6 +49,9 @@ ROLES = {
 }
 
 PROJECT_NAME = "Linea Pasteurizadora SIVE"
+
+DEPARTMENT_AUTOMATION = "Automatización & SCADA"
+DEPARTMENT_OFFICE = "Oficina Técnica / EPLAN"
 
 # Jueves 2026-11-05 a miercoles 2026-11-11: cruza el fin de semana y reparte
 # las horas entre 2026-W45 y 2026-W46.
@@ -84,8 +93,20 @@ async def populate(session) -> int:
         is_global_admin=True,
     )
     session.add_all([ana, sebastian, jorge, admin])
+    await session.flush()
 
-    project = Project(name=PROJECT_NAME, status="active")
+    automatizacion = Department(name=DEPARTMENT_AUTOMATION, manager_id=ana.id)
+    oficina = Department(name=DEPARTMENT_OFFICE, manager_id=jorge.id)
+    session.add_all([automatizacion, oficina])
+    await session.flush()
+
+    ana.department_id = automatizacion.id
+    sebastian.department_id = automatizacion.id
+    jorge.department_id = oficina.id
+
+    project = Project(
+        name=PROJECT_NAME, status="active", department_id=automatizacion.id
+    )
     session.add(project)
     await session.flush()
 
@@ -124,7 +145,7 @@ async def populate(session) -> int:
                 project_id=project.id,
                 assigned_to=sebastian.id,
                 title="Desarrollo de Bloques SCL",
-                status=TaskStatus.TODO.value,
+                status=TaskStatus.TESTING.value,
                 start_date=JUEVES,
                 end_date=MIERCOLES,
                 estimated_hours=20,
@@ -133,7 +154,7 @@ async def populate(session) -> int:
                 project_id=project.id,
                 assigned_to=ana.id,
                 title="Esquemas EPLAN",
-                status=TaskStatus.TODO.value,
+                status=TaskStatus.BACKLOG.value,
                 start_date=date(2026, 11, 2),
                 end_date=date(2026, 11, 4),
                 estimated_hours=10,
@@ -144,7 +165,7 @@ async def populate(session) -> int:
                 project_id=project.id,
                 assigned_to=sebastian.id,
                 title="Puesta en marcha de valvulas",
-                status=TaskStatus.TODO.value,
+                status=TaskStatus.DONE.value,
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 11),
                 estimated_hours=12,
@@ -153,7 +174,7 @@ async def populate(session) -> int:
                 project_id=project.id,
                 assigned_to=jorge.id,
                 title="Revision de documentacion tecnica",
-                status=TaskStatus.TODO.value,
+                status=TaskStatus.BACKLOG.value,
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 12),
                 estimated_hours=16,
@@ -166,11 +187,21 @@ async def populate(session) -> int:
 
 
 async def reset_database() -> None:
-    """Borra las tablas existentes y vuelve a crear el esquema."""
+    """Borra las tablas existentes y vuelve a crear el esquema.
+
+    Las claves foraneas entre departamentos y usuarios forman un ciclo que
+    SQLite no sabe ordenar al borrar las tablas, de modo que el borrado se
+    hace sin integridad referencial.
+    """
     from backend.models import Base
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    plain_engine = create_engine(foreign_keys=False)
+    try:
+        async with plain_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    finally:
+        await plain_engine.dispose()
+
     await create_all()
 
 
@@ -189,6 +220,10 @@ async def main() -> None:
 
     print("Base de datos preparada.")
     print(f"  Proyecto: {PROJECT_NAME} (id={project_id})")
+    print(f"    departamento: {DEPARTMENT_AUTOMATION}")
+    print("  Departamentos:")
+    print(f"    {DEPARTMENT_AUTOMATION} (responsable: Ana)")
+    print(f"    {DEPARTMENT_OFFICE} (responsable: Jorge)")
     print("  Usuarios:")
     print("    admin@example.com      (administrador global)")
     print("    ana@example.com        (Project Manager)")

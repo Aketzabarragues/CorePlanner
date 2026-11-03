@@ -106,7 +106,7 @@ async def _seed(session) -> dict[str, int]:
         project_id=project.id,
         assigned_to=engineer.id,
         title="Programacion",
-        status=TaskStatus.TODO.value,
+        status=TaskStatus.BACKLOG.value,
         start_date=date(2026, 3, 5),
         end_date=date(2026, 3, 11),
         estimated_hours=40,
@@ -162,7 +162,7 @@ async def test_crear_tarea_con_permiso(client: AsyncClient):
     assert data["title"] == "Puesta en marcha"
     assert data["assigned_to"] == client.ids["engineer"]
     assert data["estimated_hours"] == 12.0
-    assert data["status"] == "todo"
+    assert data["status"] == "backlog"
 
 
 async def test_crear_tarea_sin_permiso_responde_403(client: AsyncClient):

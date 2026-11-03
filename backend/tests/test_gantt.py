@@ -18,7 +18,7 @@ class Persona:
 class Tarea:
     id: int
     title: str
-    status: str = "todo"
+    status: str = "backlog"
     start_date: date | None = date(2026, 11, 5)
     end_date: date | None = date(2026, 11, 11)
     assigned_to: int | None = None
@@ -70,8 +70,8 @@ def test_el_avance_depende_del_estado():
     tareas = [
         Tarea(id=1, title="A", status="done", assigned_to=1),
         Tarea(id=2, title="B", status="in_progress", assigned_to=1),
-        Tarea(id=3, title="C", status="todo", assigned_to=1),
-        Tarea(id=4, title="D", status="bloqueada", assigned_to=1),
+        Tarea(id=3, title="C", status="backlog", assigned_to=1),
+        Tarea(id=4, title="D", status="testing", assigned_to=1),
     ]
 
     feed = build_gantt_feed(PERSONAS, tareas)
@@ -80,7 +80,7 @@ def test_el_avance_depende_del_estado():
     assert avances[1] == 100
     assert avances[2] == 50
     assert avances[3] == 0
-    assert avances[4] == 0
+    assert avances[4] == 75
 
 
 def test_las_tareas_sin_fechas_quedan_fuera_y_se_listan():

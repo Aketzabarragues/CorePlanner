@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import auth, gantt, members, projects, tasks
+from .api import auth, departments, gantt, kanban, members, projects, tasks
 from .config import get_settings
 from .database import create_all, dispose_engine
 
@@ -41,6 +41,8 @@ app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(members.router, prefix=settings.api_prefix)
 app.include_router(gantt.router, prefix=settings.api_prefix)
+app.include_router(kanban.router, prefix=settings.api_prefix)
+app.include_router(departments.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["sistema"])

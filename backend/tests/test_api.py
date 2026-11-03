@@ -71,7 +71,7 @@ async def _seed(session) -> None:
             project_id=project.id,
             assigned_to=ana.id,
             title="Programacion",
-            status=TaskStatus.TODO.value,
+            status=TaskStatus.BACKLOG.value,
             start_date=date(2026, 3, 5),
             end_date=date(2026, 3, 11),
             estimated_hours=40,

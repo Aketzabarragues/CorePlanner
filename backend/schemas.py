@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from .models import TaskStatus
 from .services.capacity import hours_to_json
 
 Hours = Annotated[
@@ -57,6 +58,16 @@ class ProjectOut(BaseModel):
     name: str
     status: str
     parent_id: int | None = None
+    department_id: int | None = None
+
+
+class DepartmentOut(BaseModel):
+    """Departamento de la organizacion, con su responsable."""
+
+    id: int
+    name: str
+    manager_id: int | None = None
+    manager_name: str | None = None
 
 
 class MemberOut(BaseModel):
@@ -114,6 +125,32 @@ class GanttOut(BaseModel):
     unassigned_task_ids: list[int]
 
 
+class KanbanTaskOut(BaseModel):
+    """Tarjeta del tablero."""
+
+    id: int
+    title: str
+    status: str
+    assigned_to: int | None = None
+    assigned_name: str | None = None
+    estimated_hours: Hours
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class KanbanColumnOut(BaseModel):
+    """Columna del tablero, con las tarjetas de un estado."""
+
+    status: str
+    tasks: list[KanbanTaskOut]
+
+
+class KanbanOut(BaseModel):
+    """Tablero de un proyecto, con las cuatro columnas siempre presentes."""
+
+    columns: list[KanbanColumnOut]
+
+
 class TaskCreate(BaseModel):
     """Alta de tarea. Las fechas y las horas son obligatorias."""
 
@@ -145,7 +182,7 @@ class TaskUpdate(BaseModel):
     estimated_hours: Decimal | None = Field(
         default=None, ge=0, max_digits=8, decimal_places=2
     )
-    status: str | None = None
+    status: TaskStatus | None = None
 
     @model_validator(mode="after")
     def _check_range(self) -> TaskUpdate:

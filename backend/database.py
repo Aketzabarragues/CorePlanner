@@ -21,13 +21,22 @@ from .config import get_settings
 settings = get_settings()
 
 
-def create_engine(url: str | None = None, echo: bool | None = None) -> AsyncEngine:
+def create_engine(
+    url: str | None = None,
+    echo: bool | None = None,
+    *,
+    foreign_keys: bool = True,
+) -> AsyncEngine:
     """Crea un motor asincrono con la integridad referencial garantizada.
 
     SQLite tiene la integridad referencial desactivada por defecto, por lo que
     ON DELETE CASCADE y ON DELETE RESTRICT del esquema no se aplicarian.
     PostgreSQL si los aplica, de modo que sin este pragma el comportamiento
     diferiria entre desarrollo y produccion.
+
+    Con foreign_keys=False la integridad no se activa. Hace falta para borrar
+    las tablas cuando hay un ciclo de claves foraneas, porque SQLite no sabe
+    ordenarlas en ese caso.
     """
     new_engine = create_async_engine(
         url or settings.database_url,
@@ -37,7 +46,7 @@ def create_engine(url: str | None = None, echo: bool | None = None) -> AsyncEngi
 
     @event.listens_for(new_engine.sync_engine, "connect")
     def _enable_foreign_keys(dbapi_connection, connection_record) -> None:
-        if new_engine.dialect.name != "sqlite":
+        if new_engine.dialect.name != "sqlite" or not foreign_keys:
             return
         cursor = dbapi_connection.cursor()
         try:

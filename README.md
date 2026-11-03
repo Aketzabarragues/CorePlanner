@@ -130,15 +130,20 @@ coreplanner/
 
 | Tabla | Campos clave |
 | --- | --- |
-| `users` | `id`, `name`, `email`, `hashed_password`, `is_global_admin`, `weekly_base_hours` (40 por defecto) |
+| `users` | `id`, `name`, `email`, `hashed_password`, `is_global_admin`, `weekly_base_hours` (40 por defecto), `department_id` |
 | `roles` | `id`, `name`, `permissions_json` |
-| `projects` | `id`, `parent_id` (subproyectos), `name`, `status` |
+| `departments` | `id`, `name` (unico), `manager_id` |
+| `projects` | `id`, `parent_id` (subproyectos), `name`, `status`, `department_id` |
 | `project_members` | `user_id`, `project_id`, `role_id` (clave primaria compuesta) |
 | `tasks` | `id`, `project_id`, `assigned_to`, `title`, `status`, `start_date`, `end_date`, `estimated_hours` |
 
 Un usuario puede tener un rol distinto en cada proyecto. El token JWT lleva la
 lista de permisos por `project_id`, de forma que la autorizacion se resuelve
 sin tocar la base de datos en cada peticion.
+
+Un proyecto pertenece a un departamento gestor, pero las tareas se pueden
+asignar a cualquier persona del proyecto, este o de otro departamento: la
+pertenencia al departamento no restringe la asignacion.
 
 ## Puesta en marcha
 
@@ -209,12 +214,12 @@ de `.venv` y el servidor se reinicia en bucle.
 
 Todos con la contrasena `coreplanner`:
 
-| Email | Rol |
-| --- | --- |
-| `admin@example.com` | Administrador global |
-| `ana@example.com` | Project Manager |
-| `sebastian@example.com` | Ingeniero |
-| `jorge@example.com` | Lector |
+| Email | Rol | Departamento |
+| --- | --- | --- |
+| `admin@example.com` | Administrador global | sin departamento |
+| `ana@example.com` | Project Manager | Automatización & SCADA |
+| `sebastian@example.com` | Ingeniero | Automatización & SCADA |
+| `jorge@example.com` | Lector | Oficina Técnica / EPLAN |
 
 El frontend hace login automatico con `admin@example.com` al abrir y guarda el
 token en `localStorage`.
@@ -229,6 +234,8 @@ token en `localStorage`.
 | `GET` | `/api/projects/{id}/tasks` | `capacity.read` en el proyecto |
 | `GET` | `/api/projects/{id}/members` | `capacity.read` en el proyecto |
 | `GET` | `/api/projects/{id}/gantt` | `gantt.read` en el proyecto |
+| `GET` | `/api/projects/{id}/kanban` | `capacity.read` en el proyecto |
+| `GET` | `/api/departments` | token valido |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 | `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
@@ -269,6 +276,31 @@ El backend devuelve las barras con el formato que espera la libreria:
 identificadores viajan como texto porque la libreria compara con igualdad
 estricta el identificador de la tarea con el que lee del DOM.
 
+## Tablero Kanban
+
+La vista `/projects/{id}/kanban` muestra las tareas en cuatro columnas:
+Backlog, En Desarrollo, Pruebas (FAT/SAT) y Completado. Son los estados
+`backlog`, `in_progress`, `testing` y `done`, los unicos que acepta la base de
+datos y el `PATCH` de una tarea.
+
+- Cada tarjeta muestra el titulo, quien la lleva, las horas estimadas y las
+  fechas.
+- Se mueve de columna arrastrandola con el raton o cambiando el estado en su
+  desplegable. En los dos casos se guarda con un `PATCH /api/tasks/{id}`.
+
+Las cuatro columnas estan siempre presentes en la respuesta, aunque esten
+vacias, para que el tablero no cambie de forma al guardar.
+
+## Departamentos
+
+`GET /api/departments` devuelve los departamentos con su responsable. Un
+departamento agrupa a las personas y es el gestor de los proyectos que
+declaran su `department_id`.
+
+La asignacion de tareas es transversal: una tarea de un proyecto de
+Automatización puede llevarla alguien de Oficina Técnica, siempre que sea
+miembro del proyecto.
+
 ## Pruebas
 
 ```powershell
@@ -288,10 +320,11 @@ parcial que pierda estilos sin avisar.
 
 ## Estado actual
 
-Base del proyecto: esquema de datos, autenticacion JWT, frontend con login,
-listado de proyectos, matriz de ocupacion con reparto semanal, CRUD de tareas y
-feed JSON del Gantt. Pendiente de implementar: la exportacion `.ics`, el alta y
-baja de miembros del proyecto y el cambio de rol.
+Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
+frontend con login, listado de proyectos, matriz de ocupacion con reparto
+semanal, CRUD de tareas, feed JSON del Gantt y tablero Kanban. Pendiente de
+implementar: la exportacion `.ics`, el alta y baja de miembros del proyecto y
+el cambio de rol.
 
 ### Detalles de implementacion que conviene conocer
 

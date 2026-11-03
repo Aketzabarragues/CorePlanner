@@ -111,7 +111,7 @@ async def _seed(session) -> dict[str, int]:
         project_id=project.id,
         assigned_to=engineer.id,
         title="Sin fechas",
-        status=TaskStatus.TODO.value,
+        status=TaskStatus.BACKLOG.value,
         start_date=None,
         end_date=None,
         estimated_hours=8,

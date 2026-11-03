@@ -86,7 +86,7 @@ async def create_task(
         start_date=payload.start_date,
         end_date=payload.end_date,
         estimated_hours=payload.estimated_hours,
-        status=TaskStatus.TODO.value,
+        status=TaskStatus.BACKLOG.value,
     )
     session.add(task)
     await session.commit()
@@ -111,7 +111,7 @@ async def update_task(
     if "title" in changed and payload.title is not None:
         task.title = payload.title
     if "status" in changed and payload.status is not None:
-        task.status = payload.status
+        task.status = payload.status.value
     if "start_date" in changed and payload.start_date is not None:
         task.start_date = payload.start_date
     if "end_date" in changed and payload.end_date is not None:

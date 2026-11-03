@@ -6,7 +6,7 @@
  * entra directamente a la aplicacion. Es el acceso automatico de desarrollo.
  */
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { authApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
@@ -17,7 +17,14 @@ const error = ref(null)
 const pending = ref(false)
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
+
+/** Destino tras entrar: el que dejo el guard al saltar a la vista privada. */
+function destination() {
+  const next = route.query.next
+  return typeof next === 'string' && next.startsWith('/') ? next : '/'
+}
 
 async function submit() {
   error.value = null
@@ -25,7 +32,7 @@ async function submit() {
   try {
     const data = await authApi.login(email.value, password.value)
     auth.setSession(data.access_token, data.user)
-    router.push('/')
+    router.push(destination())
   } catch (err) {
     error.value = err.message
   } finally {

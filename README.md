@@ -341,7 +341,9 @@ el desplegable navega a la vista actual con el identificador nuevo.
 
 Las guardas del router live en `frontend/src/router/guards.js`: una comprueba
 la sesion antes de entrar en una vista privada y otra lleva la raiz al primer
-proyecto disponible.
+proyecto disponible. Si falta la sesion, el guard lleva al formulario de acceso
+recordando la vista que se queria abrir, y el formulario vuelve a ella al
+entrar.
 
 ### Datos frescos al cambiar de vista
 

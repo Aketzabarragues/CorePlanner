@@ -1,5 +1,17 @@
 const API_BASE = '/api'
 
+let refreshSession = null
+
+/**
+ * Registra la funcion que renueva la sesion.
+ *
+ * Cuando el servidor responde 401, por ejemplo porque el token guardado
+ * ya no vale, se renueva la sesion y se repite la peticion una vez.
+ */
+export function setSessionRefresher(refresher) {
+  refreshSession = refresher
+}
+
 function extractErrorDetail(payload, status) {
   const detail = payload?.detail
   if (typeof detail === 'string') return detail
@@ -16,6 +28,10 @@ export async function apiFetch(path, { token, ...options } = {}) {
   if (token) headers.Authorization = `Bearer ${token}`
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  if (response.status === 401 && refreshSession && path !== '/auth/login') {
+    const fresh = await refreshSession()
+    if (fresh) return apiFetch(path, { ...options, token: fresh })
+  }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
     throw new Error(extractErrorDetail(payload, response.status))

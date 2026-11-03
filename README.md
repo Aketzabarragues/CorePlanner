@@ -228,6 +228,7 @@ token en `localStorage`.
 | `GET` | `/api/projects/{id}/capacity` | `capacity.read` en el proyecto |
 | `GET` | `/api/projects/{id}/tasks` | `capacity.read` en el proyecto |
 | `GET` | `/api/projects/{id}/members` | `capacity.read` en el proyecto |
+| `GET` | `/api/projects/{id}/gantt` | `gantt.read` en el proyecto |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 | `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
@@ -251,6 +252,23 @@ La matriz es interactiva:
 El formulario no envia campos que no se han tocado: un `PATCH` con
 `{"estimated_hours": "12.00"}` solo cambia las horas.
 
+## Diagrama de Gantt
+
+La vista `/projects/{id}/gantt` dibuja una barra por tarea con `frappe-gantt`:
+
+- Cada barra lleva las fechas de la tarea, su avance segun el estado y la
+  persona asignada, que aparece en la etiqueta y en el color de la barra.
+- El selector **Dia / Semana / Mes** cambia la escala temporal.
+- Al mover o redimensionar una barra se guardan las fechas con un `PATCH` de
+  la tarea, de modo que el diagrama y la matriz de ocupacion cuentan lo mismo.
+- Las tareas sin fechas no tienen sitio en el diagrama: se listan aparte en
+  `undated_task_ids` para que no desaparezcan en silencio.
+
+El backend devuelve las barras con el formato que espera la libreria:
+`id`, `name`, `start`, `end`, `progress`, `dependencies` y `custom_class`. Los
+identificadores viajan como texto porque la libreria compara con igualdad
+estricta el identificador de la tarea con el que lee del DOM.
+
 ## Pruebas
 
 ```powershell
@@ -270,11 +288,10 @@ parcial que pierda estilos sin avisar.
 
 ## Estado actual
 
-Base del proyecto: esquema de datos, autenticacion JWT, esqueleto del frontend
-con login, listado de proyectos y las vistas de capacidad y Gantt. Pendiente
-de implementar: los endpoints de proyectos, la matriz de ocupacion con reparto
-semanal, el feed JSON del Gantt, la exportacion `.ics` y el CRUD completo de
-tareas y miembros.
+Base del proyecto: esquema de datos, autenticacion JWT, frontend con login,
+listado de proyectos, matriz de ocupacion con reparto semanal, CRUD de tareas y
+feed JSON del Gantt. Pendiente de implementar: la exportacion `.ics`, el alta y
+baja de miembros del proyecto y el cambio de rol.
 
 ### Detalles de implementacion que conviene conocer
 

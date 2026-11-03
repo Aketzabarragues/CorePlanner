@@ -9,6 +9,7 @@ const routes = [
   { path: '/', name: 'capacity-matrix', component: CapacityMatrix },
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
   { path: '/projects', name: 'projects', component: ProjectsView },
+  { path: '/projects/:id/capacity', name: 'capacity', component: CapacityMatrix, props: true },
   { path: '/projects/:id/gantt', name: 'gantt', component: GanttView, props: true },
 ]
 

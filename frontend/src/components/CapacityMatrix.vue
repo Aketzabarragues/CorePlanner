@@ -12,17 +12,16 @@
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { authApi, projectsApi, tasksApi } from '../api/client'
+import { projectsApi, tasksApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import CellBreakdown from './CellBreakdown.vue'
 import TaskForm from './TaskForm.vue'
 
-const DEMO_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'coreplanner',
-}
-
 const auth = useAuthStore()
+
+const props = defineProps({
+  id: { type: [String, Number], default: null },
+})
 
 const report = ref(null)
 const project = ref(null)
@@ -49,12 +48,6 @@ function cellOf(row, week) {
       is_overloaded: false,
     }
   )
-}
-
-async function loginDemo() {
-  const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)
-  auth.setSession(data.access_token, data.user)
-  return data.access_token
 }
 
 /** Recarga matriz, miembros y tareas del proyecto. */
@@ -175,10 +168,7 @@ async function reassignTask(task, targetUserId) {
 
 onMounted(async () => {
   try {
-    let token = auth.token
-    if (!token) {
-      token = await loginDemo()
-    }
+    const token = await auth.ensureSession()
 
     const projects = await projectsApi.list(token)
     if (projects.length === 0) {
@@ -187,7 +177,7 @@ onMounted(async () => {
       return
     }
 
-    project.value = projects[0]
+    project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
     await reload()
   } catch (err) {
     error.value = err.message

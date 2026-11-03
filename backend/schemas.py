@@ -85,6 +85,35 @@ class TaskOut(BaseModel):
     estimated_hours: Hours
 
 
+class GanttTaskOut(BaseModel):
+    """Barra del diagrama de Gantt."""
+
+    id: int
+    name: str
+    start: date
+    end: date
+    progress: int
+    dependencies: str
+    custom_class: str
+
+
+class GanttMemberOut(BaseModel):
+    """Persona con el color que le toca en el diagrama."""
+
+    user_id: int
+    name: str
+    css_class: str
+
+
+class GanttOut(BaseModel):
+    """Diagrama de Gantt de un proyecto."""
+
+    tasks: list[GanttTaskOut]
+    members: list[GanttMemberOut]
+    undated_task_ids: list[int]
+    unassigned_task_ids: list[int]
+
+
 class TaskCreate(BaseModel):
     """Alta de tarea. Las fechas y las horas son obligatorias."""
 

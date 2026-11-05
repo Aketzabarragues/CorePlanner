@@ -133,6 +133,10 @@ coreplanner/
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion)
 │       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Pendientes
 │       └── router/       # rutas y guardas de sesion
+├── docs/
+│   └── openproject/
+│       ├── analisis-openproject.md        # ingenieria inversa de OpenProject
+│       └── plan-replicacion-coreplanner.md # plan de replicacion por fases
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
 └── README.md
@@ -475,6 +479,23 @@ semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
 (por proyecto y consolidado), tablero Kanban y vista de departamentos.
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
 proyecto, el cambio de rol y la configuracion del proyecto.
+
+### Analisis de OpenProject
+
+CorePlanner nace con la ambition de ser un OpenProject en version ligera: mismo
+modelo de proyecto, persona y capacidad, con menos piezas. El trabajo de
+ingenieria inversa esta documentado en `docs/openproject/`:
+
+- `docs/openproject/analisis-openproject.md` recoge el modelo de datos real
+  (consulta guardable, asignaciones con reparto diario, permisos con alcance de
+  entidad) y las decisiones de no replicar.
+- `docs/openproject/plan-replicacion-coreplanner.md` traduce ese modelo a un
+  plan por fases sobre el codigo actual, con esquema de tablas y criterios de
+  aceptacion.
+
+Los dos documentos son la referencia para las fases siguientes: las primeras
+fases replican el horario laboral por persona y las asignaciones explicitas,
+que es lo que separa una ocupacion estimada de una ocupacion planificada.
 
 ### Detalles de implementacion que conviene conocer
 

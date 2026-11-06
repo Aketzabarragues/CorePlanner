@@ -59,7 +59,10 @@ Lo que un administrador puede dar de alta y mantener:
 | Elemento | Que se configura |
 | --- | --- |
 | Departamentos | nombre y responsable |
-| Personas | nombre, correo, rol de empresa, departamento y horas base semanales |
+| Personas | nombre, correo, rol de empresa, departamento, puesto, nivel, tipo de contrato y horas base semanales |
+| Horarios de persona | dias laborables por semana, factor de disponibilidad y fecha de entrada en vigor |
+| Dias no laborables | fecha, nombre y alcance (global o de departamento) |
+| Competencias | catalogo de habilidades y nivel de cada persona en cada una |
 | Proyectos | nombre, departamento que lo gestiona, responsable y estado |
 | Miembros de proyecto | que personas entran en cada proyecto y con que rol |
 | Periodo de planificacion | cuantas semanas se muestran por defecto en la matriz |
@@ -81,6 +84,7 @@ es material de una version posterior.
 | Cronograma | barras de las tareas de un proyecto |
 | Tablero | columnas por estado de las tareas de un proyecto |
 | Departamentos | quien hay en cada area, con su carga |
+| Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
 | Configuracion | personas, roles, departamentos y proyectos (solo gerente) |
 
 ## 7. Que NO tiene que tener la aplicacion (v1)
@@ -96,12 +100,21 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 - Planificador de recursos con arrastres y tarjetas por persona.
 - Aplicacion movil.
 - Permisos por tarea concreta (compartir una tarea suelta).
+- Veredictos discretos de capacidad (critical, tight, balanced, buffer): son la
+  politica de capacidad y van aparte, con sus umbrales y sus aprobaciones.
+- Semantica del tipo de contrato en el calculo: por ahora es un dato.
+- Asignacion automatica de tareas por competencia.
+- Horarios por proyecto: el horario es de la persona, no del proyecto.
 
 ## 8. Datos minimos
 
 | Entidad | Campos |
 | --- | --- |
-| Persona | nombre, correo, rol de empresa, departamento, horas base semanales |
+| Persona | nombre, correo, rol de empresa, departamento, puesto, nivel, tipo de contrato y horas base semanales |
+| Horario de persona | persona, fecha de entrada en vigor, horas laborables de cada dia y factor de disponibilidad |
+| Dia no laborable | fecha, nombre y alcance (global o de departamento) |
+| Competencia | nombre del catalogo |
+| Nivel de competencia | persona, competencia y nivel |
 | Departamento | nombre, responsable |
 | Proyecto | nombre, departamento que lo gestiona, responsable, estado |
 | Miembro de proyecto | persona, proyecto, rol en el proyecto |
@@ -122,6 +135,10 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Responsable de proyecto | Hecho |
 | Mi trabajo | **No existe** |
 | Pantalla de configuracion | Hecho |
+| Horario versionado por persona | **No existe** |
+| Dias no laborables con alcance | **No existe** |
+| Competencias | **No existe** |
+| Pantalla de personas y competencias | **No existe** |
 
 El administrador global que existe hoy es, de hecho, el gerente: el cambio que
 ya esta hecho es que deje de ser un interruptor y pase a ser un rol de empresa
@@ -137,3 +154,58 @@ con su departamento y sus reglas de ambito.
 3. **Responsable de proyecto.** Se anade una persona responsable por proyecto,
    distinta del departamento que lo gestiona.
 4. **Horizonte de la matriz.** Cuatro semanas por defecto.
+
+## 11. Bloque de personas: horario, competencias y calendario
+
+La persona deja de ser un usuario con acceso y pasa a tener una identidad
+profesional: puesto, nivel, tipo de contrato, horario vigente y competencias.
+
+### Que entra
+
+| Pieza | Que resuelve |
+| --- | --- |
+| Horario versionado por persona | La capacidad deja de ser un escalar y pasa a depender de la semana |
+| Factor de disponibilidad | Permite «hasta marzo al 100 %, desde abril al 80 %» |
+| Dias no laborables con alcance | Una tarea que cruza un puente se reparte en los dias que existen |
+| Puesto, nivel y tipo de contrato | Identidad profesional de la persona |
+| Competencias con nivel 1-3 | Catalogo de habilidades y matriz de la demo |
+| Pantalla de personas y competencias | Directorio, historial de horarios y matriz |
+
+### Como se calcula la capacidad de una semana
+
+1. El horario vigente de una semana es el ultimo con fecha de entrada en vigor
+   anterior o igual al lunes de esa semana.
+2. La capacidad de la semana es la suma de las horas laborables de los siete
+   dias multiplicada por el factor de disponibilidad.
+3. Si la persona no tiene horario, se usa su horas base semanales.
+4. Si no tiene horario ni horas base, **su capacidad se desconoce**: no se marca
+   como sobrecargada, porque el motor no inventa un limite que nadie ha definido.
+5. Los dias no laborables de alcance global se quitan a todo el mundo; los de
+   alcance de departamento, solo a quien pertenece a ese departamento.
+
+### Reparto de las horas de una tarea
+
+Las horas de una tarea se reparten entre los dias laborables de su rango: lunes
+a viernes, menos los dias no laborables que apliquen a la persona asignada.
+El reparto es uniforme y en centimas enteras, de modo que la suma de las partes
+coincide exactamente con el total.
+
+### Que no entra
+
+- Veredictos discretos de capacidad y politica de umbrales (va aparte).
+- Semantica del tipo de contrato en la matematica (por ahora es un dato).
+- Asignacion automatica de tareas por competencia.
+- Horarios por proyecto.
+
+### Decisiones de este bloque
+
+1. **El horario se guarda en centimas de hora enteras**, no en minutos: un
+   minuto son 100/60 centimas y no siempre cabe en centimas enteras.
+2. **El factor de disponibilidad es un porcentaje entero** entre 0 y 100.
+3. **El nivel de competencia va de 1 a 3**, como en la demo.
+4. **Las horas base semanales dejan de ser obligatorias**: null significa que no
+   hay capacidad definida.
+5. **El tipo de contrato tiene tres valores** (objetivo, techo, mejor
+   esfuerzo) y no cambia todavia el calculo.
+6. **La pantalla de personas y competencias vive en el espacio global** y tiene
+   tres pestanas: directorio, competencias y dias no laborables.

@@ -258,6 +258,12 @@ class MemberCreate(BaseModel):
     role_id: int
 
 
+class MemberRoleUpdate(BaseModel):
+    """Cambio del rol que una persona ejerce en un proyecto."""
+
+    role_id: int
+
+
 class DepartmentOut(BaseModel):
     """Departamento de la organizacion, con su responsable."""
 

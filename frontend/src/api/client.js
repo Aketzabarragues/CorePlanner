@@ -124,6 +124,12 @@ export const configApi = {
     }),
   removeMember: (token, projectId, userId) =>
     apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE', token }),
+  updateMemberRole: (token, projectId, userId, roleId) =>
+    apiFetch(`/projects/${projectId}/members/${userId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify({ role_id: roleId }),
+    }),
 }
 
 /** Directorio de personas: perfiles, horarios versionados y competencias. */

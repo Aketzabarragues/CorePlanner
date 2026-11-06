@@ -158,7 +158,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Pendientes
+│       ├── views/        # Login, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -309,6 +309,7 @@ token en `localStorage`.
 | `PATCH` | `/api/projects/{id}` | gerente |
 | `POST` | `/api/projects/{id}/members` | gerente |
 | `DELETE` | `/api/projects/{id}/members/{user_id}` | gerente |
+| `PATCH` | `/api/projects/{id}/members/{user_id}` | gerente; cambia el rol que ejerce |
 | `GET` | `/api/people` | token valido; directorio segun el ambito, con `?week=` |
 | `GET` | `/api/people/{id}` | token valido; ficha con el historial de horarios |
 | `POST` | `/api/people/{id}/schedules` | gerente; nueva version de horario |
@@ -431,6 +432,8 @@ a su departamento **sin** la carga.
 | Dias no laborables | Pestana **Dias no laborables** | Gerente |
 | Puesto, nivel y tipo de contrato | `/configuration`, pestana **Personas** | Gerente |
 | Horas base semanales | `/configuration`, pestana **Personas** | Gerente |
+| Equipo de un proyecto | `/projects/{id}/members` | Gerente |
+| Nombre, estado, departamento gestor y responsable de un proyecto | `/projects/{id}/settings` | Gerente |
 
 El catalogo de competencias no es una lista fija: se anade, se renombra y se
 quita, desde la pestana **Competencias** de la configuracion. Una competencia
@@ -499,6 +502,23 @@ La asignacion de tareas es transversal: una tarea de un proyecto de
 Automatización puede llevarla alguien de Oficina Técnica, siempre que sea
 miembro del proyecto.
 
+## Miembros y configuracion del proyecto
+
+Cada proyecto tiene su equipo. `GET /api/projects/{id}/members` devuelve las
+personas que lo forman con el rol que ejercen dentro y sus horas base, que son
+las que se toman como referencia para marcar la sobrecarga en la matriz. El
+alcance de ese rol es lo que les deja ver y hacer en el proyecto.
+
+La vista `/projects/{id}/members` la gestiona el gerente: anade a alguien
+eligiendo persona y rol, cambia el rol con un desplegable por fila y quita a
+quien sale del equipo. Quien no es gerente ve la lista sin las acciones. El
+aviso de exito se muestra encima de la tabla, no en lugar de ella.
+
+`PATCH /api/projects/{id}` edita el nombre, el estado, el departamento que
+gestiona el proyecto y su responsable. La vista `/projects/{id}/settings` se
+abre desde el resumen del proyecto y muestra los mismos campos deshabilitados
+cuando quien entra no es gerente.
+
 ## Armazon de la aplicacion
 
 `frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
@@ -545,8 +565,8 @@ En el espacio de proyecto:
 | Gestion & equipo | Miembros y Asignaciones |
 
 La configuracion del proyecto no esta en el menu: se llega desde el resumen
-del proyecto, que es donde tiene sentido abrirla. La ruta sigue viva y explica
-lo que queda por hacer, para no dejar enlaces muertos.
+del proyecto, que es donde tiene sentido abrirla. Solo el gerente puede
+editarla; el resto la ve en modo de solo lectura.
 
 ### Rutas
 
@@ -564,7 +584,7 @@ lo que queda por hacer, para no dejar enlaces muertos.
 | `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
 | `/projects/{id}/kanban` | proyecto | tablero Kanban |
 | `/projects/{id}/members` | proyecto | miembros y asignaciones |
-| `/projects/{id}/settings` | proyecto | configuracion del proyecto (pendiente) |
+| `/projects/{id}/settings` | proyecto | configuracion del proyecto |
 
 El proyecto abierto se toma siempre de la URL, de modo que al recargar la
 pagina se vuelve al mismo proyecto y a la misma vista.
@@ -651,10 +671,10 @@ semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
 por rol de empresa (gerente, jefe de departamento y tecnico), pantalla de
 configuracion de la organizacion (personas, roles, departamentos, proyectos y
 catalogo de competencias) y bloque de personas: horario versionado,
-dias no laborables con alcance, competencias y pantalla de personas.
-Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
-proyecto desde la vista de proyecto, el cambio de rol y la pantalla de "Mi
-trabajo".
+dias no laborables con alcance, competencias y pantalla de personas. En el
+espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
+proyecto se configura con nombre, estado, departamento gestor y responsable.
+Pendiente de implementar: la exportacion `.ics` y la pantalla de "Mi trabajo".
 
 ### Especificaciones
 

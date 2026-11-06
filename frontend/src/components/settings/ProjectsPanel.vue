@@ -9,7 +9,7 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
-import { projectStatus } from '../../utils/navigation'
+import { PROJECT_STATUSES } from '../../utils/navigation'
 import ModalDialog from '../ModalDialog.vue'
 
 const props = defineProps({
@@ -24,13 +24,7 @@ const auth = useAuthStore()
 const error = ref(null)
 const saving = ref(false)
 
-const STATUSES = [
-  { value: 'planning', label: 'Planificación' },
-  { value: 'active', label: 'Activo' },
-  { value: 'on_hold', label: 'Pausado' },
-  { value: 'done', label: 'Completado' },
-  { value: 'cancelled', label: 'Cancelado' },
-]
+const STATUSES = PROJECT_STATUSES
 
 const empty = () => ({
   id: null,

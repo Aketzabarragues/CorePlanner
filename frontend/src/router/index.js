@@ -6,8 +6,8 @@ import GanttView from '../views/GanttView.vue'
 import KanbanView from '../views/KanbanView.vue'
 import LoginView from '../views/LoginView.vue'
 import MembersView from '../views/MembersView.vue'
-import PendingView from '../views/PendingView.vue'
 import PeopleView from '../views/PeopleView.vue'
+import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
@@ -52,8 +52,8 @@ const routes = [
   {
     path: '/projects/:id/settings',
     name: 'settings',
-    component: PendingView,
-    props: (route) => ({ section: 'settings' }),
+    component: ProjectSettingsView,
+    props: true,
   },
 ]
 

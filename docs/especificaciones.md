@@ -75,6 +75,13 @@ Los formularios de alta y edicion se abren en un modal centrado desde el boton
 de cada panel, no en una tarjeta siempre visible: la tabla manda y el formulario
 aparece solo cuando hace falta.
 
+La configuracion de cada proyecto tiene su propia pantalla, dentro del espacio
+del proyecto: ahi se editan el nombre, el estado, el departamento que lo
+gestiona y el responsable, y ahi se da de alta a la gente que entra, se le
+cambia el rol y se la quita. Editar el equipo de un proyecto es del gerente,
+igual que el resto de la configuracion; quien no lo es ve la lista y los datos
+del proyecto, pero sin poder tocarlos.
+
 ## 6. Que tiene que tener la aplicacion
 
 | Pantalla | Para que sirve |
@@ -90,6 +97,8 @@ aparece solo cuando hace falta.
 | Departamentos | quien hay en cada area, con su carga |
 | Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
 | Configuracion | personas, roles, departamentos, proyectos y catalogo de competencias (solo gerente) |
+| Miembros del proyecto | quien entra en el proyecto, con que rol y que horas base (el gerente lo edita) |
+| Configuracion del proyecto | nombre, estado, departamento que lo gestiona y responsable (el gerente lo edita) |
 
 ## 7. Que NO tiene que tener la aplicacion (v1)
 
@@ -143,6 +152,8 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Dias no laborables con alcance | Hecho |
 | Competencias | Hecho |
 | Pantalla de personas y competencias | Hecho |
+| Miembros del proyecto (alta, cambio de rol y baja) | Hecho |
+| Configuracion del proyecto | Hecho |
 
 El administrador global que existe hoy es, de hecho, el gerente: el cambio que
 ya esta hecho es que deje de ser un interruptor y pase a ser un rol de empresa
@@ -226,6 +237,8 @@ las partes coincide exactamente con el total.
 | Horario de una persona | Ficha de la persona, historial de horarios | Gerente |
 | Dias no laborables | Pestana de dias no laborables | Gerente |
 | Puesto, nivel y tipo de contrato | Configuracion, personas | Gerente |
+| Equipo de un proyecto | Vista de miembros del proyecto | Gerente |
+| Nombre, estado, departamento gestor y responsable de un proyecto | Vista de configuracion del proyecto | Gerente |
 
 El catalogo de competencias **no es una lista fija**: se anade, se renombra y
 se quita. Una competencia que alguien tiene asignada no se puede quitar, para

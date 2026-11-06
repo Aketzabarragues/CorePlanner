@@ -401,6 +401,49 @@ async def test_el_gerente_mete_y_saca_personas_de_un_proyecto(client: AsyncClien
     assert client.ids["sebastian"] not in {m["user_id"] for m in miembros.json()}
 
 
+async def test_el_gerente_cambia_el_rol_de_un_miembro(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.patch(
+        f"/api/projects/{client.ids['proyecto']}/members/{client.ids['ana']}",
+        headers=headers,
+        json={"role_id": client.ids["rol_lector"]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["role_name"] == "Lector"
+
+    miembros = await client.get(
+        f"/api/projects/{client.ids['proyecto']}/members", headers=headers
+    )
+    roles = {m["user_id"]: m["role_name"] for m in miembros.json()}
+    assert roles[client.ids["ana"]] == "Lector"
+
+
+async def test_cambiar_el_rol_de_quien_no_es_miembro_responde_404(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.patch(
+        f"/api/projects/{client.ids['proyecto']}/members/{client.ids['sebastian']}",
+        headers=headers,
+        json={"role_id": client.ids["rol_lector"]},
+    )
+
+    assert response.status_code == 404, response.text
+
+
+async def test_un_tecnico_no_cambia_el_rol_de_un_miembro(client: AsyncClient):
+    headers = await _auth(client, "sebastian@example.com")
+
+    response = await client.patch(
+        f"/api/projects/{client.ids['proyecto']}/members/{client.ids['ana']}",
+        headers=headers,
+        json={"role_id": client.ids["rol_lector"]},
+    )
+
+    assert response.status_code == 403, response.text
+
+
 async def test_no_se_mete_dos_veces_a_la_misma_persona(client: AsyncClient):
     headers = await _auth(client, "gerente@example.com")
 

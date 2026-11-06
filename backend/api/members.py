@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import ProjectMember, Role, User
-from ..schemas import MemberCreate, MemberOut
+from ..schemas import MemberCreate, MemberOut, MemberRoleUpdate
 from ..security import SessionDep, require_manager, require_project_permission
-from ..services.configuration import add_project_member, remove_project_member
+from ..services.configuration import (
+    add_project_member,
+    remove_project_member,
+    update_project_member_role,
+)
 
 router = APIRouter(prefix="/projects", tags=["members"])
 
@@ -61,3 +66,38 @@ async def remove_member(
 ) -> None:
     """Saca a una persona del proyecto."""
     await remove_project_member(session, project_id, user_id)
+
+
+@router.patch("/{project_id}/members/{user_id}", response_model=MemberOut)
+async def edit_member_role(
+    project_id: int,
+    user_id: int,
+    payload: MemberRoleUpdate,
+    session: SessionDep,
+    _manager=Depends(require_manager()),
+) -> MemberOut:
+    """Cambia el rol que una persona ejerce en el proyecto."""
+    await update_project_member_role(session, project_id, user_id, payload.role_id)
+    return await _member_out(session, project_id, user_id)
+
+
+async def _member_out(session: AsyncSession, project_id: int, user_id: int) -> MemberOut:
+    """Datos de una persona del proyecto, con el rol que ejerce en el."""
+    result = await session.execute(
+        select(ProjectMember, User, Role)
+        .join(User, User.id == ProjectMember.user_id)
+        .join(Role, Role.id == ProjectMember.role_id)
+        .where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    member, user, role = result.one()
+    return MemberOut(
+        user_id=member.user_id,
+        name=user.name,
+        email=user.email,
+        role_id=role.id,
+        role_name=role.name,
+        weekly_base_hours=user.weekly_base_hours,
+    )

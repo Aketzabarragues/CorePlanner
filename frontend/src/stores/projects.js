@@ -113,6 +113,18 @@ export const useProjectsStore = defineStore('projects', () => {
     return membersPromise
   }
 
+  /**
+   * Vuelve a pedir los miembros del proyecto.
+   *
+   * Se usa despues de meter, sacar o cambiar el rol de alguien, para que la
+   * cabecera, la matriz y la vista de miembros no se queden con la lista vieja.
+   */
+  function reloadMembers(token, projectId) {
+    members.value = []
+    membersProjectId = null
+    return ensureMembers(token, projectId)
+  }
+
   /** Marca el proyecto abierto. */
   function select(projectId) {
     currentProjectId.value = projectId === null || projectId === undefined ? null : String(projectId)
@@ -141,6 +153,7 @@ export const useProjectsStore = defineStore('projects', () => {
     load,
     ensureProjects,
     ensureMembers,
+    reloadMembers,
     select,
     notifyTasksChanged,
   }

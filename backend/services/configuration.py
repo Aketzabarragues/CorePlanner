@@ -340,3 +340,31 @@ async def remove_project_member(
         )
     await session.delete(member)
     await session.commit()
+
+
+async def update_project_member_role(
+    session: AsyncSession, project_id: int, user_id: int, role_id: int
+) -> ProjectMember:
+    """Cambia el rol que una persona ejerce en un proyecto."""
+    member = (
+        await session.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La persona no es miembro del proyecto",
+        )
+    role = await session.get(Role, role_id)
+    if role is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado"
+        )
+    member.role_id = role_id
+    await session.commit()
+    await session.refresh(member)
+    return member

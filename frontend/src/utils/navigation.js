@@ -210,6 +210,15 @@ export function sameProject(first, second) {
   return String(first) === String(second)
 }
 
+/** Estados que puede tener un proyecto, con su etiqueta. */
+export const PROJECT_STATUSES = [
+  { value: 'planning', label: 'Planificación' },
+  { value: 'active', label: 'Activo' },
+  { value: 'on_hold', label: 'Pausado' },
+  { value: 'done', label: 'Completado' },
+  { value: 'cancelled', label: 'Cancelado' },
+]
+
 /** Etiqueta y color del estado de un proyecto. */
 export function projectStatus(status) {
   switch (status) {

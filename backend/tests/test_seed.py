@@ -14,7 +14,17 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.auth import verify_password
 from backend.database import create_engine
-from backend.models import Base, Department, Project, Task, User
+from backend.models import (
+    Base,
+    Department,
+    NonWorkingDay,
+    PersonSkill,
+    Project,
+    Skill,
+    Task,
+    User,
+    WorkingSchedule,
+)
 from backend.seed import DEFAULT_PASSWORD, populate
 from backend.services.capacity_repository import load_project_capacity
 
@@ -38,8 +48,71 @@ async def test_el_seed_crea_los_usuarios_del_equipo(seeded_session):
         "admin@example.com",
         "ana@example.com",
         "sebastian@example.com",
+        "marta@example.com",
+        "diego@example.com",
+        "hector@example.com",
         "jorge@example.com",
+        "lucia@example.com",
+        "ivan@example.com",
+        "nuria@example.com",
     }
+
+
+async def test_el_seed_crea_los_horarios_versionados(seeded_session):
+    sebastian = (
+        await seeded_session.execute(
+            select(User).where(User.email == "sebastian@example.com")
+        )
+    ).scalar_one()
+
+    schedules = (
+        await seeded_session.execute(
+            select(WorkingSchedule)
+            .where(WorkingSchedule.user_id == sebastian.id)
+            .order_by(WorkingSchedule.valid_from)
+        )
+    ).scalars().all()
+
+    assert len(schedules) == 2
+    assert schedules[0].valid_from == date(2025, 9, 1)
+    assert schedules[0].monday == 750
+    assert schedules[1].valid_from == date(2026, 1, 5)
+    assert schedules[1].monday == 800
+
+
+async def test_quien_no_tiene_horario_tiene_capacidad_desconocida(seeded_session):
+    hector = (
+        await seeded_session.execute(
+            select(User).where(User.email == "hector@example.com")
+        )
+    ).scalar_one()
+
+    schedules = (
+        await seeded_session.execute(
+            select(WorkingSchedule).where(WorkingSchedule.user_id == hector.id)
+        )
+    ).scalars().all()
+
+    assert schedules == []
+
+
+async def test_el_seed_crea_los_dias_no_laborables_con_su_alcance(seeded_session):
+    days = (await seeded_session.execute(select(NonWorkingDay))).scalars().all()
+
+    global_days = [day for day in days if day.scope == "global"]
+    department_days = [day for day in days if day.scope == "department"]
+    assert len(global_days) == 5
+    assert len(department_days) == 2
+    assert any(day.half_day for day in days)
+
+
+async def test_el_seed_crea_el_catalogo_de_competencias(seeded_session):
+    skills = (await seeded_session.execute(select(Skill))).scalars().all()
+    links = (await seeded_session.execute(select(PersonSkill))).scalars().all()
+
+    assert len(skills) == 13
+    assert len(links) == 28
+    assert all(1 <= link.level <= 3 for link in links)
 
 
 async def test_el_seed_crea_el_proyecto_de_pasteurizadora(seeded_session):

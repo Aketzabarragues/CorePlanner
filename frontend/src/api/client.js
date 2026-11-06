@@ -126,8 +126,53 @@ export const configApi = {
     apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE', token }),
 }
 
-/** Endpoints de la vista global, que no pertenecen a ningun proyecto. */
-export const overviewApi = {
+/** Directorio de personas: perfiles, horarios versionados y competencias. */
+export const peopleApi = {
+  list: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/people${query ? `?${query}` : ''}`, { token })
+  },
+  profile: (token, id, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/people/${id}${query ? `?${query}` : ''}`, { token })
+  },
+  addSchedule: (token, id, schedule) =>
+    apiFetch(`/people/${id}/schedules`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(schedule),
+    }),
+  setSkills: (token, id, skills) =>
+    apiFetch(`/people/${id}/skills`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ skills }),
+    }),
+  skillCatalog: (token) => apiFetch('/skills', { token }),
+  createSkill: (token, name) =>
+    apiFetch('/skills', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ name }),
+    }),
+}
+
+/** Calendario laboral: dias no laborables con su alcance. */
+export const calendarApi = {
+  list: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/non-working-days${query ? `?${query}` : ''}`, { token })
+  },
+  create: (token, day) =>
+    apiFetch('/non-working-days', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(day),
+    }),
+  remove: (token, id) => apiFetch(`/non-working-days/${id}`, { method: 'DELETE', token }),
+}
+
+/** Endpoints de la vista global, que no pertenecen a ningun proyecto. */export const overviewApi = {
   capacity: (token, params = {}) => {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/capacity${query ? `?${query}` : ''}`, { token })

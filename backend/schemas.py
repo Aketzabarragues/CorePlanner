@@ -16,8 +16,17 @@ from pydantic import (
     model_validator,
 )
 
-from .models import COMPANY_ROLE_LABELS, CompanyRole, ProjectStatus, TaskStatus
-from .services.capacity import hours_to_json
+from .models import (
+    COMPANY_ROLE_LABELS,
+    EMPLOYMENT_TYPE_LABELS,
+    SENIORITY_LABELS,
+    CompanyRole,
+    EmploymentType,
+    NonWorkingDayScope,
+    ProjectStatus,
+    TaskStatus,
+)
+from .services.units import hours_to_json
 
 Hours = Annotated[
     Decimal,
@@ -96,6 +105,11 @@ class PersonOut(BaseModel):
     department_name: str | None = None
     weekly_base_hours: Hours
     is_global_admin: bool
+    job_title: str | None = None
+    seniority: str | None = None
+    seniority_label: str | None = None
+    employment_type: str = EmploymentType.OBJETIVO.value
+    employment_type_label: str = EMPLOYMENT_TYPE_LABELS[EmploymentType.OBJETIVO.value]
 
 
 class PersonCreate(BaseModel):
@@ -109,12 +123,29 @@ class PersonCreate(BaseModel):
     weekly_base_hours: Decimal = Field(
         default=Decimal("40.00"), ge=0, max_digits=8, decimal_places=2
     )
+    job_title: str | None = Field(default=None, max_length=120)
+    seniority: str | None = None
+    employment_type: str = EmploymentType.OBJETIVO.value
 
     @field_validator("company_role")
     @classmethod
     def _known_company_role(cls, value: str) -> str:
         if value not in COMPANY_ROLE_LABELS:
             raise ValueError("El rol de empresa no existe")
+        return value
+
+    @field_validator("seniority")
+    @classmethod
+    def _known_seniority(cls, value: str | None) -> str | None:
+        if value is not None and value not in SENIORITY_LABELS:
+            raise ValueError("El nivel no existe")
+        return value
+
+    @field_validator("employment_type")
+    @classmethod
+    def _known_employment_type(cls, value: str) -> str:
+        if value not in EMPLOYMENT_TYPE_LABELS:
+            raise ValueError("El tipo de contrato no existe")
         return value
 
 
@@ -128,12 +159,29 @@ class PersonUpdate(BaseModel):
     weekly_base_hours: Decimal | None = Field(
         default=None, ge=0, max_digits=8, decimal_places=2
     )
+    job_title: str | None = Field(default=None, max_length=120)
+    seniority: str | None = None
+    employment_type: str | None = None
 
     @field_validator("company_role")
     @classmethod
     def _known_company_role(cls, value: str | None) -> str | None:
         if value is not None and value not in COMPANY_ROLE_LABELS:
             raise ValueError("El rol de empresa no existe")
+        return value
+
+    @field_validator("seniority")
+    @classmethod
+    def _known_seniority(cls, value: str | None) -> str | None:
+        if value is not None and value not in SENIORITY_LABELS:
+            raise ValueError("El nivel no existe")
+        return value
+
+    @field_validator("employment_type")
+    @classmethod
+    def _known_employment_type(cls, value: str | None) -> str | None:
+        if value is not None and value not in EMPLOYMENT_TYPE_LABELS:
+            raise ValueError("El tipo de contrato no existe")
         return value
 
     def changed_fields(self) -> set[str]:
@@ -348,3 +396,136 @@ class TaskUpdate(BaseModel):
     def changed_fields(self) -> set[str]:
         """Nombres de los campos presentes en la peticion."""
         return self.model_fields_set
+
+
+class ScheduleOut(BaseModel):
+    """Version de horario de una persona.
+
+    Los dias van en centimas de hora enteras y las horas salen ya convertidas
+    en el unico punto de paso a JSON del motor.
+    """
+
+    id: int
+    valid_from: date
+    days: list[int]
+    hours: list[Hours]
+    availability_factor: int
+    note: str | None = None
+
+
+class ScheduleCreate(BaseModel):
+    """Alta de una version de horario."""
+
+    valid_from: date
+    days: list[int] = Field(min_length=7, max_length=7)
+    availability_factor: int = Field(default=100, ge=0, le=100)
+    note: str | None = Field(default=None, max_length=255)
+
+    @field_validator("days")
+    @classmethod
+    def _valid_days(cls, value: list[int]) -> list[int]:
+        for day in value:
+            if not 0 <= day <= 10000:
+                raise ValueError("Las horas de un dia van de 0 a 10000 centimas")
+        return value
+
+
+class PersonSkillOut(BaseModel):
+    """Competencia de una persona, con su nivel."""
+
+    skill_id: int
+    name: str
+    level: int
+
+
+class PersonSkillIn(BaseModel):
+    """Nivel de una persona en una competencia."""
+
+    skill_id: int
+    level: int = Field(ge=1, le=3)
+
+
+class PersonSkillsIn(BaseModel):
+    """Conjunto de competencias de una persona."""
+
+    skills: list[PersonSkillIn]
+
+
+class SkillOut(BaseModel):
+    """Competencia del catalogo."""
+
+    id: int
+    name: str
+
+
+class SkillCreate(BaseModel):
+    """Alta de competencia en el catalogo."""
+
+    name: str = Field(min_length=1, max_length=100)
+
+
+class PersonSummaryOut(BaseModel):
+    """Persona del directorio, con su horario vigente y su carga."""
+
+    id: int
+    name: str
+    email: str
+    company_role: str
+    company_role_label: str
+    job_title: str | None = None
+    seniority: str | None = None
+    seniority_label: str | None = None
+    employment_type: str
+    employment_type_label: str
+    department_id: int | None = None
+    department_name: str | None = None
+    weekly_base_hours: Hours
+    schedule: ScheduleOut | None = None
+    skills: list[PersonSkillOut] = []
+    capacity: Hours | None = None
+    hours: Hours | None = None
+    is_overloaded: bool | None = None
+    week: str
+
+
+class PersonProfileOut(PersonSummaryOut):
+    """Persona con su historial completo de horarios."""
+
+    schedule_history: list[ScheduleOut] = []
+
+
+class NonWorkingDayOut(BaseModel):
+    """Dia no laborable, con su alcance."""
+
+    id: int
+    date: date
+    name: str
+    scope: str
+    department_id: int | None = None
+    department_name: str | None = None
+    half_day: bool
+
+
+class NonWorkingDayCreate(BaseModel):
+    """Alta de dia no laborable."""
+
+    date: date
+    name: str = Field(min_length=1, max_length=255)
+    scope: str = NonWorkingDayScope.GLOBAL.value
+    department_id: int | None = None
+    half_day: bool = False
+
+    @field_validator("scope")
+    @classmethod
+    def _known_scope(cls, value: str) -> str:
+        if value not in {item.value for item in NonWorkingDayScope}:
+            raise ValueError("El alcance no existe")
+        return value
+
+    @model_validator(mode="after")
+    def _check_scope(self) -> NonWorkingDayCreate:
+        if self.scope == NonWorkingDayScope.DEPARTMENT.value and self.department_id is None:
+            raise ValueError("Un dia no laborable de departamento necesita su departamento")
+        if self.scope == NonWorkingDayScope.GLOBAL.value and self.department_id is not None:
+            raise ValueError("Un dia no laborable global no lleva departamento")
+        return self

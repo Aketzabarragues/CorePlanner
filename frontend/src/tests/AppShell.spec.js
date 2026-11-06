@@ -98,6 +98,7 @@ function buildRouter() {
       { path: '/capacity', name: 'global-capacity', component: Empty },
       { path: '/gantt', name: 'global-gantt', component: Empty },
       { path: '/departments', name: 'departments', component: Empty },
+      { path: '/people', name: 'people', component: Empty },
       { path: '/configuration', name: 'configuration', component: Empty },
       { path: '/projects/:id', name: 'project', component: Empty },
       { path: '/projects/:id/capacity', name: 'capacity', component: Tracked },

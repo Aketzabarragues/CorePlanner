@@ -15,6 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 COLUMN_ADDITIONS = (
     ("users", "company_role", "VARCHAR(32) NOT NULL DEFAULT 'tecnico'"),
+    ("users", "job_title", "VARCHAR(120) NULL"),
+    ("users", "seniority", "VARCHAR(32) NULL"),
+    ("users", "employment_type", "VARCHAR(32) NOT NULL DEFAULT 'objetivo'"),
     ("projects", "owner_id", "INTEGER NULL"),
 )
 

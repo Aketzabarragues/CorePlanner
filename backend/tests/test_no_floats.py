@@ -20,7 +20,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 ARITH_OPS = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow)
 
-JSON_BOUNDARY = ("services/capacity.py", "hours_to_json")
+JSON_BOUNDARY = ("services/units.py", "hours_to_json")
 """Funcion autorizada a convertir horas en float para la respuesta JSON."""
 
 

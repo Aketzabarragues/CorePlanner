@@ -6,6 +6,9 @@ Uso:
 Borra la base de datos de desarrollo si existe y la vuelve a crear con un
 proyecto de automatizacion industrial y las tareas que fuerzan los casos
 limite del motor de capacidad.
+
+El equipo, sus horarios versionados, sus competencias y los dias no laborables
+son los de la demo visual, para que las dos sirvan de contraste.
 """
 
 from __future__ import annotations
@@ -28,12 +31,19 @@ from backend.database import (  # noqa: E402
 from backend.models import (  # noqa: E402
     CompanyRole,
     Department,
+    EmploymentType,
+    NonWorkingDay,
+    NonWorkingDayScope,
+    PersonSkill,
     Project,
     ProjectMember,
     Role,
+    Seniority,
+    Skill,
     Task,
     TaskStatus,
     User,
+    WorkingSchedule,
 )
 
 DEFAULT_PASSWORD = "coreplanner"
@@ -54,11 +64,200 @@ PROJECT_NAME_OFFICE = "Red de tuberias linea 2"
 
 DEPARTMENT_AUTOMATION = "Automatización & SCADA"
 DEPARTMENT_OFFICE = "Oficina Técnica / EPLAN"
+DEPARTMENT_MAINTENANCE = "Mantenimiento"
+DEPARTMENT_QUALITY = "Control de Calidad"
+
+JORNADA_COMPLETA = (800, 800, 800, 800, 800, 0, 0)
+"""Lunes a viernes de 8 h, en centimas de hora."""
+
+JORNADA_REDUCIDA = (750, 750, 750, 750, 750, 0, 0)
+"""Lunes a viernes de 7,5 h."""
+
+JORNADA_CORTA = (600, 600, 600, 0, 0, 0, 0)
+"""Lunes a miercoles de 6 h."""
+
+SIN_HORARIO = ()
+
+EQUIPO = (
+    {
+        "name": "Admin",
+        "email": "admin@example.com",
+        "company_role": CompanyRole.GERENTE.value,
+        "department": None,
+        "job_title": "Gerente",
+        "seniority": None,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "global_admin": True,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"Gestión de proyectos": 3},
+    },
+    {
+        "name": "Ana",
+        "email": "ana@example.com",
+        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
+        "department": DEPARTMENT_AUTOMATION,
+        "job_title": "Project Manager",
+        "seniority": Seniority.SENIOR.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"TIA Portal": 3, "SCADA": 3, "Gestión de proyectos": 3, "PLC": 2},
+    },
+    {
+        "name": "Sebastián",
+        "email": "sebastian@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": DEPARTMENT_AUTOMATION,
+        "job_title": "Ingeniero PLC",
+        "seniority": Seniority.SENIOR.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": (
+            (date(2025, 9, 1), JORNADA_REDUCIDA, 100, "Jornada reducida"),
+            (date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),
+        ),
+        "skills": {"TIA Portal": 3, "PLC": 3, "Redes industriales": 2, "SCADA": 2},
+    },
+    {
+        "name": "Marta",
+        "email": "marta@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": DEPARTMENT_AUTOMATION,
+        "job_title": "Ingeniero SCADA",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.TECHO.value,
+        "weekly_base_hours": 40,
+        "schedules": (
+            (date(2025, 1, 6), JORNADA_COMPLETA, 100, "Tiempo completo"),
+            (date(2026, 1, 5), JORNADA_COMPLETA, 80, "Jornada parcial al 80 %"),
+        ),
+        "skills": {"SCADA": 3, "HMI": 3, "TIA Portal": 2},
+    },
+    {
+        "name": "Diego",
+        "email": "diego@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": DEPARTMENT_AUTOMATION,
+        "job_title": "Ingeniero PLC",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 3, 2), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"PLC": 3, "SCADA": 2, "TIA Portal": 2},
+    },
+    {
+        "name": "Héctor",
+        "email": "hector@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": DEPARTMENT_AUTOMATION,
+        "job_title": "Ingeniero PLC",
+        "seniority": Seniority.JUNIOR.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        # Sin horario y sin horas base: su capacidad se desconoce, de modo que
+        # no se le marca como sobrecargado. El motor no inventa un limite que
+        # nadie ha definido.
+        "weekly_base_hours": 0,
+        "schedules": (),
+        "skills": {"PLC": 2, "Redes industriales": 1},
+    },
+    {
+        "name": "Jorge",
+        "email": "jorge@example.com",
+        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
+        "department": DEPARTMENT_OFFICE,
+        "job_title": "Diseñador Eléctrico",
+        "seniority": Seniority.SENIOR.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"EPLAN": 3, "Mecánica": 2, "Cableado": 2},
+    },
+    {
+        "name": "Lucía",
+        "email": "lucia@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": DEPARTMENT_OFFICE,
+        "job_title": "Ingeniero Eléctrico",
+        "seniority": Seniority.JUNIOR.value,
+        "employment_type": EmploymentType.TECHO.value,
+        "weekly_base_hours": 18,
+        "schedules": (
+            (date(2025, 1, 6), JORNADA_COMPLETA, 100, "Tiempo completo"),
+            (date(2026, 4, 1), JORNADA_CORTA, 100, "Reducción de jornada a 3 días"),
+        ),
+        "skills": {"EPLAN": 2, "Cableado": 3},
+    },
+    {
+        "name": "Iván",
+        "email": "ivan@example.com",
+        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
+        "department": DEPARTMENT_MAINTENANCE,
+        "job_title": "Técnico Mecánico",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.TECHO.value,
+        "weekly_base_hours": 40,
+        "schedules": (
+            (date(2024, 1, 8), JORNADA_COMPLETA, 80, "Jornada parcial al 80 %"),
+            (
+                date(2026, 7, 1),
+                JORNADA_COMPLETA,
+                100,
+                "Jornada completa tras reincorporación",
+            ),
+        ),
+        "skills": {"Mecánica": 3, "Soldadura": 3, "Mantenimiento": 2},
+    },
+    {
+        "name": "Nuria",
+        "email": "nuria@example.com",
+        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
+        "department": DEPARTMENT_QUALITY,
+        "job_title": "Técnico QC",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.MEJOR_ESFUERZO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"Análisis": 3, "Metrología": 2, "Soldadura": 1},
+    },
+)
+
+DIAS_NO_LABORABLES = (
+    (date(2026, 10, 12), "Fiesta Nacional", None, False),
+    (date(2026, 11, 2), "Todos los Santos", None, False),
+    (date(2026, 11, 9), "Día de la Comunidad", DEPARTMENT_OFFICE, False),
+    (date(2026, 11, 16), "Formación interna", DEPARTMENT_AUTOMATION, True),
+    (date(2026, 12, 7), "Día de la Constitución", None, False),
+    (date(2026, 12, 24), "Nochebuena", None, True),
+    (date(2026, 12, 31), "Nochevieja", None, True),
+)
+"""Fecha, motivo, departamento (None es global) y medio dia."""
 
 # Jueves 2026-11-05 a miercoles 2026-11-11: cruza el fin de semana y reparte
 # las horas entre 2026-W45 y 2026-W46.
 JUEVES = date(2026, 11, 5)
 MIERCOLES = date(2026, 11, 11)
+
+
+async def _create_team(session) -> dict[str, User]:
+    """Crea el equipo con su departamento, su horario y sus competencias."""
+    users: dict[str, User] = {}
+    for entry in EQUIPO:
+        user = User(
+            name=entry["name"],
+            email=entry["email"],
+            hashed_password=hash_password(DEFAULT_PASSWORD),
+            company_role=entry["company_role"],
+            job_title=entry["job_title"],
+            seniority=entry["seniority"],
+            employment_type=entry["employment_type"],
+            weekly_base_hours=entry["weekly_base_hours"],
+            is_global_admin=entry.get("global_admin", False),
+        )
+        session.add(user)
+        users[entry["email"]] = user
+    await session.flush()
+    return users
 
 
 async def populate(session) -> int:
@@ -69,46 +268,83 @@ async def populate(session) -> int:
         session.add(role)
         roles[name] = role
 
-    ana = User(
-        name="Ana",
-        email="ana@example.com",
-        hashed_password=hash_password(DEFAULT_PASSWORD),
-        weekly_base_hours=40,
-        company_role=CompanyRole.JEFE_DEPARTAMENTO.value,
-    )
-    sebastian = User(
-        name="Sebastián",
-        email="sebastian@example.com",
-        hashed_password=hash_password(DEFAULT_PASSWORD),
-        weekly_base_hours=40,
-        company_role=CompanyRole.TECNICO.value,
-    )
-    jorge = User(
-        name="Jorge",
-        email="jorge@example.com",
-        hashed_password=hash_password(DEFAULT_PASSWORD),
-        weekly_base_hours=40,
-        company_role=CompanyRole.JEFE_DEPARTAMENTO.value,
-    )
-    admin = User(
-        name="Admin",
-        email="admin@example.com",
-        hashed_password=hash_password(DEFAULT_PASSWORD),
-        weekly_base_hours=40,
-        is_global_admin=True,
-        company_role=CompanyRole.GERENTE.value,
-    )
-    session.add_all([ana, sebastian, jorge, admin])
+    users = await _create_team(session)
+
+    departments: dict[str, Department] = {}
+    for name, manager_email in (
+        (DEPARTMENT_AUTOMATION, "ana@example.com"),
+        (DEPARTMENT_OFFICE, "jorge@example.com"),
+        (DEPARTMENT_MAINTENANCE, "ivan@example.com"),
+        (DEPARTMENT_QUALITY, "nuria@example.com"),
+    ):
+        department = Department(name=name, manager_id=users[manager_email].id)
+        session.add(department)
+        departments[name] = department
     await session.flush()
 
-    automatizacion = Department(name=DEPARTMENT_AUTOMATION, manager_id=ana.id)
-    oficina = Department(name=DEPARTMENT_OFFICE, manager_id=jorge.id)
-    session.add_all([automatizacion, oficina])
-    await session.flush()
+    skills: dict[str, Skill] = {}
+    for entry in EQUIPO:
+        user = users[entry["email"]]
+        user.department_id = departments[entry["department"]].id if entry["department"] else None
+        for name, level in entry["skills"].items():
+            if name not in skills:
+                skill = Skill(name=name)
+                session.add(skill)
+                await session.flush()
+                skills[name] = skill
+            session.add(PersonSkill(user_id=user.id, skill_id=skills[name].id, level=level))
+        for valid_from, days, factor, note in entry["schedules"]:
+            session.add(
+                WorkingSchedule(
+                    user_id=user.id,
+                    valid_from=valid_from,
+                    availability_factor=factor,
+                    note=note,
+                    **dict(
+                        zip(
+                            (
+                                "monday",
+                                "tuesday",
+                                "wednesday",
+                                "thursday",
+                                "friday",
+                                "saturday",
+                                "sunday",
+                            ),
+                            days,
+                            strict=True,
+                        )
+                    ),
+                )
+            )
 
-    ana.department_id = automatizacion.id
-    sebastian.department_id = automatizacion.id
-    jorge.department_id = oficina.id
+    for day, name, department_name, half_day in DIAS_NO_LABORABLES:
+        if department_name is None:
+            session.add(
+                NonWorkingDay(
+                    date=day,
+                    name=name,
+                    scope=NonWorkingDayScope.GLOBAL.value,
+                    half_day=half_day,
+                )
+            )
+        else:
+            session.add(
+                NonWorkingDay(
+                    date=day,
+                    name=name,
+                    scope=NonWorkingDayScope.DEPARTMENT.value,
+                    department_id=departments[department_name].id,
+                    half_day=half_day,
+                )
+            )
+
+    ana = users["ana@example.com"]
+    sebastian = users["sebastian@example.com"]
+    jorge = users["jorge@example.com"]
+
+    automatizacion = departments[DEPARTMENT_AUTOMATION]
+    oficina = departments[DEPARTMENT_OFFICE]
 
     project = Project(
         name=PROJECT_NAME,
@@ -306,11 +542,11 @@ async def main() -> None:
     print("  Departamentos:")
     print(f"    {DEPARTMENT_AUTOMATION} (responsable: Ana)")
     print(f"    {DEPARTMENT_OFFICE} (responsable: Jorge)")
+    print(f"    {DEPARTMENT_MAINTENANCE} (responsable: Iván)")
+    print(f"    {DEPARTMENT_QUALITY} (responsable: Nuria)")
     print("  Usuarios:")
-    print("    admin@example.com      (gerente, administrador global)")
-    print("    ana@example.com        (jefe de departamento)")
-    print("    sebastian@example.com  (tecnico)")
-    print("    jorge@example.com      (jefe de departamento)")
+    for entry in EQUIPO:
+        print(f"    {entry['email']:<26} ({entry['company_role']})")
     print(f"  Contrasena para todos: {DEFAULT_PASSWORD}")
 
 

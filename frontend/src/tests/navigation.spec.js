@@ -53,6 +53,7 @@ describe('navegacion', () => {
       'global-capacity',
       'global-gantt',
       'departments',
+      'people',
       'configuration',
     ])
     expect(GLOBAL_SECTIONS).toHaveLength(2)

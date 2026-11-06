@@ -51,21 +51,32 @@ funciones son puras: no tocan la base de datos ni dependen de estado global.
 
 ```
 business_days(start, end)     -> dias laborables, sin sabados ni domingos
+working_days(start, end, ...)  -> dias laborables con su peso (festivos de medio dia)
 iso_week_key(day)             -> "2026-W10"
 split_units(total_hours, days)-> reparto en centimas de hora
+split_weighted_units(...)      -> reparto proporcional al peso de cada dia
 compute_task_week_units(...)  -> carga de una tarea por semana ISO
-build_capacity_report(users, tasks) -> matriz de ocupacion
+build_capacity_report(people, tasks) -> matriz de ocupacion
 ```
 
 El algoritmo:
 
 1. Se cuentan los dias laborables entre `start_date` y `end_date`, excluyendo
-   sabados y domingos.
-2. Las `estimated_hours` se reparten de forma uniforme entre esos dias.
+   sabados, domingos y los dias no laborables que apliquen a la persona
+   asignada. Un festivo de medio dia pesa la mitad que un dia normal.
+2. Las `estimated_hours` se reparten de forma uniforme entre esos dias, en
+   proporcion a su peso.
 3. Cada dia laborable imputa su carga a la semana ISO correspondiente, con el
    formato `YYYY-Www`.
-4. La suma por persona y semana se compara con `weekly_base_hours`: si lo
-   supera, la celda queda marcada con `is_overloaded`.
+4. La capacidad de la celda sale del **horario vigente** de la persona en esa
+   semana: el ultimo horario cuya entrada en vigor no es posterior al lunes.
+   La capacidad es la suma de sus dias multiplicada por el factor de
+   disponibilidad.
+5. Si la persona no tiene horario, se usan sus `weekly_base_hours`. Si la
+   capacidad resuelta queda en cero, **se desconoce**: no se marca como
+   sobrecargada, porque el motor no inventa un limite que nadie ha definido.
+6. La suma por persona y semana se compara con esa capacidad: si la supera, la
+   celda queda marcada con `is_overloaded`.
 
 La aritmetica se hace en centimas de hora enteras (`Decimal` con
 `ROUND_HALF_UP`), no en coma flotante. Asi el total del informe coincide
@@ -96,9 +107,12 @@ coreplanner/
 │   │   ├── kanban.py         # tablero por estados
 │   │   ├── me.py             # ambito de la persona que entra
 │   │   ├── members.py        # miembros del proyecto
+│   │   ├── non_working_days.py # dias no laborables del calendario
 │   │   ├── overview.py       # capacidad y Gantt globales
+│   │   ├── people.py         # directorio, horarios y competencias
 │   │   ├── projects.py       # listado, alta y edicion de proyectos
 │   │   ├── roles.py          # catalogo de roles
+│   │   ├── skills.py         # catalogo de competencias
 │   │   ├── tasks.py          # CRUD de tareas
 │   │   └── users.py          # personas de la organizacion
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
@@ -118,8 +132,12 @@ coreplanner/
 │   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
 │   │   ├── kanban_repository.py   # lectura del tablero
+│   │   ├── people.py              # directorio, horarios y competencias
+│   │   ├── schedule.py            # horario versionado y capacidad (puro)
 │   │   ├── scope.py               # ambito por rol de empresa
-│   │   └── tasks.py              # reglas de alta, edicion y borrado
+│   │   ├── tasks.py               # reglas de alta, edicion y borrado
+│   │   ├── units.py               # centimas de hora (puro)
+│   │   └── work_calendar.py       # dias no laborables
 │   ├── .env.example
 │   └── tests/
 ├── frontend/
@@ -134,11 +152,12 @@ coreplanner/
 │       │   ├── CellBreakdown.vue   # desglose de una celda
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
+│       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
-│       ├── utils/        # helpers puros (gantt, kanban, navegacion)
-│       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Pendientes
+│       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
+│       ├── views/        # Login, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Pendientes
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -154,12 +173,16 @@ coreplanner/
 
 | Tabla | Campos clave |
 | --- | --- |
-| `users` | `id`, `name`, `email`, `hashed_password`, `is_global_admin`, `weekly_base_hours` (40 por defecto), `department_id` |
+| `users` | `id`, `name`, `email`, `hashed_password`, `is_global_admin`, `company_role`, `job_title`, `seniority`, `employment_type`, `weekly_base_hours` (40 por defecto), `department_id` |
 | `roles` | `id`, `name`, `permissions_json` |
 | `departments` | `id`, `name` (unico), `manager_id` |
-| `projects` | `id`, `parent_id` (subproyectos), `name`, `status`, `department_id` |
+| `projects` | `id`, `parent_id` (subproyectos), `name`, `status`, `department_id`, `owner_id` |
 | `project_members` | `user_id`, `project_id`, `role_id` (clave primaria compuesta) |
 | `tasks` | `id`, `project_id`, `assigned_to`, `title`, `status`, `start_date`, `end_date`, `estimated_hours` |
+| `working_schedules` | `user_id`, `valid_from`, `monday`..`sunday` (centimas), `availability_factor`, `note` |
+| `non_working_days` | `date`, `name`, `scope` (global o de departamento), `department_id`, `half_day` |
+| `skills` | `id`, `name` (unico) |
+| `person_skills` | `user_id`, `skill_id`, `level` (de 1 a 3) |
 
 Un usuario puede tener un rol distinto en cada proyecto. El token JWT lleva la
 lista de permisos por `project_id`, de forma que la autorizacion se resuelve
@@ -238,12 +261,18 @@ de `.venv` y el servidor se reinicia en bucle.
 
 Todos con la contrasena `coreplanner`:
 
-| Email | Rol | Departamento |
+| Email | Rol de empresa | Departamento |
 | --- | --- | --- |
-| `admin@example.com` | Administrador global | sin departamento |
-| `ana@example.com` | Project Manager | Automatización & SCADA |
-| `sebastian@example.com` | Ingeniero | Automatización & SCADA |
-| `jorge@example.com` | Lector | Oficina Técnica / EPLAN |
+| `admin@example.com` | Gerente | sin departamento |
+| `ana@example.com` | Jefe de departamento | Automatización & SCADA |
+| `sebastian@example.com` | Tecnico | Automatización & SCADA |
+| `marta@example.com` | Tecnico | Automatización & SCADA |
+| `diego@example.com` | Tecnico | Automatización & SCADA |
+| `hector@example.com` | Tecnico | Automatización & SCADA |
+| `jorge@example.com` | Jefe de departamento | Oficina Técnica / EPLAN |
+| `lucia@example.com` | Tecnico | Oficina Técnica / EPLAN |
+| `ivan@example.com` | Jefe de departamento | Mantenimiento |
+| `nuria@example.com` | Jefe de departamento | Control de Calidad |
 
 El frontend hace login automatico con `admin@example.com` al abrir y guarda el
 token en `localStorage`.
@@ -279,6 +308,15 @@ token en `localStorage`.
 | `PATCH` | `/api/projects/{id}` | gerente |
 | `POST` | `/api/projects/{id}/members` | gerente |
 | `DELETE` | `/api/projects/{id}/members/{user_id}` | gerente |
+| `GET` | `/api/people` | token valido; directorio segun el ambito, con `?week=` |
+| `GET` | `/api/people/{id}` | token valido; ficha con el historial de horarios |
+| `POST` | `/api/people/{id}/schedules` | gerente; nueva version de horario |
+| `PUT` | `/api/people/{id}/skills` | gerente; fija las competencias de la persona |
+| `GET` | `/api/skills` | token valido; catalogo de competencias |
+| `POST` | `/api/skills` | gerente |
+| `GET` | `/api/non-working-days` | token valido; filtros `from`, `to` y `department_id` |
+| `POST` | `/api/non-working-days` | gerente |
+| `DELETE` | `/api/non-working-days/{id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
 | `GET` | `/api/gantt` | token valido |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
@@ -339,6 +377,38 @@ Reglas del dominio, en `backend/services/configuration.py`:
 - Una persona no se mete dos veces en el mismo proyecto.
 - Los cambios son parciales: un `PATCH` solo toca los campos que van en la
   peticion, como en las tareas.
+
+## Personas y competencias
+
+La pantalla `/people` es global y tiene tres pestanas: **Directorio**,
+**Competencias** y **Días no laborables**. La persona deja de ser un usuario con
+acceso y pasa a tener una identidad profesional.
+
+| Pieza | Que resuelve |
+| --- | --- |
+| Horario versionado | La capacidad deja de ser un escalar y depende de la semana |
+| Factor de disponibilidad | Permite "hasta marzo al 100 %, desde abril al 80 %" |
+| Días no laborables con alcance | Una tarea que cruza un puente se reparte en los dias que existen |
+| Puesto, nivel y tipo de contrato | Identidad profesional de la persona |
+| Competencias con nivel 1-3 | Catalogo de habilidades y matriz |
+
+Reglas del motor, en `backend/services/schedule.py`:
+
+- El horario vigente de una semana es el ultimo con fecha de entrada en vigor
+  anterior o igual al lunes de esa semana. Las versiones anteriores se
+  conservan: el historial dice como ha cambiado la capacidad.
+- La capacidad de la semana es la suma de las horas de los siete dias menos los
+  dias no laborables que apliquen, multiplicada por el factor de disponibilidad.
+- Un dia no laborable global se quita a todo el mundo; uno de departamento,
+  solo a quien pertenece a ese departamento. Un festivo de medio dia pesa la
+  mitad que un dia normal.
+- Si la persona no tiene horario, se usan sus horas base semanales. Si la
+  capacidad resuelta queda en cero, **se desconoce**: no se marca como
+  sobrecargada, porque el motor no inventa un limite que nadie ha definido.
+
+Quien ve el directorio depende del rol de empresa: el gerente ve a todo el
+equipo con su carga, el jefe ve a su departamento con su carga y el tecnico ve
+a su departamento **sin** la carga.
 
 ## Gestion de tareas
 
@@ -549,8 +619,9 @@ lateral, cabecera con migas, selector de contexto y alta de tarea, navegacion
 dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
 semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
 (por proyecto y consolidado), tablero Kanban, vista de departamentos, ambito
-por rol de empresa (gerente, jefe de departamento y tecnico) y pantalla de
-configuracion de la organizacion.
+por rol de empresa (gerente, jefe de departamento y tecnico), pantalla de
+configuracion de la organizacion y bloque de personas: horario versionado,
+dias no laborables con alcance, competencias y pantalla de personas.
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
 proyecto desde la vista de proyecto, el cambio de rol y la pantalla de "Mi
 trabajo".

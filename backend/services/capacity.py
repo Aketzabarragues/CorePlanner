@@ -1,7 +1,8 @@
 """Motor de calculo de capacidad por semanas ISO.
 
 Reparte las horas estimadas de cada tarea entre los dias laborables que
-abarca y las imputa a la semana ISO correspondiente de cada persona.
+abarca y las imputa a la semana ISO correspondiente de cada persona. La
+capacidad de la semana sale del horario vigente de la persona.
 
 Las operaciones son puras: no hay acceso a base de datos ni estado global.
 La aritmetica trabaja en centimas de hora enteras, de modo que el total del
@@ -12,23 +13,37 @@ entrar, con un desvio maximo de 0,005 h por tarea.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Protocol
 
-HOURS_SCALE = 100
-"""Centimas de hora en las que se trabaja internamente."""
+from .schedule import FULL_DAY, ScheduleVersion, capacity_units_for_week
+from .units import from_units, hours_to_json, to_units
 
-
-def hours_to_json(hours: Decimal) -> float:
-    """Convierte las horas a un numero JSON.
-
-    El valor viene de centimas enteras, de modo que tiene como maximo dos
-    decimales y se representa de forma exacta en JSON.
-    """
-    return float(hours)
+__all__ = [
+    "CapacityError",
+    "CapacityReport",
+    "InvalidEstimatedHoursError",
+    "InvalidTaskRangeError",
+    "NoBusinessDaysError",
+    "PersonCapacity",
+    "TaskLike",
+    "UserLoad",
+    "WeekLoad",
+    "build_capacity_report",
+    "business_days",
+    "compute_task_week_load",
+    "compute_task_week_units",
+    "from_units",
+    "hours_to_json",
+    "iso_week_key",
+    "split_units",
+    "split_weighted_units",
+    "to_units",
+    "working_days",
+]
 
 
 class CapacityError(Exception):
@@ -47,14 +62,6 @@ class InvalidEstimatedHoursError(CapacityError):
     """Las horas estimadas de la tarea no son validas."""
 
 
-class UserLike(Protocol):
-    """Datos de persona que intervienen en el calculo."""
-
-    id: int
-    name: str
-    weekly_base_hours: Decimal
-
-
 class TaskLike(Protocol):
     """Datos de tarea que intervienen en el calculo."""
 
@@ -66,20 +73,44 @@ class TaskLike(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class PersonCapacity:
+    """Perfil de capacidad de una persona.
+
+    Los dias no laborables que se apliquen se expresan como un mapa de fecha a
+    peso, con el peso en medios dias: 2 es un dia laborable completo, 1 un
+    festivo de medio dia y 0 un festivo de jornada entera.
+    """
+
+    user_id: int
+    name: str
+    weekly_base_hours: Decimal | None = None
+    schedules: tuple[ScheduleVersion, ...] = ()
+    holidays: Mapping[date, int] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class WeekLoad:
     """Carga de una persona en una semana ISO.
 
     Las horas se guardan en centimas enteras y se exponen como Decimal, de
-    modo que la aritmetica no pasa por coma flotante.
+    modo que la aritmetica no pasa por coma flotante. La capacidad es None
+    cuando la persona no tiene ninguna definida.
     """
 
     week: str
     units: int
+    capacity_units: int | None
     is_overloaded: bool
 
     @property
     def hours(self) -> Decimal:
         return from_units(self.units)
+
+    @property
+    def capacity(self) -> Decimal | None:
+        if self.capacity_units is None:
+            return None
+        return from_units(self.capacity_units)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +119,7 @@ class UserLoad:
 
     user_id: int
     name: str
-    weekly_base_hours: Decimal
+    weekly_base_hours: Decimal | None
     cells: tuple[WeekLoad, ...]
 
     @property
@@ -120,13 +151,22 @@ class CapacityReport:
                 {
                     "user_id": row.user_id,
                     "name": row.name,
-                    "weekly_base_hours": hours_to_json(row.weekly_base_hours),
+                    "weekly_base_hours": (
+                        hours_to_json(row.weekly_base_hours)
+                        if row.weekly_base_hours is not None
+                        else None
+                    ),
                     "total_hours": hours_to_json(row.total_hours),
                     "has_overload": row.has_overload,
                     "cells": [
                         {
                             "week": cell.week,
                             "hours": hours_to_json(cell.hours),
+                            "capacity": (
+                                hours_to_json(cell.capacity)
+                                if cell.capacity is not None
+                                else None
+                            ),
                             "is_overloaded": cell.is_overloaded,
                         }
                         for cell in row.cells
@@ -154,6 +194,26 @@ def business_days(start: date, end: date) -> list[date]:
     return days
 
 
+def working_days(
+    start: date,
+    end: date,
+    holidays: Mapping[date, int] | None = None,
+) -> list[tuple[date, int]]:
+    """Dias laborables del rango con su peso, en medios dias.
+
+    Los sabados y domingos no cuentan. Los dias no laborables que apliquen
+    pesan la mitad o no pesan nada, segun sean de medio dia o de jornada
+    entera.
+    """
+    weights = holidays or {}
+    days: list[tuple[date, int]] = []
+    for day in business_days(start, end):
+        weight = weights.get(day, FULL_DAY)
+        if weight > 0:
+            days.append((day, weight))
+    return days
+
+
 def iso_week_key(day: date) -> str:
     """Clave de semana ISO en formato YYYY-Www.
 
@@ -162,25 +222,6 @@ def iso_week_key(day: date) -> str:
     """
     iso = day.isocalendar()
     return f"{iso[0]:04d}-W{iso[1]:02d}"
-
-
-def to_units(hours: Decimal | float | int) -> int:
-    """Convierte horas a centimas de hora, redondeando a la mitad hacia arriba."""
-    value = hours if isinstance(hours, Decimal) else Decimal(str(hours))
-    return int(
-        (value * HOURS_SCALE).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    )
-
-
-def from_units(units: int) -> Decimal:
-    """Convierte centimas de hora a horas.
-
-    Usa la misma politica de redondeo que to_units, de modo que el ciclo
-    to_units -> from_units no introduce desviaciones.
-    """
-    return (Decimal(units) / HOURS_SCALE).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
 
 
 def split_units(total_hours: Decimal | float | int, days: int) -> list[int]:
@@ -196,10 +237,36 @@ def split_units(total_hours: Decimal | float | int, days: int) -> list[int]:
     return [base + 1 if index < remainder else base for index in range(days)]
 
 
+def split_weighted_units(total_units: int, weights: Sequence[int]) -> list[int]:
+    """Reparte las centimas entre los dias en proporcion a su peso.
+
+    Un dia de medio dia recibe la mitad de horas que uno de jornada
+    completa. El sobrante se reparte entre los primeros dias, de modo que la
+    suma de las partes coincide exactamente con el total.
+    """
+    total_weight = sum(weights)
+    if total_weight <= 0:
+        raise NoBusinessDaysError("La tarea no tiene dias laborables que repartir")
+    parts: list[int] = []
+    assigned = 0
+    for weight in weights:
+        part = (total_units * weight) // total_weight
+        parts.append(part)
+        assigned += part
+    leftover = total_units - assigned
+    for index in range(len(parts)):
+        if leftover <= 0:
+            break
+        parts[index] += 1
+        leftover -= 1
+    return parts
+
+
 def compute_task_week_units(
     start_date: date,
     end_date: date,
     estimated_hours: Decimal | float | int,
+    holidays: Mapping[date, int] | None = None,
 ) -> dict[str, int]:
     """Carga de una tarea por semana ISO, en centimas de hora.
 
@@ -211,16 +278,18 @@ def compute_task_week_units(
         raise InvalidEstimatedHoursError(
             f"Las horas estimadas no pueden ser negativas: {estimated_hours}"
         )
-    days = business_days(start_date, end_date)
+    days = working_days(start_date, end_date, holidays)
     if not days:
         raise NoBusinessDaysError(
             f"El rango {start_date.isoformat()}..{end_date.isoformat()} "
             "no contiene dias laborables"
         )
 
-    units_per_day = split_units(estimated_hours, len(days))
+    units_per_day = split_weighted_units(
+        to_units(estimated_hours), [weight for _, weight in days]
+    )
     totals: dict[str, int] = {}
-    for day, units in zip(days, units_per_day, strict=True):
+    for (day, _), units in zip(days, units_per_day, strict=True):
         key = iso_week_key(day)
         totals[key] = totals.get(key, 0) + units
     return totals
@@ -230,18 +299,19 @@ def compute_task_week_load(
     start_date: date,
     end_date: date,
     estimated_hours: Decimal | float | int,
+    holidays: Mapping[date, int] | None = None,
 ) -> dict[str, Decimal]:
-    """Horas de una tarea por semana ISO."""
+    """Horas estimadas de una tarea por semana ISO."""
     return {
         key: from_units(units)
         for key, units in compute_task_week_units(
-            start_date, end_date, estimated_hours
+            start_date, end_date, estimated_hours, holidays
         ).items()
     }
 
 
 def build_capacity_report(
-    users: Sequence[UserLike],
+    people: Sequence[PersonCapacity],
     tasks: Iterable[TaskLike],
 ) -> CapacityReport:
     """Construye la matriz de ocupacion a partir de personas y tareas.
@@ -249,8 +319,11 @@ def build_capacity_report(
     Las semanas del informe son la union de las semanas con actividad.
     Las tareas sin persona asignada o sin fechas no se imputan a ninguna
     fila, pero se listan para que la planificacion incompleta sea visible.
+    La capacidad de cada celda sale del horario vigente de la persona en esa
+    semana.
     """
-    loads: dict[int, dict[str, int]] = {user.id: {} for user in users}
+    by_id = {person.user_id: person for person in people}
+    loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
     weeks: set[str] = set()
     unassigned: list[int] = []
     undated: list[int] = []
@@ -262,8 +335,10 @@ def build_capacity_report(
             undated.append(task.id)
             continue
 
+        person = by_id.get(task.assigned_to)
+        holidays = person.holidays if person is not None else {}
         week_units = compute_task_week_units(
-            task.start_date, task.end_date, task.estimated_hours
+            task.start_date, task.end_date, task.estimated_hours, holidays
         )
         weeks.update(week_units)
         target = loads.setdefault(task.assigned_to, {})
@@ -272,23 +347,31 @@ def build_capacity_report(
 
     ordered_weeks = tuple(sorted(weeks))
     rows: list[UserLoad] = []
-    for user in users:
-        base_units = to_units(user.weekly_base_hours)
-        user_load = loads.get(user.id, {})
-        cells = tuple(
-            WeekLoad(
-                week=week,
-                units=user_load.get(week, 0),
-                is_overloaded=user_load.get(week, 0) > base_units,
+    for person in people:
+        user_load = loads.get(person.user_id, {})
+        cells: list[WeekLoad] = []
+        for week in ordered_weeks:
+            units = user_load.get(week, 0)
+            capacity = capacity_units_for_week(
+                person.schedules,
+                person.weekly_base_hours,
+                week,
+                person.holidays,
             )
-            for week in ordered_weeks
-        )
+            cells.append(
+                WeekLoad(
+                    week=week,
+                    units=units,
+                    capacity_units=capacity,
+                    is_overloaded=capacity is not None and units > capacity,
+                )
+            )
         rows.append(
             UserLoad(
-                user_id=user.id,
-                name=user.name,
-                weekly_base_hours=from_units(base_units),
-                cells=cells,
+                user_id=person.user_id,
+                name=person.name,
+                weekly_base_hours=person.weekly_base_hours,
+                cells=tuple(cells),
             )
         )
 

@@ -135,10 +135,10 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Responsable de proyecto | Hecho |
 | Mi trabajo | **No existe** |
 | Pantalla de configuracion | Hecho |
-| Horario versionado por persona | **No existe** |
-| Dias no laborables con alcance | **No existe** |
-| Competencias | **No existe** |
-| Pantalla de personas y competencias | **No existe** |
+| Horario versionado por persona | Hecho |
+| Dias no laborables con alcance | Hecho |
+| Competencias | Hecho |
+| Pantalla de personas y competencias | Hecho |
 
 El administrador global que existe hoy es, de hecho, el gerente: el cambio que
 ya esta hecho es que deje de ser un interruptor y pase a ser un rol de empresa
@@ -178,17 +178,19 @@ profesional: puesto, nivel, tipo de contrato, horario vigente y competencias.
 2. La capacidad de la semana es la suma de las horas laborables de los siete
    dias multiplicada por el factor de disponibilidad.
 3. Si la persona no tiene horario, se usa su horas base semanales.
-4. Si no tiene horario ni horas base, **su capacidad se desconoce**: no se marca
-   como sobrecargada, porque el motor no inventa un limite que nadie ha definido.
+4. Si la capacidad resuelta queda en cero horas, **su capacidad se desconoce**:
+   no se marca como sobrecargada, porque el motor no inventa un limite que
+   nadie ha definido.
 5. Los dias no laborables de alcance global se quitan a todo el mundo; los de
    alcance de departamento, solo a quien pertenece a ese departamento.
 
 ### Reparto de las horas de una tarea
 
 Las horas de una tarea se reparten entre los dias laborables de su rango: lunes
-a viernes, menos los dias no laborables que apliquen a la persona asignada.
-El reparto es uniforme y en centimas enteras, de modo que la suma de las partes
-coincide exactamente con el total.
+a viernes, menos los dias no laborables que apliquen a la persona asignada. Un
+festivo de medio dia recibe la mitad de horas que un dia normal. El reparto es
+proporcional al peso de cada dia y en centimas enteras, de modo que la suma de
+las partes coincide exactamente con el total.
 
 ### Que no entra
 
@@ -203,8 +205,9 @@ coincide exactamente con el total.
    minuto son 100/60 centimas y no siempre cabe en centimas enteras.
 2. **El factor de disponibilidad es un porcentaje entero** entre 0 y 100.
 3. **El nivel de competencia va de 1 a 3**, como en la demo.
-4. **Las horas base semanales dejan de ser obligatorias**: null significa que no
-   hay capacidad definida.
+4. **Las horas base semanales se mantienen obligatorias**, con 40 h por
+   defecto. Una capacidad de cero horas se interpreta como capacidad no
+   definida.
 5. **El tipo de contrato tiene tres valores** (objetivo, techo, mejor
    esfuerzo) y no cambia todavia el calculo.
 6. **La pantalla de personas y competencias vive en el espacio global** y tiene

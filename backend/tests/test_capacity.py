@@ -17,6 +17,7 @@ from backend.services.capacity import (
     InvalidEstimatedHoursError,
     InvalidTaskRangeError,
     NoBusinessDaysError,
+    PersonCapacity,
     build_capacity_report,
     business_days,
     compute_task_week_load,
@@ -28,19 +29,27 @@ from backend.services.capacity import (
 
 
 @dataclass
-class FakeUser:
-    id: int
-    name: str
-    weekly_base_hours: Decimal = Decimal("40.00")
-
-
-@dataclass
 class FakeTask:
     id: int
     assigned_to: int | None
     start_date: date | None
     end_date: date | None
     estimated_hours: Decimal = Decimal("0.00")
+
+
+def person(
+    user_id: int,
+    name: str,
+    base_hours: str = "40.00",
+    **kwargs,
+) -> PersonCapacity:
+    """Persona con su perfil de capacidad, para las pruebas del motor."""
+    return PersonCapacity(
+        user_id=user_id,
+        name=name,
+        weekly_base_hours=Decimal(base_hours),
+        **kwargs,
+    )
 
 
 def H(value: str) -> Decimal:
@@ -146,7 +155,7 @@ def test_el_desvio_por_tarea_no_supera_medio_centesimo():
 def test_el_motor_no_devuelve_floats():
     # Las horas del motor son Decimal en todo momento. El float solo
     # aparece en el borde JSON, donde el valor tiene dos decimales.
-    user = FakeUser(id=1, name="Ana", weekly_base_hours=H("40.00"))
+    user = person(1, "Ana")
     task = FakeTask(
         id=1,
         assigned_to=1,
@@ -173,7 +182,7 @@ def test_el_informe_cuadra_exacto_con_las_horas_estimadas():
         for i, h in enumerate(horas)
     ]
 
-    report = build_capacity_report([FakeUser(1, "Ana")], tasks)
+    report = build_capacity_report([person(1, "Ana")], tasks)
 
     esperado = sum(to_units(h) for h in horas)
     obtenido = sum(to_units(cell.hours) for cell in report.rows[0].cells)
@@ -201,7 +210,7 @@ def test_split_units_sin_dias_es_error():
 
 
 def test_informe_detecta_sobrecarga():
-    user = FakeUser(id=1, name="Ana", weekly_base_hours=H("40.00"))
+    user = person(1, "Ana")
     # 60 h en una sola semana.
     task = FakeTask(
         id=1,
@@ -221,7 +230,7 @@ def test_informe_detecta_sobrecarga():
 
 
 def test_informe_no_marca_sobrecarga_en_el_limite_exacto():
-    user = FakeUser(id=1, name="Ana", weekly_base_hours=H("40.00"))
+    user = person(1, "Ana")
     task = FakeTask(
         id=1,
         assigned_to=1,
@@ -237,7 +246,7 @@ def test_informe_no_marca_sobrecarga_en_el_limite_exacto():
 
 
 def test_informe_suma_varias_tareas_de_la_misma_persona():
-    user = FakeUser(id=1, name="Ana", weekly_base_hours=H("40.00"))
+    user = person(1, "Ana")
     tasks = [
         FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 3), 10),
         FakeTask(2, 1, date(2026, 3, 4), date(2026, 3, 6), 20),
@@ -250,7 +259,7 @@ def test_informe_suma_varias_tareas_de_la_misma_persona():
 
 
 def test_informe_incluye_todas_las_semanas_con_actividad():
-    user = FakeUser(id=1, name="Ana")
+    user = person(1, "Ana")
     tasks = [
         FakeTask(1, 1, date(2026, 3, 5), date(2026, 3, 6), 10),
         FakeTask(2, 1, date(2026, 3, 9), date(2026, 3, 10), 10),
@@ -264,7 +273,7 @@ def test_informe_incluye_todas_las_semanas_con_actividad():
 
 
 def test_informe_marca_solo_la_semana_sobrecargada():
-    user = FakeUser(id=1, name="Ana", weekly_base_hours=H("40.00"))
+    user = person(1, "Ana")
     tasks = [
         FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50),
         FakeTask(2, 1, date(2026, 3, 9), date(2026, 3, 10), 10),
@@ -278,7 +287,7 @@ def test_informe_marca_solo_la_semana_sobrecargada():
 
 
 def test_informe_separa_a_cada_persona():
-    users = [FakeUser(1, "Ana", 40.0), FakeUser(2, "Luis", 40.0)]
+    users = [person(1, "Ana"), person(2, "Luis")]
     tasks = [
         FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50),
         FakeTask(2, 2, date(2026, 3, 2), date(2026, 3, 6), 10),
@@ -292,7 +301,7 @@ def test_informe_separa_a_cada_persona():
 
 
 def test_informe_registra_tareas_sin_asignar_y_sin_fechas():
-    user = FakeUser(1, "Ana")
+    user = person(1, "Ana")
     tasks = [
         FakeTask(1, None, date(2026, 3, 2), date(2026, 3, 6), 10),
         FakeTask(2, 1, None, None, 10),
@@ -307,7 +316,7 @@ def test_informe_registra_tareas_sin_asignar_y_sin_fechas():
 
 
 def test_informe_sin_tareas_devuelve_columnas_vacias():
-    report = build_capacity_report([FakeUser(1, "Ana")], [])
+    report = build_capacity_report([person(1, "Ana")], [])
 
     assert report.weeks == ()
     assert report.rows[0].cells == ()
@@ -315,7 +324,7 @@ def test_informe_sin_tareas_devuelve_columnas_vacias():
 
 
 def test_informe_serializa_a_diccionario():
-    user = FakeUser(1, "Ana", 40.0)
+    user = person(1, "Ana")
     task = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50)
 
     data = build_capacity_report([user], [task]).to_dict()

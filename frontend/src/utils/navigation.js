@@ -43,6 +43,12 @@ const CONFIGURATION_VIEW = {
   icon: 'sliders',
   hint: 'Personas, roles, departamentos y proyectos',
 }
+const PEOPLE_VIEW = {
+  name: 'people',
+  label: 'Personas y Competencias',
+  icon: 'users',
+  hint: 'Perfiles, horarios y habilidades',
+}
 
 export const GLOBAL_SECTIONS = [
   {
@@ -72,6 +78,7 @@ export const GLOBAL_SECTIONS = [
         icon: 'building',
         hint: 'Departamentos y sus responsables',
       },
+      PEOPLE_VIEW,
     ],
   },
   {
@@ -174,6 +181,7 @@ export function toGlobalView(view) {
     members: 'projects',
     settings: 'projects',
     configuration: 'projects',
+    people: 'people',
   }
   return counterparts[view] ?? DEFAULT_GLOBAL_VIEW
 }
@@ -190,6 +198,7 @@ export function toProjectView(view) {
     'global-gantt': 'gantt',
     projects: 'capacity',
     departments: 'capacity',
+    people: 'capacity',
   }
   return counterparts[view] ?? DEFAULT_VIEW
 }

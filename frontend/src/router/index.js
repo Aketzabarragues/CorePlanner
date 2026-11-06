@@ -7,6 +7,7 @@ import KanbanView from '../views/KanbanView.vue'
 import LoginView from '../views/LoginView.vue'
 import MembersView from '../views/MembersView.vue'
 import PendingView from '../views/PendingView.vue'
+import PeopleView from '../views/PeopleView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
@@ -29,6 +30,7 @@ const routes = [
   { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },
   { path: '/gantt', name: 'global-gantt', component: GanttView },
   { path: '/departments', name: 'departments', component: DepartmentsView },
+  { path: '/people', name: 'people', component: PeopleView },
   { path: '/configuration', name: 'configuration', component: SettingsView },
 
   // Espacio de proyecto: todo lo que cuelga de un identificador.

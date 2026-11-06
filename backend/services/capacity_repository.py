@@ -7,12 +7,151 @@ a datos, de modo que el motor se pueda probar sin base de datos.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import ProjectMember, Task, User
-from .capacity import CapacityReport, build_capacity_report
+from ..models import (
+    NonWorkingDay,
+    NonWorkingDayScope,
+    ProjectMember,
+    Task,
+    User,
+    WorkingSchedule,
+)
+from .capacity import (
+    CapacityReport,
+    PersonCapacity,
+    build_capacity_report,
+    compute_task_week_units,
+)
+from .schedule import (
+    ScheduleVersion,
+    holiday_weight,
+    schedule_version,
+    week_start_from_key,
+)
+
+
+async def load_holidays(
+    session: AsyncSession,
+) -> dict[int | None, dict[date, int]]:
+    """Dias no laborables por alcance.
+
+    La clave None es el alcance global; el resto son identificadores de
+    departamento. El valor es el peso del dia en medios dias.
+    """
+    days = (await session.execute(select(NonWorkingDay))).scalars().all()
+    result: dict[int | None, dict[date, int]] = {}
+    for day in days:
+        key = None if day.scope == NonWorkingDayScope.GLOBAL.value else day.department_id
+        result.setdefault(key, {})[day.date] = holiday_weight(day.half_day)
+    return result
+
+
+async def load_person_capacities(
+    session: AsyncSession,
+    users: Sequence[User],
+) -> list[PersonCapacity]:
+    """Perfil de capacidad de cada persona.
+
+    Reune el horario versionado de cada una y los dias no laborables que le
+    aplican: los de alcance global y los del departamento al que pertenece.
+    """
+    if not users:
+        return []
+
+    schedules = (
+        await session.execute(
+            select(WorkingSchedule).where(
+                WorkingSchedule.user_id.in_([user.id for user in users])
+            )
+        )
+    ).scalars().all()
+
+    holidays_by_scope = await load_holidays(session)
+
+    versions: dict[int, list[ScheduleVersion]] = {}
+    for row in schedules:
+        versions.setdefault(row.user_id, []).append(
+            schedule_version(
+                valid_from=row.valid_from,
+                days=(
+                    row.monday,
+                    row.tuesday,
+                    row.wednesday,
+                    row.thursday,
+                    row.friday,
+                    row.saturday,
+                    row.sunday,
+                ),
+                availability_factor=row.availability_factor,
+            )
+        )
+
+    people: list[PersonCapacity] = []
+    for user in users:
+        holidays: dict[date, int] = dict(holidays_by_scope.get(None, {}))
+        if user.department_id is not None:
+            holidays.update(holidays_by_scope.get(user.department_id, {}))
+        people.append(
+            PersonCapacity(
+                user_id=user.id,
+                name=user.name,
+                weekly_base_hours=user.weekly_base_hours,
+                schedules=tuple(
+                    sorted(versions.get(user.id, []), key=lambda item: item.valid_from)
+                ),
+                holidays=holidays,
+            )
+        )
+    return people
+
+
+async def load_week_hours(
+    session: AsyncSession,
+    user_ids: Sequence[int],
+    week: str,
+) -> dict[int, int]:
+    """Horas planificadas de cada persona en una semana, en centimas.
+
+    Solo entran las tareas cuyo rango toca la semana.
+    """
+    ids = [int(user_id) for user_id in user_ids]
+    if not ids:
+        return {}
+
+    monday = week_start_from_key(week)
+    sunday = monday + timedelta(days=6)
+
+    tasks = (
+        await session.execute(
+            select(Task).where(
+                Task.assigned_to.in_(ids),
+                Task.start_date.is_not(None),
+                Task.end_date.is_not(None),
+                Task.start_date <= sunday,
+                Task.end_date >= monday,
+            )
+        )
+    ).scalars().all()
+
+    users = (
+        await session.execute(select(User).where(User.id.in_(ids)))
+    ).scalars().all()
+    people = await load_person_capacities(session, users)
+    by_id = {person.user_id: person for person in people}
+
+    totals: dict[int, int] = {}
+    for task in tasks:
+        person = by_id.get(task.assigned_to)
+        holidays = person.holidays if person is not None else {}
+        units = compute_task_week_units(
+            task.start_date, task.end_date, task.estimated_hours, holidays
+        )
+        totals[task.assigned_to] = totals.get(task.assigned_to, 0) + units.get(week, 0)
+    return totals
 
 
 async def load_capacity_for_projects(
@@ -50,7 +189,8 @@ async def load_capacity_for_projects(
     ).scalars().all()
 
     ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
-    return build_capacity_report(ordered, tasks)
+    people = await load_person_capacities(session, ordered)
+    return build_capacity_report(people, tasks)
 
 
 async def load_project_capacity(

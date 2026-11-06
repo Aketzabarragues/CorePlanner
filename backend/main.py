@@ -14,9 +14,12 @@ from .api import (
     kanban,
     me,
     members,
+    non_working_days,
     overview,
+    people,
     projects,
     roles,
+    skills,
     tasks,
     users,
 )
@@ -61,6 +64,9 @@ app.include_router(members.router, prefix=settings.api_prefix)
 app.include_router(gantt.router, prefix=settings.api_prefix)
 app.include_router(kanban.router, prefix=settings.api_prefix)
 app.include_router(departments.router, prefix=settings.api_prefix)
+app.include_router(people.router, prefix=settings.api_prefix)
+app.include_router(skills.router, prefix=settings.api_prefix)
+app.include_router(non_working_days.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["sistema"])

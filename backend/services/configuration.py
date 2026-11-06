@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import hash_password
 from ..models import (
     COMPANY_ROLE_LABELS,
+    EMPLOYMENT_TYPE_LABELS,
+    SENIORITY_LABELS,
     Department,
     Project,
     ProjectMember,
@@ -78,6 +80,13 @@ def _person_out(user: User, department_name: str | None) -> PersonOut:
         department_name=department_name,
         weekly_base_hours=user.weekly_base_hours,
         is_global_admin=user.is_global_admin,
+        job_title=user.job_title,
+        seniority=user.seniority,
+        seniority_label=SENIORITY_LABELS.get(user.seniority) if user.seniority else None,
+        employment_type=user.employment_type,
+        employment_type_label=EMPLOYMENT_TYPE_LABELS.get(
+            user.employment_type, user.employment_type
+        ),
     )
 
 
@@ -108,6 +117,9 @@ async def create_person(session: AsyncSession, payload: PersonCreate) -> PersonO
         company_role=payload.company_role,
         department_id=payload.department_id,
         weekly_base_hours=payload.weekly_base_hours,
+        job_title=payload.job_title,
+        seniority=payload.seniority,
+        employment_type=payload.employment_type,
     )
     session.add(user)
     await session.commit()
@@ -140,6 +152,12 @@ async def update_person(
         if payload.department_id is not None:
             await _department_or_404(session, payload.department_id)
         user.department_id = payload.department_id
+    if "job_title" in changed:
+        user.job_title = payload.job_title
+    if "seniority" in changed:
+        user.seniority = payload.seniority
+    if "employment_type" in changed and payload.employment_type is not None:
+        user.employment_type = payload.employment_type
 
     await session.commit()
     await session.refresh(user)

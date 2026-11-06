@@ -7,9 +7,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import auth, departments, gantt, kanban, members, overview, projects, tasks
+from .api import (
+    auth,
+    departments,
+    gantt,
+    kanban,
+    me,
+    members,
+    overview,
+    projects,
+    tasks,
+)
 from .config import get_settings
-from .database import create_all, dispose_engine
+from .database import create_all, dispose_engine, engine
+from .migrations import apply_migrations
 
 settings = get_settings()
 
@@ -17,6 +28,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_all()
+    await apply_migrations(engine)
     yield
     await dispose_engine()
 
@@ -37,6 +49,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(me.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)

@@ -42,6 +42,7 @@ class UserOut(BaseModel):
     name: str
     email: str
     is_global_admin: bool
+    company_role: str = "tecnico"
     weekly_base_hours: Hours
     department_id: int | None = None
 
@@ -60,6 +61,17 @@ class ProjectOut(BaseModel):
     status: str
     parent_id: int | None = None
     department_id: int | None = None
+    owner_id: int | None = None
+
+
+class ScopeOut(BaseModel):
+    """Ambito de la persona que entra."""
+
+    user: UserOut
+    role_label: str
+    department_name: str | None = None
+    visible_project_ids: list[int]
+    editable_project_ids: list[int]
 
 
 class DepartmentOut(BaseModel):

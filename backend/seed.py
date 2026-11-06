@@ -26,6 +26,7 @@ from backend.database import (  # noqa: E402
     dispose_engine,
 )
 from backend.models import (  # noqa: E402
+    CompanyRole,
     Department,
     Project,
     ProjectMember,
@@ -73,18 +74,21 @@ async def populate(session) -> int:
         email="ana@example.com",
         hashed_password=hash_password(DEFAULT_PASSWORD),
         weekly_base_hours=40,
+        company_role=CompanyRole.JEFE_DEPARTAMENTO.value,
     )
     sebastian = User(
         name="Sebastián",
         email="sebastian@example.com",
         hashed_password=hash_password(DEFAULT_PASSWORD),
         weekly_base_hours=40,
+        company_role=CompanyRole.TECNICO.value,
     )
     jorge = User(
         name="Jorge",
         email="jorge@example.com",
         hashed_password=hash_password(DEFAULT_PASSWORD),
         weekly_base_hours=40,
+        company_role=CompanyRole.JEFE_DEPARTAMENTO.value,
     )
     admin = User(
         name="Admin",
@@ -92,6 +96,7 @@ async def populate(session) -> int:
         hashed_password=hash_password(DEFAULT_PASSWORD),
         weekly_base_hours=40,
         is_global_admin=True,
+        company_role=CompanyRole.GERENTE.value,
     )
     session.add_all([ana, sebastian, jorge, admin])
     await session.flush()
@@ -106,7 +111,10 @@ async def populate(session) -> int:
     jorge.department_id = oficina.id
 
     project = Project(
-        name=PROJECT_NAME, status="active", department_id=automatizacion.id
+        name=PROJECT_NAME,
+        status="active",
+        department_id=automatizacion.id,
+        owner_id=ana.id,
     )
     session.add(project)
     await session.flush()
@@ -186,8 +194,14 @@ async def populate(session) -> int:
     # Segundo proyecto, para que el selector de la cabecera tenga entre donde
     # elegir. Lo gestiona la oficina tecnica y en el hay gente de
     # automatizacion, que es el reparto transversal entre departamentos.
+    # Sebastián no es miembro de este proyecto, pero tiene una tarea en el.
+    # Eso es el caso del tecnico que participa en un proyecto sin estar dado de
+    # alta: lo ve, pero no lo puede editar.
     project_office = Project(
-        name=PROJECT_NAME_OFFICE, status="active", department_id=oficina.id
+        name=PROJECT_NAME_OFFICE,
+        status="active",
+        department_id=oficina.id,
+        owner_id=jorge.id,
     )
     session.add(project_office)
     await session.flush()
@@ -201,11 +215,6 @@ async def populate(session) -> int:
             ),
             ProjectMember(
                 user_id=ana.id,
-                project_id=project_office.id,
-                role_id=roles["Ingeniero"].id,
-            ),
-            ProjectMember(
-                user_id=sebastian.id,
                 project_id=project_office.id,
                 role_id=roles["Ingeniero"].id,
             ),
@@ -298,10 +307,10 @@ async def main() -> None:
     print(f"    {DEPARTMENT_AUTOMATION} (responsable: Ana)")
     print(f"    {DEPARTMENT_OFFICE} (responsable: Jorge)")
     print("  Usuarios:")
-    print("    admin@example.com      (administrador global)")
-    print("    ana@example.com        (Project Manager)")
-    print("    sebastian@example.com  (Ingeniero)")
-    print("    jorge@example.com      (Lector)")
+    print("    admin@example.com      (gerente, administrador global)")
+    print("    ana@example.com        (jefe de departamento)")
+    print("    sebastian@example.com  (tecnico)")
+    print("    jorge@example.com      (jefe de departamento)")
     print(f"  Contrasena para todos: {DEFAULT_PASSWORD}")
 
 

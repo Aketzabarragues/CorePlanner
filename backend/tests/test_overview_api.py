@@ -193,15 +193,29 @@ async def test_la_capacidad_global_suma_las_horas_de_todos_los_proyectos(client:
     assert _row(data, client.ids["jorge"])["total_hours"] == 10
 
 
-async def test_la_capacidad_global_solo_muestra_los_proyectos_visibles(client: AsyncClient):
+async def test_una_tarea_asignada_da_visibilidad_del_proyecto(client: AsyncClient):
+    """Tener una tarea en un proyecto abre ese proyecto entero."""
     headers = await _auth(client, "ana@example.com")
 
     response = await client.get("/api/capacity", headers=headers)
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert _row(data, client.ids["ana"])["total_hours"] == 8
-    assert _row(data, client.ids["jorge"]) is None
+    # Ana ve los 8 h de su proyecto y los 4 h del proyecto donde tiene tarea.
+    assert _row(data, client.ids["ana"])["total_hours"] == 12
+    # Jorge es miembro de ese segundo proyecto, asi que tambien sale.
+    assert _row(data, client.ids["jorge"])["total_hours"] == 10
+
+
+async def test_la_capacidad_global_solo_muestra_los_proyectos_visibles(client: AsyncClient):
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get("/api/capacity", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # Jorge solo ve un proyecto: las 8 h de Ana en el otro no le salen.
+    assert _row(data, client.ids["ana"])["total_hours"] == 4
 
 
 async def test_la_capacidad_global_filtra_por_departamento(client: AsyncClient):

@@ -14,7 +14,7 @@
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
-import { tasksApi } from '../api/client'
+import { meApi, tasksApi } from '../api/client'
 import AppIcon from './AppIcon.vue'
 import ProjectPicker from './ProjectPicker.vue'
 import TaskForm from './TaskForm.vue'
@@ -45,6 +45,8 @@ const showNewTask = ref(false)
 const saving = ref(false)
 const error = ref(null)
 const notice = ref(null)
+/** Ambito de la persona que entra: rol, departamento y proyectos editables. */
+const scope = ref(null)
 
 let noticeTimer = null
 
@@ -67,6 +69,22 @@ const department = computed(
 const userDepartment = computed(
   () => store.departments.find((item) => item.id === auth.user?.department_id) ?? null,
 )
+
+/** Rol de empresa con el que entra la persona. */
+const roleLabel = computed(() => scope.value?.role_label ?? '')
+
+/**
+ * Indica si la persona puede escribir en el proyecto abierto.
+ *
+ * Un proyecto puede verse sin poder editarlo: es el caso de quien participa
+ * con una tarea sin ser miembro.
+ */
+const canEdit = computed(() => {
+  if (isGlobal.value || projectId.value === null) return false
+  const editable = scope.value?.editable_project_ids
+  if (!editable) return true
+  return editable.includes(Number(projectId.value))
+})
 
 const status = computed(() => projectStatus(currentProject.value?.status))
 
@@ -159,6 +177,7 @@ async function createTask(payload) {
 async function loadContext(id) {
   try {
     const token = await auth.ensureSession()
+    scope.value = await meApi.get(token)
     await store.ensureProjects(token)
     if (id) await store.ensureMembers(token, id)
     error.value = null
@@ -270,7 +289,7 @@ watch(
         <span v-if="!collapsed" class="min-w-0 flex-1">
           <span class="block truncate text-sm font-medium text-white">{{ auth.user?.name }}</span>
           <span class="block truncate text-xs text-slate-400">
-            {{ userDepartment?.name ?? 'Sin departamento' }}
+            {{ roleLabel || userDepartment?.name || 'Sin departamento' }}
           </span>
         </span>
         <button
@@ -334,9 +353,17 @@ watch(
               >
                 {{ status.label }}
               </span>
+              <span
+                v-if="!canEdit"
+                class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                title="No tienes permiso de escritura en este proyecto"
+              >
+                Solo lectura
+              </span>
             </div>
 
             <button
+              v-if="canEdit"
               type="button"
               class="flex items-center gap-1.5 whitespace-nowrap rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white hover:bg-siemens-700"
               @click="openNewTask"

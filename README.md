@@ -94,6 +94,7 @@ coreplanner/
 │   │   ├── departments.py    # listado de departamentos
 │   │   ├── gantt.py          # feed JSON del Gantt
 │   │   ├── kanban.py         # tablero por estados
+│   │   ├── me.py             # ambito de la persona que entra
 │   │   ├── members.py        # miembros del proyecto
 │   │   ├── overview.py       # capacidad y Gantt globales
 │   │   ├── projects.py       # listado y matriz de capacidad
@@ -102,6 +103,7 @@ coreplanner/
 │   ├── config.py         # settings via pydantic-settings (prefijo COREPLANNER_)
 │   ├── database.py       # engine asincrono y sesion por peticion
 │   ├── main.py           # aplicacion FastAPI
+│   ├── migrations.py     # columnas nuevas en bases ya creadas
 │   ├── models.py         # esquema SQLAlchemy (users, roles, projects, ...)
 │   ├── schemas.py        # modelos Pydantic de la API
 │   ├── security.py       # dependencias de autorizacion por proyecto
@@ -113,6 +115,7 @@ coreplanner/
 │   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
 │   │   ├── kanban_repository.py   # lectura del tablero
+│   │   ├── scope.py               # ambito por rol de empresa
 │   │   └── tasks.py              # reglas de alta, edicion y borrado
 │   ├── .env.example
 │   └── tests/
@@ -260,6 +263,7 @@ token en `localStorage`.
 | `GET` | `/api/projects/{id}/gantt` | `gantt.read` en el proyecto |
 | `GET` | `/api/projects/{id}/kanban` | `capacity.read` en el proyecto |
 | `GET` | `/api/departments` | token valido |
+| `GET` | `/api/me` | token valido; ambito de la persona |
 | `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
 | `GET` | `/api/gantt` | token valido |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
@@ -269,6 +273,31 @@ token en `localStorage`.
 
 El listado de tareas admite los filtros `assigned_to` y `week` (semana ISO,
 por ejemplo `2026-W46`).
+
+## Roles y ambito
+
+Cada persona tiene un rol de empresa y un departamento. El rol de empresa
+decide **que se ve**, y el rol dentro de cada proyecto decide **que se puede
+hacer**. Son dos ejes separados.
+
+| Rol de empresa | Ve | Puede escribir |
+| --- | --- | --- |
+| `gerente` | todos los proyectos y todas las personas | en todos los proyectos |
+| `jefe_departamento` | los proyectos de su departamento y los de los que es miembro | en los proyectos de su departamento |
+| `tecnico` | los proyectos de los que es miembro y los que tiene tareas | en los proyectos de los que es miembro |
+
+`backend/services/scope.py` resuelve ese ambito y `backend/api/me.py` lo
+devuelve para que la interfaz no ofrezca acciones que van a fallar: un
+proyecto que solo se puede ver aparece como **solo lectura** y sin boton de
+alta de tarea.
+
+El alcance se aplica en `list_accessible_projects`, que es el punto por el que
+pasan el listado de proyectos, la matriz global, el Gantt global y el listado
+global de tareas. En `check_project_permission`, los permisos que concede el
+rol de empresa se suman a los del rol de proyecto: el jefe de un area puede
+trabajar en los proyectos de su area aunque no sea miembro.
+
+El detalle completo esta en `docs/especificaciones.md`.
 
 ## Gestion de tareas
 
@@ -477,9 +506,10 @@ frontend con login, listado de proyectos, armazon de aplicacion con menu
 lateral, cabecera con migas, selector de contexto y alta de tarea, navegacion
 dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
 semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
-(por proyecto y consolidado), tablero Kanban y vista de departamentos.
+(por proyecto y consolidado), tablero Kanban, vista de departamentos y ambito
+por rol de empresa (gerente, jefe de departamento y tecnico).
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
-proyecto, el cambio de rol y la configuracion del proyecto.
+proyecto, el cambio de rol, la pantalla de "Mi trabajo" y la de configuracion.
 
 ### Especificaciones
 

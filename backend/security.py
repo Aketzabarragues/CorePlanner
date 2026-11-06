@@ -1,7 +1,9 @@
 """Dependencias de autorizacion por proyecto.
 
 Cada proyecto tiene sus propios permisos derivados del rol de cada miembro.
-Un administrador global accede a todos los proyectos.
+El rol de empresa y el departamento amplian el ambito: el jefe de un
+departamento trabaja en los proyectos de su area aunque no sea miembro, y el
+gerente accede a todos. El administrador global accede a todos los proyectos.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .auth import get_current_user
 from .database import get_db
 from .models import Project, ProjectMember, Role, Task, User
+from .services.scope import implicit_permissions, resolve_scope
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -53,19 +56,28 @@ async def check_project_permission(
     project_id: int,
     permission: str,
 ) -> Project:
-    """Comprueba el permiso del usuario sobre el proyecto indicado."""
+    """Comprueba el permiso del usuario sobre el proyecto indicado.
+
+    Primero se mira el rol que tiene en ese proyecto y, si no llega, los
+    permisos que concede su rol de empresa sobre el.
+    """
     project = await get_project_or_404(session, project_id)
 
     if user.is_global_admin:
         return project
 
     permissions = await get_user_permissions(session, user.id, project_id)
-    if permission not in permissions:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"No tienes permiso '{permission}' en este proyecto",
-        )
-    return project
+    if permission in permissions:
+        return project
+
+    granted = await implicit_permissions(session, user, project)
+    if permission in granted:
+        return project
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"No tienes permiso '{permission}' en este proyecto",
+    )
 
 
 def require_project_permission(
@@ -117,16 +129,21 @@ async def list_accessible_projects(
 ) -> list[Project]:
     """Proyectos visibles para el usuario.
 
-    El administrador global los ve todos; el resto, solo los suyos.
+    El ambito lo da el rol de empresa: el gerente ve todos, el jefe de
+    departamento ve los de su area y los de los que es miembro, y el tecnico
+    ve los suyos y los que tiene tareas asignadas.
     """
-    if user.is_global_admin:
+    scope = await resolve_scope(session, user)
+    if scope.all_projects:
         result = await session.execute(select(Project).order_by(Project.name))
         return list(result.scalars().all())
 
+    if not scope.project_ids:
+        return []
+
     result = await session.execute(
         select(Project)
-        .join(ProjectMember, ProjectMember.project_id == Project.id)
-        .where(ProjectMember.user_id == user.id)
+        .where(Project.id.in_(scope.project_ids))
         .order_by(Project.name)
     )
     return list(result.scalars().all())

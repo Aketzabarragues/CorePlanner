@@ -28,10 +28,10 @@ Los tres roles son de **empresa**, no de proyecto. Cada persona tiene uno.
 | | Gerente | Jefe de departamento | Tecnico |
 | --- | --- | --- | --- |
 | Departamentos | todos | el suyo | el suyo |
-| Personas | todas | las de su departamento | las de su departamento |
+| Personas | todas | las de su departamento | las de su departamento, sin su carga |
 | Proyectos | todos | los que gestiona su departamento + los que es miembro | los que es miembro + los que tiene tareas |
 | Tareas | todas | las de los proyectos visibles + las propias | las de los proyectos visibles + las propias |
-| Matriz de capacidad | toda la empresa | su departamento y los proyectos visibles | los proyectos visibles |
+| Matriz de capacidad | toda la empresa | los proyectos visibles (los de su area) | los proyectos visibles |
 | Edicion | en todos los proyectos | en los proyectos de su departamento | en los proyectos donde es miembro |
 
 Dentro de un proyecto visible, la matriz muestra la ocupacion de **todos** sus
@@ -117,25 +117,23 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Acceso con JWT y administrador global | Hecho |
 | Matriz de capacidad por semanas con sobrecarga | Hecho |
 | Cronograma y tablero | Hecho |
-| Ambito global (todo lo que puede ver quien entra) | Hecho, pero solo por pertenencia al proyecto |
-| Rol de empresa (gerente / jefe / tecnico) | **No existe** |
-| Responsable de proyecto | **No existe** |
+| Ambito global (todo lo que puede ver quien entra) | Hecho |
+| Rol de empresa (gerente / jefe / tecnico) | Hecho |
+| Responsable de proyecto | Hecho |
 | Mi trabajo | **No existe** |
 | Pantalla de configuracion | **No existe** |
 
 El administrador global que existe hoy es, de hecho, el gerente: el cambio que
-falta es que deje de ser un interruptor y pase a ser un rol de empresa con su
-departamento y sus reglas de ambito.
+ya esta hecho es que deje de ser un interruptor y pase a ser un rol de empresa
+con su departamento y sus reglas de ambito.
 
-## 10. Decisiones pendientes
+## 10. Decisiones tomadas
 
-1. **Alcance del tecnico.** Un tecnico ve la carga de sus compañeros de
-   departamento aunque no comparta proyecto con ellos? Propuesta: no, solo ve la
-   de los proyectos en los que participa.
+1. **Alcance del tecnico.** No ve la carga de sus compañeros de departamento
+   si no comparte proyecto con ellos. Solo ve la de los proyectos en los que
+   participa.
 2. **Editable por el jefe.** El jefe de departamento puede crear y editar
-   tareas de los proyectos de su area, o solo consultar? Propuesta: editarlas.
+   tareas de los proyectos de su area.
 3. **Responsable de proyecto.** Se anade una persona responsable por proyecto,
-   distinta del departamento que lo gestiona? Propuesta: si, es una columna y
-   sirve para el caso del tecnico que dirige un proyecto sin ser su jefe.
-4. **Horizonte de la matriz.** Cuantas semanas se muestran por defecto? El
-   prototipo usa 4.
+   distinta del departamento que lo gestiona.
+4. **Horizonte de la matriz.** Cuatro semanas por defecto.

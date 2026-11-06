@@ -66,6 +66,11 @@ export const departmentsApi = {
   list: (token) => apiFetch('/departments', { token }),
 }
 
+/** Ambito de la persona que entra: rol, departamento y proyectos editables. */
+export const meApi = {
+  get: (token) => apiFetch('/me', { token }),
+}
+
 /** Endpoints de la vista global, que no pertenecen a ningun proyecto. */
 export const overviewApi = {
   capacity: (token, params = {}) => {

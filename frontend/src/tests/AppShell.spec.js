@@ -37,7 +37,11 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch() {
+/** Proyectos en los que la persona puede escribir, para las pruebas de ambito. */
+let editableProjectIds = [1, 2]
+
+function setupFetch(options = {}) {
+  editableProjectIds = options.editable ?? [1, 2]
   global.fetch = vi.fn(async (url, options = {}) => {
     if (url.endsWith('/auth/login')) {
       return jsonResponse({
@@ -48,8 +52,26 @@ function setupFetch() {
           name: 'Sebastián',
           email: 's@example.com',
           is_global_admin: true,
+          company_role: 'gerente',
           department_id: 1,
         },
+      })
+    }
+    if (url.endsWith('/me')) {
+      return jsonResponse({
+        user: {
+          id: 9,
+          name: 'Sebastián',
+          email: 's@example.com',
+          is_global_admin: true,
+          company_role: 'gerente',
+          weekly_base_hours: 40,
+          department_id: 1,
+        },
+        role_label: 'Gerente',
+        department_name: 'Automatización & SCADA',
+        visible_project_ids: [1, 2],
+        editable_project_ids: editableProjectIds,
       })
     }
     if (url.endsWith('/departments')) return jsonResponse(departments)
@@ -129,6 +151,28 @@ describe('AppShell', () => {
     expect(cabecera).toContain('Proyecto')
     expect(cabecera).toContain('Linea Pasteurizadora SIVE')
     expect(cabecera).toContain('Automatización & SCADA')
+  })
+
+  it('el rol de empresa aparece en la tarjeta de usuario', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(wrapper.text()).toContain('Gerente')
+  })
+
+  it('muestra el alta de tarea cuando hay permiso de escritura', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(wrapper.text()).toContain('Nueva Tarea')
+    expect(wrapper.text()).not.toContain('Solo lectura')
+  })
+
+  it('un proyecto que solo se puede ver muestra el aviso de solo lectura', async () => {
+    setupFetch({ editable: [2] })
+
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(wrapper.text()).toContain('Solo lectura')
+    expect(wrapper.text()).not.toContain('Nueva Tarea')
   })
 
   it('en el espacio global el menu muestra las vistas globales', async () => {

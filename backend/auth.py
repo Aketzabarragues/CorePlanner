@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
 from .database import get_db
-from .models import ProjectMember, Role, User
+from .models import CompanyRole, ProjectMember, Role, User
 
 settings = get_settings()
 
@@ -44,6 +44,8 @@ class TokenPayload(BaseModel):
     email: str
     name: str
     is_global_admin: bool = False
+    company_role: str = "tecnico"
+    department_id: int | None = None
     exp: int
     iat: int
     jti: str
@@ -93,6 +95,8 @@ def create_access_token(
         "email": user.email,
         "name": user.name,
         "is_global_admin": user.is_global_admin,
+        "company_role": user.company_role or CompanyRole.TECNICO.value,
+        "department_id": user.department_id,
         "projects": projects or {},
         "exp": int(expires.timestamp()),
         "iat": int(now.timestamp()),

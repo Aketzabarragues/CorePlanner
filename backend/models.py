@@ -63,6 +63,18 @@ class TaskStatus(enum.StrEnum):
     DONE = "done"
 
 
+class CompanyRole(enum.StrEnum):
+    """Rol de empresa: dice hasta donde llega el ambito de cada persona.
+
+    El rol de empresa y el departamento abren la puerta a los proyectos. Lo que
+    se puede hacer dentro de cada uno lo dice el rol de proyecto.
+    """
+
+    GERENTE = "gerente"
+    JEFE_DEPARTAMENTO = "jefe_departamento"
+    TECNICO = "tecnico"
+
+
 class User(Base):
     """Persona con acceso a la aplicacion."""
 
@@ -74,6 +86,12 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_global_admin: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
+    )
+    company_role: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=CompanyRole.TECNICO.value,
+        server_default=CompanyRole.TECNICO.value,
     )
     weekly_base_hours: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("40.00"), server_default="40"
@@ -94,6 +112,10 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("email", name="email"),
         CheckConstraint("weekly_base_hours >= 0", name="weekly_base_hours_positive"),
+        CheckConstraint(
+            "company_role IN ('gerente', 'jefe_departamento', 'tecnico')",
+            name="company_role",
+        ),
     )
 
     department: Mapped[Department | None] = relationship(
@@ -166,6 +188,9 @@ class Project(Base):
     department_id: Mapped[int | None] = mapped_column(
         ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -188,6 +213,7 @@ class Project(Base):
     )
     children: Mapped[list[Project]] = relationship(back_populates="parent")
     department: Mapped[Department | None] = relationship(back_populates="projects")
+    owner: Mapped[User | None] = relationship(foreign_keys=[owner_id])
     members: Mapped[list[ProjectMember]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",

@@ -53,8 +53,16 @@ describe('navegacion', () => {
       'global-capacity',
       'global-gantt',
       'departments',
+      'configuration',
     ])
-    expect(GLOBAL_SECTIONS).toHaveLength(1)
+    expect(GLOBAL_SECTIONS).toHaveLength(2)
+  })
+
+  it('la configuracion es una seccion solo del gerente', () => {
+    const administracion = GLOBAL_SECTIONS.find((section) => section.managerOnly)
+
+    expect(administracion).toBeTruthy()
+    expect(administracion.items.map((view) => view.name)).toEqual(['configuration'])
   })
 
   it('distingue las vistas globales de las de proyecto', () => {

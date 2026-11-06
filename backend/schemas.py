@@ -12,10 +12,11 @@ from pydantic import (
     EmailStr,
     Field,
     PlainSerializer,
+    field_validator,
     model_validator,
 )
 
-from .models import TaskStatus
+from .models import COMPANY_ROLE_LABELS, CompanyRole, ProjectStatus, TaskStatus
 from .services.capacity import hours_to_json
 
 Hours = Annotated[
@@ -69,9 +70,144 @@ class ScopeOut(BaseModel):
 
     user: UserOut
     role_label: str
+    is_manager: bool = False
     department_name: str | None = None
     visible_project_ids: list[int]
     editable_project_ids: list[int]
+
+
+class CompanyRoleOut(BaseModel):
+    """Rol de empresa del catalogo."""
+
+    value: str
+    label: str
+    scope: str
+
+
+class PersonOut(BaseModel):
+    """Persona de la organizacion, con su rol y su departamento."""
+
+    id: int
+    name: str
+    email: str
+    company_role: str
+    company_role_label: str
+    department_id: int | None = None
+    department_name: str | None = None
+    weekly_base_hours: Hours
+    is_global_admin: bool
+
+
+class PersonCreate(BaseModel):
+    """Alta de persona."""
+
+    name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=72)
+    company_role: str = CompanyRole.TECNICO.value
+    department_id: int | None = None
+    weekly_base_hours: Decimal = Field(
+        default=Decimal("40.00"), ge=0, max_digits=8, decimal_places=2
+    )
+
+    @field_validator("company_role")
+    @classmethod
+    def _known_company_role(cls, value: str) -> str:
+        if value not in COMPANY_ROLE_LABELS:
+            raise ValueError("El rol de empresa no existe")
+        return value
+
+
+class PersonUpdate(BaseModel):
+    """Modificacion parcial de persona. Solo se aplican los campos presentes."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None = None
+    company_role: str | None = None
+    department_id: int | None = None
+    weekly_base_hours: Decimal | None = Field(
+        default=None, ge=0, max_digits=8, decimal_places=2
+    )
+
+    @field_validator("company_role")
+    @classmethod
+    def _known_company_role(cls, value: str | None) -> str | None:
+        if value is not None and value not in COMPANY_ROLE_LABELS:
+            raise ValueError("El rol de empresa no existe")
+        return value
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class DepartmentCreate(BaseModel):
+    """Alta de departamento."""
+
+    name: str = Field(min_length=1, max_length=100)
+    manager_id: int | None = None
+
+
+class DepartmentUpdate(BaseModel):
+    """Modificacion parcial de departamento."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    manager_id: int | None = None
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class ProjectCreate(BaseModel):
+    """Alta de proyecto."""
+
+    name: str = Field(min_length=1, max_length=255)
+    status: str = ProjectStatus.PLANNING.value
+    department_id: int | None = None
+    owner_id: int | None = None
+
+    @field_validator("status")
+    @classmethod
+    def _known_status(cls, value: str) -> str:
+        if value not in {item.value for item in ProjectStatus}:
+            raise ValueError("El estado del proyecto no existe")
+        return value
+
+
+class ProjectUpdate(BaseModel):
+    """Modificacion parcial de proyecto."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    status: str | None = None
+    department_id: int | None = None
+    owner_id: int | None = None
+
+    @field_validator("status")
+    @classmethod
+    def _known_status(cls, value: str | None) -> str | None:
+        if value is not None and value not in {item.value for item in ProjectStatus}:
+            raise ValueError("El estado del proyecto no existe")
+        return value
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class RoleOut(BaseModel):
+    """Rol aplicable dentro de un proyecto, con sus permisos."""
+
+    id: int
+    name: str
+    permissions: list[str]
+
+
+class MemberCreate(BaseModel):
+    """Alta de persona en un proyecto."""
+
+    user_id: int
+    role_id: int
 
 
 class DepartmentOut(BaseModel):

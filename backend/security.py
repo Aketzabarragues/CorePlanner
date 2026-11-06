@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .auth import get_current_user
 from .database import get_db
-from .models import Project, ProjectMember, Role, Task, User
+from .models import CompanyRole, Project, ProjectMember, Role, Task, User
 from .services.scope import implicit_permissions, resolve_scope
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
@@ -78,6 +78,25 @@ async def check_project_permission(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"No tienes permiso '{permission}' en este proyecto",
     )
+
+
+def require_manager() -> Callable[..., Coroutine[Any, Any, User]]:
+    """Dependencia que exige el rol de gerente.
+
+    El gerente es quien configura la organizacion: personas, departamentos,
+    proyectos y miembros. El administrador global tambien pasa, porque es la
+    figura tecnica que da de alta a los gerentes.
+    """
+
+    async def dependency(user: CurrentUser) -> User:
+        if not user.is_global_admin and user.company_role != CompanyRole.GERENTE.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo el gerente puede configurar la organizacion",
+            )
+        return user
+
+    return dependency
 
 
 def require_project_permission(

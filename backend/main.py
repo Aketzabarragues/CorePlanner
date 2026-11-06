@@ -16,7 +16,9 @@ from .api import (
     members,
     overview,
     projects,
+    roles,
     tasks,
+    users,
 )
 from .config import get_settings
 from .database import create_all, dispose_engine, engine
@@ -50,6 +52,8 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(me.router, prefix=settings.api_prefix)
+app.include_router(users.router, prefix=settings.api_prefix)
+app.include_router(roles.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)

@@ -71,6 +71,61 @@ export const meApi = {
   get: (token) => apiFetch('/me', { token }),
 }
 
+/** Configuracion de la organizacion, reservada al gerente. */
+export const configApi = {
+  people: (token) => apiFetch('/users', { token }),
+  createPerson: (token, person) =>
+    apiFetch('/users', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(person),
+    }),
+  updatePerson: (token, id, changes) =>
+    apiFetch(`/users/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+
+  companyRoles: (token) => apiFetch('/roles', { token }),
+  projectRoles: (token) => apiFetch('/roles/project', { token }),
+
+  createDepartment: (token, department) =>
+    apiFetch('/departments', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(department),
+    }),
+  updateDepartment: (token, id, changes) =>
+    apiFetch(`/departments/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+
+  createProject: (token, project) =>
+    apiFetch('/projects', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(project),
+    }),
+  updateProject: (token, id, changes) =>
+    apiFetch(`/projects/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+
+  addMember: (token, projectId, member) =>
+    apiFetch(`/projects/${projectId}/members`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(member),
+    }),
+  removeMember: (token, projectId, userId) =>
+    apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE', token }),
+}
+
 /** Endpoints de la vista global, que no pertenecen a ningun proyecto. */
 export const overviewApi = {
   capacity: (token, params = {}) => {

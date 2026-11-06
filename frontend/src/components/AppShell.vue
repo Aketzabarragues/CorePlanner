@@ -73,6 +73,9 @@ const userDepartment = computed(
 /** Rol de empresa con el que entra la persona. */
 const roleLabel = computed(() => scope.value?.role_label ?? '')
 
+/** El gerente es quien puede configurar la organizacion. */
+const isManager = computed(() => scope.value?.is_manager === true)
+
 /**
  * Indica si la persona puede escribir en el proyecto abierto.
  *
@@ -94,7 +97,11 @@ const currentView = computed(() =>
 )
 
 /** Secciones del menu, que dependen del contexto abierto. */
-const sections = computed(() => (isGlobal.value ? GLOBAL_SECTIONS : PROJECT_SECTIONS))
+const sections = computed(() => {
+  const base = isGlobal.value ? GLOBAL_SECTIONS : PROJECT_SECTIONS
+  if (isManager.value) return base
+  return base.filter((section) => !section.managerOnly)
+})
 
 /** Etiqueta de la vista abierta, para las migas de pan. */
 const currentViewLabel = computed(() =>

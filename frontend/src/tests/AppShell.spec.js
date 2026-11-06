@@ -39,9 +39,12 @@ function jsonResponse(payload, ok = true, status = 200) {
 
 /** Proyectos en los que la persona puede escribir, para las pruebas de ambito. */
 let editableProjectIds = [1, 2]
+/** Indica si quien entra es el gerente, para las pruebas de la configuracion. */
+let isManager = true
 
 function setupFetch(options = {}) {
   editableProjectIds = options.editable ?? [1, 2]
+  isManager = options.manager ?? true
   global.fetch = vi.fn(async (url, options = {}) => {
     if (url.endsWith('/auth/login')) {
       return jsonResponse({
@@ -69,6 +72,7 @@ function setupFetch(options = {}) {
           department_id: 1,
         },
         role_label: 'Gerente',
+        is_manager: isManager,
         department_name: 'Automatización & SCADA',
         visible_project_ids: [1, 2],
         editable_project_ids: editableProjectIds,
@@ -94,6 +98,7 @@ function buildRouter() {
       { path: '/capacity', name: 'global-capacity', component: Empty },
       { path: '/gantt', name: 'global-gantt', component: Empty },
       { path: '/departments', name: 'departments', component: Empty },
+      { path: '/configuration', name: 'configuration', component: Empty },
       { path: '/projects/:id', name: 'project', component: Empty },
       { path: '/projects/:id/capacity', name: 'capacity', component: Tracked },
       { path: '/projects/:id/gantt', name: 'gantt', component: Empty },
@@ -173,6 +178,20 @@ describe('AppShell', () => {
 
     expect(wrapper.text()).toContain('Solo lectura')
     expect(wrapper.text()).not.toContain('Nueva Tarea')
+  })
+
+  it('el gerente ve el enlace de configuracion en el espacio global', async () => {
+    const { wrapper } = await mountShell('/projects')
+
+    expect(linkTo(wrapper, 'Configuración')).toBeTruthy()
+  })
+
+  it('quien no es gerente no ve el enlace de configuracion', async () => {
+    setupFetch({ manager: false })
+
+    const { wrapper } = await mountShell('/projects')
+
+    expect(linkTo(wrapper, 'Configuración')).toBeUndefined()
   })
 
   it('en el espacio global el menu muestra las vistas globales', async () => {

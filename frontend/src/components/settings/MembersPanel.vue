@@ -1,0 +1,173 @@
+<script setup>
+/**
+ * Miembros de cada proyecto.
+ *
+ * Una persona entra en un proyecto con el rol que ejercen dentro de el, que es
+ * distinto del rol de empresa que tenga en la organizacion.
+ */
+import { ref } from 'vue'
+
+import { configApi } from '../../api/client'
+import { useAuthStore } from '../../stores/auth'
+
+const props = defineProps({
+  projects: { type: Array, required: true },
+  people: { type: Array, required: true },
+  projectRoles: { type: Array, required: true },
+  membersByProject: { type: Object, required: true },
+})
+
+const emit = defineEmits(['saved'])
+
+const auth = useAuthStore()
+const error = ref(null)
+const notice = ref(null)
+const saving = ref(false)
+const selection = ref({ project_id: '', user_id: '', role_id: '' })
+
+function reset() {
+  selection.value = { project_id: '', user_id: '', role_id: '' }
+}
+
+async function add() {
+  error.value = null
+  notice.value = null
+  saving.value = true
+  try {
+    const token = await auth.ensureSession()
+    await configApi.addMember(token, selection.value.project_id, {
+      user_id: Number(selection.value.user_id),
+      role_id: Number(selection.value.role_id),
+    })
+    notice.value = 'Persona anadida al proyecto.'
+    reset()
+    emit('saved')
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function remove(projectId, userId) {
+  error.value = null
+  notice.value = null
+  saving.value = true
+  try {
+    const token = await auth.ensureSession()
+    await configApi.removeMember(token, projectId, userId)
+    notice.value = 'Persona retirada del proyecto.'
+    emit('saved')
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <section class="space-y-6">
+    <div
+      v-for="project in props.projects"
+      :key="project.id"
+      class="rounded border border-slate-200 bg-white p-4"
+    >
+      <h3 class="mb-3 text-sm font-semibold text-siemens-900">{{ project.name }}</h3>
+
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left">
+            <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Persona
+            </th>
+            <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Rol en el proyecto
+            </th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="member in props.membersByProject[project.id] ?? []"
+            :key="member.user_id"
+            class="border-b border-slate-100"
+          >
+            <td class="px-2 py-2 text-slate-700">{{ member.name }}</td>
+            <td class="px-2 py-2 text-slate-600">{{ member.role_name }}</td>
+            <td class="px-2 py-2 text-right">
+              <button
+                type="button"
+                class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
+                @click="remove(project.id, member.user_id)"
+              >
+                Quitar
+              </button>
+            </td>
+          </tr>
+          <tr v-if="!(props.membersByProject[project.id] ?? []).length">
+            <td class="px-2 py-2 text-slate-500" colspan="3">Sin miembros.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <form class="rounded border border-slate-200 bg-white p-4" @submit.prevent="add">
+      <h3 class="mb-3 text-sm font-semibold text-siemens-900">Anadir persona a un proyecto</h3>
+
+      <div class="grid grid-cols-3 gap-3">
+        <label class="block text-sm font-medium">
+          Proyecto
+          <select
+            v-model="selection.project_id"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">Elige un proyecto</option>
+            <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
+              {{ project.name }}
+            </option>
+          </select>
+        </label>
+        <label class="block text-sm font-medium">
+          Persona
+          <select
+            v-model="selection.user_id"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">Elige una persona</option>
+            <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
+              {{ person.name }}
+            </option>
+          </select>
+        </label>
+        <label class="block text-sm font-medium">
+          Rol
+          <select
+            v-model="selection.role_id"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">Elige un rol</option>
+            <option v-for="role in props.projectRoles" :key="role.id" :value="String(role.id)">
+              {{ role.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {{ error }}
+      </p>
+      <p v-if="notice" class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+        {{ notice }}
+      </p>
+
+      <button
+        type="submit"
+        :disabled="saving"
+        class="mt-4 rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+      >
+        Anadir
+      </button>
+    </form>
+  </section>
+</template>

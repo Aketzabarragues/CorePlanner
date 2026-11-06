@@ -10,18 +10,12 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from ..auth import load_user_projects
-from ..models import Department
+from ..models import COMPANY_ROLE_LABELS, CompanyRole, Department
 from ..schemas import ScopeOut, UserOut
 from ..security import CurrentUser, SessionDep
 from ..services.scope import resolve_scope
 
 router = APIRouter(tags=["scope"])
-
-ROLE_LABELS = {
-    "gerente": "Gerente",
-    "jefe_departamento": "Jefe de departamento",
-    "tecnico": "Tecnico",
-}
 
 
 @router.get("/me", response_model=ScopeOut)
@@ -48,7 +42,10 @@ async def my_scope(user: CurrentUser, session: SessionDep) -> ScopeOut:
 
     return ScopeOut(
         user=UserOut.model_validate(user),
-        role_label=ROLE_LABELS.get(user.company_role, user.company_role),
+        role_label=COMPANY_ROLE_LABELS.get(user.company_role, user.company_role),
+        is_manager=(
+            user.is_global_admin or user.company_role == CompanyRole.GERENTE.value
+        ),
         department_name=department_name,
         visible_project_ids=sorted(scope.project_ids),
         editable_project_ids=sorted(editable),

@@ -121,7 +121,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
 | Mi trabajo | **No existe** |
-| Pantalla de configuracion | **No existe** |
+| Pantalla de configuracion | Hecho |
 
 El administrador global que existe hoy es, de hecho, el gerente: el cambio que
 ya esta hecho es que deje de ser un interruptor y pase a ser un rol de empresa

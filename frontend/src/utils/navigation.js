@@ -37,6 +37,12 @@ const SETTINGS_VIEW = {
   icon: 'sliders',
   hint: 'Ajustes del proyecto',
 }
+const CONFIGURATION_VIEW = {
+  name: 'configuration',
+  label: 'Configuración',
+  icon: 'sliders',
+  hint: 'Personas, roles, departamentos y proyectos',
+}
 
 export const GLOBAL_SECTIONS = [
   {
@@ -67,6 +73,11 @@ export const GLOBAL_SECTIONS = [
         hint: 'Departamentos y sus responsables',
       },
     ],
+  },
+  {
+    title: 'Administración',
+    managerOnly: true,
+    items: [CONFIGURATION_VIEW],
   },
 ]
 
@@ -162,6 +173,7 @@ export function toGlobalView(view) {
     kanban: 'projects',
     members: 'projects',
     settings: 'projects',
+    configuration: 'projects',
   }
   return counterparts[view] ?? DEFAULT_GLOBAL_VIEW
 }

@@ -91,14 +91,16 @@ coreplanner/
 ├── backend/
 │   ├── api/
 │   │   ├── auth.py           # login
-│   │   ├── departments.py    # listado de departamentos
+│   │   ├── departments.py    # listado y edicion de departamentos
 │   │   ├── gantt.py          # feed JSON del Gantt
 │   │   ├── kanban.py         # tablero por estados
 │   │   ├── me.py             # ambito de la persona que entra
 │   │   ├── members.py        # miembros del proyecto
 │   │   ├── overview.py       # capacidad y Gantt globales
-│   │   ├── projects.py       # listado y matriz de capacidad
-│   │   └── tasks.py          # CRUD de tareas
+│   │   ├── projects.py       # listado, alta y edicion de proyectos
+│   │   ├── roles.py          # catalogo de roles
+│   │   ├── tasks.py          # CRUD de tareas
+│   │   └── users.py          # personas de la organizacion
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
 │   ├── config.py         # settings via pydantic-settings (prefijo COREPLANNER_)
 │   ├── database.py       # engine asincrono y sesion por peticion
@@ -111,6 +113,7 @@ coreplanner/
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
 │   │   ├── capacity_repository.py # lectura de datos de capacidad
+│   │   ├── configuration.py       # reglas de personas, departamentos y proyectos
 │   │   ├── gantt.py               # tareas y miembros del Gantt (puro)
 │   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
@@ -130,11 +133,12 @@ coreplanner/
 │       │   ├── CapacityMatrix.vue  # tabla de ocupacion
 │       │   ├── CellBreakdown.vue   # desglose de una celda
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
-│       │   └── TaskForm.vue        # alta y edicion de tarea
+│       │   ├── TaskForm.vue        # alta y edicion de tarea
+│       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion)
-│       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Pendientes
+│       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Pendientes
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -264,6 +268,17 @@ token en `localStorage`.
 | `GET` | `/api/projects/{id}/kanban` | `capacity.read` en el proyecto |
 | `GET` | `/api/departments` | token valido |
 | `GET` | `/api/me` | token valido; ambito de la persona |
+| `GET` | `/api/users` | gerente |
+| `POST` | `/api/users` | gerente |
+| `PATCH` | `/api/users/{user_id}` | gerente |
+| `GET` | `/api/roles` | gerente; catalogo de roles de empresa |
+| `GET` | `/api/roles/project` | gerente; roles de proyecto |
+| `POST` | `/api/departments` | gerente |
+| `PATCH` | `/api/departments/{id}` | gerente |
+| `POST` | `/api/projects` | gerente |
+| `PATCH` | `/api/projects/{id}` | gerente |
+| `POST` | `/api/projects/{id}/members` | gerente |
+| `DELETE` | `/api/projects/{id}/members/{user_id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
 | `GET` | `/api/gantt` | token valido |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
@@ -298,6 +313,32 @@ rol de empresa se suman a los del rol de proyecto: el jefe de un area puede
 trabajar en los proyectos de su area aunque no sea miembro.
 
 El detalle completo esta en `docs/especificaciones.md`.
+
+## Configuracion
+
+La pantalla `/configuration` es del gerente. Reune en cinco pestanas todo lo
+que se puede cambiar de la organizacion:
+
+| Pestana | Que se gestiona |
+| --- | --- |
+| Personas | alta y modificacion de gente: rol de empresa, departamento y horas base |
+| Departamentos | alta, renombre y responsable |
+| Proyectos | alta y modificacion: estado, departamento que lo gestiona y responsable |
+| Miembros | quien entra en cada proyecto y con que rol |
+| Roles | catalogo de roles de empresa con su alcance, y de roles de proyecto con sus permisos |
+
+El enlace aparece en el menu lateral, en un grupo **Administracion**, solo si
+quien entra es el gerente. La API lo comprueba tambien: `require_manager` en
+`backend/security.py` devuelve 403 a cualquier otro rol.
+
+Reglas del dominio, en `backend/services/configuration.py`:
+
+- El correo de una persona es unico.
+- El responsable de un departamento **pertenece** a ese departamento: al
+  asignarlo, la persona pasa a formar parte de el.
+- Una persona no se mete dos veces en el mismo proyecto.
+- Los cambios son parciales: un `PATCH` solo toca los campos que van en la
+  peticion, como en las tareas.
 
 ## Gestion de tareas
 
@@ -418,6 +459,7 @@ lo que queda por hacer, para no dejar enlaces muertos.
 | `/capacity` | global | matriz de ocupacion consolidada |
 | `/gantt` | global | cronograma de todos los proyectos |
 | `/departments` | global | departamentos y sus responsables |
+| `/configuration` | global | configuracion de la organizacion (solo gerente) |
 | `/projects/{id}` | proyecto | resumen del proyecto |
 | `/projects/{id}/capacity` | proyecto | matriz de ocupacion |
 | `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
@@ -506,10 +548,12 @@ frontend con login, listado de proyectos, armazon de aplicacion con menu
 lateral, cabecera con migas, selector de contexto y alta de tarea, navegacion
 dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
 semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
-(por proyecto y consolidado), tablero Kanban, vista de departamentos y ambito
-por rol de empresa (gerente, jefe de departamento y tecnico).
+(por proyecto y consolidado), tablero Kanban, vista de departamentos, ambito
+por rol de empresa (gerente, jefe de departamento y tecnico) y pantalla de
+configuracion de la organizacion.
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
-proyecto, el cambio de rol, la pantalla de "Mi trabajo" y la de configuracion.
+proyecto desde la vista de proyecto, el cambio de rol y la pantalla de "Mi
+trabajo".
 
 ### Especificaciones
 

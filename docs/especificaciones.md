@@ -146,7 +146,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Ambito global (todo lo que puede ver quien entra) | Hecho |
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
-| Mi trabajo | **No existe** |
+| Mi trabajo | Hecho |
 | Pantalla de configuracion | Hecho |
 | Horario versionado por persona | Hecho |
 | Dias no laborables con alcance | Hecho |
@@ -253,3 +253,29 @@ Los horarios van por versiones: cada una tiene su fecha de entrada en vigor.
 Se pueden corregir o quitar, y el historial conserva lo que habia antes.
 Corregir una version no cambia su fecha de entrada en vigor: cambiarla seria
 otra version, no una correccion.
+
+## 12. Pantalla de Mi trabajo
+
+Es la vista personal: lo que tengo que hacer yo en el periodo de planificacion.
+Vive en el espacio global, en `/my-work`, y cualquiera puede abrirla: no depende
+del rol, porque cada uno ve lo suyo.
+
+### Que entra
+
+- Las **tareas propias** de los proyectos visibles, con su proyecto, su estado,
+  sus fechas y las horas que caen dentro del periodo.
+- La **carga por semana**: las horas propias de cada semana del periodo, la
+  capacidad de esa semana y la marca de sobrecarga.
+- El **periodo es el mismo** que el de la matriz de capacidad global: las
+  semanas en las que hay actividad en los proyectos visibles. Asi las dos
+  vistas hablan del mismo periodo y no hay que elegir entre ellas.
+
+### Que no entra
+
+- El horizonte configurable: el periodo se deduce de la actividad.
+- Navegar de una semana a otra, o filtros por proyecto, estado o persona.
+- Editar tareas desde aqui: la vista es de lectura, se editan en el tablero o
+  en el desglose de una celda de la matriz.
+- Arrastrar y soltar, o la asignacion por competencia.
+- Imputacion de horas, que es la pantalla de tiempo del proyecto.
+- Las tareas de otras personas: esta pantalla es la de uno mismo.

@@ -14,6 +14,7 @@ from .api import (
     kanban,
     me,
     members,
+    my_work,
     non_working_days,
     overview,
     people,
@@ -59,6 +60,7 @@ app.include_router(users.router, prefix=settings.api_prefix)
 app.include_router(roles.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
+app.include_router(my_work.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(members.router, prefix=settings.api_prefix)
 app.include_router(gantt.router, prefix=settings.api_prefix)

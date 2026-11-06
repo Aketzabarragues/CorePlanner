@@ -204,6 +204,11 @@ export const calendarApi = {
   },
   gantt: (token) => apiFetch('/gantt', { token }),
 }
+/** Mi trabajo: tareas propias y carga por semana del periodo de planificacion. */
+export const myWorkApi = {
+  list: (token) => apiFetch('/my-work', { token }),
+}
+
 export const tasksApi = {
   list: (token, params = {}) => {
     const query = new URLSearchParams(params).toString()

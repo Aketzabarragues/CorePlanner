@@ -158,7 +158,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -325,6 +325,7 @@ token en `localStorage`.
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
 | `GET` | `/api/gantt` | token valido |
+| `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
@@ -519,6 +520,26 @@ gestiona el proyecto y su responsable. La vista `/projects/{id}/settings` se
 abre desde el resumen del proyecto y muestra los mismos campos deshabilitados
 cuando quien entra no es gerente.
 
+## Mi trabajo
+
+`GET /api/my-work` devuelve las tareas propias y la carga por semana de quien
+entra. La vista `/my-work` es global y no depende del rol: cada quien ve lo
+suyo.
+
+- **Carga por semana**: las horas propias de cada semana del periodo, la
+  capacidad de esa semana y la marca de sobrecarga.
+- **Tareas**: las propias de los proyectos visibles, con su proyecto, su estado,
+  sus fechas y las horas que caen dentro del periodo.
+
+El periodo es el mismo que muestra la matriz de capacidad global: las semanas
+en las que hay actividad en los proyectos visibles. Asi las dos vistas hablan
+del mismo periodo. Las horas de una tarea son las que caen dentro del periodo,
+que no tienen por que ser las estimadas enteras: una tarea puede empezar antes
+o terminar despues.
+
+Es de lectura. Las tareas se editan en el tablero o en el desglose de una
+celda de la matriz.
+
 ## Armazon de la aplicacion
 
 `frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
@@ -673,8 +694,9 @@ configuracion de la organizacion (personas, roles, departamentos, proyectos y
 catalogo de competencias) y bloque de personas: horario versionado,
 dias no laborables con alcance, competencias y pantalla de personas. En el
 espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
-proyecto se configura con nombre, estado, departamento gestor y responsable.
-Pendiente de implementar: la exportacion `.ics` y la pantalla de "Mi trabajo".
+proyecto se configura con nombre, estado, departamento gestor y responsable. La
+pantalla global de Mi trabajo muestra las tareas propias y la carga por semana.
+Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones
 

@@ -94,6 +94,7 @@ function buildRouter() {
     routes: [
       { path: '/', name: 'home', component: Empty },
       { path: '/login', name: 'login', component: Empty },
+      { path: '/my-work', name: 'my-work', component: Empty },
       { path: '/projects', name: 'projects', component: Empty },
       { path: '/capacity', name: 'global-capacity', component: Empty },
       { path: '/gantt', name: 'global-gantt', component: Empty },

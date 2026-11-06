@@ -49,11 +49,18 @@ const PEOPLE_VIEW = {
   icon: 'users',
   hint: 'Perfiles, horarios y habilidades',
 }
+const MY_WORK_VIEW = {
+  name: 'my-work',
+  label: 'Mi trabajo',
+  icon: 'check',
+  hint: 'Tareas propias del periodo',
+}
 
 export const GLOBAL_SECTIONS = [
   {
     title: 'Espacio Global',
     items: [
+      MY_WORK_VIEW,
       {
         name: 'projects',
         label: 'Proyectos',
@@ -182,6 +189,7 @@ export function toGlobalView(view) {
     settings: 'projects',
     configuration: 'projects',
     people: 'people',
+    'my-work': 'my-work',
   }
   return counterparts[view] ?? DEFAULT_GLOBAL_VIEW
 }

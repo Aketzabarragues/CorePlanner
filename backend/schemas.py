@@ -299,6 +299,38 @@ class TaskOut(BaseModel):
     estimated_hours: Hours
 
 
+class MyWorkTaskOut(BaseModel):
+    """Tarea propia dentro del periodo de planificacion."""
+
+    id: int
+    project_id: int
+    project_name: str
+    title: str
+    status: str
+    start_date: date | None = None
+    end_date: date | None = None
+    hours: Hours
+    estimated_hours: Hours
+
+
+class MyWorkWeekOut(BaseModel):
+    """Carga propia de una semana del periodo."""
+
+    week: str
+    hours: Hours
+    capacity: Hours | None = None
+    is_overloaded: bool
+
+
+class MyWorkOut(BaseModel):
+    """Mi trabajo: tareas propias y carga por semana."""
+
+    weeks: list[MyWorkWeekOut]
+    tasks: list[MyWorkTaskOut]
+    total_hours: Hours
+    has_overload: bool
+
+
 class GanttTaskOut(BaseModel):
     """Barra del diagrama de Gantt."""
 

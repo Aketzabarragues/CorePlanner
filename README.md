@@ -158,7 +158,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -476,6 +476,32 @@ El backend devuelve las barras con el formato que espera la libreria:
 identificadores viajan como texto porque la libreria compara con igualdad
 estricta el identificador de la tarea con el que lee del DOM.
 
+## Calendario
+
+El Gantt muestra la planificacion como barras sobre una linea de tiempo. El
+calendario muestra la misma planificacion como una rejilla de meses: cada dia
+del mes y, dentro, las tareas que lo ocupan. Vive en los dos espacios, igual
+que el Gantt: `/calendar` con los proyectos visibles y
+`/projects/{id}/calendar` con uno solo.
+
+- La rejilla va de **lunes a domingo** y se navega por mes: anterior,
+  siguiente y **Hoy**.
+- Cada tarea aparece en todos los dias de lunes a viernes que ocupa, con el
+  color de su persona (el mismo que en el Gantt) y el proyecto en el texto
+  emergente. El fin de semana queda vacio, porque el motor de capacidad solo
+  reparte horas entre dias laborables.
+- Los **dias no laborables** aparecen marcados en su celda con su motivo: en
+  gris los globales y en ambar los de departamento.
+- Las **tareas sin fechas** se avisan aparte, para que la planificacion
+  incompleta no desaparezca en silencio.
+
+Es de lectura: las fechas se cambian desde el Gantt o desde el desglose de una
+celda de la matriz.
+
+El backend no tiene un endpoint propio: el calendario se monta con el feed de
+Gantt (`/api/gantt`), que ahora lleva el titulo y la persona de cada barra por
+separado, y con los dias no laborables (`/api/non-working-days`).
+
 ## Tablero Kanban
 
 La vista `/projects/{id}/kanban` muestra las tareas en cuatro columnas:
@@ -598,13 +624,13 @@ En el espacio global:
 
 | Grupo | Vistas |
 | --- | --- |
-| Espacio Global | Proyectos, Capacidad Global, Gantt Global, Departamentos |
+| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Departamentos, Personas y Competencias |
 
 En el espacio de proyecto:
 
 | Grupo | Vistas |
 | --- | --- |
-| Planificación & ejecucion | Matriz de Capacidad, Cronograma (Gantt), Tablero Kanban |
+| Planificación & ejecucion | Matriz de Capacidad, Cronograma (Gantt), Calendario, Tablero Kanban |
 | Gestion & equipo | Miembros y Asignaciones |
 
 La configuracion del proyecto no esta en el menu: se llega desde el resumen
@@ -617,14 +643,19 @@ editarla; el resto la ve en modo de solo lectura.
 | --- | --- | --- |
 | `/` | - | redirige a la matriz del primer proyecto accesible |
 | `/login` | - | acceso, con entrada automatica si ya hay sesion guardada |
+| `/panel` | global | resumen de la organizacion |
+| `/my-work` | global | tareas propias y carga por semana |
 | `/projects` | global | listado de proyectos |
 | `/capacity` | global | matriz de ocupacion consolidada |
 | `/gantt` | global | cronograma de todos los proyectos |
+| `/calendar` | global | calendario de la planificacion de todos los proyectos |
 | `/departments` | global | departamentos y sus responsables |
+| `/people` | global | directorio, competencias y dias no laborables |
 | `/configuration` | global | configuracion de la organizacion (solo gerente) |
 | `/projects/{id}` | proyecto | resumen del proyecto |
 | `/projects/{id}/capacity` | proyecto | matriz de ocupacion |
 | `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
+| `/projects/{id}/calendar` | proyecto | calendario de la planificacion |
 | `/projects/{id}/kanban` | proyecto | tablero Kanban |
 | `/projects/{id}/members` | proyecto | miembros y asignaciones |
 | `/projects/{id}/settings` | proyecto | configuracion del proyecto |
@@ -718,7 +749,8 @@ dias no laborables con alcance, competencias y pantalla de personas. En el
 espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
 pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
-y el panel global resume la organizacion de un vistazo.
+y el panel global resume la organizacion de un vistazo. La planificacion se ve
+como diagrama de Gantt o como calendario mensual.
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

@@ -33,6 +33,7 @@ describe('navegacion', () => {
     expect(PROJECT_VIEWS.map((view) => view.name)).toEqual([
       'capacity',
       'gantt',
+      'calendar',
       'kanban',
       'members',
       'settings',
@@ -44,7 +45,7 @@ describe('navegacion', () => {
       (view) => view.name,
     )
 
-    expect(enElMenu).toEqual(['capacity', 'gantt', 'kanban', 'members'])
+    expect(enElMenu).toEqual(['capacity', 'gantt', 'calendar', 'kanban', 'members'])
   })
 
   it('cataloga las vistas del espacio global', () => {
@@ -54,6 +55,7 @@ describe('navegacion', () => {
       'projects',
       'global-capacity',
       'global-gantt',
+      'global-calendar',
       'departments',
       'people',
       'configuration',
@@ -119,6 +121,7 @@ describe('navegacion', () => {
   it('lleva de una vista de proyecto a su homologa global', () => {
     expect(toGlobalView('capacity')).toBe('global-capacity')
     expect(toGlobalView('gantt')).toBe('global-gantt')
+    expect(toGlobalView('calendar')).toBe('global-calendar')
     expect(toGlobalView('kanban')).toBe('projects')
     expect(toGlobalView('members')).toBe('projects')
   })
@@ -126,6 +129,7 @@ describe('navegacion', () => {
   it('lleva de una vista global a su homologa de proyecto', () => {
     expect(toProjectView('global-capacity')).toBe('capacity')
     expect(toProjectView('global-gantt')).toBe('gantt')
+    expect(toProjectView('global-calendar')).toBe('calendar')
     expect(toProjectView('projects')).toBe('capacity')
     expect(toProjectView('departments')).toBe('capacity')
   })

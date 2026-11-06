@@ -94,6 +94,7 @@ del proyecto, pero sin poder tocarlos.
 | Tareas | alta, edicion, borrado, fechas, horas, responsable y estado |
 | Matriz de capacidad | personas por semanas, con la sobrecarga marcada |
 | Cronograma | barras de las tareas de un proyecto |
+| Calendario | la planificacion dia a dia, en rejilla de mes |
 | Tablero | columnas por estado de las tareas de un proyecto |
 | Departamentos | quien hay en cada area, con su carga |
 | Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
@@ -144,6 +145,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Acceso con JWT y administrador global | Hecho |
 | Matriz de capacidad por semanas con sobrecarga | Hecho |
 | Cronograma y tablero | Hecho |
+| Calendario de la planificacion | Hecho |
 | Ambito global (todo lo que puede ver quien entra) | Hecho |
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
@@ -308,3 +310,36 @@ el espacio global, en `/panel`, y cualquiera puede abrirla.
 - Filtros, rangos de fecha y comparativas entre periodos.
 - Edicion: el panel es de lectura.
 - Asignacion automatica de trabajo.
+
+## 14. Calendario de la planificacion
+
+El Gantt muestra las tareas como barras sobre una linea de tiempo. El calendario
+muestra la misma planificacion como una rejilla de meses: cada dia del mes y,
+dentro, las tareas que lo ocupan. Son dos formas de mirar lo mismo.
+
+Vive en los dos espacios, igual que el Gantt: en el global (`/calendar`) con
+las tareas de los proyectos visibles y en el de proyecto
+(`/projects/{id}/calendar`) con las de ese proyecto.
+
+### Que entra
+
+- La **rejilla mensual**, con la semana de lunes a domingo.
+- Las **tareas de cada dia**, con su persona y su proyecto. La tarea aparece en
+  todos los dias de lunes a viernes que ocupa; el fin de semana queda vacio,
+  porque el motor de capacidad solo reparte horas entre dias laborables.
+- La **navegacion de mes**: anterior, siguiente y hoy.
+- Los **dias no laborables marcados** en su celda, con su motivo y su alcance
+  (global o departamento). Forman parte del calendario de trabajo y por eso se
+  ven junto a las tareas.
+- Las **tareas sin fecha**, listadas aparte: la planificacion incompleta tiene
+  que ser visible.
+
+### Que no entra
+
+- Arrastrar y soltar para mover o redimensionar tareas: el calendario es de
+  lectura.
+- Vista semanal.
+- Edicion desde el calendario.
+- Filtros por proyecto, persona o estado.
+- El calculo del "impacto en la capacidad" de los festivos.
+- Un calendario por persona: el color de la tarea ya dice quien la tiene.

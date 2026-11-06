@@ -381,6 +381,10 @@ class GanttTaskOut(BaseModel):
     custom_class: str
     project_id: int
     project_name: str
+    title: str = ""
+    assigned_to: int | None = None
+    assigned_name: str | None = None
+    status: str = ""
 
 
 class GanttMemberOut(BaseModel):

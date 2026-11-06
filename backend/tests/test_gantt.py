@@ -46,12 +46,38 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "custom_class",
         "project_id",
         "project_name",
+        "title",
+        "assigned_to",
+        "assigned_name",
+        "status",
     }
     assert barra["id"] == 7
     assert barra["start"] == "2026-11-05"
     assert barra["end"] == "2026-11-11"
     assert barra["progress"] == 0
     assert barra["dependencies"] == ""
+
+
+def test_cada_barra_lleva_el_titulo_y_la_persona_por_separado():
+    """El calendario necesita el titulo y la persona sin mezclarlos."""
+    feed = build_gantt_feed(
+        PERSONAS, [Tarea(id=7, title="Programacion", assigned_to=1)], PROYECTOS
+    )
+
+    barra = feed.to_dict()["tasks"][0]
+    assert barra["title"] == "Programacion"
+    assert barra["assigned_to"] == 1
+    assert barra["assigned_name"] == "Ana"
+    assert barra["status"] == "backlog"
+
+
+def test_una_tarea_sin_persona_no_inventa_un_nombre():
+    feed = build_gantt_feed(PERSONAS, [Tarea(id=7, title="A"),], PROYECTOS)
+
+    barra = feed.to_dict()["tasks"][0]
+    assert barra["assigned_to"] is None
+    assert barra["assigned_name"] is None
+    assert barra["custom_class"] == ""
 
 
 def test_cada_barra_lleva_el_proyecto_al_que_pertenece():

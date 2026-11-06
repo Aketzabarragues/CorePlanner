@@ -86,6 +86,10 @@ class GanttTask:
     custom_class: str
     project_id: int
     project_name: str
+    title: str = ""
+    assigned_to: int | None = None
+    assigned_name: str | None = None
+    status: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -98,6 +102,10 @@ class GanttTask:
             "custom_class": self.custom_class,
             "project_id": self.project_id,
             "project_name": self.project_name,
+            "title": self.title,
+            "assigned_to": self.assigned_to,
+            "assigned_name": self.assigned_name,
+            "status": self.status,
         }
 
 
@@ -164,6 +172,10 @@ def build_gantt_feed(
                 custom_class=class_by_user.get(task.assigned_to, ""),
                 project_id=task.project_id,
                 project_name=project_names.get(task.project_id, ""),
+                title=task.title,
+                assigned_to=task.assigned_to,
+                assigned_name=assignee,
+                status=task.status,
             )
         )
 

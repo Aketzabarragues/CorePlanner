@@ -61,6 +61,18 @@ const PANEL_VIEW = {
   icon: 'gauge',
   hint: 'Estado de la organizacion',
 }
+const GLOBAL_CALENDAR_VIEW = {
+  name: 'global-calendar',
+  label: 'Calendario Global',
+  icon: 'grid',
+  hint: 'La planificacion dia a dia',
+}
+const CALENDAR_VIEW = {
+  name: 'calendar',
+  label: 'Calendario',
+  icon: 'grid',
+  hint: 'La planificacion dia a dia',
+}
 
 export const GLOBAL_SECTIONS = [
   {
@@ -86,6 +98,7 @@ export const GLOBAL_SECTIONS = [
         icon: 'calendar',
         hint: 'Cronograma de todos los proyectos',
       },
+      GLOBAL_CALENDAR_VIEW,
       {
         name: 'departments',
         label: 'Departamentos',
@@ -105,7 +118,7 @@ export const GLOBAL_SECTIONS = [
 export const PROJECT_SECTIONS = [
   {
     title: 'Planificación & ejecución',
-    items: [CAPACITY_VIEW, GANTT_VIEW, KANBAN_VIEW],
+    items: [CAPACITY_VIEW, GANTT_VIEW, CALENDAR_VIEW, KANBAN_VIEW],
   },
   {
     title: 'Gestión & equipo',
@@ -125,6 +138,7 @@ export const GLOBAL_VIEWS = GLOBAL_SECTIONS.flatMap((section) => section.items)
 export const PROJECT_VIEWS = [
   CAPACITY_VIEW,
   GANTT_VIEW,
+  CALENDAR_VIEW,
   KANBAN_VIEW,
   MEMBERS_VIEW,
   SETTINGS_VIEW,
@@ -191,6 +205,7 @@ export function toGlobalView(view) {
   const counterparts = {
     capacity: 'global-capacity',
     gantt: 'global-gantt',
+    calendar: 'global-calendar',
     kanban: 'projects',
     members: 'projects',
     settings: 'projects',
@@ -212,6 +227,7 @@ export function toProjectView(view) {
   const counterparts = {
     'global-capacity': 'capacity',
     'global-gantt': 'gantt',
+    'global-calendar': 'calendar',
     projects: 'capacity',
     departments: 'capacity',
     people: 'capacity',

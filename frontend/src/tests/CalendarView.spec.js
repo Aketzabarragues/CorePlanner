@@ -1,0 +1,184 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import CalendarView from '../views/CalendarView.vue'
+
+const feed = {
+  tasks: [
+    {
+      id: 1,
+      name: 'Programacion SCADA · Ana',
+      title: 'Programacion SCADA',
+      start: '2026-11-02',
+      end: '2026-11-06',
+      progress: 50,
+      dependencies: '',
+      custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      assigned_to: 2,
+      assigned_name: 'Ana',
+      status: 'in_progress',
+    },
+    {
+      id: 2,
+      name: 'Cableado de campo',
+      title: 'Cableado de campo',
+      start: '2026-11-09',
+      end: '2026-11-10',
+      progress: 75,
+      dependencies: '',
+      custom_class: '',
+      project_id: 2,
+      project_name: 'Red de tuberias linea 2',
+      assigned_to: null,
+      assigned_name: null,
+      status: 'testing',
+    },
+  ],
+  members: [{ user_id: 2, name: 'Ana', css_class: 'persona-0' }],
+  undated_task_ids: [7],
+  unassigned_task_ids: [],
+}
+
+const diasNoLaborables = [
+  {
+    id: 1,
+    date: '2026-11-02',
+    name: 'Puente',
+    scope: 'global',
+    department_id: null,
+    department_name: null,
+    half_day: false,
+  },
+  {
+    id: 2,
+    date: '2026-11-09',
+    name: 'Fiesta local',
+    scope: 'department',
+    department_id: 2,
+    department_name: 'Oficina Técnica / EPLAN',
+    half_day: false,
+  },
+]
+
+function jsonResponse(payload, ok = true, status = 200) {
+  return { ok, status, json: async () => payload }
+}
+
+function setupFetch({ payload = feed, dias = diasNoLaborables } = {}) {
+  global.fetch = vi.fn(async (url) => {
+    if (url.endsWith('/auth/login')) {
+      return jsonResponse({
+        access_token: 'tok',
+        token_type: 'bearer',
+        user: { id: 9, name: 'Admin' },
+      })
+    }
+    if (url.endsWith('/gantt')) return jsonResponse(payload)
+    if (url.endsWith('/non-working-days')) return jsonResponse(dias)
+    return jsonResponse({ detail: 'no encontrado' }, false, 404)
+  })
+}
+
+async function mountView(props = {}) {
+  const wrapper = mount(CalendarView, {
+    props,
+    global: { plugins: [createPinia()] },
+  })
+  await flushPromises()
+  await flushPromises()
+  return wrapper
+}
+
+describe('CalendarView', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    // El calendario arranca en el mes en curso: se fija la fecha para que la
+    // prueba no dependa del dia en que se ejecuta.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('muestra la rejilla del mes en curso', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
+    expect(wrapper.findAll('[data-testid="calendar-cell-2026-11-02"]')).toHaveLength(1)
+  })
+
+  it('coloca cada tarea en los dias que ocupa', async () => {
+    const wrapper = await mountView()
+
+    const celdas = wrapper.findAll('[data-testid="calendar-task"]')
+    // La primera va del lunes 2 al viernes 6: cinco dias. La segunda, del
+    // lunes 9 al martes 10: dos dias mas.
+    expect(celdas).toHaveLength(7)
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-04"]').text()).toContain(
+      'Programacion SCADA',
+    )
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-07"]').text()).not.toContain(
+      'Programacion SCADA',
+    )
+  })
+
+  it('el fin de semana queda vacio', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-07"]').text()).not.toContain(
+      'Programacion SCADA',
+    )
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-08"]').text()).not.toContain(
+      'Cableado de campo',
+    )
+  })
+
+  it('marca los dias no laborables con su alcance', async () => {
+    const wrapper = await mountView()
+
+    const marcados = wrapper.findAll('[data-testid="calendar-non-working"]')
+    expect(marcados).toHaveLength(2)
+    expect(marcados[0].text()).toBe('Puente')
+    expect(marcados[1].text()).toBe('Fiesta local')
+  })
+
+  it('avisa de las tareas sin fechas', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).toContain('1 tarea(s) sin fechas')
+  })
+
+  it('cambia de mes con los botones', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Diciembre 2026')
+
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Octubre 2026')
+
+    await wrapper.find('[data-testid="calendar-today"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
+  })
+
+  it('muestra el error si el servidor no responde', async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url.endsWith('/auth/login')) {
+        return jsonResponse({ access_token: 'tok', token_type: 'bearer', user: {} })
+      }
+      return jsonResponse({ detail: 'Fallo del servidor' }, false, 500)
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="calendar-error"]').text()).toContain('Fallo del servidor')
+  })
+})

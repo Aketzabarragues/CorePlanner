@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
+import CalendarView from '../views/CalendarView.vue'
 import DepartmentsView from '../views/DepartmentsView.vue'
 import GanttView from '../views/GanttView.vue'
 import KanbanView from '../views/KanbanView.vue'
@@ -33,6 +34,7 @@ const routes = [
   { path: '/projects', name: 'projects', component: ProjectsView },
   { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },
   { path: '/gantt', name: 'global-gantt', component: GanttView },
+  { path: '/calendar', name: 'global-calendar', component: CalendarView },
   { path: '/departments', name: 'departments', component: DepartmentsView },
   { path: '/people', name: 'people', component: PeopleView },
   { path: '/configuration', name: 'configuration', component: SettingsView },
@@ -51,6 +53,12 @@ const routes = [
     props: true,
   },
   { path: '/projects/:id/gantt', name: 'gantt', component: GanttView, props: true },
+  {
+    path: '/projects/:id/calendar',
+    name: 'calendar',
+    component: CalendarView,
+    props: true,
+  },
   { path: '/projects/:id/kanban', name: 'kanban', component: KanbanView, props: true },
   { path: '/projects/:id/members', name: 'members', component: MembersView, props: true },
   {

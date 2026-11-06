@@ -66,6 +66,7 @@ async function mountView() {
       { path: '/projects/:id', name: 'project', component: { render: () => null } },
       { path: '/projects/:id/capacity', name: 'capacity', component: { render: () => null } },
       { path: '/projects/:id/gantt', name: 'gantt', component: { render: () => null } },
+      { path: '/projects/:id/calendar', name: 'calendar', component: { render: () => null } },
       { path: '/projects/:id/kanban', name: 'kanban', component: { render: () => null } },
       { path: '/projects/:id/members', name: 'members', component: { render: () => null } },
       { path: '/projects/:id/settings', name: 'settings', component: { render: () => null } },

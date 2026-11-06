@@ -9,7 +9,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { calendarApi, departmentsApi, meApi, peopleApi } from '../api/client'
+import { calendarApi, departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDrawer from '../components/people/PersonDrawer.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
@@ -47,7 +47,7 @@ async function load() {
     isManager.value = scope.is_manager === true
     const [peopleData, skillsData, daysData, departmentsData] = await Promise.all([
       peopleApi.list(token, { week: week.value }),
-      peopleApi.skillCatalog(token),
+      skillsApi.catalog(token),
       calendarApi.list(token),
       departmentsApi.list(token),
     ])
@@ -137,8 +137,6 @@ onMounted(load)
         v-else-if="currentTab.name === 'skills'"
         :people="people"
         :skills="skills"
-        :is-manager="isManager"
-        @saved="load"
       />
       <WorkCalendar
         v-else

@@ -314,7 +314,7 @@ token en `localStorage`.
 | `PATCH` | `/api/people/{id}/schedules/{sid}` | gerente; corrige una version |
 | `DELETE` | `/api/people/{id}/schedules/{sid}` | gerente; quita una version |
 | `PUT` | `/api/people/{id}/skills` | gerente; fija las competencias de la persona |
-| `GET` | `/api/skills` | token valido; catalogo de competencias |
+| `GET` | `/api/skills` | token valido; catalogo de competencias, con cuantas personas tienen cada una |
 | `POST` | `/api/skills` | gerente |
 | `PATCH` | `/api/skills/{id}` | gerente; renombra |
 | `DELETE` | `/api/skills/{id}` | gerente; 409 si alguien la tiene asignada |
@@ -386,7 +386,9 @@ Reglas del dominio, en `backend/services/configuration.py`:
 
 La pantalla `/people` es global y tiene tres pestanas: **Directorio**,
 **Competencias** y **Días no laborables**. La persona deja de ser un usuario con
-acceso y pasa a tener una identidad profesional.
+acceso y pasa a tener una identidad profesional. La pestana **Competencias**
+muestra la matriz de quien cubre que; el catalogo de habilidades se mantiene en
+`/configuration`, en la pestana **Competencias**.
 
 | Pieza | Que resuelve |
 | --- | --- |
@@ -394,7 +396,7 @@ acceso y pasa a tener una identidad profesional.
 | Factor de disponibilidad | Permite "hasta marzo al 100 %, desde abril al 80 %" |
 | Días no laborables con alcance | Una tarea que cruza un puente se reparte en los dias que existen |
 | Puesto, nivel y tipo de contrato | Identidad profesional de la persona |
-| Competencias con nivel 1-3 | Catalogo de habilidades y matriz |
+| Competencias con nivel 1-3 | Matriz de quien cubre que |
 
 Reglas del motor, en `backend/services/schedule.py`:
 
@@ -418,7 +420,7 @@ a su departamento **sin** la carga.
 
 | Que | Donde | Quien |
 | --- | --- | --- |
-| Competencias del catalogo | Pestana **Competencias**, bloque "Catalogo de competencias" | Gerente |
+| Competencias del catalogo | `/configuration`, pestana **Competencias** | Gerente |
 | Nivel de una persona en cada competencia | Ficha de la persona, en "Competencias" | Gerente |
 | Horario de una persona | Ficha de la persona, en "Historial de horarios" y "Nueva version de horario" | Gerente |
 | Dias no laborables | Pestana **Dias no laborables** | Gerente |
@@ -426,10 +428,11 @@ a su departamento **sin** la carga.
 | Horas base semanales | `/configuration`, pestana **Personas** | Gerente |
 
 El catalogo de competencias no es una lista fija: se anade, se renombra y se
-quita. Una competencia que alguien tiene asignada no se puede quitar, para no
-dejar a nadie con un nivel sin nombre. Los horarios van por versiones: cada
-una tiene su fecha de entrada en vigor y se pueden corregir o quitar, y el
-historial conserva lo que habia antes.
+quita, desde la pestana **Competencias** de la configuracion. Una competencia
+que alguien tiene asignada no se puede quitar, para no dejar a nadie con un
+nivel sin nombre; el catalogo dice cuantas personas tienen cada competencia.
+Los horarios van por versiones: cada una tiene su fecha de entrada en vigor y
+se pueden corregir o quitar, y el historial conserva lo que habia antes.
 
 ## Gestion de tareas
 
@@ -641,7 +644,8 @@ dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
 semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
 (por proyecto y consolidado), tablero Kanban, vista de departamentos, ambito
 por rol de empresa (gerente, jefe de departamento y tecnico), pantalla de
-configuracion de la organizacion y bloque de personas: horario versionado,
+configuracion de la organizacion (personas, roles, departamentos, proyectos y
+catalogo de competencias) y bloque de personas: horario versionado,
 dias no laborables con alcance, competencias y pantalla de personas.
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
 proyecto desde la vista de proyecto, el cambio de rol y la pantalla de "Mi

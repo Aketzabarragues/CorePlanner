@@ -415,6 +415,27 @@ async def test_el_gerente_crea_una_competencia(client: AsyncClient):
     assert response.json()["name"] == "SCADA"
 
 
+async def test_el_catalogo_dice_cuantas_personas_tienen_cada_competencia(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.get("/api/skills", headers=headers)
+
+    assert response.status_code == 200, response.text
+    conteo = {item["name"]: item["person_count"] for item in response.json()}
+    assert conteo == {"TIA Portal": 1}
+
+
+async def test_una_competencia_nueva_no_tiene_a_nadie(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    creada = await client.post(
+        "/api/skills", headers=headers, json={"name": "SCADA"}
+    )
+
+    assert creada.status_code == 201, creada.text
+    assert creada.json()["person_count"] == 0
+
+
 async def test_una_competencia_duplicada_es_conflicto(client: AsyncClient):
     headers = await _auth(client, "gerente@example.com")
 

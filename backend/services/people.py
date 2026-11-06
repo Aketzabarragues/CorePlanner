@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import CompanyRole, Department, PersonSkill, Skill, User, WorkingSchedule
@@ -276,6 +276,20 @@ async def list_skills(session: AsyncSession) -> list[Skill]:
     """Catalogo de competencias de la empresa."""
     rows = (await session.execute(select(Skill).order_by(Skill.name))).scalars().all()
     return list(rows)
+
+
+async def skill_usage(session: AsyncSession) -> dict[int, int]:
+    """Cuantas personas tienen asignada cada competencia.
+
+    Una competencia en uso no se puede quitar del catalogo, asi que el gerente
+    necesita ver de antemano cuantas personas la tienen.
+    """
+    rows = await session.execute(
+        select(PersonSkill.skill_id, func.count(PersonSkill.user_id)).group_by(
+            PersonSkill.skill_id
+        )
+    )
+    return {skill_id: count for skill_id, count in rows.all()}
 
 
 async def _schedule_or_404(

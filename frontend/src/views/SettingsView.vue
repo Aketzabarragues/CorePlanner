@@ -2,18 +2,19 @@
 /**
  * Configuracion de la organizacion.
  *
- * Es la pantalla del gerente: personas, departamentos, proyectos, miembros y
- * el catalogo de roles. Carga los datos de referencia una vez y los reparte
+ * Es la pantalla del gerente: personas, departamentos, proyectos, miembros,
+ * roles y competencias. Carga los datos de referencia una vez y los reparte
  * entre los paneles; cada panel avisa cuando cambia algo para recargar.
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { configApi, departmentsApi, projectsApi } from '../api/client'
+import { configApi, departmentsApi, projectsApi, skillsApi } from '../api/client'
 import DepartmentsPanel from '../components/settings/DepartmentsPanel.vue'
 import MembersPanel from '../components/settings/MembersPanel.vue'
 import PeoplePanel from '../components/settings/PeoplePanel.vue'
 import ProjectsPanel from '../components/settings/ProjectsPanel.vue'
 import RolesPanel from '../components/settings/RolesPanel.vue'
+import SkillsPanel from '../components/settings/SkillsPanel.vue'
 import { useAuthStore } from '../stores/auth'
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { name: 'projects', label: 'Proyectos' },
   { name: 'members', label: 'Miembros' },
   { name: 'roles', label: 'Roles' },
+  { name: 'skills', label: 'Competencias' },
 ]
 
 const auth = useAuthStore()
@@ -35,6 +37,7 @@ const projects = ref([])
 const companyRoles = ref([])
 const projectRoles = ref([])
 const membersByProject = ref({})
+const skills = ref([])
 
 const currentTab = computed(() => TABS.find((item) => item.name === tab.value) ?? TABS[0])
 
@@ -52,19 +55,21 @@ async function load() {
   error.value = null
   try {
     const token = await auth.ensureSession()
-    const [peopleData, departmentsData, projectsData, companyRolesData, projectRolesData] =
+    const [peopleData, departmentsData, projectsData, companyRolesData, projectRolesData, skillsData] =
       await Promise.all([
         configApi.people(token),
         departmentsApi.list(token),
         projectsApi.list(token),
         configApi.companyRoles(token),
         configApi.projectRoles(token),
+        skillsApi.catalog(token),
       ])
     people.value = peopleData
     departments.value = departmentsData
     projects.value = projectsData
     companyRoles.value = companyRolesData
     projectRoles.value = projectRolesData
+    skills.value = skillsData
     await loadMembers(token)
   } catch (err) {
     error.value = err.message
@@ -81,7 +86,7 @@ onMounted(load)
     <header class="mb-6">
       <h1 class="text-lg font-semibold text-siemens-900">Configuración</h1>
       <p class="mt-1 text-sm text-slate-500">
-        Personas, roles, departamentos y proyectos de la organización.
+        Personas, roles, departamentos, proyectos y competencias de la organización.
       </p>
     </header>
 
@@ -139,10 +144,11 @@ onMounted(load)
         @saved="load"
       />
       <RolesPanel
-        v-else
+        v-else-if="currentTab.name === 'roles'"
         :company-roles="companyRoles"
         :project-roles="projectRoles"
       />
+      <SkillsPanel v-else :skills="skills" @saved="load" />
     </template>
   </div>
 </template>

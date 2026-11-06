@@ -222,26 +222,18 @@ describe('PeopleView', () => {
     expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(false)
   })
 
-  it('el gerente ve el catalogo de competencias y puede anadir una', async () => {
+  it('la pestana de competencias muestra la matriz y no el catalogo', async () => {
     const wrapper = await mountView()
 
     await wrapper.find('[data-testid="tab-skills"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(true)
-
-    await wrapper.find('[data-testid="new-skill-name"]').setValue('Robotica')
-    await wrapper.find('[data-testid="add-skill"]').trigger('click')
-    await flushPromises()
-
-    const llamada = global.fetch.mock.calls.find(
-      ([url, options]) => url.endsWith('/api/skills') && options.method === 'POST',
-    )
-    expect(llamada).toBeTruthy()
-    expect(JSON.parse(llamada[1].body)).toEqual({ name: 'Robotica' })
+    expect(wrapper.findAll('[data-testid="skill-row"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('TIA Portal')
+    expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(false)
   })
 
-  it('un tecnico no ve el catalogo de competencias', async () => {
+  it('un tecnico ve la misma matriz, sin gestion del catalogo', async () => {
     setupFetch({ isManager: false })
 
     const wrapper = await mountView()
@@ -249,6 +241,7 @@ describe('PeopleView', () => {
     await wrapper.find('[data-testid="tab-skills"]').trigger('click')
     await flushPromises()
 
+    expect(wrapper.findAll('[data-testid="skill-row"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(false)
   })
 

@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Response, status
 
 from ..schemas import SkillCreate, SkillOut, SkillUpdate
 from ..security import SessionDep, require_manager
-from ..services.people import create_skill, delete_skill, list_skills, rename_skill
+from ..services.people import (
+    create_skill,
+    delete_skill,
+    list_skills,
+    rename_skill,
+    skill_usage,
+)
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -15,7 +21,11 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 async def list_skill_catalog(session: SessionDep) -> list[SkillOut]:
     """Catalogo de competencias de la empresa."""
     rows = await list_skills(session)
-    return [SkillOut(id=row.id, name=row.name) for row in rows]
+    usage = await skill_usage(session)
+    return [
+        SkillOut(id=row.id, name=row.name, person_count=usage.get(row.id, 0))
+        for row in rows
+    ]
 
 
 @router.post("", response_model=SkillOut, status_code=status.HTTP_201_CREATED)
@@ -26,7 +36,7 @@ async def add_skill(
 ) -> SkillOut:
     """Anade una competencia al catalogo."""
     row = await create_skill(session, payload.name)
-    return SkillOut(id=row.id, name=row.name)
+    return SkillOut(id=row.id, name=row.name, person_count=0)
 
 
 @router.patch("/{skill_id}", response_model=SkillOut)
@@ -38,7 +48,8 @@ async def edit_skill(
 ) -> SkillOut:
     """Cambia el nombre de una competencia del catalogo."""
     row = await rename_skill(session, skill_id, payload.name)
-    return SkillOut(id=row.id, name=row.name)
+    usage = await skill_usage(session)
+    return SkillOut(id=row.id, name=row.name, person_count=usage.get(row.id, 0))
 
 
 @router.delete("/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)

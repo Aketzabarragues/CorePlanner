@@ -472,10 +472,11 @@ class PersonSkillsIn(BaseModel):
 
 
 class SkillOut(BaseModel):
-    """Competencia del catalogo."""
+    """Competencia del catalogo, con cuantas personas la tienen."""
 
     id: int
     name: str
+    person_count: int = 0
 
 
 class SkillCreate(BaseModel):

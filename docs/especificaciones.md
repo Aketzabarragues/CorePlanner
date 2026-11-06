@@ -85,7 +85,7 @@ es material de una version posterior.
 | Tablero | columnas por estado de las tareas de un proyecto |
 | Departamentos | quien hay en cada area, con su carga |
 | Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
-| Configuracion | personas, roles, departamentos y proyectos (solo gerente) |
+| Configuracion | personas, roles, departamentos, proyectos y catalogo de competencias (solo gerente) |
 
 ## 7. Que NO tiene que tener la aplicacion (v1)
 
@@ -217,7 +217,7 @@ las partes coincide exactamente con el total.
 
 | Que | Donde | Quien |
 | --- | --- | --- |
-| Competencias del catalogo | Pestana de competencias, bloque del catalogo | Gerente |
+| Competencias del catalogo | Configuracion, pestana de competencias | Gerente |
 | Nivel de una persona en cada competencia | Ficha de la persona | Gerente |
 | Horario de una persona | Ficha de la persona, historial de horarios | Gerente |
 | Dias no laborables | Pestana de dias no laborables | Gerente |
@@ -225,7 +225,12 @@ las partes coincide exactamente con el total.
 
 El catalogo de competencias **no es una lista fija**: se anade, se renombra y
 se quita. Una competencia que alguien tiene asignada no se puede quitar, para
-no dejar a nadie con un nivel sin nombre.
+no dejar a nadie con un nivel sin nombre. El catalogo dice cuantas personas
+tienen cada competencia.
+
+El catalogo vive en **Configuracion**, no en la pantalla de personas: alli se
+define que habilidades existen. La pantalla de personas responde a otra
+pregunta, quien tiene cual, y por eso muestra la matriz y no el catalogo.
 
 Los horarios van por versiones: cada una tiene su fecha de entrada en vigor.
 Se pueden corregir o quitar, y el historial conserva lo que habia antes.

@@ -156,20 +156,24 @@ export const peopleApi = {
       token,
       body: JSON.stringify({ skills }),
     }),
-  skillCatalog: (token) => apiFetch('/skills', { token }),
-  createSkill: (token, name) =>
+}
+
+/** Catalogo de competencias de la empresa. */
+export const skillsApi = {
+  catalog: (token) => apiFetch('/skills', { token }),
+  create: (token, name) =>
     apiFetch('/skills', {
       method: 'POST',
       token,
       body: JSON.stringify({ name }),
     }),
-  renameSkill: (token, id, name) =>
+  rename: (token, id, name) =>
     apiFetch(`/skills/${id}`, {
       method: 'PATCH',
       token,
       body: JSON.stringify({ name }),
     }),
-  removeSkill: (token, id) => apiFetch(`/skills/${id}`, { method: 'DELETE', token }),
+  remove: (token, id) => apiFetch(`/skills/${id}`, { method: 'DELETE', token }),
 }
 
 /** Calendario laboral: dias no laborables con su alcance. */

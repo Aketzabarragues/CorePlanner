@@ -153,6 +153,7 @@ coreplanner/
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
+│       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
@@ -495,6 +496,21 @@ que el Gantt: `/calendar` con los proyectos visibles y
 - Las **tareas sin fechas** se avisan aparte, para que la planificacion
   incompleta no desaparezca en silencio.
 
+El mismo calendario tiene **vista semanal**: un conmutador en la cabecera pasa
+de la rejilla del mes a la de la semana. Es el mismo corte de la misma
+planificacion, no otra pantalla.
+
+- La semana es la **semana ISO**, de lunes a domingo: la misma unidad que usa la
+  matriz de capacidad.
+- La rejilla semanal tiene **una columna por dia laborable**, de lunes a
+  viernes. El fin de semana no se muestra, porque el motor de capacidad nunca
+  reparte horas un sabado ni un domingo.
+- Cada tarea aparece con mas detalle que en el mes: titulo, persona, estado y
+  las fechas completas.
+- La navegacion es la misma: anterior, siguiente y **Hoy**, moviendo semanas.
+- Al cambiar de vista, la semana se coloca en la semana en curso si el mes que
+  se estaba viendo es el actual, y si no en la del primer dia de ese mes.
+
 Es de lectura: las fechas se cambian desde el Gantt o desde el desglose de una
 celda de la matriz.
 
@@ -750,7 +766,7 @@ espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
 pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
 y el panel global resume la organizacion de un vistazo. La planificacion se ve
-como diagrama de Gantt o como calendario mensual.
+como diagrama de Gantt o como calendario mensual y semanal.
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

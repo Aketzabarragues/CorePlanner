@@ -338,8 +338,49 @@ las tareas de los proyectos visibles y en el de proyecto
 
 - Arrastrar y soltar para mover o redimensionar tareas: el calendario es de
   lectura.
-- Vista semanal.
 - Edicion desde el calendario.
 - Filtros por proyecto, persona o estado.
 - El calculo del "impacto en la capacidad" de los festivos.
 - Un calendario por persona: el color de la tarea ya dice quien la tiene.
+
+## 15. Vista semanal del calendario
+
+La rejilla mensual responde a "como queda el mes". La semanal responde a "como
+queda esta semana": menos dias y mas detalle en cada uno. No es otra pantalla,
+es el mismo calendario con otro corte: comparte ruta, datos y dias no laborables.
+
+La semana es la **semana ISO**, de lunes a domingo: la misma unidad que usa la
+matriz de capacidad, de modo que el calendario y la matriz hablan del mismo
+periodo.
+
+### Que entra
+
+- El **conmutador de vista** (Mes / Semana) en la cabecera del calendario, en los
+  dos espacios.
+- La **rejilla de la semana**, con una columna por dia laborable, de lunes a
+  viernes. El fin de semana no se muestra: el motor de capacidad nunca reparte
+  horas un sabado ni un domingo, y una columna siempre vacia no aporta nada.
+- Las **tareas de cada dia**, con mas detalle que en la vista mensual: titulo,
+  persona, estado y las fechas completas de la tarea.
+- La **navegacion de semana**: anterior, siguiente y hoy.
+- Los **dias no laborables marcados** en su columna, con su motivo y su alcance.
+- Las **tareas sin fecha**, listadas aparte, como en la vista mensual.
+
+### Que no entra
+
+- La **vista de dia**: una sola columna no dice nada que la semana no diga.
+- El **fin de semana**: no hay columna de sabado ni de domingo.
+- Arrastrar y soltar, o edicion desde el calendario: es de lectura.
+- El **desglose de horas por dia**: el motor reparte las horas de una tarea
+  entre sus dias laborables, pero ese reparto no viaja en el feed del Gantt;
+  verlo exigiria un endpoint nuevo.
+- Filtros por proyecto, persona o estado.
+- Un calendario por persona: el color de la tarea ya dice quien la tiene.
+
+### Decisiones de este bloque
+
+- La vista arranca en **Mes**, como hasta ahora: el cambio es optativo.
+- La semana se elige con **el mismo par de botones** que el mes, para que la
+  navegacion se sienta igual en las dos vistas.
+- **Sin endpoint nuevo**: el feed del Gantt ya trae todas las tareas con fecha y
+  la vista semanal filtra en cliente.

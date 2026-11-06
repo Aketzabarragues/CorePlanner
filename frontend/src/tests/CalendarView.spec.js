@@ -182,3 +182,90 @@ describe('CalendarView', () => {
     expect(wrapper.find('[data-testid="calendar-error"]').text()).toContain('Fallo del servidor')
   })
 })
+
+describe('CalendarView en modo semanal', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('arranca en la vista mensual', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="calendar-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
+  })
+
+  it('cambia a la vista semanal con los dias laborables de la semana', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-grid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
+    expect(wrapper.find('[data-testid="week-cell-2026-11-02"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-cell-2026-11-06"]').exists()).toBe(true)
+    // El fin de semana no tiene columna.
+    expect(wrapper.find('[data-testid="week-cell-2026-11-07"]').exists()).toBe(false)
+  })
+
+  it('muestra el detalle de cada tarea', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+
+    const fichas = wrapper.findAll('[data-testid="week-task"]')
+    // La primera tarea va del lunes 2 al viernes 6: cinco dias.
+    expect(fichas).toHaveLength(5)
+    expect(fichas[0].text()).toContain('Programacion SCADA')
+    expect(fichas[0].text()).toContain('Ana')
+    expect(fichas[0].text()).toContain('En Desarrollo')
+  })
+
+  it('navega de semana en semana', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W46')
+    expect(wrapper.find('[data-testid="week-cell-2026-11-09"]').exists()).toBe(true)
+    // La segunda tarea ocupa el lunes 9 y el martes 10.
+    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
+  })
+
+  it('marca los dias no laborables de la semana', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    const marcados = wrapper.findAll('[data-testid="week-non-working"]')
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0].text()).toBe('Puente')
+
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    const siguientes = wrapper.findAll('[data-testid="week-non-working"]')
+    expect(siguientes).toHaveLength(1)
+    expect(siguientes[0].text()).toBe('Fiesta local')
+  })
+
+  it('vuelve a la vista mensual', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-view-month"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="calendar-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
+  })
+})

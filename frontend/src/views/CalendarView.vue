@@ -7,12 +7,16 @@
  * aparecen marcados en su celda, porque forman parte del calendario de
  * trabajo.
  *
+ * La vista semanal es el mismo calendario con otro corte: una columna por dia
+ * laborable de la semana ISO, con mas detalle en cada tarea.
+ *
  * Vive en los dos espacios: sin identificador muestra las tareas de los
  * proyectos visibles y con identificador las de ese proyecto.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { calendarApi, overviewApi, projectsApi } from '../api/client'
+import WeekGrid from '../components/WeekGrid.vue'
 import { useAuthStore } from '../stores/auth'
 import {
   currentMonthKey,
@@ -22,6 +26,13 @@ import {
   tasksOnDay,
   weekdayNames,
 } from '../utils/month'
+import {
+  currentWeekKey,
+  isoWeekKey,
+  shiftWeek,
+  weekRangeLabel,
+  weekWorkdays,
+} from '../utils/weeks'
 
 const props = defineProps({
   id: { type: [String, Number], default: null },
@@ -29,7 +40,9 @@ const props = defineProps({
 
 const auth = useAuthStore()
 
+const view = ref('month')
 const month = ref(currentMonthKey())
+const week = ref(currentWeekKey())
 const tasks = ref([])
 const members = ref([])
 const undatedTaskIds = ref([])
@@ -39,6 +52,14 @@ const loading = ref(true)
 
 /** Sin identificador de proyecto el calendario es global. */
 const isGlobal = computed(() => props.id === null || props.id === undefined)
+
+/** Clase de cada pestana del conmutador de vista. */
+const monthTabClass = computed(() =>
+  view.value === 'month' ? 'bg-siemens-900 text-white' : 'bg-white text-slate-700',
+)
+const weekTabClass = computed(() =>
+  view.value === 'week' ? 'bg-siemens-900 text-white' : 'bg-white text-slate-700',
+)
 
 const weeks = computed(() => monthGrid(month.value))
 
@@ -79,12 +100,39 @@ async function load() {
   }
 }
 
-function moveMonth(delta) {
+function step(delta) {
+  if (view.value === 'week') {
+    week.value = shiftWeek(week.value, delta)
+    return
+  }
   month.value = shiftMonth(month.value, delta)
+}
+
+/**
+ * Cambia entre la vista de mes y la de semana.
+ *
+ * Al cambiar de vista cada una se coloca donde le toca: si el mes que se estaba
+ * viendo es el mes en curso, la semana es la de hoy; si no, la del primer dia
+ * de ese mes. Al volver al mes, el mes es el de la semana en pantalla.
+ */
+function setView(next) {
+  if (next === view.value) return
+  if (next === 'week') {
+    const [year, monthNumber] = month.value.split('-').map(Number)
+    const now = new Date()
+    const sameMonth = now.getFullYear() === year && now.getMonth() === monthNumber - 1
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+    const first = new Date(Date.UTC(year, monthNumber - 1, 1))
+    week.value = isoWeekKey(sameMonth ? today : first)
+  } else {
+    month.value = weekWorkdays(week.value)[0].date.slice(0, 7)
+  }
+  view.value = next
 }
 
 function goToday() {
   month.value = currentMonthKey()
+  week.value = currentWeekKey()
 }
 
 onMounted(async () => {
@@ -118,23 +166,56 @@ watch(
         </p>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex overflow-hidden rounded border border-slate-300">
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm"
+            :class="monthTabClass"
+            data-testid="calendar-view-month"
+            @click="setView('month')"
+          >
+            Mes
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm"
+            :class="weekTabClass"
+            data-testid="calendar-view-week"
+            @click="setView('week')"
+          >
+            Semana
+          </button>
+        </div>
+
         <button
           type="button"
           class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
           data-testid="calendar-prev"
-          @click="moveMonth(-1)"
+          @click="step(-1)"
         >
           ‹
         </button>
-        <span class="min-w-36 text-center text-sm font-medium text-siemens-900" data-testid="calendar-month">
+        <span
+          v-if="view === 'month'"
+          class="min-w-36 text-center text-sm font-medium text-siemens-900"
+          data-testid="calendar-month"
+        >
           {{ monthLabel(month) }}
+        </span>
+        <span
+          v-else
+          class="min-w-44 text-center text-sm font-medium text-siemens-900"
+          data-testid="calendar-week"
+        >
+          {{ weekRangeLabel(week) }}
+          <span class="ml-1 text-xs font-normal text-slate-400">{{ week }}</span>
         </span>
         <button
           type="button"
           class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
           data-testid="calendar-next"
-          @click="moveMonth(1)"
+          @click="step(1)"
         >
           ›
         </button>
@@ -171,7 +252,10 @@ watch(
         {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el calendario.
       </p>
 
-      <div class="overflow-x-auto rounded border border-slate-200 bg-white">
+      <div
+        v-if="view === 'month'"
+        class="overflow-x-auto rounded border border-slate-200 bg-white"
+      >
         <table class="w-full border-collapse text-sm" data-testid="calendar-grid">
           <thead>
             <tr class="bg-slate-100">
@@ -240,6 +324,13 @@ watch(
           </tbody>
         </table>
       </div>
+
+      <WeekGrid
+        v-else
+        :week-key="week"
+        :tasks="tasks"
+        :non-working-days="nonWorkingDays"
+      />
 
       <p class="mt-3 text-xs text-slate-500">
         Las tareas se ven de lunes a viernes: el motor de capacidad solo reparte

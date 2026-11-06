@@ -40,6 +40,11 @@ export function monthLabel(key) {
   return `${MONTH_NAMES[month - 1]} ${year}`
 }
 
+/** Nombre corto del mes: "nov". */
+export function shortMonthName(monthNumber) {
+  return MONTH_NAMES[monthNumber - 1].slice(0, 3).toLowerCase()
+}
+
 /** Etiquetas de los dias de la semana, de lunes a domingo. */
 export function weekdayNames() {
   return [...WEEKDAY_NAMES]

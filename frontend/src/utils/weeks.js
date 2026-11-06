@@ -6,6 +6,8 @@
  * forma YYYY-Www.
  */
 
+import { shortMonthName } from './month'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** Clave de semana ISO de una fecha: "2026-W46". */
@@ -48,4 +50,42 @@ export function shiftWeek(key, delta) {
 /** Etiqueta corta de la semana: "S46". */
 export function weekLabel(key) {
   return `S${key.split('-W')[1]}`
+}
+
+/**
+ * Dias laborables de la semana: de lunes a viernes.
+ *
+ * El motor de capacidad solo reparte horas entre dias laborables, asi que el
+ * fin de semana no aporta nada a la vista semanal. Las fechas van en ISO y se
+ * calculan en UTC para que no dependan de la zona horaria.
+ */
+export function weekWorkdays(key) {
+  const monday = weekMonday(key)
+  const days = []
+  for (let offset = 0; offset < 5; offset += 1) {
+    const day = new Date(monday.getTime())
+    day.setUTCDate(monday.getUTCDate() + offset)
+    const month = String(day.getUTCMonth() + 1).padStart(2, '0')
+    const date = String(day.getUTCDate()).padStart(2, '0')
+    days.push({
+      date: `${day.getUTCFullYear()}-${month}-${date}`,
+      day: day.getUTCDate(),
+      weekday: offset,
+    })
+  }
+  return days
+}
+
+/** Rango de la semana en texto: "9 - 13 nov 2026". */
+export function weekRangeLabel(key) {
+  const days = weekWorkdays(key)
+  const first = days[0]
+  const last = days[days.length - 1]
+  const firstMonth = shortMonthName(Number(first.date.slice(5, 7)))
+  const lastMonth = shortMonthName(Number(last.date.slice(5, 7)))
+  const year = last.date.slice(0, 4)
+  if (firstMonth === lastMonth) {
+    return `${first.day} - ${last.day} ${lastMonth} ${year}`
+  }
+  return `${first.day} ${firstMonth} - ${last.day} ${lastMonth} ${year}`
 }

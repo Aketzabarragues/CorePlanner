@@ -10,6 +10,7 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import ModalDialog from '../ModalDialog.vue'
 
 const props = defineProps({
   people: { type: Array, required: true },
@@ -38,10 +39,25 @@ const empty = () => ({
 
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
+const formOpen = ref(false)
 
 function reset() {
   form.value = empty()
   error.value = null
+  formOpen.value = false
+}
+
+/** Abre el formulario vacio para dar de alta una persona. */
+function openCreate() {
+  form.value = empty()
+  error.value = null
+  formOpen.value = true
+}
+
+/** Cierra el formulario sin guardar. */
+function closeForm() {
+  error.value = null
+  formOpen.value = false
 }
 
 function edit(person) {
@@ -58,6 +74,7 @@ function edit(person) {
     employment_type: person.employment_type ?? 'objetivo',
   }
   error.value = null
+  formOpen.value = true
 }
 
 async function save() {
@@ -93,6 +110,17 @@ async function save() {
 
 <template>
   <section class="space-y-4">
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        data-testid="new-person"
+        @click="openCreate"
+      >
+        Nueva persona
+      </button>
+    </div>
+
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-slate-200 text-left">
@@ -147,124 +175,131 @@ async function save() {
       No hay personas en la organizacion.
     </p>
 
-    <form class="rounded border border-slate-200 bg-white p-4" @submit.prevent="save">
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">
-        {{ editing ? 'Modificar persona' : 'Nueva persona' }}
-      </h3>
-
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block text-sm font-medium">
-          Nombre
-          <input v-model="form.name" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
-        </label>
-        <label class="block text-sm font-medium">
-          Correo
-          <input
-            v-model="form.email"
-            type="email"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label v-if="!editing" class="block text-sm font-medium">
-          Contrasena
-          <input
-            v-model="form.password"
-            type="password"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label class="block text-sm font-medium">
-          Rol de empresa
-          <select
-            v-model="form.company_role"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option v-for="role in props.companyRoles" :key="role.value" :value="role.value">
-              {{ role.label }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Departamento
-          <select
-            v-model="form.department_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Sin departamento</option>
-            <option
-              v-for="department in props.departments"
-              :key="department.id"
-              :value="String(department.id)"
+    <ModalDialog
+      :open="formOpen"
+      :title="editing ? 'Modificar persona' : 'Nueva persona'"
+      @close="closeForm"
+    >
+      <form @submit.prevent="save">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm font-medium">
+            Nombre
+            <input
+              v-model="form.name"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-sm font-medium">
+            Correo
+            <input
+              v-model="form.email"
+              type="email"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label v-if="!editing" class="block text-sm font-medium">
+            Contrasena
+            <input
+              v-model="form.password"
+              type="password"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-sm font-medium">
+            Rol de empresa
+            <select
+              v-model="form.company_role"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
             >
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Horas base semanales
-          <input
-            v-model="form.weekly_base_hours"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label class="block text-sm font-medium">
-          Puesto
-          <input
-            v-model="form.job_title"
-            maxlength="120"
-            placeholder="Ingeniero PLC, Project Manager..."
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            data-testid="person-job-title"
-          />
-        </label>
-        <label class="block text-sm font-medium">
-          Nivel
-          <select
-            v-model="form.seniority"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            data-testid="person-seniority"
-          >
-            <option value="">Sin nivel</option>
-            <option value="junior">Junior</option>
-            <option value="medio">Medio</option>
-            <option value="senior">Senior</option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Tipo de contrato
-          <select
-            v-model="form.employment_type"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            data-testid="person-employment-type"
-          >
-            <option value="objetivo">Objetivo</option>
-            <option value="techo">Techo</option>
-            <option value="mejor_esfuerzo">Mejor esfuerzo</option>
-          </select>
-        </label>
-      </div>
+              <option v-for="role in props.companyRoles" :key="role.value" :value="role.value">
+                {{ role.label }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Departamento
+            <select
+              v-model="form.department_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Sin departamento</option>
+              <option
+                v-for="department in props.departments"
+                :key="department.id"
+                :value="String(department.id)"
+              >
+                {{ department.name }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Horas base semanales
+            <input
+              v-model="form.weekly_base_hours"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-sm font-medium">
+            Puesto
+            <input
+              v-model="form.job_title"
+              maxlength="120"
+              placeholder="Ingeniero PLC, Project Manager..."
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              data-testid="person-job-title"
+            />
+          </label>
+          <label class="block text-sm font-medium">
+            Nivel
+            <select
+              v-model="form.seniority"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              data-testid="person-seniority"
+            >
+              <option value="">Sin nivel</option>
+              <option value="junior">Junior</option>
+              <option value="medio">Medio</option>
+              <option value="senior">Senior</option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Tipo de contrato
+            <select
+              v-model="form.employment_type"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              data-testid="person-employment-type"
+            >
+              <option value="objetivo">Objetivo</option>
+              <option value="techo">Techo</option>
+              <option value="mejor_esfuerzo">Mejor esfuerzo</option>
+            </select>
+          </label>
+        </div>
 
-      <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {{ error }}
-      </p>
+        <p
+          v-if="error"
+          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {{ error }}
+        </p>
 
-      <div class="mt-4 flex gap-2">
-        <button
-          type="submit"
-          :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-        >
-          {{ editing ? 'Guardar cambios' : 'Dar de alta' }}
-        </button>
-        <button
-          v-if="editing"
-          type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
-          @click="reset"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+        <div class="mt-4 flex gap-2">
+          <button
+            type="submit"
+            :disabled="saving"
+            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          >
+            {{ editing ? 'Guardar cambios' : 'Dar de alta' }}
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            @click="closeForm"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
   </section>
 </template>

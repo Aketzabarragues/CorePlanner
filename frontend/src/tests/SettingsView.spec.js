@@ -159,8 +159,35 @@ describe('SettingsView', () => {
     expect(wrapper.text()).toContain('capacity.read')
   })
 
+  it('el formulario de personas esta oculto hasta que se pulsa el boton', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
+  })
+
+  it('el modal se cierra con ESC', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(false)
+  })
+
   it('da de alta una persona', async () => {
     const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await flushPromises()
 
     const form = wrapper.find('form')
     await form.find('input').setValue('Lucia')
@@ -182,6 +209,9 @@ describe('SettingsView', () => {
 
   it('el formulario de personas lleva puesto, nivel y tipo de contrato', async () => {
     const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await flushPromises()
 
     expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="person-seniority"]').exists()).toBe(true)
@@ -205,8 +235,11 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="tab-skills"]').trigger('click')
     await flushPromises()
 
+    await wrapper.find('[data-testid="new-skill"]').trigger('click')
+    await flushPromises()
+
     await wrapper.find('[data-testid="new-skill-name"]').setValue('Robotica')
-    await wrapper.find('[data-testid="add-skill"]').trigger('click')
+    await wrapper.find('form').trigger('submit')
     await flushPromises()
 
     const llamada = global.fetch.mock.calls.find(

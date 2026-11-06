@@ -10,6 +10,7 @@ import { computed, ref } from 'vue'
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { projectStatus } from '../../utils/navigation'
+import ModalDialog from '../ModalDialog.vue'
 
 const props = defineProps({
   projects: { type: Array, required: true },
@@ -40,6 +41,7 @@ const empty = () => ({
 })
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
+const formOpen = ref(false)
 
 function departmentName(departmentId) {
   if (departmentId === null || departmentId === undefined) return 'Sin departamento'
@@ -57,6 +59,20 @@ function personName(userId) {
 function reset() {
   form.value = empty()
   error.value = null
+  formOpen.value = false
+}
+
+/** Abre el formulario vacio para dar de alta un proyecto. */
+function openCreate() {
+  form.value = empty()
+  error.value = null
+  formOpen.value = true
+}
+
+/** Cierra el formulario sin guardar. */
+function closeForm() {
+  error.value = null
+  formOpen.value = false
 }
 
 function edit(project) {
@@ -72,6 +88,7 @@ function edit(project) {
       project.owner_id === null || project.owner_id === undefined ? '' : String(project.owner_id),
   }
   error.value = null
+  formOpen.value = true
 }
 
 async function save() {
@@ -103,6 +120,17 @@ async function save() {
 
 <template>
   <section class="space-y-4">
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        data-testid="new-project"
+        @click="openCreate"
+      >
+        Nuevo proyecto
+      </button>
+    </div>
+
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-slate-200 text-left">
@@ -140,81 +168,85 @@ async function save() {
       </tbody>
     </table>
 
-    <form class="rounded border border-slate-200 bg-white p-4" @submit.prevent="save">
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">
-        {{ editing ? 'Modificar proyecto' : 'Nuevo proyecto' }}
-      </h3>
-
-      <div class="grid grid-cols-2 gap-3">
-        <label class="block text-sm font-medium">
-          Nombre
-          <input
-            v-model="form.name"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label class="block text-sm font-medium">
-          Estado
-          <select
-            v-model="form.status"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option v-for="status in STATUSES" :key="status.value" :value="status.value">
-              {{ status.label }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Departamento que lo gestiona
-          <select
-            v-model="form.department_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Sin departamento</option>
-            <option
-              v-for="department in props.departments"
-              :key="department.id"
-              :value="String(department.id)"
+    <ModalDialog
+      :open="formOpen"
+      :title="editing ? 'Modificar proyecto' : 'Nuevo proyecto'"
+      @close="closeForm"
+    >
+      <form @submit.prevent="save">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-sm font-medium">
+            Nombre
+            <input
+              v-model="form.name"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-sm font-medium">
+            Estado
+            <select
+              v-model="form.status"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
             >
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Responsable
-          <select
-            v-model="form.owner_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              <option v-for="status in STATUSES" :key="status.value" :value="status.value">
+                {{ status.label }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Departamento que lo gestiona
+            <select
+              v-model="form.department_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Sin departamento</option>
+              <option
+                v-for="department in props.departments"
+                :key="department.id"
+                :value="String(department.id)"
+              >
+                {{ department.name }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Responsable
+            <select
+              v-model="form.owner_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Sin responsable</option>
+              <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
+                {{ person.name }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <p
+          v-if="error"
+          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {{ error }}
+        </p>
+
+        <div class="mt-4 flex gap-2">
+          <button
+            type="submit"
+            :disabled="saving"
+            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
           >
-            <option value="">Sin responsable</option>
-            <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
-              {{ person.name }}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {{ error }}
-      </p>
-
-      <div class="mt-4 flex gap-2">
-        <button
-          type="submit"
-          :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-        >
-          {{ editing ? 'Guardar cambios' : 'Crear' }}
-        </button>
-        <button
-          v-if="editing"
-          type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
-          @click="reset"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+            {{ editing ? 'Guardar cambios' : 'Crear' }}
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            @click="closeForm"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
   </section>
 </template>

@@ -9,6 +9,7 @@ import { ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import ModalDialog from '../ModalDialog.vue'
 
 const props = defineProps({
   projects: { type: Array, required: true },
@@ -24,9 +25,23 @@ const error = ref(null)
 const notice = ref(null)
 const saving = ref(false)
 const selection = ref({ project_id: '', user_id: '', role_id: '' })
+const formOpen = ref(false)
 
 function reset() {
   selection.value = { project_id: '', user_id: '', role_id: '' }
+}
+
+/** Abre el formulario vacio para anadir una persona a un proyecto. */
+function openCreate() {
+  reset()
+  error.value = null
+  formOpen.value = true
+}
+
+/** Cierra el formulario sin guardar. */
+function closeForm() {
+  error.value = null
+  formOpen.value = false
 }
 
 async function add() {
@@ -41,6 +56,7 @@ async function add() {
     })
     notice.value = 'Persona anadida al proyecto.'
     reset()
+    formOpen.value = false
     emit('saved')
   } catch (err) {
     error.value = err.message
@@ -68,6 +84,25 @@ async function remove(projectId, userId) {
 
 <template>
   <section class="space-y-6">
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        data-testid="new-member"
+        @click="openCreate"
+      >
+        Anadir persona a un proyecto
+      </button>
+    </div>
+
+    <p
+      v-if="notice"
+      class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
+      data-testid="member-notice"
+    >
+      {{ notice }}
+    </p>
+
     <div
       v-for="project in props.projects"
       :key="project.id"
@@ -112,62 +147,71 @@ async function remove(projectId, userId) {
       </table>
     </div>
 
-    <form class="rounded border border-slate-200 bg-white p-4" @submit.prevent="add">
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">Anadir persona a un proyecto</h3>
+    <ModalDialog :open="formOpen" title="Anadir persona a un proyecto" @close="closeForm">
+      <form @submit.prevent="add">
+        <div class="grid grid-cols-3 gap-3">
+          <label class="block text-sm font-medium">
+            Proyecto
+            <select
+              v-model="selection.project_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Elige un proyecto</option>
+              <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
+                {{ project.name }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Persona
+            <select
+              v-model="selection.user_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Elige una persona</option>
+              <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
+                {{ person.name }}
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm font-medium">
+            Rol
+            <select
+              v-model="selection.role_id"
+              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Elige un rol</option>
+              <option v-for="role in props.projectRoles" :key="role.id" :value="String(role.id)">
+                {{ role.name }}
+              </option>
+            </select>
+          </label>
+        </div>
 
-      <div class="grid grid-cols-3 gap-3">
-        <label class="block text-sm font-medium">
-          Proyecto
-          <select
-            v-model="selection.project_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Elige un proyecto</option>
-            <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
-              {{ project.name }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Persona
-          <select
-            v-model="selection.user_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Elige una persona</option>
-            <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
-              {{ person.name }}
-            </option>
-          </select>
-        </label>
-        <label class="block text-sm font-medium">
-          Rol
-          <select
-            v-model="selection.role_id"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Elige un rol</option>
-            <option v-for="role in props.projectRoles" :key="role.id" :value="String(role.id)">
-              {{ role.name }}
-            </option>
-          </select>
-        </label>
-      </div>
+        <p
+          v-if="error"
+          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {{ error }}
+        </p>
 
-      <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {{ error }}
-      </p>
-      <p v-if="notice" class="mt-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-        {{ notice }}
-      </p>
-
-      <button
-        type="submit"
-        :disabled="saving"
-        class="mt-4 rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-      >
-        Anadir
-      </button>
-    </form>
+        <div class="mt-4 flex gap-2">
+          <button
+            type="submit"
+            :disabled="saving"
+            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          >
+            Anadir
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            @click="closeForm"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
   </section>
 </template>

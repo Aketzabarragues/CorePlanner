@@ -71,6 +71,10 @@ Esta parte es configurable porque la empresa cambia. El conjunto de roles, en
 cambio, es cerrado: gerente, jefe de departamento y tecnico. Crear roles nuevos
 es material de una version posterior.
 
+Los formularios de alta y edicion se abren en un modal centrado desde el boton
+de cada panel, no en una tarjeta siempre visible: la tabla manda y el formulario
+aparece solo cuando hace falta.
+
 ## 6. Que tiene que tener la aplicacion
 
 | Pantalla | Para que sirve |

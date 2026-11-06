@@ -9,6 +9,7 @@ import { ref } from 'vue'
 
 import { skillsApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import ModalDialog from '../ModalDialog.vue'
 
 defineProps({
   skills: { type: Array, required: true },
@@ -18,22 +19,38 @@ const emit = defineEmits(['saved'])
 
 const auth = useAuthStore()
 const error = ref(null)
+const formError = ref(null)
 const notice = ref(null)
 const newName = ref('')
 const editingId = ref(null)
 const editingName = ref('')
+const formOpen = ref(false)
+
+/** Abre el formulario vacio para anadir una competencia. */
+function openCreate() {
+  newName.value = ''
+  formError.value = null
+  formOpen.value = true
+}
+
+/** Cierra el formulario sin guardar. */
+function closeForm() {
+  formError.value = null
+  formOpen.value = false
+}
 
 async function addSkill() {
-  error.value = null
+  formError.value = null
   notice.value = null
   try {
     const token = await auth.ensureSession()
     await skillsApi.create(token, newName.value.trim())
     newName.value = ''
+    formOpen.value = false
     notice.value = 'Competencia añadida al catálogo.'
     emit('saved')
   } catch (err) {
-    error.value = err.message
+    formError.value = err.message
   }
 }
 
@@ -72,6 +89,17 @@ async function removeSkill(skill) {
 
 <template>
   <section class="space-y-4">
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        data-testid="new-skill"
+        @click="openCreate"
+      >
+        Nueva competencia
+      </button>
+    </div>
+
     <p
       v-if="error"
       class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
@@ -86,34 +114,6 @@ async function removeSkill(skill) {
     >
       {{ notice }}
     </p>
-
-    <div class="rounded border border-slate-200 bg-white p-4">
-      <h3 class="mb-1 text-sm font-semibold text-siemens-900">Catálogo de competencias</h3>
-      <p class="mb-3 text-xs text-slate-500">
-        Las habilidades de la empresa. Se pueden añadir, renombrar y quitar mientras
-        nadie las tenga asignadas.
-      </p>
-      <div class="flex gap-2">
-        <input
-          v-model="newName"
-          type="text"
-          maxlength="100"
-          placeholder="Nombre de la competencia"
-          class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
-          data-testid="new-skill-name"
-          @keyup.enter="addSkill"
-        />
-        <button
-          type="button"
-          class="rounded bg-siemens-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-          :disabled="!newName.trim()"
-          data-testid="add-skill"
-          @click="addSkill"
-        >
-          Añadir
-        </button>
-      </div>
-    </div>
 
     <table class="w-full text-sm">
       <thead>
@@ -201,5 +201,46 @@ async function removeSkill(skill) {
         </tr>
       </tbody>
     </table>
+
+    <ModalDialog :open="formOpen" title="Nueva competencia" @close="closeForm">
+      <form @submit.prevent="addSkill">
+        <label class="block text-sm font-medium">
+          Nombre de la competencia
+          <input
+            v-model="newName"
+            type="text"
+            maxlength="100"
+            placeholder="Robotica, TIA Portal..."
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            data-testid="new-skill-name"
+          />
+        </label>
+
+        <p
+          v-if="formError"
+          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          data-testid="skill-form-error"
+        >
+          {{ formError }}
+        </p>
+
+        <div class="mt-4 flex gap-2">
+          <button
+            type="submit"
+            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+            data-testid="add-skill"
+          >
+            Añadir
+          </button>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            @click="closeForm"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
   </section>
 </template>

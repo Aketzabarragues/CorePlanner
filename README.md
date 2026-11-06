@@ -151,6 +151,7 @@ coreplanner/
 │       │   ├── CapacityMatrix.vue  # tabla de ocupacion
 │       │   ├── CellBreakdown.vue   # desglose de una celda
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
+│       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
@@ -358,7 +359,7 @@ El detalle completo esta en `docs/especificaciones.md`.
 
 ## Configuracion
 
-La pantalla `/configuration` es del gerente. Reune en cinco pestanas todo lo
+La pantalla `/configuration` es del gerente. Reune en seis pestanas todo lo
 que se puede cambiar de la organizacion:
 
 | Pestana | Que se gestiona |
@@ -368,6 +369,10 @@ que se puede cambiar de la organizacion:
 | Proyectos | alta y modificacion: estado, departamento que lo gestiona y responsable |
 | Miembros | quien entra en cada proyecto y con que rol |
 | Roles | catalogo de roles de empresa con su alcance, y de roles de proyecto con sus permisos |
+| Competencias | catalogo de habilidades: alta, renombre y baja |
+
+Cada panel tiene su boton de alta: el formulario se abre en un modal centrado
+y la tabla se queda limpia. Se cierra con ESC, con el boton o pulsando fuera.
 
 El enlace aparece en el menu lateral, en un grupo **Administracion**, solo si
 quien entra es el gerente. La API lo comprueba tambien: `require_manager` en

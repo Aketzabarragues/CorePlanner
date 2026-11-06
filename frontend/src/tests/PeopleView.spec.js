@@ -222,6 +222,58 @@ describe('PeopleView', () => {
     expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(false)
   })
 
+  it('el gerente ve el catalogo de competencias y puede anadir una', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="new-skill-name"]').setValue('Robotica')
+    await wrapper.find('[data-testid="add-skill"]').trigger('click')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) => url.endsWith('/api/skills') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toEqual({ name: 'Robotica' })
+  })
+
+  it('un tecnico no ve el catalogo de competencias', async () => {
+    setupFetch({ isManager: false })
+
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(false)
+  })
+
+  it('la ficha permite corregir una version de horario', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="open-profile-1"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="edit-schedule-1"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="cancel-schedule"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="schedule-factor"]').setValue(90)
+    await wrapper.find('[data-testid="save-schedule"]').trigger('click')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url.includes('/api/people/1/schedules/1') && options.method === 'PATCH',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body).availability_factor).toBe(90)
+  })
+
   it('muestra el error cuando la API lo rechaza', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {

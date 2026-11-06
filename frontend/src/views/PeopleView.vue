@@ -133,7 +133,13 @@ onMounted(load)
         :week="week"
         @open="selectedId = $event"
       />
-      <SkillsMatrix v-else-if="currentTab.name === 'skills'" :people="people" :skills="skills" />
+      <SkillsMatrix
+        v-else-if="currentTab.name === 'skills'"
+        :people="people"
+        :skills="skills"
+        :is-manager="isManager"
+        @saved="load"
+      />
       <WorkCalendar
         v-else
         :days="days"

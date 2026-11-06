@@ -578,3 +578,106 @@ async def test_el_gerente_quita_un_dia_no_laborable(client: AsyncClient):
 
     assert response.status_code == 204, response.text
     assert (await client.get("/api/non-working-days", headers=headers)).json() == []
+
+
+async def test_el_gerente_renombra_una_competencia(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    tia_id = client.ids["tia"]
+
+    response = await client.patch(
+        f"/api/skills/{tia_id}", headers=headers, json={"name": "TIA Portal V18"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "TIA Portal V18"
+
+
+async def test_renombrar_a_un_nombre_que_ya_existe_es_conflicto(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    tia_id = client.ids["tia"]
+    await client.post("/api/skills", headers=headers, json={"name": "SCADA"})
+
+    response = await client.patch(
+        f"/api/skills/{tia_id}", headers=headers, json={"name": "SCADA"}
+    )
+
+    assert response.status_code == 409, response.text
+
+
+async def test_no_se_puede_quitar_una_competencia_que_alguien_tiene(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    tia_id = client.ids["tia"]
+
+    response = await client.delete(f"/api/skills/{tia_id}", headers=headers)
+
+    assert response.status_code == 409, response.text
+
+
+async def test_el_gerente_quita_una_competencia_sin_uso(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    creada = await client.post("/api/skills", headers=headers, json={"name": "Robotica"})
+    skill_id = creada.json()["id"]
+
+    response = await client.delete(f"/api/skills/{skill_id}", headers=headers)
+
+    assert response.status_code == 204, response.text
+    nombres = [item["name"] for item in (await client.get("/api/skills", headers=headers)).json()]
+    assert "Robotica" not in nombres
+
+
+async def test_un_tecnico_no_renombra_competencias(client: AsyncClient):
+    headers = await _auth(client, "sebastian@example.com")
+    tia_id = client.ids["tia"]
+
+    response = await client.patch(
+        f"/api/skills/{tia_id}", headers=headers, json={"name": "Otra"}
+    )
+
+    assert response.status_code == 403, response.text
+
+
+async def test_el_gerente_corrige_una_version_de_horario(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    ana_id = client.ids["ana"]
+
+    response = await client.patch(
+        f"/api/people/{ana_id}/schedules/1",
+        headers=headers,
+        json={
+            "days": [700, 700, 700, 700, 700, 0, 0],
+            "availability_factor": 90,
+            "note": "Jornada de 7 h",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["days"] == [700, 700, 700, 700, 700, 0, 0]
+    assert response.json()["hours"][0] == 7.0
+    assert response.json()["availability_factor"] == 90
+
+
+async def test_corregir_el_horario_de_otra_persona_es_404(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    lucia_id = client.ids["lucia"]
+
+    response = await client.patch(
+        f"/api/people/{lucia_id}/schedules/1",
+        headers=headers,
+        json={"days": [0, 0, 0, 0, 0, 0, 0], "availability_factor": 0},
+    )
+
+    assert response.status_code == 404, response.text
+
+
+async def test_el_gerente_quita_una_version_de_horario(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    ana_id = client.ids["ana"]
+
+    response = await client.delete(
+        f"/api/people/{ana_id}/schedules/1", headers=headers
+    )
+
+    assert response.status_code == 204, response.text
+    ficha = await client.get(f"/api/people/{ana_id}", headers=headers)
+    assert ficha.json()["schedule_history"] == []

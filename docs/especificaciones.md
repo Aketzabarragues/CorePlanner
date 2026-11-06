@@ -212,3 +212,22 @@ las partes coincide exactamente con el total.
    esfuerzo) y no cambia todavia el calculo.
 6. **La pantalla de personas y competencias vive en el espacio global** y tiene
    tres pestanas: directorio, competencias y dias no laborables.
+
+### Donde se configura cada cosa
+
+| Que | Donde | Quien |
+| --- | --- | --- |
+| Competencias del catalogo | Pestana de competencias, bloque del catalogo | Gerente |
+| Nivel de una persona en cada competencia | Ficha de la persona | Gerente |
+| Horario de una persona | Ficha de la persona, historial de horarios | Gerente |
+| Dias no laborables | Pestana de dias no laborables | Gerente |
+| Puesto, nivel y tipo de contrato | Configuracion, personas | Gerente |
+
+El catalogo de competencias **no es una lista fija**: se anade, se renombra y
+se quita. Una competencia que alguien tiene asignada no se puede quitar, para
+no dejar a nadie con un nivel sin nombre.
+
+Los horarios van por versiones: cada una tiene su fecha de entrada en vigor.
+Se pueden corregir o quitar, y el historial conserva lo que habia antes.
+Corregir una version no cambia su fecha de entrada en vigor: cambiarla seria
+otra version, no una correccion.

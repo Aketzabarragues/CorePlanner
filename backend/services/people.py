@@ -278,6 +278,51 @@ async def list_skills(session: AsyncSession) -> list[Skill]:
     return list(rows)
 
 
+async def _schedule_or_404(
+    session: AsyncSession, user_id: int, schedule_id: int
+) -> WorkingSchedule:
+    """Version de horario de una persona, o error si no existe o es de otro."""
+    schedule = await session.get(WorkingSchedule, schedule_id)
+    if schedule is None or schedule.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Version de horario no encontrada",
+        )
+    return schedule
+
+
+async def update_schedule(
+    session: AsyncSession,
+    user_id: int,
+    schedule_id: int,
+    *,
+    days: list[int],
+    availability_factor: int,
+    note: str | None,
+) -> WorkingSchedule:
+    """Corrige una version de horario ya creada.
+
+    La fecha de entrada en vigor no se toca: cambiarla seria otra version,
+    no una correccion.
+    """
+    schedule = await _schedule_or_404(session, user_id, schedule_id)
+    for field, value in zip(DAY_FIELDS, days, strict=True):
+        setattr(schedule, field, value)
+    schedule.availability_factor = availability_factor
+    schedule.note = note
+    await session.commit()
+    return schedule
+
+
+async def delete_schedule(
+    session: AsyncSession, user_id: int, schedule_id: int
+) -> None:
+    """Quita una version de horario de una persona."""
+    schedule = await _schedule_or_404(session, user_id, schedule_id)
+    await session.delete(schedule)
+    await session.commit()
+
+
 async def create_skill(session: AsyncSession, name: str) -> Skill:
     """Anade una competencia al catalogo."""
     existing = (
@@ -292,6 +337,55 @@ async def create_skill(session: AsyncSession, name: str) -> Skill:
     session.add(skill)
     await session.commit()
     return skill
+
+
+async def rename_skill(session: AsyncSession, skill_id: int, name: str) -> Skill:
+    """Cambia el nombre de una competencia del catalogo."""
+    skill = await session.get(Skill, skill_id)
+    if skill is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competencia no encontrada",
+        )
+    clash = (
+        await session.execute(
+            select(Skill).where(Skill.name == name, Skill.id != skill_id)
+        )
+    ).scalar_one_or_none()
+    if clash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya hay una competencia con ese nombre",
+        )
+    skill.name = name
+    await session.commit()
+    return skill
+
+
+async def delete_skill(session: AsyncSession, skill_id: int) -> None:
+    """Quita una competencia del catalogo.
+
+    Una competencia que alguien tiene asignada no se puede quitar: primero
+    hay que dejar de asignarla.
+    """
+    skill = await session.get(Skill, skill_id)
+    if skill is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competencia no encontrada",
+        )
+    in_use = (
+        await session.execute(
+            select(PersonSkill.user_id).where(PersonSkill.skill_id == skill_id).limit(1)
+        )
+    ).scalar_one_or_none()
+    if in_use is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La competencia esta asignada a alguna persona y no se puede quitar",
+        )
+    await session.delete(skill)
+    await session.commit()
 
 
 async def set_person_skills(

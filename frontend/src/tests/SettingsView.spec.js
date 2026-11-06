@@ -174,6 +174,14 @@ describe('SettingsView', () => {
     })
   })
 
+  it('el formulario de personas lleva puesto, nivel y tipo de contrato', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="person-seniority"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="person-employment-type"]').exists()).toBe(true)
+  })
+
   it('muestra el error cuando la API lo rechaza', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {

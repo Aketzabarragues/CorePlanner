@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
-from ..schemas import SkillCreate, SkillOut
+from ..schemas import SkillCreate, SkillOut, SkillUpdate
 from ..security import SessionDep, require_manager
-from ..services.people import create_skill, list_skills
+from ..services.people import create_skill, delete_skill, list_skills, rename_skill
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -27,3 +27,29 @@ async def add_skill(
     """Anade una competencia al catalogo."""
     row = await create_skill(session, payload.name)
     return SkillOut(id=row.id, name=row.name)
+
+
+@router.patch("/{skill_id}", response_model=SkillOut)
+async def edit_skill(
+    skill_id: int,
+    payload: SkillUpdate,
+    session: SessionDep,
+    _manager=Depends(require_manager()),
+) -> SkillOut:
+    """Cambia el nombre de una competencia del catalogo."""
+    row = await rename_skill(session, skill_id, payload.name)
+    return SkillOut(id=row.id, name=row.name)
+
+
+@router.delete("/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_skill(
+    skill_id: int,
+    session: SessionDep,
+    _manager=Depends(require_manager()),
+) -> Response:
+    """Quita una competencia del catalogo.
+
+    No se puede quitar una competencia que alguien tiene asignada.
+    """
+    await delete_skill(session, skill_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

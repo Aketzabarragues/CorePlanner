@@ -311,9 +311,13 @@ token en `localStorage`.
 | `GET` | `/api/people` | token valido; directorio segun el ambito, con `?week=` |
 | `GET` | `/api/people/{id}` | token valido; ficha con el historial de horarios |
 | `POST` | `/api/people/{id}/schedules` | gerente; nueva version de horario |
+| `PATCH` | `/api/people/{id}/schedules/{sid}` | gerente; corrige una version |
+| `DELETE` | `/api/people/{id}/schedules/{sid}` | gerente; quita una version |
 | `PUT` | `/api/people/{id}/skills` | gerente; fija las competencias de la persona |
 | `GET` | `/api/skills` | token valido; catalogo de competencias |
 | `POST` | `/api/skills` | gerente |
+| `PATCH` | `/api/skills/{id}` | gerente; renombra |
+| `DELETE` | `/api/skills/{id}` | gerente; 409 si alguien la tiene asignada |
 | `GET` | `/api/non-working-days` | token valido; filtros `from`, `to` y `department_id` |
 | `POST` | `/api/non-working-days` | gerente |
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
@@ -409,6 +413,23 @@ Reglas del motor, en `backend/services/schedule.py`:
 Quien ve el directorio depende del rol de empresa: el gerente ve a todo el
 equipo con su carga, el jefe ve a su departamento con su carga y el tecnico ve
 a su departamento **sin** la carga.
+
+### Como se configura cada cosa
+
+| Que | Donde | Quien |
+| --- | --- | --- |
+| Competencias del catalogo | Pestana **Competencias**, bloque "Catalogo de competencias" | Gerente |
+| Nivel de una persona en cada competencia | Ficha de la persona, en "Competencias" | Gerente |
+| Horario de una persona | Ficha de la persona, en "Historial de horarios" y "Nueva version de horario" | Gerente |
+| Dias no laborables | Pestana **Dias no laborables** | Gerente |
+| Puesto, nivel y tipo de contrato | `/configuration`, pestana **Personas** | Gerente |
+| Horas base semanales | `/configuration`, pestana **Personas** | Gerente |
+
+El catalogo de competencias no es una lista fija: se anade, se renombra y se
+quita. Una competencia que alguien tiene asignada no se puede quitar, para no
+dejar a nadie con un nivel sin nombre. Los horarios van por versiones: cada
+una tiene su fecha de entrada en vigor y se pueden corregir o quitar, y el
+historial conserva lo que habia antes.
 
 ## Gestion de tareas
 

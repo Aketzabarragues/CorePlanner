@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from ..models import (
     COMPANY_ROLE_LABELS,
@@ -17,11 +17,13 @@ from ..schemas import (
     PersonSummaryOut,
     ScheduleCreate,
     ScheduleOut,
+    ScheduleUpdate,
 )
 from ..security import CurrentUser, SessionDep, require_manager
 from ..services.people import (
     PersonView,
     create_schedule,
+    delete_schedule,
     get_schedule_history,
     list_person_skills,
     list_visible_users,
@@ -30,6 +32,7 @@ from ..services.people import (
     schedule_days,
     sees_load,
     set_person_skills,
+    update_schedule,
 )
 from ..services.schedule import current_week_key, week_start_from_key
 from ..services.scope import resolve_scope
@@ -170,6 +173,41 @@ async def add_schedule(
         note=payload.note,
     )
     return _schedule_out(row)
+
+
+@router.patch("/{user_id}/schedules/{schedule_id}", response_model=ScheduleOut)
+async def edit_schedule(
+    user_id: int,
+    schedule_id: int,
+    payload: ScheduleUpdate,
+    session: SessionDep,
+    _manager=Depends(require_manager()),
+) -> ScheduleOut:
+    """Corrige una version de horario ya creada."""
+    row = await update_schedule(
+        session,
+        user_id,
+        schedule_id,
+        days=payload.days,
+        availability_factor=payload.availability_factor,
+        note=payload.note,
+    )
+    return _schedule_out(row)
+
+
+@router.delete(
+    "/{user_id}/schedules/{schedule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_schedule(
+    user_id: int,
+    schedule_id: int,
+    session: SessionDep,
+    _manager=Depends(require_manager()),
+) -> Response:
+    """Quita una version de horario de una persona."""
+    await delete_schedule(session, user_id, schedule_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put("/{user_id}/skills", response_model=list[PersonSkillOut])

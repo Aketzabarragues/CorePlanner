@@ -44,6 +44,9 @@ const scheduleForm = ref({
   note: '',
 })
 
+/** Version de horario que se esta corrigiendo; null significa una nueva. */
+const editingScheduleId = ref(null)
+
 const skillLevels = ref({})
 
 const history = computed(() => profile.value?.schedule_history ?? [])
@@ -88,13 +91,58 @@ async function addSchedule() {
   try {
     const token = await auth.ensureSession()
     const days = scheduleForm.value.hours.map((hours) => Math.round(Number(hours) * 100))
-    await peopleApi.addSchedule(token, props.person.id, {
-      valid_from: scheduleForm.value.valid_from,
+    const payload = {
       days,
       availability_factor: Number(scheduleForm.value.availability_factor),
       note: scheduleForm.value.note || null,
-    })
-    notice.value = 'Horario guardado.'
+    }
+    if (editingScheduleId.value === null) {
+      await peopleApi.addSchedule(token, props.person.id, {
+        ...payload,
+        valid_from: scheduleForm.value.valid_from,
+      })
+      notice.value = 'Horario guardado.'
+    } else {
+      await peopleApi.updateSchedule(token, props.person.id, editingScheduleId.value, payload)
+      notice.value = 'Horario corregido.'
+    }
+    editingScheduleId.value = null
+    await loadProfile()
+    emit('saved')
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+/** Carga una version de horario en el formulario para corregirla. */
+function startEditSchedule(entry) {
+  editingScheduleId.value = entry.id
+  scheduleForm.value = {
+    valid_from: entry.valid_from,
+    hours: entry.hours,
+    availability_factor: entry.availability_factor,
+    note: entry.note ?? '',
+  }
+}
+
+function cancelEditSchedule() {
+  editingScheduleId.value = null
+  scheduleForm.value = {
+    valid_from: '',
+    hours: [8, 8, 8, 8, 8, 0, 0],
+    availability_factor: 100,
+    note: '',
+  }
+}
+
+async function removeSchedule(entry) {
+  error.value = null
+  notice.value = null
+  try {
+    const token = await auth.ensureSession()
+    await peopleApi.removeSchedule(token, props.person.id, entry.id)
+    if (editingScheduleId.value === entry.id) cancelEditSchedule()
+    notice.value = 'Versión de horario quitada.'
     await loadProfile()
     emit('saved')
   } catch (err) {
@@ -186,6 +234,7 @@ async function saveSkills() {
                 <th class="py-1 font-medium">Días</th>
                 <th class="py-1 text-right font-medium">Factor</th>
                 <th class="py-1 pl-4 font-medium">Nota</th>
+                <th v-if="isManager" class="py-1 pl-4 font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -206,6 +255,26 @@ async function saveSkills() {
                 </td>
                 <td class="py-2 text-right whitespace-nowrap text-slate-600">{{ entry.availability_factor }} %</td>
                 <td class="py-2 pl-4 text-slate-500">{{ entry.note ?? '—' }}</td>
+                <td v-if="isManager" class="py-2 pl-4">
+                  <span class="flex gap-3 whitespace-nowrap">
+                    <button
+                      type="button"
+                      class="text-sm font-medium text-siemens-700 hover:underline"
+                      :data-testid="`edit-schedule-${entry.id}`"
+                      @click="startEditSchedule(entry)"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      class="text-sm font-medium text-red-700 hover:underline"
+                      :data-testid="`remove-schedule-${entry.id}`"
+                      @click="removeSchedule(entry)"
+                    >
+                      Quitar
+                    </button>
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -227,7 +296,9 @@ async function saveSkills() {
 
         <template v-if="isManager">
           <section class="rounded-lg border border-slate-200 p-4">
-            <h3 class="mb-3 text-sm font-semibold text-slate-900">Nueva versión de horario</h3>
+            <h3 class="mb-3 text-sm font-semibold text-slate-900">
+              {{ editingScheduleId === null ? 'Nueva versión de horario' : 'Corregir versión de horario' }}
+            </h3>
             <div class="grid grid-cols-7 gap-2">
               <label v-for="(label, index) in DAY_LABELS" :key="label" class="text-xs text-slate-500">
                 {{ label }}
@@ -248,7 +319,8 @@ async function saveSkills() {
                 <input
                   v-model="scheduleForm.valid_from"
                   type="date"
-                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  :disabled="editingScheduleId !== null"
+                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-100"
                   data-testid="schedule-valid-from"
                 />
               </label>
@@ -274,15 +346,26 @@ async function saveSkills() {
                 />
               </label>
             </div>
-            <button
-              type="button"
-              class="mt-3 rounded bg-siemens-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-              :disabled="!scheduleForm.valid_from"
-              data-testid="save-schedule"
-              @click="addSchedule"
-            >
-              Guardar horario
-            </button>
+            <div class="mt-3 flex gap-2">
+              <button
+                type="button"
+                class="rounded bg-siemens-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                :disabled="!scheduleForm.valid_from"
+                data-testid="save-schedule"
+                @click="addSchedule"
+              >
+                {{ editingScheduleId === null ? 'Guardar horario' : 'Guardar cambios' }}
+              </button>
+              <button
+                v-if="editingScheduleId !== null"
+                type="button"
+                class="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-600"
+                data-testid="cancel-schedule"
+                @click="cancelEditSchedule"
+              >
+                Cancelar
+              </button>
+            </div>
           </section>
 
           <section class="rounded-lg border border-slate-200 p-4">

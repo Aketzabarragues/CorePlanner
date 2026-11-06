@@ -31,6 +31,9 @@ const empty = () => ({
   company_role: 'tecnico',
   department_id: '',
   weekly_base_hours: '40',
+  job_title: '',
+  seniority: '',
+  employment_type: 'objetivo',
 })
 
 const form = ref(empty())
@@ -50,6 +53,9 @@ function edit(person) {
     company_role: person.company_role,
     department_id: person.department_id ?? '',
     weekly_base_hours: String(person.weekly_base_hours),
+    job_title: person.job_title ?? '',
+    seniority: person.seniority ?? '',
+    employment_type: person.employment_type ?? 'objetivo',
   }
   error.value = null
 }
@@ -66,6 +72,9 @@ async function save() {
       department_id:
         form.value.department_id === '' ? null : Number(form.value.department_id),
       weekly_base_hours: form.value.weekly_base_hours,
+      job_title: form.value.job_title || null,
+      seniority: form.value.seniority || null,
+      employment_type: form.value.employment_type,
     }
     if (editing.value) {
       await configApi.updatePerson(token, form.value.id, payload)
@@ -94,7 +103,13 @@ async function save() {
             Rol
           </th>
           <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Puesto
+          </th>
+          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Departamento
+          </th>
+          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Contrato
           </th>
           <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Horas
@@ -109,9 +124,11 @@ async function save() {
             <span class="block text-xs text-slate-500">{{ person.email }}</span>
           </td>
           <td class="px-2 py-2 text-slate-600">{{ person.company_role_label }}</td>
+          <td class="px-2 py-2 text-slate-600">{{ person.job_title ?? '—' }}</td>
           <td class="px-2 py-2 text-slate-600">
             {{ person.department_name ?? 'Sin departamento' }}
           </td>
+          <td class="px-2 py-2 text-slate-600">{{ person.employment_type_label }}</td>
           <td class="px-2 py-2 text-slate-600">{{ person.weekly_base_hours }} h</td>
           <td class="px-2 py-2 text-right">
             <button
@@ -189,6 +206,41 @@ async function save() {
             v-model="form.weekly_base_hours"
             class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
+        </label>
+        <label class="block text-sm font-medium">
+          Puesto
+          <input
+            v-model="form.job_title"
+            maxlength="120"
+            placeholder="Ingeniero PLC, Project Manager..."
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            data-testid="person-job-title"
+          />
+        </label>
+        <label class="block text-sm font-medium">
+          Nivel
+          <select
+            v-model="form.seniority"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            data-testid="person-seniority"
+          >
+            <option value="">Sin nivel</option>
+            <option value="junior">Junior</option>
+            <option value="medio">Medio</option>
+            <option value="senior">Senior</option>
+          </select>
+        </label>
+        <label class="block text-sm font-medium">
+          Tipo de contrato
+          <select
+            v-model="form.employment_type"
+            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            data-testid="person-employment-type"
+          >
+            <option value="objetivo">Objetivo</option>
+            <option value="techo">Techo</option>
+            <option value="mejor_esfuerzo">Mejor esfuerzo</option>
+          </select>
         </label>
       </div>
 

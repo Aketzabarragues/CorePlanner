@@ -142,6 +142,14 @@ export const peopleApi = {
       token,
       body: JSON.stringify(schedule),
     }),
+  updateSchedule: (token, id, scheduleId, schedule) =>
+    apiFetch(`/people/${id}/schedules/${scheduleId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(schedule),
+    }),
+  removeSchedule: (token, id, scheduleId) =>
+    apiFetch(`/people/${id}/schedules/${scheduleId}`, { method: 'DELETE', token }),
   setSkills: (token, id, skills) =>
     apiFetch(`/people/${id}/skills`, {
       method: 'PUT',
@@ -155,6 +163,13 @@ export const peopleApi = {
       token,
       body: JSON.stringify({ name }),
     }),
+  renameSkill: (token, id, name) =>
+    apiFetch(`/skills/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify({ name }),
+    }),
+  removeSkill: (token, id) => apiFetch(`/skills/${id}`, { method: 'DELETE', token }),
 }
 
 /** Calendario laboral: dias no laborables con su alcance. */

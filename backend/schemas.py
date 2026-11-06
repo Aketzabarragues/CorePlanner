@@ -430,6 +430,26 @@ class ScheduleCreate(BaseModel):
         return value
 
 
+class ScheduleUpdate(BaseModel):
+    """Correccion de una version de horario.
+
+    La fecha de entrada en vigor no se puede cambiar: cambiarla seria otra
+    version, no una correccion.
+    """
+
+    days: list[int] = Field(min_length=7, max_length=7)
+    availability_factor: int = Field(default=100, ge=0, le=100)
+    note: str | None = Field(default=None, max_length=255)
+
+    @field_validator("days")
+    @classmethod
+    def _valid_days(cls, value: list[int]) -> list[int]:
+        for day in value:
+            if not 0 <= day <= 10000:
+                raise ValueError("Las horas de un dia van de 0 a 10000 centimas")
+        return value
+
+
 class PersonSkillOut(BaseModel):
     """Competencia de una persona, con su nivel."""
 
@@ -460,6 +480,12 @@ class SkillOut(BaseModel):
 
 class SkillCreate(BaseModel):
     """Alta de competencia en el catalogo."""
+
+    name: str = Field(min_length=1, max_length=100)
+
+
+class SkillUpdate(BaseModel):
+    """Renombrado de una competencia del catalogo."""
 
     name: str = Field(min_length=1, max_length=100)
 

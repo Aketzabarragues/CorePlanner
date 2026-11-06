@@ -134,6 +134,7 @@ coreplanner/
 │       ├── views/        # Login, Proyectos, Departamentos, Capacidad, Gantt, Kanban, Miembros, Resumen, Pendientes
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
+│   ├── especificaciones.md              # alcance y reglas de la v1
 │   └── openproject/
 │       ├── analisis-openproject.md        # ingenieria inversa de OpenProject
 │       └── plan-replicacion-coreplanner.md # plan de replicacion por fases
@@ -480,6 +481,13 @@ semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
 Pendiente de implementar: la exportacion `.ics`, el alta y baja de miembros del
 proyecto, el cambio de rol y la configuracion del proyecto.
 
+### Especificaciones
+
+`docs/especificaciones.md` define el alcance de la aplicacion: los tres roles
+(gerente, jefe de departamento y tecnico), que ve cada uno, las reglas de
+visibilidad, lo que tiene que haber y, sobre todo, lo que no tiene que haber en
+la primera version. Es el documento que decide si una funcionalidad entra.
+
 ### Analisis de OpenProject
 
 CorePlanner nace con la ambition de ser un OpenProject en version ligera: mismo
@@ -496,6 +504,30 @@ ingenieria inversa esta documentado en `docs/openproject/`:
 Los dos documentos son la referencia para las fases siguientes: las primeras
 fases replican el horario laboral por persona y las asignaciones explicitas,
 que es lo que separa una ocupacion estimada de una ocupacion planificada.
+
+### Analisis competitivo
+
+En `docs/analisis-competitivo.md` se contrasta ese plan con once repositorios
+de referencia (OpenProject, ERPNext, Plane, Leantime, Paperclip, AppFlowy,
+Focalboard, Planka, Kanboard, Kaneo y Ever Gauzy), leidos a nivel de codigo.
+
+Tres conclusiones que condicionan el trabajo:
+
+- **El filtro de licencias.** Solo Paperclip, Kanboard y Kaneo son MIT y por
+  tanto reutilizables. ERPNext y OpenProject son GPLv3; AppFlowy, Plane,
+  Leantime y Ever Gauzy son AGPLv3; Focalboard y Planka tienen licencias
+  propias que impiden el uso comercial a terceros. De los repos con licencia
+  copyleft se reimplementa la idea, nunca se copia el codigo.
+- **El hueco de mercado es nuestro.** Ninguno de los once tiene una matriz de
+  carga persona por semana contra una capacidad base: tres de ellos (Plane,
+  Kanboard y Planka) tienen cero ocurrencias del vocabulario de capacidad. No
+  hay que copiar el producto de nadie; hay que profundizar en el dominio.
+- **Cinco piezas que el plan actual no cubre**: politica de capacidad con
+  umbral blando y veto humano (Paperclip), imputacion de horas reales frente
+  a lo planificado (ERPNext, OpenProject), dependencias entre tareas y ruta
+  critica (ERPNext, con `graphlib` de la stdlib), bitacora de cambios
+  append-only (Kanboard, Leantime) y un servidor MCP que haga CorePlanner
+  operable por un agente (Paperclip, Kaneo).
 
 ### Detalles de implementacion que conviene conocer
 

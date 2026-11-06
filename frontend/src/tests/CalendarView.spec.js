@@ -169,6 +169,32 @@ describe('CalendarView', () => {
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
   })
 
+  it('la celda tiene alto fijo: solo caben tres tareas y las demas se cuentan', async () => {
+    const extras = [10, 11, 12, 13].map((id) => ({
+      id,
+      name: `Extra ${id}`,
+      title: `Extra ${id}`,
+      start: '2026-11-02',
+      end: '2026-11-02',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-1',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      assigned_to: 2,
+      assigned_name: 'Ana',
+      status: 'backlog',
+    }))
+    setupFetch({ payload: { ...feed, tasks: [...feed.tasks, ...extras] } })
+
+    const wrapper = await mountView()
+
+    const celda = wrapper.find('[data-testid="calendar-cell-2026-11-02"]')
+    expect(celda.findAll('[data-testid="calendar-task"]')).toHaveLength(3)
+    // La celda lleva ya una tarea, asi que sobran dos.
+    expect(celda.find('[data-testid="calendar-more"]').text()).toContain('+2 más')
+  })
+
   it('muestra el error si el servidor no responde', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {

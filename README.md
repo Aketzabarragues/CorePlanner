@@ -487,6 +487,9 @@ que el Gantt: `/calendar` con los proyectos visibles y
 
 - La rejilla va de **lunes a domingo** y se navega por mes: anterior,
   siguiente y **Hoy**.
+- Las **celdas tienen alto fijo**: el mes se ve siempre igual de regular, sin
+  que una semana con muchas tareas desborde la rejilla. En cada dia caben tres
+  tareas y las que sobran se cuentan en un **+N mas**.
 - Cada tarea aparece en todos los dias de lunes a viernes que ocupa, con el
   color de su persona (el mismo que en el Gantt) y el proyecto en el texto
   emergente. El fin de semana queda vacio, porque el motor de capacidad solo

@@ -106,3 +106,19 @@ export function monthGrid(key) {
 export function tasksOnDay(tasks, date) {
   return tasks.filter((task) => task.start <= date && date <= task.end)
 }
+
+/** Cuantas tareas caben en una celda del mes. */
+export const MAX_TASKS_PER_CELL = 3
+
+/**
+ * Tareas de una celda del mes, repartidas entre las que se ven y las que no.
+ *
+ * La celda tiene un alto fijo, asi que solo caben unas cuantas tareas. Las que
+ * sobran se cuentan en un "+N mas" en vez de desbordar la celda.
+ */
+export function splitTasks(tasks, limit = MAX_TASKS_PER_CELL) {
+  return {
+    visible: tasks.slice(0, limit),
+    hidden: tasks.slice(limit),
+  }
+}

@@ -6,6 +6,7 @@ import {
   monthKey,
   monthLabel,
   shiftMonth,
+  splitTasks,
   tasksOnDay,
   weekdayNames,
 } from '../utils/month'
@@ -70,5 +71,23 @@ describe('utilidades de mes', () => {
 
   it('el mes en curso es el de hoy', () => {
     expect(currentMonthKey(new Date(2026, 10, 6))).toBe('2026-11')
+  })
+
+  it('reparte las tareas de una celda entre las que se ven y las que sobran', () => {
+    const tareas = [1, 2, 3, 4, 5].map((id) => ({ id }))
+
+    const { visible, hidden } = splitTasks(tareas)
+
+    expect(visible).toHaveLength(3)
+    expect(hidden.map((task) => task.id)).toEqual([4, 5])
+  })
+
+  it('deja intactas las celdas que no se llenan', () => {
+    const tareas = [{ id: 1 }]
+
+    const { visible, hidden } = splitTasks(tareas)
+
+    expect(visible).toHaveLength(1)
+    expect(hidden).toHaveLength(0)
   })
 })

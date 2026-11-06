@@ -23,6 +23,7 @@ import {
   monthGrid,
   monthLabel,
   shiftMonth,
+  splitTasks,
   tasksOnDay,
   weekdayNames,
 } from '../utils/month'
@@ -63,14 +64,24 @@ const weekTabClass = computed(() =>
 
 const weeks = computed(() => monthGrid(month.value))
 
-/** Tareas de cada dia de la rejilla. */
+/**
+ * Tareas de cada dia de la rejilla.
+ *
+ * La celda tiene un alto fijo, asi que de cada dia solo se ven unas cuantas
+ * tareas: las demas se cuentan en un "+N mas".
+ */
 const tasksByDay = computed(() => {
   const map = new Map()
   for (const cell of weeks.value.flat()) {
-    map.set(cell.date, tasksOnDay(tasks.value, cell.date))
+    map.set(cell.date, splitTasks(tasksOnDay(tasks.value, cell.date)))
   }
   return map
 })
+
+/** Titulos de las tareas que no caben en la celda de un dia. */
+function hiddenTitles(date) {
+  return (tasksByDay.value.get(date)?.hidden ?? []).map((task) => task.title).join(' · ')
+}
 
 /** Dias no laborables de cada fecha. */
 const nonWorkingByDate = computed(() => {
@@ -256,7 +267,7 @@ watch(
         v-if="view === 'month'"
         class="overflow-x-auto rounded border border-slate-200 bg-white"
       >
-        <table class="w-full border-collapse text-sm" data-testid="calendar-grid">
+        <table class="w-full table-fixed border-collapse text-sm" data-testid="calendar-grid">
           <thead>
             <tr class="bg-slate-100">
               <th
@@ -273,7 +284,7 @@ watch(
               <td
                 v-for="cell in week"
                 :key="cell.date"
-                class="align-top border border-slate-200 p-1.5"
+                class="h-28 overflow-hidden align-top border border-slate-200 p-1.5"
                 :class="cell.inMonth ? 'bg-white' : 'bg-slate-50'"
                 :data-testid="`calendar-cell-${cell.date}`"
               >
@@ -307,9 +318,9 @@ watch(
                   </template>
                 </div>
 
-                <div v-if="!cell.weekend" class="space-y-1">
+                <div v-if="!cell.weekend" class="space-y-1 overflow-hidden">
                   <div
-                    v-for="task in tasksByDay.get(cell.date) ?? []"
+                    v-for="task in tasksByDay.get(cell.date)?.visible ?? []"
                     :key="task.id"
                     class="truncate rounded px-1.5 py-0.5 text-[11px] text-white"
                     :class="task.custom_class || 'bg-slate-500'"
@@ -318,6 +329,14 @@ watch(
                   >
                     {{ task.title }}
                   </div>
+                  <p
+                    v-if="(tasksByDay.get(cell.date)?.hidden.length ?? 0) > 0"
+                    class="px-1 text-[10px] font-medium text-slate-500"
+                    :title="hiddenTitles(cell.date)"
+                    data-testid="calendar-more"
+                  >
+                    +{{ tasksByDay.get(cell.date)?.hidden.length }} más
+                  </p>
                 </div>
               </td>
             </tr>

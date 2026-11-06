@@ -67,7 +67,7 @@ const nonWorkingByDate = computed(() => {
           <td
             v-for="day in days"
             :key="day.date"
-            class="w-1/5 align-top border border-slate-200 p-2"
+            class="min-h-32 w-1/5 align-top border border-slate-200 p-2"
             :data-testid="`week-cell-${day.date}`"
           >
             <div class="mb-1.5 flex flex-wrap items-center gap-1">

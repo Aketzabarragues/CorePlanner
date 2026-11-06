@@ -324,6 +324,9 @@ las tareas de los proyectos visibles y en el de proyecto
 ### Que entra
 
 - La **rejilla mensual**, con la semana de lunes a domingo.
+- Las **celdas de alto fijo**: la rejilla no crece con el contenido, de modo que
+  el mes se ve siempre igual de regular. En cada dia caben tres tareas y las
+  que sobran se cuentan en un "+N mas".
 - Las **tareas de cada dia**, con su persona y su proyecto. La tarea aparece en
   todos los dias de lunes a viernes que ocupa; el fin de semana queda vacio,
   porque el motor de capacidad solo reparte horas entre dias laborables.

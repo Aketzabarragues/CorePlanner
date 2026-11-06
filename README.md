@@ -158,7 +158,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -325,6 +325,7 @@ token en `localStorage`.
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
 | `GET` | `/api/gantt` | token valido |
+| `GET` | `/api/panel` | token valido; resumen de la organizacion |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
@@ -520,6 +521,27 @@ gestiona el proyecto y su responsable. La vista `/projects/{id}/settings` se
 abre desde el resumen del proyecto y muestra los mismos campos deshabilitados
 cuando quien entra no es gerente.
 
+## Panel
+
+`GET /api/panel` devuelve el estado de la organizacion de un vistazo. La vista
+`/panel` es global y no depende del rol.
+
+- **Utilizacion**: horas planificadas frente a capacidad en la semana de
+  referencia, en porcentaje. La semana de referencia es la semana en curso si
+  hay actividad en ella y, si no, la primera del periodo, para que siempre haya
+  una semana con datos.
+- **Personas sobrecargadas**: quien supera su capacidad en alguna semana, con
+  sus horas, su capacidad y el exceso.
+- **Proyectos con mas carga**: horas estimadas, numero de tareas y de personas
+  de cada proyecto visible, del mas cargado al menos cargado.
+- **Recuentos**: proyectos por estado, tareas por estado, personas con carga y
+  tareas del periodo.
+
+Todo sale de la matriz de capacidad y del listado de tareas, de modo que el
+panel y la matriz no pueden discrepar. El panel **no** lleva veredictos
+discretos, aprobaciones ni incidentes de politica: eso es la politica de
+capacidad y va aparte.
+
 ## Mi trabajo
 
 `GET /api/my-work` devuelve las tareas propias y la carga por semana de quien
@@ -695,7 +717,8 @@ catalogo de competencias) y bloque de personas: horario versionado,
 dias no laborables con alcance, competencias y pantalla de personas. En el
 espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
-pantalla global de Mi trabajo muestra las tareas propias y la carga por semana.
+pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
+y el panel global resume la organizacion de un vistazo.
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

@@ -9,10 +9,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..models import Project
-from ..schemas import GanttOut
+from ..schemas import GanttOut, PanelOut
 from ..security import CurrentUser, SessionDep, list_accessible_projects
 from ..services.capacity_repository import load_capacity_for_projects
 from ..services.gantt_repository import load_gantt_for_projects
+from ..services.panel import load_panel
 
 router = APIRouter(tags=["overview"])
 
@@ -47,6 +48,18 @@ async def global_capacity(
         session, [project.id for project in selected]
     )
     return report.to_dict()
+
+
+@router.get("/panel", response_model=PanelOut)
+async def global_panel(session: SessionDep, user: CurrentUser) -> PanelOut:
+    """Resumen de la organizacion: utilizacion, sobrecargas, proyectos y tareas.
+
+    Todo sale de la matriz de capacidad y del listado de tareas de los
+    proyectos visibles, de modo que el panel no puede discrepar de la matriz.
+    """
+    projects = await list_accessible_projects(session, user)
+    panel = await load_panel(session, projects)
+    return PanelOut.model_validate(panel.to_dict())
 
 
 @router.get("/gantt", response_model=GanttOut)

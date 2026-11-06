@@ -7,6 +7,7 @@ import KanbanView from '../views/KanbanView.vue'
 import LoginView from '../views/LoginView.vue'
 import MembersView from '../views/MembersView.vue'
 import MyWorkView from '../views/MyWorkView.vue'
+import PanelView from '../views/PanelView.vue'
 import PeopleView from '../views/PeopleView.vue'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
@@ -27,6 +28,7 @@ const routes = [
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
 
   // Espacio global: la organizacion entera, sin proyecto en la URL.
+  { path: '/panel', name: 'panel', component: PanelView },
   { path: '/my-work', name: 'my-work', component: MyWorkView },
   { path: '/projects', name: 'projects', component: ProjectsView },
   { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },

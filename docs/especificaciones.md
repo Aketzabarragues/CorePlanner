@@ -88,6 +88,7 @@ del proyecto, pero sin poder tocarlos.
 | --- | --- |
 | Acceso | entrar con correo y contrasena |
 | Mi trabajo | las tareas propias en el periodo de planificacion |
+| Panel global | el estado de la organizacion de un vistazo |
 | Proyectos | listado filtrado por el ambito de quien entra |
 | Detalle de proyecto | tareas, miembros y estado |
 | Tareas | alta, edicion, borrado, fechas, horas, responsable y estado |
@@ -147,6 +148,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
 | Mi trabajo | Hecho |
+| Panel global | Hecho |
 | Pantalla de configuracion | Hecho |
 | Horario versionado por persona | Hecho |
 | Dias no laborables con alcance | Hecho |
@@ -279,3 +281,30 @@ del rol, porque cada uno ve lo suyo.
 - Arrastrar y soltar, o la asignacion por competencia.
 - Imputacion de horas, que es la pantalla de tiempo del proyecto.
 - Las tareas de otras personas: esta pantalla es la de uno mismo.
+
+## 13. Panel global
+
+Es la pantalla de entrada: el estado de la organizacion de un vistazo. Vive en
+el espacio global, en `/panel`, y cualquiera puede abrirla.
+
+### Que entra
+
+- **Utilizacion de la semana de referencia**: horas planificadas frente a
+  capacidad, en porcentaje. La semana de referencia es la semana en curso si hay
+  actividad en ella, y si no la primera del periodo, para que el panel siempre
+  muestre una semana con datos.
+- **Personas sobrecargadas**: quien supera su capacidad en alguna semana del
+  periodo, con sus horas, su capacidad y el exceso.
+- **Proyectos por estado** y **tareas por estado**: recuentos.
+- **Proyectos con mas carga**: horas estimadas, numero de tareas y de personas
+  de cada proyecto visible.
+- **Personas con carga** y **tareas del periodo**: dos recuentos mas.
+
+### Que no entra
+
+- Veredictos discretos, aprobaciones e incidentes de politica: son la politica
+  de capacidad (N1) y van aparte.
+- La bitacora de actividad: es su propia pantalla.
+- Filtros, rangos de fecha y comparativas entre periodos.
+- Edicion: el panel es de lectura.
+- Asignacion automatica de trabajo.

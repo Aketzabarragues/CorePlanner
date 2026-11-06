@@ -55,11 +55,18 @@ const MY_WORK_VIEW = {
   icon: 'check',
   hint: 'Tareas propias del periodo',
 }
+const PANEL_VIEW = {
+  name: 'panel',
+  label: 'Panel',
+  icon: 'gauge',
+  hint: 'Estado de la organizacion',
+}
 
 export const GLOBAL_SECTIONS = [
   {
     title: 'Espacio Global',
     items: [
+      PANEL_VIEW,
       MY_WORK_VIEW,
       {
         name: 'projects',
@@ -190,6 +197,7 @@ export function toGlobalView(view) {
     configuration: 'projects',
     people: 'people',
     'my-work': 'my-work',
+    panel: 'panel',
   }
   return counterparts[view] ?? DEFAULT_GLOBAL_VIEW
 }

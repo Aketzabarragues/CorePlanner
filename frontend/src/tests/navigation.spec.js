@@ -49,6 +49,7 @@ describe('navegacion', () => {
 
   it('cataloga las vistas del espacio global', () => {
     expect(GLOBAL_VIEWS.map((view) => view.name)).toEqual([
+      'panel',
       'my-work',
       'projects',
       'global-capacity',

@@ -204,6 +204,11 @@ export const calendarApi = {
   },
   gantt: (token) => apiFetch('/gantt', { token }),
 }
+/** Panel global: estado de la organizacion de un vistazo. */
+export const panelApi = {
+  list: (token) => apiFetch('/panel', { token }),
+}
+
 /** Mi trabajo: tareas propias y carga por semana del periodo de planificacion. */
 export const myWorkApi = {
   list: (token) => apiFetch('/my-work', { token }),

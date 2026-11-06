@@ -331,6 +331,44 @@ class MyWorkOut(BaseModel):
     has_overload: bool
 
 
+class PanelOverloadOut(BaseModel):
+    """Persona que supera su capacidad en una semana."""
+
+    user_id: int
+    name: str
+    week: str
+    hours: Hours
+    capacity: Hours
+    excess_hours: Hours
+
+
+class PanelProjectOut(BaseModel):
+    """Proyecto visible, con el trabajo que concentra."""
+
+    id: int
+    name: str
+    status: str
+    estimated_hours: Hours
+    task_count: int
+    people_count: int
+
+
+class PanelOut(BaseModel):
+    """Panel global: el estado de la organizacion."""
+
+    week: str | None = None
+    is_current_week: bool = False
+    planned_hours: Hours
+    capacity_hours: Hours
+    utilization: int | None = None
+    overloaded: list[PanelOverloadOut]
+    projects_by_status: dict[str, int]
+    tasks_by_status: dict[str, int]
+    projects: list[PanelProjectOut]
+    total_tasks: int
+    total_people: int
+
+
 class GanttTaskOut(BaseModel):
     """Barra del diagrama de Gantt."""
 

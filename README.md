@@ -153,6 +153,7 @@ coreplanner/
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
+│       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
@@ -488,8 +489,8 @@ que el Gantt: `/calendar` con los proyectos visibles y
 - La rejilla va de **lunes a domingo** y se navega por mes: anterior,
   siguiente y **Hoy**.
 - Las **celdas tienen alto fijo**: el mes se ve siempre igual de regular, sin
-  que una semana con muchas tareas desborde la rejilla. En cada dia caben tres
-  tareas y las que sobran se cuentan en un **+N mas**.
+  que una semana con muchas tareas desborde la rejilla. Lo que no cabe se ve
+  **desplazando la celda**, de modo que no se esconde ninguna tarea.
 - Cada tarea aparece en todos los dias de lunes a viernes que ocupa, con el
   color de su persona (el mismo que en el Gantt) y el proyecto en el texto
   emergente. El fin de semana queda vacio, porque el motor de capacidad solo
@@ -498,6 +499,9 @@ que el Gantt: `/calendar` con los proyectos visibles y
   gris los globales y en ambar los de departamento.
 - Las **tareas sin fechas** se avisan aparte, para que la planificacion
   incompleta no desaparezca en silencio.
+- Pulsando el **numero de un dia** se abre el **detalle de ese dia**: la fecha
+  en texto, las tareas que lo ocupan con su persona, su estado y su proyecto, y
+  los dias no laborables de esa fecha.
 
 El mismo calendario tiene **vista semanal**: un conmutador en la cabecera pasa
 de la rejilla del mes a la de la semana. Es el mismo corte de la misma
@@ -513,6 +517,8 @@ planificacion, no otra pantalla.
 - La navegacion es la misma: anterior, siguiente y **Hoy**, moviendo semanas.
 - Al cambiar de vista, la semana se coloca en la semana en curso si el mes que
   se estaba viendo es el actual, y si no en la del primer dia de ese mes.
+- El numero de dia de la cabecera tambien es pulsable y abre el detalle del
+  dia.
 
 Es de lectura: las fechas se cambian desde el Gantt o desde el desglose de una
 celda de la matriz.

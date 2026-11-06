@@ -22,6 +22,16 @@ const MONTH_NAMES = [
 
 const WEEKDAY_NAMES = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
 
+const WEEKDAY_LONG_NAMES = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+]
+
 /** Clave del mes de una fecha: "2026-11". */
 export function monthKey(date) {
   const year = date.getFullYear()
@@ -57,7 +67,7 @@ export function shiftMonth(key, delta) {
 }
 
 /** Fecha local en formato YYYY-MM-DD. */
-function toIsoDate(date) {
+export function localDateKey(date = new Date()) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -85,7 +95,7 @@ export function monthGrid(key) {
     for (let weekday = 0; weekday < 7; weekday += 1) {
       const day = new Date(year, month - 1, week * 7 + weekday - offset + 1)
       days.push({
-        date: toIsoDate(day),
+        date: localDateKey(day),
         day: day.getDate(),
         weekday,
         inMonth: day.getMonth() === month - 1,
@@ -107,18 +117,19 @@ export function tasksOnDay(tasks, date) {
   return tasks.filter((task) => task.start <= date && date <= task.end)
 }
 
-/** Cuantas tareas caben en una celda del mes. */
-export const MAX_TASKS_PER_CELL = 3
+/** Fecha ISO de un dia situado delta dias mas adelante, o antes si delta es negativo. */
+export function shiftDay(date, delta) {
+  const [year, month, day] = date.split('-').map(Number)
+  const moved = new Date(Date.UTC(year, month - 1, day + delta))
+  const movedMonth = String(moved.getUTCMonth() + 1).padStart(2, '0')
+  const movedDay = String(moved.getUTCDate()).padStart(2, '0')
+  return `${moved.getUTCFullYear()}-${movedMonth}-${movedDay}`
+}
 
-/**
- * Tareas de una celda del mes, repartidas entre las que se ven y las que no.
- *
- * La celda tiene un alto fijo, asi que solo caben unas cuantas tareas. Las que
- * sobran se cuentan en un "+N mas" en vez de desbordar la celda.
- */
-export function splitTasks(tasks, limit = MAX_TASKS_PER_CELL) {
-  return {
-    visible: tasks.slice(0, limit),
-    hidden: tasks.slice(limit),
-  }
+/** Fecha en texto largo: "Lunes 9 de noviembre de 2026". */
+export function longDateLabel(date) {
+  const [year, month, day] = date.split('-').map(Number)
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+  const index = (weekday + 6) % 7
+  return `${WEEKDAY_LONG_NAMES[index]} ${day} de ${MONTH_NAMES[month - 1].toLowerCase()} de ${year}`
 }

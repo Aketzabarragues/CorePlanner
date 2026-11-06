@@ -169,7 +169,7 @@ describe('CalendarView', () => {
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
   })
 
-  it('la celda tiene alto fijo: solo caben tres tareas y las demas se cuentan', async () => {
+  it('la celda del mes muestra todas sus tareas y se desplaza', async () => {
     const extras = [10, 11, 12, 13].map((id) => ({
       id,
       name: `Extra ${id}`,
@@ -189,10 +189,20 @@ describe('CalendarView', () => {
 
     const wrapper = await mountView()
 
+    // Nada se esconde: la celda lleva todas sus tareas y deja que se desplace.
     const celda = wrapper.find('[data-testid="calendar-cell-2026-11-02"]')
-    expect(celda.findAll('[data-testid="calendar-task"]')).toHaveLength(3)
-    // La celda lleva ya una tarea, asi que sobran dos.
-    expect(celda.find('[data-testid="calendar-more"]').text()).toContain('+2 más')
+    expect(celda.findAll('[data-testid="calendar-task"]')).toHaveLength(5)
+    expect(celda.find('[data-testid="calendar-task-list"]').classes()).toContain('overflow-y-auto')
+  })
+
+  it('fija el alto de la celda para que las filas del mes midan igual', async () => {
+    const wrapper = await mountView()
+
+    // El alto va en el contenido de la celda, no en la celda: en una tabla el
+    // alto de la celda es el minimo y la fila crece con el contenido.
+    const cuerpo = wrapper.find('[data-testid="calendar-cell-body"]')
+    expect(cuerpo.classes()).toContain('h-28')
+    expect(cuerpo.classes()).toContain('flex-col')
   })
 
   it('muestra el error si el servidor no responde', async () => {
@@ -293,5 +303,69 @@ describe('CalendarView en modo semanal', () => {
 
     expect(wrapper.find('[data-testid="calendar-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
+  })
+})
+
+describe('CalendarView en modo dia', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('al pulsar un dia del mes se abre el detalle de ese dia', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Lunes 9 de noviembre de 2026')
+    expect(wrapper.find('[data-testid="day-task"]').text()).toContain('Cableado de campo')
+  })
+
+  it('el dia se puede abrir desde la vista semanal', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await wrapper.find('[data-testid="week-day-2026-11-04"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Miércoles 4 de noviembre de 2026')
+  })
+
+  it('la vista de dia navega de dia en dia', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-day"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Viernes 6 de noviembre de 2026')
+
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Sábado 7 de noviembre de 2026')
+
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Jueves 5 de noviembre de 2026')
+  })
+
+  it('un dia sin tareas lo dice', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-day-2026-11-01"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="day-empty"]').text()).toContain('No hay tareas')
+  })
+
+  it('marca los dias no laborables del dia', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="day-view"]').text()).toContain('Fiesta local')
   })
 })

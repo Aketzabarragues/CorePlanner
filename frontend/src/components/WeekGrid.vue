@@ -21,6 +21,8 @@ const props = defineProps({
   nonWorkingDays: { type: Array, default: () => [] },
 })
 
+const emit = defineEmits(['open-day'])
+
 const days = computed(() => weekWorkdays(props.weekKey))
 const names = computed(() => weekdayNames().slice(0, 5))
 
@@ -56,9 +58,15 @@ const nonWorkingByDate = computed(() => {
             class="border border-slate-200 px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
           >
             {{ names[day.weekday] }}
-            <span class="ml-1 text-sm font-semibold normal-case text-siemens-900">
+            <button
+              type="button"
+              class="ml-1 rounded text-sm font-semibold normal-case text-siemens-900 hover:underline"
+              :title="`Ver el dia ${day.date}`"
+              :data-testid="`week-day-${day.date}`"
+              @click="emit('open-day', day.date)"
+            >
               {{ day.day }}
-            </span>
+            </button>
           </th>
         </tr>
       </thead>

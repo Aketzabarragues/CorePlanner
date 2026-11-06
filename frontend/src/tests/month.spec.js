@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   currentMonthKey,
+  localDateKey,
+  longDateLabel,
   monthGrid,
   monthKey,
   monthLabel,
+  shiftDay,
   shiftMonth,
-  splitTasks,
   tasksOnDay,
   weekdayNames,
 } from '../utils/month'
@@ -73,21 +75,19 @@ describe('utilidades de mes', () => {
     expect(currentMonthKey(new Date(2026, 10, 6))).toBe('2026-11')
   })
 
-  it('reparte las tareas de una celda entre las que se ven y las que sobran', () => {
-    const tareas = [1, 2, 3, 4, 5].map((id) => ({ id }))
-
-    const { visible, hidden } = splitTasks(tareas)
-
-    expect(visible).toHaveLength(3)
-    expect(hidden.map((task) => task.id)).toEqual([4, 5])
+  it('la fecha de hoy en formato corto', () => {
+    expect(localDateKey(new Date(2026, 10, 6))).toBe('2026-11-06')
   })
 
-  it('deja intactas las celdas que no se llenan', () => {
-    const tareas = [{ id: 1 }]
+  it('salta de dia hacia delante y hacia atras', () => {
+    expect(shiftDay('2026-11-06', 1)).toBe('2026-11-07')
+    expect(shiftDay('2026-11-30', 1)).toBe('2026-12-01')
+    expect(shiftDay('2026-12-31', 1)).toBe('2027-01-01')
+    expect(shiftDay('2026-01-01', -1)).toBe('2025-12-31')
+  })
 
-    const { visible, hidden } = splitTasks(tareas)
-
-    expect(visible).toHaveLength(1)
-    expect(hidden).toHaveLength(0)
+  it('etiqueta la fecha en texto largo', () => {
+    expect(longDateLabel('2026-11-09')).toBe('Lunes 9 de noviembre de 2026')
+    expect(longDateLabel('2026-11-14')).toBe('Sábado 14 de noviembre de 2026')
   })
 })

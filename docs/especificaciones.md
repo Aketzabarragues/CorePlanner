@@ -325,8 +325,8 @@ las tareas de los proyectos visibles y en el de proyecto
 
 - La **rejilla mensual**, con la semana de lunes a domingo.
 - Las **celdas de alto fijo**: la rejilla no crece con el contenido, de modo que
-  el mes se ve siempre igual de regular. En cada dia caben tres tareas y las
-  que sobran se cuentan en un "+N mas".
+  el mes se ve siempre igual de regular. Lo que no cabe se ve desplazando la
+  celda, no escondiendo tareas.
 - Las **tareas de cada dia**, con su persona y su proyecto. La tarea aparece en
   todos los dias de lunes a viernes que ocupa; el fin de semana queda vacio,
   porque el motor de capacidad solo reparte horas entre dias laborables.
@@ -371,7 +371,6 @@ periodo.
 
 ### Que no entra
 
-- La **vista de dia**: una sola columna no dice nada que la semana no diga.
 - El **fin de semana**: no hay columna de sabado ni de domingo.
 - Arrastrar y soltar, o edicion desde el calendario: es de lectura.
 - El **desglose de horas por dia**: el motor reparte las horas de una tarea
@@ -387,3 +386,35 @@ periodo.
   navegacion se sienta igual en las dos vistas.
 - **Sin endpoint nuevo**: el feed del Gantt ya trae todas las tareas con fecha y
   la vista semanal filtra en cliente.
+
+## 16. Vista de dia del calendario
+
+La vista de dia es el detalle de un solo dia: que hay en el, quien lo lleva y
+en que estado. Es la tercera vista del calendario y se abre al pulsar un dia
+de la rejilla mensual o de la semanal.
+
+### Que entra
+
+- El **dia completo**, con su fecha en texto: "Lunes 9 de noviembre de 2026".
+- Las **tareas de ese dia**, sin recorte: titulo, persona, estado, proyecto y
+  las fechas completas de la tarea.
+- La **navegacion de dia**: anterior, siguiente y hoy.
+- Los **dias no laborables** de esa fecha, con su motivo y su alcance.
+- El aviso de **tareas sin fecha**, que no aparecen en ningun dia.
+
+### Que no entra
+
+- El **desglose de horas del dia**: el motor reparte las horas de una tarea
+  entre sus dias laborables, pero ese reparto no viaja en el feed del Gantt;
+  verlo exigiria un endpoint nuevo.
+- La **edicion de tareas**: la vista es de lectura.
+- La **vista de fin de semana**: el fin de semana no tiene tareas ni carga, y
+  el calendario entero lo deja vacio a proposito.
+- Un **calendario por persona**: el color de la tarea ya dice quien la tiene.
+
+### Decisiones de este bloque
+
+- El dia se abre **pulsando el numero del dia** en la rejilla mensual o en la
+  cabecera de la semanal, no pulsando cualquier punto de la celda: en la celda
+  hay una lista que se desplaza y hay que poder hacerlo sin abrir nada.
+- Al pulsarlo cambia la cabecera a "Dia" y el calendario muestra el dia entero.

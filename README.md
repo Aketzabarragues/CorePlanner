@@ -17,14 +17,16 @@ y toca lo que ese rol permite.
 
 | Capa | Tecnologia |
 | --- | --- |
-| Base de datos | SQLite (desarrollo) -> PostgreSQL (produccion), SQLAlchemy 2.0 ORM |
+| Base de datos | SQLite (desarrollo) · PostgreSQL (previsto, sin probar), SQLAlchemy 2.0 ORM |
 | Backend | FastAPI asincrono, Uvicorn, JWT (PyJWT) |
 | Frontend | Vue 3 Composition API, Vite, Tailwind CSS, Pinia, Vue Router |
 | Gantt | `frappe-gantt` (frontend). La exportacion `.ics` esta pendiente |
 
 El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
-de modo que el paso a PostgreSQL consiste en cambiar la URL de conexion y el
-driver, sin reescribir el esquema.
+lo que hace el cambio de motor mucho menos painful. **PostgreSQL no se ha
+probado**: la migracion de esquema es SQL estandar y no depende del catalogo
+de SQLite, pero las restricciones y los `ON DELETE` hay que revisarlos contra
+ese motor antes de confiar en el.
 
 ## Control de acceso
 
@@ -240,6 +242,9 @@ La API queda en `http://127.0.0.1:8000` y la documentacion interactiva en
 $env:COREPLANNER_DATABASE_URL = "postgresql+asyncpg://usuario:clave@localhost/coreplanner"
 ```
 
+La URL es lo unico que cambia, pero **es la parte facil**: todavia no se ha
+ejecutado la aplicacion contra PostgreSQL.
+
 ### Frontend
 
 ```powershell
@@ -256,6 +261,11 @@ el backend por el proxy de Vite.
 Todas las variables usan el prefijo `COREPLANNER_`. Copia `backend/.env.example`
 a `backend/.env` y ajusta, sobre todo `COREPLANNER_JWT_SECRET_KEY`, que debe
 cambiarse en cualquier despliegue real.
+
+Dos avisos, porque los dos son defaults de demostracion:
+
+- **El secreto JWT tiene un valor por defecto** en `backend/config.py` y nada comprueba al arrancar que se haya cambiado. Fuera de la maquina del desarrollador hay que cambiarlo.
+- **El frontend entra solo con el administrador de demostracion** (`admin@example.com` / `coreplanner`) y renueva la sesion con esas credenciales cuando la API responde 401. Es una ayuda para la demo, no un mecanismo de despliegue: cualquier despliegue real necesita su propio acceso.
 
 ## Prueba en vivo
 

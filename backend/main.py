@@ -23,6 +23,7 @@ from .api import (
     skills,
     tasks,
     users,
+    work_calendar,
 )
 from .config import get_settings
 from .database import create_all, dispose_engine, engine
@@ -69,6 +70,7 @@ app.include_router(departments.router, prefix=settings.api_prefix)
 app.include_router(people.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(non_working_days.router, prefix=settings.api_prefix)
+app.include_router(work_calendar.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["sistema"])

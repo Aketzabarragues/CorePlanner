@@ -654,3 +654,37 @@ class NonWorkingDayCreate(BaseModel):
             if self.user_id is not None:
                 raise ValueError("Un dia no laborable global no lleva persona")
         return self
+
+
+class LaborDayOut(BaseModel):
+    """Dia no laborable con su alcance y las tareas a las que afecta."""
+
+    id: int
+    date: date
+    name: str
+    scope: str
+    department_id: int | None = None
+    department_name: str | None = None
+    user_id: int | None = None
+    user_name: str | None = None
+    half_day: bool
+    affected_task_count: int
+
+
+class CapacityImpactOut(BaseModel):
+    """Efecto de los dias no laborables en la capacidad de una semana."""
+
+    user_id: int
+    user_name: str
+    week: str
+    capacity_without: Hours
+    capacity_effective: Hours
+    difference: Hours
+    reasons: list[str] = []
+
+
+class LaborCalendarOut(BaseModel):
+    """Calendario laboral de un rango de fechas."""
+
+    days: list[LaborDayOut] = []
+    impact: list[CapacityImpactOut] = []

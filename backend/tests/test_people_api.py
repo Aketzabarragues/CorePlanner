@@ -537,6 +537,56 @@ async def test_el_gerente_crea_un_dia_no_laborable_global(client: AsyncClient):
     assert response.json()["scope"] == "global"
 
 
+async def test_el_gerente_crea_un_dia_no_laborable_de_persona(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.post(
+        "/api/non-working-days",
+        headers=headers,
+        json={
+            "date": "2026-11-23",
+            "name": "Permiso individual",
+            "scope": "person",
+            "user_id": client.ids["lucia"],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    cuerpo = response.json()
+    assert cuerpo["scope"] == "person"
+    assert cuerpo["user_id"] == client.ids["lucia"]
+    assert cuerpo["user_name"] == "Lucia"
+
+
+async def test_un_dia_no_laborable_de_persona_necesita_persona(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.post(
+        "/api/non-working-days",
+        headers=headers,
+        json={"date": "2026-11-23", "name": "Permiso individual", "scope": "person"},
+    )
+
+    assert response.status_code == 422, response.text
+
+
+async def test_un_dia_no_laborable_de_persona_inexistente_no_existe(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+
+    response = await client.post(
+        "/api/non-working-days",
+        headers=headers,
+        json={
+            "date": "2026-11-23",
+            "name": "Permiso individual",
+            "scope": "person",
+            "user_id": 9999,
+        },
+    )
+
+    assert response.status_code == 404, response.text
+
+
 async def test_un_dia_no_laborable_repetido_es_conflicto(client: AsyncClient):
     headers = await _auth(client, "gerente@example.com")
 

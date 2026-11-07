@@ -29,6 +29,7 @@ from .capacity import (
 from .schedule import (
     ScheduleVersion,
     holiday_weight,
+    merge_holidays,
     schedule_version,
     week_start_from_key,
 )
@@ -36,16 +37,22 @@ from .schedule import (
 
 async def load_holidays(
     session: AsyncSession,
-) -> dict[int | None, dict[date, int]]:
+) -> dict[tuple[str, int | None], dict[date, int]]:
     """Dias no laborables por alcance.
 
-    La clave None es el alcance global; el resto son identificadores de
-    departamento. El valor es el peso del dia en medios dias.
+    La clave es el alcance y su destinatario: ("global", None) para todos,
+    ("department", id) para un departamento y ("person", id) para una persona.
+    El valor es el peso del dia en medios dias.
     """
     days = (await session.execute(select(NonWorkingDay))).scalars().all()
-    result: dict[int | None, dict[date, int]] = {}
+    result: dict[tuple[str, int | None], dict[date, int]] = {}
     for day in days:
-        key = None if day.scope == NonWorkingDayScope.GLOBAL.value else day.department_id
+        if day.scope == NonWorkingDayScope.GLOBAL.value:
+            key = (NonWorkingDayScope.GLOBAL.value, None)
+        elif day.scope == NonWorkingDayScope.PERSON.value:
+            key = (NonWorkingDayScope.PERSON.value, day.user_id)
+        else:
+            key = (NonWorkingDayScope.DEPARTMENT.value, day.department_id)
         result.setdefault(key, {})[day.date] = holiday_weight(day.half_day)
     return result
 
@@ -57,7 +64,8 @@ async def load_person_capacities(
     """Perfil de capacidad de cada persona.
 
     Reune el horario versionado de cada una y los dias no laborables que le
-    aplican: los de alcance global y los del departamento al que pertenece.
+    aplican: los de alcance global, los del departamento al que pertenece y
+    los que son solo suyos.
     """
     if not users:
         return []
@@ -92,9 +100,18 @@ async def load_person_capacities(
 
     people: list[PersonCapacity] = []
     for user in users:
-        holidays: dict[date, int] = dict(holidays_by_scope.get(None, {}))
-        if user.department_id is not None:
-            holidays.update(holidays_by_scope.get(user.department_id, {}))
+        holidays = merge_holidays(
+            holidays_by_scope.get((NonWorkingDayScope.GLOBAL.value, None), {}),
+            holidays_by_scope.get(
+                (NonWorkingDayScope.DEPARTMENT.value, user.department_id), {}
+            )
+            if user.department_id is not None
+            else {},
+        )
+        holidays = merge_holidays(
+            holidays,
+            holidays_by_scope.get((NonWorkingDayScope.PERSON.value, user.id), {}),
+        )
         people.append(
             PersonCapacity(
                 user_id=user.id,

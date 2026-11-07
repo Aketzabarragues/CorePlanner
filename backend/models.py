@@ -131,6 +131,7 @@ class NonWorkingDayScope(enum.StrEnum):
 
     GLOBAL = "global"
     DEPARTMENT = "department"
+    PERSON = "person"
 
 
 class User(Base):
@@ -432,10 +433,11 @@ class WorkingSchedule(Base):
 
 
 class NonWorkingDay(Base):
-    """Dia no laborable, con alcance global o de departamento.
+    """Dia no laborable, con alcance global, de departamento o de persona.
 
     Los dias de alcance global se quitan a todo el mundo; los de alcance de
-    departamento, solo a quien pertenece a ese departamento.
+    departamento, solo a quien pertenece a ese departamento; los de alcance de
+    persona, solo a esa persona.
     """
 
     __tablename__ = "non_working_days"
@@ -452,20 +454,27 @@ class NonWorkingDay(Base):
     department_id: Mapped[int | None] = mapped_column(
         ForeignKey("departments.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     half_day: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
 
     __table_args__ = (
-        CheckConstraint("scope IN ('global', 'department')", name="scope"),
         CheckConstraint(
-            "(scope = 'global' AND department_id IS NULL) OR "
-            "(scope = 'department' AND department_id IS NOT NULL)",
-            name="scope_department",
+            "scope IN ('global', 'department', 'person')", name="scope"
+        ),
+        CheckConstraint(
+            "(scope = 'global' AND department_id IS NULL AND user_id IS NULL) OR "
+            "(scope = 'department' AND department_id IS NOT NULL AND user_id IS NULL) OR "
+            "(scope = 'person' AND department_id IS NULL AND user_id IS NOT NULL)",
+            name="scope_target",
         ),
     )
 
     department: Mapped[Department | None] = relationship()
+    user: Mapped[User | None] = relationship()
 
 
 class Skill(Base):

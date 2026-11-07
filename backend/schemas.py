@@ -610,6 +610,8 @@ class NonWorkingDayOut(BaseModel):
     scope: str
     department_id: int | None = None
     department_name: str | None = None
+    user_id: int | None = None
+    user_name: str | None = None
     half_day: bool
 
 
@@ -620,6 +622,7 @@ class NonWorkingDayCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     scope: str = NonWorkingDayScope.GLOBAL.value
     department_id: int | None = None
+    user_id: int | None = None
     half_day: bool = False
 
     @field_validator("scope")
@@ -631,8 +634,23 @@ class NonWorkingDayCreate(BaseModel):
 
     @model_validator(mode="after")
     def _check_scope(self) -> NonWorkingDayCreate:
-        if self.scope == NonWorkingDayScope.DEPARTMENT.value and self.department_id is None:
-            raise ValueError("Un dia no laborable de departamento necesita su departamento")
-        if self.scope == NonWorkingDayScope.GLOBAL.value and self.department_id is not None:
-            raise ValueError("Un dia no laborable global no lleva departamento")
+        if self.scope == NonWorkingDayScope.DEPARTMENT.value:
+            if self.department_id is None:
+                raise ValueError(
+                    "Un dia no laborable de departamento necesita su departamento"
+                )
+            if self.user_id is not None:
+                raise ValueError(
+                    "Un dia no laborable de departamento no lleva persona"
+                )
+        elif self.scope == NonWorkingDayScope.PERSON.value:
+            if self.user_id is None:
+                raise ValueError("Un dia no laborable de persona necesita su persona")
+            if self.department_id is not None:
+                raise ValueError("Un dia no laborable de persona no lleva departamento")
+        else:
+            if self.department_id is not None:
+                raise ValueError("Un dia no laborable global no lleva departamento")
+            if self.user_id is not None:
+                raise ValueError("Un dia no laborable global no lleva persona")
         return self

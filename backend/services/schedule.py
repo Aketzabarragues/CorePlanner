@@ -101,6 +101,23 @@ def holiday_weight(half_day: bool) -> int:
     return HALF_DAY if half_day else 0
 
 
+def merge_holidays(
+    base: Mapping[date, int],
+    extra: Mapping[date, int],
+) -> dict[date, int]:
+    """Anade dias no laborables de otro alcance a los de una persona.
+
+    Si un dia cae en los dos, manda el peso mas restrictivo: un festivo de
+    jornada entera sigue siendo de jornada entera aunque la persona tenga
+    ademas un permiso de medio dia ese mismo dia.
+    """
+    merged = dict(base)
+    for day, weight in extra.items():
+        current = merged.get(day)
+        merged[day] = weight if current is None else min(current, weight)
+    return merged
+
+
 def apply_day_weight(units: int, weight: int) -> int:
     """Aplica el peso de un dia a sus horas, redondeando a la mitad hacia arriba."""
     if weight >= FULL_DAY:

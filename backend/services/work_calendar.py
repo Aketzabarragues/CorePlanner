@@ -1,7 +1,8 @@
 """Dias no laborables del calendario laboral.
 
-Un dia no laborable tiene alcance: global, que se aplica a todo el mundo, o de
-departamento, que se aplica solo a quien pertenece a ese departamento.
+Un dia no laborable tiene alcance: global, que se aplica a todo el mundo, de
+departamento, que se aplica solo a quien pertenece a ese departamento, o de
+persona, que se aplica solo a esa persona.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Department, NonWorkingDay, NonWorkingDayScope
+from ..models import Department, NonWorkingDay, NonWorkingDayScope, User
 
 
 async def list_non_working_days(
@@ -43,6 +44,12 @@ async def department_names(session: AsyncSession) -> dict[int, str]:
     return {row.id: row.name for row in rows}
 
 
+async def person_names(session: AsyncSession) -> dict[int, str]:
+    """Nombre de cada persona, para labelling de los dias de alcance individual."""
+    rows = (await session.execute(select(User))).scalars().all()
+    return {row.id: row.name for row in rows}
+
+
 async def create_non_working_day(
     session: AsyncSession,
     *,
@@ -50,6 +57,7 @@ async def create_non_working_day(
     name: str,
     scope: str,
     department_id: int | None,
+    user_id: int | None,
     half_day: bool,
 ) -> NonWorkingDay:
     """Anade un dia no laborable al calendario."""
@@ -60,6 +68,13 @@ async def create_non_working_day(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Departamento no encontrado",
             )
+    if scope == NonWorkingDayScope.PERSON.value:
+        person = await session.get(User, user_id)
+        if person is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Persona no encontrada",
+            )
 
     existing = (
         await session.execute(
@@ -69,6 +84,9 @@ async def create_non_working_day(
                 NonWorkingDay.department_id.is_(None)
                 if department_id is None
                 else NonWorkingDay.department_id == department_id,
+                NonWorkingDay.user_id.is_(None)
+                if user_id is None
+                else NonWorkingDay.user_id == user_id,
             )
         )
     ).scalar_one_or_none()
@@ -83,6 +101,7 @@ async def create_non_working_day(
         name=name,
         scope=scope,
         department_id=department_id,
+        user_id=user_id,
         half_day=half_day,
     )
     session.add(day)

@@ -13,6 +13,7 @@ from ..services.work_calendar import (
     delete_non_working_day,
     department_names,
     list_non_working_days,
+    person_names,
 )
 
 router = APIRouter(prefix="/non-working-days", tags=["calendar"])
@@ -33,6 +34,7 @@ async def list_days(
         department_id=department_id,
     )
     names = await department_names(session)
+    people = await person_names(session)
     return [
         NonWorkingDayOut(
             id=day.id,
@@ -41,6 +43,8 @@ async def list_days(
             scope=day.scope,
             department_id=day.department_id,
             department_name=names.get(day.department_id) if day.department_id else None,
+            user_id=day.user_id,
+            user_name=people.get(day.user_id) if day.user_id else None,
             half_day=day.half_day,
         )
         for day in days
@@ -60,9 +64,11 @@ async def add_day(
         name=payload.name,
         scope=payload.scope,
         department_id=payload.department_id,
+        user_id=payload.user_id,
         half_day=payload.half_day,
     )
     names = await department_names(session)
+    people = await person_names(session)
     return NonWorkingDayOut(
         id=day.id,
         date=day.date,
@@ -70,6 +76,8 @@ async def add_day(
         scope=day.scope,
         department_id=day.department_id,
         department_name=names.get(day.department_id) if day.department_id else None,
+        user_id=day.user_id,
+        user_name=people.get(day.user_id) if day.user_id else None,
         half_day=day.half_day,
     )
 

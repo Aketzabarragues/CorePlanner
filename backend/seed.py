@@ -223,15 +223,20 @@ EQUIPO = (
 )
 
 DIAS_NO_LABORABLES = (
-    (date(2026, 10, 12), "Fiesta Nacional", None, False),
-    (date(2026, 11, 2), "Todos los Santos", None, False),
-    (date(2026, 11, 9), "Día de la Comunidad", DEPARTMENT_OFFICE, False),
-    (date(2026, 11, 16), "Formación interna", DEPARTMENT_AUTOMATION, True),
-    (date(2026, 12, 7), "Día de la Constitución", None, False),
-    (date(2026, 12, 24), "Nochebuena", None, True),
-    (date(2026, 12, 31), "Nochevieja", None, True),
+    (date(2026, 10, 12), "Fiesta Nacional", None, None, False),
+    (date(2026, 11, 2), "Todos los Santos", None, None, False),
+    (date(2026, 11, 9), "Día de la Comunidad", DEPARTMENT_OFFICE, None, False),
+    (date(2026, 11, 16), "Formación interna", DEPARTMENT_AUTOMATION, None, True),
+    (date(2026, 11, 23), "Permiso individual", None, "marta@example.com", False),
+    (date(2026, 12, 7), "Día de la Constitución", None, None, False),
+    (date(2026, 12, 24), "Nochebuena", None, None, True),
+    (date(2026, 12, 31), "Nochevieja", None, None, True),
 )
-"""Fecha, motivo, departamento (None es global) y medio dia."""
+"""Fecha, motivo, departamento, persona (correo) y medio dia.
+
+El alcance sale de los dos campos de destino: con los dos a None es un festivo
+global, con departamento es de ese departamento y con persona es de esa persona.
+"""
 
 # Jueves 2026-11-05 a miercoles 2026-11-11: cruza el fin de semana y reparte
 # las horas entre 2026-W45 y 2026-W46.
@@ -318,13 +323,24 @@ async def populate(session) -> int:
                 )
             )
 
-    for day, name, department_name, half_day in DIAS_NO_LABORABLES:
-        if department_name is None:
+    for day, name, department_name, person_email, half_day in DIAS_NO_LABORABLES:
+        if department_name is not None:
             session.add(
                 NonWorkingDay(
                     date=day,
                     name=name,
-                    scope=NonWorkingDayScope.GLOBAL.value,
+                    scope=NonWorkingDayScope.DEPARTMENT.value,
+                    department_id=departments[department_name].id,
+                    half_day=half_day,
+                )
+            )
+        elif person_email is not None:
+            session.add(
+                NonWorkingDay(
+                    date=day,
+                    name=name,
+                    scope=NonWorkingDayScope.PERSON.value,
+                    user_id=users[person_email].id,
                     half_day=half_day,
                 )
             )
@@ -333,8 +349,7 @@ async def populate(session) -> int:
                 NonWorkingDay(
                     date=day,
                     name=name,
-                    scope=NonWorkingDayScope.DEPARTMENT.value,
-                    department_id=departments[department_name].id,
+                    scope=NonWorkingDayScope.GLOBAL.value,
                     half_day=half_day,
                 )
             )

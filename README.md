@@ -155,12 +155,13 @@ coreplanner/
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
+│       │   ├── LaborMonthGrid.vue  # rejilla del mes del calendario laboral
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -546,6 +547,30 @@ El backend no tiene un endpoint propio: el calendario se monta con el feed de
 Gantt (`/api/gantt`), que ahora lleva el titulo y la persona de cada barra por
 separado, y con los dias no laborables (`/api/non-working-days`).
 
+## Calendario laboral
+
+La vista `/work-calendar` es la contraparte del calendario de la planificacion:
+el calendario de la planificacion dice **cuando se trabaja** y este dice
+**cuando no**, con el efecto que tiene sobre el trabajo.
+
+- La **tabla de dias no laborables** lleva fecha, motivo, alcance, jornada y las
+  **tareas afectadas**: cuantas tareas cubren ese dia y estan asignadas a
+  personas a las que el festivo aplica.
+- El **alcance** dice a quien aplica el dia: a todo el mundo, a un departamento o
+  a una sola persona (un permiso individual). La rejilla del mes marca cada
+  festivo con su color y su leyenda.
+- El **cuadro de impacto en la capacidad semanal** compara, por persona y
+  semana, la capacidad que habria sin el festivo con la que queda con el: la
+  diferencia y el motivo. Solo se listan las semanas en las que un festivo quita
+  horas.
+- El calculo usa el **mismo motor y las mismas centimas** que la matriz de
+  capacidad, de modo que el cuadro cuadra con ella: una persona con jornada de
+  3,6 h pierde 3,60 h, no 8.
+
+El backend tiene un endpoint propio, `GET /api/work-calendar`, con el rango de
+fechas en `from` y `to`. El alta de dias no laborables sigue en la pestana
+"Dias no laborables" de **Personas y Competencias**.
+
 ## Tablero Kanban
 
 La vista `/projects/{id}/kanban` muestra las tareas en cuatro columnas:
@@ -668,7 +693,7 @@ En el espacio global:
 
 | Grupo | Vistas |
 | --- | --- |
-| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Departamentos, Personas y Competencias |
+| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Departamentos, Personas y Competencias |
 
 En el espacio de proyecto:
 
@@ -693,6 +718,7 @@ editarla; el resto la ve en modo de solo lectura.
 | `/capacity` | global | matriz de ocupacion consolidada |
 | `/gantt` | global | cronograma de todos los proyectos |
 | `/calendar` | global | calendario de la planificacion de todos los proyectos |
+| `/work-calendar` | global | dias no laborables y su impacto en la capacidad |
 | `/departments` | global | departamentos y sus responsables |
 | `/people` | global | directorio, competencias y dias no laborables |
 | `/configuration` | global | configuracion de la organizacion (solo gerente) |

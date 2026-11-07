@@ -56,6 +56,7 @@ describe('navegacion', () => {
       'global-capacity',
       'global-gantt',
       'global-calendar',
+      'work-calendar',
       'departments',
       'people',
       'configuration',

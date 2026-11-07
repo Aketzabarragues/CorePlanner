@@ -73,6 +73,12 @@ const CALENDAR_VIEW = {
   icon: 'grid',
   hint: 'La planificacion dia a dia',
 }
+const WORK_CALENDAR_VIEW = {
+  name: 'work-calendar',
+  label: 'Calendario Laboral',
+  icon: 'calendar',
+  hint: 'Dias no laborables y su impacto',
+}
 
 export const GLOBAL_SECTIONS = [
   {
@@ -99,6 +105,7 @@ export const GLOBAL_SECTIONS = [
         hint: 'Cronograma de todos los proyectos',
       },
       GLOBAL_CALENDAR_VIEW,
+      WORK_CALENDAR_VIEW,
       {
         name: 'departments',
         label: 'Departamentos',

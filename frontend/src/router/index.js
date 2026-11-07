@@ -14,6 +14,7 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import WorkCalendarView from '../views/WorkCalendarView.vue'
 import { redirectToFirstProject, requireSession } from './guards'
 
 /** Pantalla de espera mientras la raiz decide a que vista llevar. */
@@ -35,6 +36,7 @@ const routes = [
   { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },
   { path: '/gantt', name: 'global-gantt', component: GanttView },
   { path: '/calendar', name: 'global-calendar', component: CalendarView },
+  { path: '/work-calendar', name: 'work-calendar', component: WorkCalendarView },
   { path: '/departments', name: 'departments', component: DepartmentsView },
   { path: '/people', name: 'people', component: PeopleView },
   { path: '/configuration', name: 'configuration', component: SettingsView },

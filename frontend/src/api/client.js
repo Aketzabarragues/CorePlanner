@@ -197,6 +197,14 @@ export const calendarApi = {
   remove: (token, id) => apiFetch(`/non-working-days/${id}`, { method: 'DELETE', token }),
 }
 
+/** Informe del calendario laboral: dias no laborables y su impacto. */
+export const workCalendarApi = {
+  report: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/work-calendar${query ? `?${query}` : ''}`, { token })
+  },
+}
+
 /** Endpoints de la vista global, que no pertenecen a ningun proyecto. */export const overviewApi = {
   capacity: (token, params = {}) => {
     const query = new URLSearchParams(params).toString()

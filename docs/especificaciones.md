@@ -147,6 +147,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Matriz de capacidad por semanas con sobrecarga | Hecho |
 | Cronograma y tablero | Hecho |
 | Calendario de la planificacion | Hecho |
+| Calendario laboral con impacto en la capacidad | Hecho |
 | Ambito global (todo lo que puede ver quien entra) | Hecho |
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
@@ -155,6 +156,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Pantalla de configuracion | Hecho |
 | Horario versionado por persona | Hecho |
 | Dias no laborables con alcance | Hecho |
+| Calendario laboral: dias, tareas afectadas e impacto semanal | Hecho |
 | Competencias | Hecho |
 | Pantalla de personas y competencias | Hecho |
 | Miembros del proyecto (alta, cambio de rol y baja) | Hecho |

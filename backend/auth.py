@@ -1,8 +1,8 @@
 """Autenticacion JWT: hash de contrasenas, emision y validacion de tokens.
 
-El token transporta la identidad del usuario (sub) y la pertenencia a
-proyectos con su rol. La autorizacion fina se resuelve en core/security.py
-contra el project_id solicitado.
+El token transporta la identidad del usuario (sub) y su rol de empresa. La
+autorizacion fina se resuelve en backend/security.py contra el project_id
+solicitado, consultando la base de datos en cada peticion.
 """
 
 from __future__ import annotations

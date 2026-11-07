@@ -14,7 +14,6 @@ dependencies = [
     "pyjwt>=2.9,<3.0",
     "bcrypt>=4.2,<6.0",
     "python-multipart>=0.0.12",
-    "icalendar>=6.1,<7.0",
 ]
 
 [project.optional-dependencies]

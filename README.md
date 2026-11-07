@@ -20,7 +20,7 @@ y toca lo que ese rol permite.
 | Base de datos | SQLite (desarrollo) -> PostgreSQL (produccion), SQLAlchemy 2.0 ORM |
 | Backend | FastAPI asincrono, Uvicorn, JWT (PyJWT) |
 | Frontend | Vue 3 Composition API, Vite, Tailwind CSS, Pinia, Vue Router |
-| Gantt | `frappe-gantt` (frontend), `icalendar` (exportacion `.ics`) |
+| Gantt | `frappe-gantt` (frontend). La exportacion `.ics` esta pendiente |
 
 El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
 de modo que el paso a PostgreSQL consiste en cambiar la URL de conexion y el
@@ -41,8 +41,10 @@ que el rol del usuario en ese proyecto incluye el permiso.
 | No miembro, o miembro sin el permiso | 403 |
 | Proyecto inexistente | 404 |
 
-El token lleva los permisos por proyecto, de modo que la comprobacion no
-necesita consultar la base de datos en cada peticion.
+El token lleva la identidad de la persona (su identificador y su rol de
+empresa), pero **los permisos por proyecto se consultan en la base de datos en
+cada peticion**. Asi un cambio de rol surte efecto de inmediato, sin esperar a
+que caduque el token.
 
 ## Motor de capacidad
 
@@ -127,11 +129,14 @@ coreplanner/
 │   ├── services/
 │   │   ├── capacity.py           # motor de calculo (puro)
 │   │   ├── capacity_repository.py # lectura de datos de capacidad
+│   │   ├── calendar_report.py    # impacto de los dias no laborables en la capacidad
 │   │   ├── configuration.py       # reglas de personas, departamentos y proyectos
 │   │   ├── gantt.py               # tareas y miembros del Gantt (puro)
 │   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
 │   │   ├── kanban_repository.py   # lectura del tablero
+│   │   ├── my_work.py             # tareas propias y carga por semana
+│   │   ├── panel.py               # resumen global de la organizacion
 │   │   ├── people.py              # directorio, horarios y competencias
 │   │   ├── schedule.py            # horario versionado y capacidad (puro)
 │   │   ├── scope.py               # ambito por rol de empresa
@@ -156,6 +161,7 @@ coreplanner/
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── LaborMonthGrid.vue  # rejilla del mes del calendario laboral
+│       │   ├── PlannerMatrix.vue   # matriz persona por semana del planificador
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)

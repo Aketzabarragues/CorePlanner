@@ -161,7 +161,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Planificador, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -349,13 +349,14 @@ token en `localStorage`.
 | `GET` | `/api/gantt` | token valido |
 | `GET` | `/api/panel` | token valido; resumen de la organizacion |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
-| `GET` | `/api/tasks` | token valido, filtros `assigned_to` y `week` |
+| `GET` | `/api/tasks` | token valido, filtros `assigned_to`, `week`, `from` y `to` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 | `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 
 El listado de tareas admite los filtros `assigned_to` y `week` (semana ISO,
-por ejemplo `2026-W46`).
+por ejemplo `2026-W46`), y tambien el rango `from` y `to`. Si vienen la semana y
+el rango a la vez, manda la semana.
 
 ## Roles y ambito
 
@@ -571,6 +572,33 @@ El backend tiene un endpoint propio, `GET /api/work-calendar`, con el rango de
 fechas en `from` y `to`. El alta de dias no laborables sigue en la pestana
 "Dias no laborables" de **Personas y Competencias**.
 
+## Planificador de recursos
+
+La vista `/planner` dice lo mismo que la matriz de capacidad y ademas **en que se
+ocupa cada persona**. Son tres vistas sobre el mismo rango de semanas, con un
+conmutador para pasar de una a otra.
+
+- **Carga por tarea**: la matriz de persona y semana con las horas planificadas y
+  el porcentaje sobre las horas base. En rojo, las semanas que superan las horas
+  base, con el mismo criterio que la matriz de capacidad. Debajo, la **tabla de
+  asignaciones**: persona, semana, tareas y horas.
+- **Linea de tiempo por persona**: cada bloque es una tarea. **Arrastralo a la
+  celda de otra persona** para cambiarle el responsable; las horas se recalculan
+  al momento y la matriz se vuelve a pintar.
+- **Tabla de planificacion**: cada celda reparte las horas de la persona entre los
+  proyectos en los que esta trabajando, con cuantas tareas lleva en cada uno.
+
+La reasignacion se guarda con el `PATCH /api/tasks/{id}` de siempre, asi que
+sigue exigiendo que el nuevo responsable sea miembro del proyecto al que
+pertenece la tarea. Si no lo es, la pantalla avisa del error y no cambia nada.
+
+El backend no tiene un endpoint propio: el planificador se compone de
+`/api/capacity` (la matriz), `/api/tasks` (las tareas, acotadas al rango con
+`from` y `to`) y `/api/projects` (los nombres de los proyectos).
+
+Lo que **no** entra: las tarjetas por persona del prototipo y los veredictos
+discretos de disponibilidad, que van aparte con sus umbrales.
+
 ## Tablero Kanban
 
 La vista `/projects/{id}/kanban` muestra las tareas en cuatro columnas:
@@ -693,7 +721,7 @@ En el espacio global:
 
 | Grupo | Vistas |
 | --- | --- |
-| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Departamentos, Personas y Competencias |
+| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Planificador de Recursos, Departamentos, Personas y Competencias |
 
 En el espacio de proyecto:
 
@@ -719,6 +747,7 @@ editarla; el resto la ve en modo de solo lectura.
 | `/gantt` | global | cronograma de todos los proyectos |
 | `/calendar` | global | calendario de la planificacion de todos los proyectos |
 | `/work-calendar` | global | dias no laborables y su impacto en la capacidad |
+| `/planner` | global | planificador de recursos: carga, linea de tiempo y reparto por proyecto |
 | `/departments` | global | departamentos y sus responsables |
 | `/people` | global | directorio, competencias y dias no laborables |
 | `/configuration` | global | configuracion de la organizacion (solo gerente) |
@@ -820,7 +849,10 @@ espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
 pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
 y el panel global resume la organizacion de un vistazo. La planificacion se ve
-como diagrama de Gantt o como calendario mensual y semanal.
+como diagrama de Gantt o como calendario mensual, semanal y por dia. El
+calendario laboral dice cuando no se trabaja y cuanto se pierde, con el alcance
+por persona, y el planificador de recursos dice en que se ocupa cada persona y
+permite reasignar una tarea arrastrándola.
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

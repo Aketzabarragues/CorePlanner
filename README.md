@@ -167,6 +167,7 @@ coreplanner/
 │   └── openproject/
 │       ├── analisis-openproject.md        # ingenieria inversa de OpenProject
 │       └── plan-replicacion-coreplanner.md # plan de replicacion por fases
+├── iniciar.py             # arranque de la API y la interfaz en un comando
 ├── pyproject.toml        # configuracion de python (raiz del monorepo)
 ├── .gitignore
 └── README.md
@@ -201,6 +202,20 @@ El repositorio es un monorepo: `backend/` y `frontend/` se mueven por separado.
 El `pyproject.toml` vive en la raiz para que `backend` sea un paquete
 importable (`backend.models`) y para que `pytest` encuentre las pruebas desde
 cualquier subdirectorio.
+
+### Arranque rapido
+
+```powershell
+python iniciar.py
+```
+
+Levanta la API y la interfaz a la vez, espera a que las dos respondan y abre el
+navegador en `http://localhost:5173`. `Ctrl+C` cierra los dos procesos. Si un
+puerto ya esta ocupado, lo da por arrancado y no lo relanza, de modo que se
+puede arrancar solo la parte que falte.
+
+El script no siembra la base de datos ni instala dependencias: para eso estan
+`backend/seed.py` y los apartados siguientes.
 
 ### Backend
 
@@ -259,6 +274,10 @@ columnas = semanas ISO, y en rojo las semanas que superan las horas base.
 El `--reload-dir backend` limita la recarga automatica a la carpeta del
 backend. Sin el, el vigilante de ficheros tambien avisa de los cambios dentro
 de `.venv` y el servidor se reinicia en bucle.
+
+Los pasos 2 y 3 son los que hace `python iniciar.py`, que ademas abre el
+navegador. El paso 1 es independiente: solo hace falta la primera vez o cuando
+se quiera empezar de cero.
 
 ### Usuarios de demostracion
 

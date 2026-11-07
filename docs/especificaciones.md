@@ -113,7 +113,9 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 - Sprints, versiones e iteraciones: el periodo es por semanas.
 - Informes y exportacion a Excel.
 - Integraciones con Jira, GitHub, LDAP, SAML u OIDC.
-- Planificador de recursos con arrastres y tarjetas por persona.
+- El **planificador de recursos con tarjetas por persona**: las tarjetas
+  repiten lo que ya dice la ficha de la persona. El planificador de lectura, con
+  sus tres vistas y el arrastre para reasignar, si entra, en el §18.
 - Aplicacion movil.
 - Permisos por tarea concreta (compartir una tarea suelta).
 - Veredictos discretos de capacidad (critical, tight, balanced, buffer): son la
@@ -148,6 +150,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Cronograma y tablero | Hecho |
 | Calendario de la planificacion | Hecho |
 | Calendario laboral con impacto en la capacidad | Hecho |
+| Planificador de recursos: tres vistas y arrastre | Hecho |
 | Ambito global (todo lo que puede ver quien entra) | Hecho |
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
@@ -467,3 +470,44 @@ se quitan.
   laborables que apliquen a esa persona.
 - Solo se listan las filas con **diferencia**: lo que no se ve afectado no
   ocupa sitio.
+
+## 18. Planificador de recursos
+
+La matriz de capacidad dice cuanto se ocupa cada persona. El planificador dice
+lo mismo y, ademas, en que se ocupa: que tarea, en que proyecto y con cuanto
+esfuerzo.
+
+### Que entra
+
+- La **pantalla global** del planificador, con tres vistas sobre el mismo rango
+  de semanas.
+- La **carga por tarea**: la matriz de persona y semana con las horas
+  planificadas y el porcentaje de ocupacion, mas la tabla de asignaciones con
+  las tareas de cada persona en cada semana.
+- La **linea de tiempo por persona**: la misma matriz, pero cada celda lista las
+  tareas de esa persona en esa semana.
+- La **tabla de planificacion**: la misma matriz, pero cada celda muestra el
+  reparto por proyecto.
+- El **arrastre para reasignar**: arrastrar una tarea de una celda a la de otra
+  persona le cambia el responsable.
+- El color de la celda es el de la **sobrecarga** que ya usa la matriz de
+  capacidad.
+
+### Que no entra
+
+- Las **tarjetas por persona**: repiten la ficha de la persona, que ya existe.
+- Los **veredictos discretos** de capacidad: van aparte, con sus umbrales y sus
+  aprobaciones.
+- La **edicion de tareas** dentro del planificador: se edita desde la tarea.
+- El **redimensionado** de tareas arrastrando sus bordes.
+- Un planificador **por proyecto**: es global, como la matriz global.
+
+### Decisiones de este bloque
+
+- El planificador **no necesita backend nuevo**: la matriz viene de
+  `/api/capacity` y las tareas de `/api/tasks`, que se amplia con un filtro de
+  rango para no pedir una peticion por semana.
+- El **arrastre** solo mueve el responsable de una tarea. Es la unica
+  operacion que hace: el resto se cambia desde la tarea.
+- Al soltar una tarea, la **matriz se recarga**: las horas se recalculan en el
+  backend, no en el cliente.

@@ -1,0 +1,5984 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CorePlanner — demo de la integración</title>
+    <meta
+      name="description"
+      content="Demo visual de CorePlanner con lo aprendido del análisis de OpenProject y otros repositorios: planificador de recursos, veredictos discretos de capacidad, políticas con aprobación, horarios versionados, dependencias y agente MCP."
+    />
+    <style>
+/* ==========================================================================
+   CorePlanner — demo visual de la integracion
+   Sistema de estilos. Sin dependencias: mismo lenguaje visual que la app
+   actual (sidebar slate-900, acento Siemens rgb(0 52 102), superficie slate-50).
+   ========================================================================== */
+
+:root {
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  --siemens-50: #eef4fa;
+  --siemens-100: #dbe8f5;
+  --siemens-500: #0064b4;
+  --siemens-700: #004a89;
+  --siemens-900: #003466;
+
+  --red-50: #fef2f2;
+  --red-200: #fecaca;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+
+  --amber-50: #fffbeb;
+  --amber-200: #fde68a;
+  --amber-500: #f59e0b;
+  --amber-700: #b45309;
+
+  --emerald-50: #ecfdf5;
+  --emerald-200: #a7f3d0;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
+
+  --violet-50: #f5f3ff;
+  --violet-200: #ddd6fe;
+  --violet-600: #7c3aed;
+  --violet-700: #6d28d9;
+
+  --radius: 6px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--slate-50);
+  color: var(--slate-900);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+:focus-visible {
+  outline: 2px solid var(--siemens-500);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- armazon */
+
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  background: var(--slate-900);
+  color: var(--slate-300);
+  width: 256px;
+  transition: width 0.18s ease;
+}
+
+.sidebar.is-collapsed {
+  width: 64px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--siemens-500);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.brand-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.brand-text strong {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-text span {
+  display: block;
+  color: var(--slate-400);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.ico {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.icon-btn {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--slate-400);
+  padding: 4px;
+  line-height: 0;
+}
+
+.icon-btn:hover {
+  background: var(--slate-800);
+  color: #fff;
+}
+
+.sidebar-context {
+  border-bottom: 1px solid var(--slate-800);
+  padding: 0 12px 12px;
+}
+
+.sidebar-context p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-context .kicker {
+  color: var(--slate-500);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar-context .name {
+  color: #fff;
+  font-size: 14px;
+}
+
+.sidebar-context .sub {
+  color: var(--slate-400);
+  font-size: 12px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.nav-group + .nav-group {
+  margin-top: 12px;
+}
+
+.nav-group-title {
+  margin: 12px 12px 4px;
+  color: var(--slate-500);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-left: 4px solid transparent;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: transparent;
+  color: var(--slate-400);
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.nav-item:hover {
+  background: var(--slate-800);
+  color: #fff;
+}
+
+.nav-item.is-active {
+  border-left-color: var(--siemens-500);
+  background: var(--slate-800);
+  color: #fff;
+  font-weight: 500;
+}
+
+.nav-item .ico {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.nav-item .label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar.is-collapsed .nav-item {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.sidebar.is-collapsed .nav-group-title,
+.sidebar.is-collapsed .label,
+.sidebar.is-collapsed .sidebar-context p,
+.sidebar.is-collapsed .brand-text {
+  display: none;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--slate-800);
+  padding: 12px;
+}
+
+.sidebar-user .who {
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-user .who strong {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user .who span {
+  display: block;
+  overflow: hidden;
+  color: var(--slate-400);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--siemens-500);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.avatar.tone-alt {
+  background: var(--slate-700);
+}
+
+.avatar.tone-warn {
+  background: var(--amber-500);
+}
+
+.avatar.tone-danger {
+  background: var(--red-600);
+}
+
+.avatar.sm {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.avatar.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+}
+
+/* ---------------------------------------------------------------- cabecera */
+
+.main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  height: 56px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--slate-200);
+  background: #fff;
+  padding: 0 24px;
+}
+
+.crumbs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.crumbs span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crumbs .muted {
+  color: var(--slate-500);
+}
+
+.crumbs .current {
+  color: var(--slate-900);
+  font-weight: 500;
+}
+
+.crumbs .sep {
+  color: var(--slate-300);
+}
+
+.topbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+}
+
+/* ----------------------------------------------------------------- pieces */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.btn .ico {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+.btn-primary {
+  background: var(--siemens-900);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--siemens-700);
+}
+
+.btn-secondary {
+  border-color: var(--slate-300);
+  background: #fff;
+  color: var(--slate-700);
+}
+
+.btn-secondary:hover {
+  background: var(--slate-50);
+  color: var(--slate-900);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--slate-600);
+}
+
+.btn-ghost:hover {
+  background: var(--slate-100);
+  color: var(--slate-900);
+}
+
+.btn-success {
+  background: var(--emerald-600);
+  color: #fff;
+}
+
+.btn-success:hover {
+  background: var(--emerald-700);
+}
+
+.btn-danger {
+  border-color: var(--red-200);
+  background: #fff;
+  color: var(--red-700);
+}
+
+.btn-danger:hover {
+  background: var(--red-50);
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.badge-critical {
+  background: var(--red-50);
+  border-color: var(--red-200);
+  color: var(--red-700);
+}
+
+.badge-tight {
+  background: var(--amber-50);
+  border-color: var(--amber-200);
+  color: var(--amber-700);
+}
+
+.badge-balanced {
+  background: var(--siemens-50);
+  border-color: var(--siemens-100);
+  color: var(--siemens-700);
+}
+
+.badge-buffer {
+  background: var(--slate-100);
+  border-color: var(--slate-200);
+  color: var(--slate-600);
+}
+
+.badge-no_capacity {
+  background: var(--violet-50);
+  border-color: var(--violet-200);
+  color: var(--violet-700);
+}
+
+.badge-no_work {
+  border-color: var(--slate-200);
+  border-style: dashed;
+  background: var(--slate-50);
+  color: var(--slate-400);
+}
+
+.badge-active {
+  background: var(--emerald-50);
+  border-color: var(--emerald-200);
+  color: var(--emerald-700);
+}
+
+.badge-paused {
+  background: var(--amber-50);
+  border-color: var(--amber-200);
+  color: var(--amber-700);
+}
+
+.badge-neutral {
+  background: var(--slate-100);
+  border-color: var(--slate-200);
+  color: var(--slate-600);
+}
+
+.badge-source {
+  border-color: var(--slate-200);
+  background: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  background: var(--slate-100);
+  padding: 2px 8px;
+  color: var(--slate-600);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tag.siemens {
+  background: var(--siemens-50);
+  color: var(--siemens-700);
+}
+
+.table .tag {
+  display: inline-block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.card {
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 12px 16px;
+}
+
+.card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card-head .sub {
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.card-body {
+  padding: 16px;
+}
+
+.card-body.tight {
+  padding: 0;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-2-1 {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.grid-1-2 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------ indicadores */
+
+.stat {
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--slate-500);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value small {
+  color: var(--slate-400);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.stat-foot {
+  margin-top: 6px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.stat-foot.up {
+  color: var(--red-600);
+}
+
+.stat-foot.good {
+  color: var(--emerald-600);
+}
+
+/* --------------------------------------------------------------- toolbar */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--slate-300);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 7px 10px;
+  color: var(--slate-700);
+  font-size: 13px;
+}
+
+.field select,
+.field input {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.seg {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--slate-300);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.seg button {
+  border: 0;
+  border-right: 1px solid var(--slate-200);
+  background: transparent;
+  color: var(--slate-600);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.seg button:last-child {
+  border-right: 0;
+}
+
+.seg button:hover {
+  background: var(--slate-50);
+}
+
+.seg button.is-active {
+  background: var(--siemens-900);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- tabla */
+
+.table {
+  width: 100%;
+  font-size: 14px;
+}
+
+.table th {
+  border-bottom: 1px solid var(--slate-200);
+  background: var(--slate-50);
+  color: var(--slate-500);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table td {
+  border-bottom: 1px solid var(--slate-100);
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table tbody tr:hover {
+  background: var(--slate-50);
+}
+
+.table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table .tight-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- matriz */
+
+.matrix-wrap {
+  overflow: auto;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.matrix th,
+.matrix td {
+  border-right: 1px solid var(--slate-100);
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-bottom: 1px solid var(--slate-200);
+  background: var(--slate-50);
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.matrix thead th .wk {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate-700);
+  letter-spacing: 0.02em;
+}
+
+.matrix thead th .wk-sub {
+  display: block;
+  color: var(--slate-400);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.matrix thead th.now {
+  background: var(--siemens-50);
+}
+
+.matrix thead th.now .wk {
+  color: var(--siemens-700);
+}
+
+.matrix .corner {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  min-width: 232px;
+  background: var(--slate-50);
+  text-align: left;
+}
+
+.matrix tbody th.corner {
+  z-index: 2;
+  background: #fff;
+}
+
+.matrix tbody tr:hover th.corner {
+  background: var(--slate-50);
+}
+
+.person-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-cell .meta {
+  min-width: 0;
+}
+
+.person-cell strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-cell span {
+  display: block;
+  overflow: hidden;
+  color: var(--slate-500);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell {
+  position: relative;
+  min-width: 74px;
+  padding: 6px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease;
+}
+
+.cell:hover {
+  box-shadow: inset 0 0 0 2px var(--siemens-500);
+}
+
+.cell .h {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell .p {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell.v-critical {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+
+.cell.v-tight {
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
+
+.cell.v-balanced {
+  background: var(--siemens-50);
+  color: var(--siemens-700);
+}
+
+.cell.v-buffer {
+  background: #fff;
+  color: var(--slate-600);
+}
+
+.cell.v-no_capacity {
+  background: var(--violet-50);
+  color: var(--violet-700);
+}
+
+.cell.v-no_work {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--slate-50),
+    var(--slate-50) 4px,
+    #fff 4px,
+    #fff 8px
+  );
+  color: var(--slate-400);
+}
+
+.cell.drift-up {
+  box-shadow: inset 0 -3px 0 var(--red-500);
+}
+
+.cell.drift-down {
+  box-shadow: inset 0 -3px 0 var(--emerald-600);
+}
+
+.matrix tfoot td,
+.matrix tfoot th {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  border-top: 1px solid var(--slate-200);
+  background: var(--slate-50);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix tfoot th.corner {
+  z-index: 4;
+  background: var(--slate-50);
+  text-align: left;
+}
+
+.matrix tfoot td .h,
+.matrix tfoot td .p {
+  display: block;
+}
+
+.matrix tfoot td .h {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.matrix tfoot td .p {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--slate-500);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------- barra veredicto */
+
+.verdict-bar {
+  display: flex;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--slate-100);
+}
+
+.verdict-bar span {
+  height: 100%;
+}
+
+.vb-critical {
+  background: var(--red-500);
+}
+
+.vb-tight {
+  background: var(--amber-500);
+}
+
+.vb-balanced {
+  background: var(--siemens-500);
+}
+
+.vb-buffer {
+  background: var(--slate-300);
+}
+
+.vb-no_capacity {
+  background: var(--violet-600);
+}
+
+.vb-no_work {
+  background: var(--slate-200);
+}
+
+.meter {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--slate-100);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  background: var(--siemens-500);
+}
+
+.meter > span.warn {
+  background: var(--amber-500);
+}
+
+.meter > span.danger {
+  background: var(--red-500);
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--slate-200);
+  margin-bottom: 16px;
+}
+
+.tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--slate-500);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tab:hover {
+  color: var(--slate-900);
+}
+
+.tab.is-active {
+  border-bottom-color: var(--siemens-900);
+  color: var(--siemens-900);
+}
+
+.tab .count {
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--slate-100);
+  padding: 1px 7px;
+  color: var(--slate-500);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- drawer */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  width: 460px;
+  max-width: 92vw;
+  flex-direction: column;
+  border-left: 1px solid var(--slate-200);
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--slate-200);
+  padding: 16px;
+}
+
+.drawer-head h2 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.drawer-head p {
+  margin: 0;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.drawer-foot {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--slate-200);
+  padding: 12px 16px;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.kv dt {
+  color: var(--slate-500);
+}
+
+.kv dd {
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- actividad */
+
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 0 0 16px 0;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 26px;
+  bottom: 0;
+  width: 1px;
+  background: var(--slate-200);
+}
+
+.timeline li:last-child::before {
+  display: none;
+}
+
+.timeline .t-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.timeline .t-head {
+  font-size: 13px;
+}
+
+.timeline .t-head strong {
+  font-weight: 600;
+}
+
+.timeline .t-time {
+  color: var(--slate-400);
+  font-size: 11px;
+}
+
+.timeline .t-payload {
+  margin-top: 4px;
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  background: var(--slate-50);
+  padding: 6px 10px;
+  color: var(--slate-600);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.diff-add {
+  color: var(--emerald-700);
+}
+
+.diff-del {
+  color: var(--red-700);
+  text-decoration: line-through;
+}
+
+/* ---------------------------------------------------------------- kanban */
+
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.kcol {
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: var(--slate-50);
+  padding: 10px;
+}
+
+.kcol.over-limit {
+  border-color: var(--amber-500);
+  background: var(--amber-50);
+}
+
+.kcol-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.kcol-head strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kcard {
+  border: 1px solid var(--slate-200);
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.kcard:hover {
+  border-color: var(--siemens-500);
+}
+
+.kcard .t {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.kcard .m {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--slate-500);
+  font-size: 11px;
+}
+
+/* ----------------------------------------------------------------- gantt */
+
+.gantt {
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.gantt-inner {
+  position: relative;
+  min-width: 900px;
+}
+
+.gantt-head-row {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  height: 44px;
+  border-bottom: 1px solid var(--slate-200);
+  background: var(--slate-50);
+}
+
+.gantt-head-label {
+  width: 230px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--slate-200);
+  padding: 6px 10px;
+  color: var(--slate-400);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gantt-head-track {
+  position: relative;
+  flex: 1;
+}
+
+.gantt-head-track .month {
+  position: absolute;
+  top: 0;
+  height: 22px;
+  border-right: 1px solid var(--slate-200);
+  padding: 3px 8px;
+  color: var(--slate-600);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gantt-head-track .week {
+  position: absolute;
+  top: 22px;
+  height: 21px;
+  border-right: 1px solid var(--slate-100);
+  padding: 2px 6px;
+  color: var(--slate-400);
+  font-size: 10px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.gantt-row {
+  position: relative;
+  display: flex;
+  height: 40px;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.gantt-label {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  width: 230px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  border-right: 1px solid var(--slate-200);
+  background: #fff;
+  padding: 0 10px;
+}
+
+.gantt-row:hover .gantt-label {
+  background: var(--slate-50);
+}
+
+.gantt-label .t {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-track {
+  position: relative;
+  flex: 1;
+}
+
+.gantt-bar {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  display: flex;
+  height: 24px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  padding: 0 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.gantt-bar.critical {
+  box-shadow: 0 0 0 2px var(--red-500);
+}
+
+.gantt-deps {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-top: 1px solid var(--slate-200);
+  padding: 10px 16px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+/* -------------------------------------------------------- tarjeta persona */
+
+.person-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 12px;
+}
+
+.person-card {
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.person-card.is-critical {
+  border-color: var(--red-200);
+  box-shadow: 0 0 0 1px var(--red-200);
+}
+
+.pc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pc-head .who {
+  min-width: 0;
+  flex: 1;
+}
+
+.pc-head strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pc-head span {
+  display: block;
+  overflow: hidden;
+  color: var(--slate-500);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--slate-100);
+  padding-top: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--slate-600);
+}
+
+.week-chips {
+  display: flex;
+  gap: 3px;
+}
+
+.week-chip {
+  width: 22px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--slate-100);
+  color: var(--slate-500);
+  font-size: 10px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.week-chip.v-critical {
+  background: var(--red-100, #fee2e2);
+  color: var(--red-700);
+}
+
+.week-chip.v-tight {
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
+
+.week-chip.v-balanced {
+  background: var(--siemens-50);
+  color: var(--siemens-700);
+}
+
+.week-chip.v-buffer {
+  background: var(--slate-100);
+  color: var(--slate-500);
+}
+
+.week-chip.v-no_work {
+  background: var(--slate-50);
+  color: var(--slate-300);
+}
+
+/* -------------------------------------------------------- matriz competencias */
+
+.skills {
+  width: 100%;
+  font-size: 12px;
+}
+
+.skills th {
+  border-bottom: 1px solid var(--slate-200);
+  background: var(--slate-50);
+  padding: 6px 8px;
+  color: var(--slate-500);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.skills th.left {
+  text-align: left;
+}
+
+.skills td {
+  border-bottom: 1px solid var(--slate-100);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.skills td.left {
+  color: var(--slate-600);
+  text-align: left;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--slate-200);
+}
+
+.dots i.on {
+  background: var(--siemens-500);
+}
+
+/* ---------------------------------------------------------------- mes */
+
+.month-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.month-cal .dow {
+  padding: 4px 0;
+  color: var(--slate-400);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.month-cal .day {
+  position: relative;
+  min-height: 54px;
+  border: 1px solid var(--slate-100);
+  border-radius: 4px;
+  padding: 4px;
+  background: #fff;
+  font-size: 11px;
+}
+
+.month-cal .day.blank {
+  border-color: transparent;
+  background: transparent;
+}
+
+.month-cal .day.outside {
+  color: var(--slate-300);
+}
+
+.month-cal .day.today {
+  border-color: var(--siemens-500);
+}
+
+.marker {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #fff;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marker.global {
+  background: var(--siemens-700);
+}
+
+.marker.dept {
+  background: var(--amber-500);
+}
+
+.marker.person {
+  background: var(--violet-600);
+}
+
+/* --------------------------------------------------------------- agente */
+
+.tool-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: 1px solid var(--slate-100);
+  padding: 12px 16px;
+}
+
+.tool-row:last-child {
+  border-bottom: 0;
+}
+
+.tool-row .t-name {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate-800);
+}
+
+.tool-row .t-desc {
+  margin-top: 2px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-msg {
+  max-width: 88%;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--siemens-900);
+  color: #fff;
+}
+
+.chat-msg.bot {
+  align-self: flex-start;
+  border: 1px solid var(--slate-200);
+  background: var(--slate-50);
+}
+
+.chat-tool {
+  margin-top: 8px;
+  border: 1px dashed var(--slate-300);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px 10px;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--slate-600);
+}
+
+.chat-tool b {
+  color: var(--siemens-700);
+}
+
+/* ---------------------------------------------------------------- toast */
+
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  background: var(--slate-900);
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast .ico {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--emerald-600);
+}
+
+/* ------------------------------------------------------------- varios */
+
+.hint {
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.empty {
+  border: 1px dashed var(--slate-300);
+  border-radius: 8px;
+  padding: 24px;
+  color: var(--slate-400);
+  text-align: center;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plan-strip {
+  display: flex;
+  gap: 2px;
+}
+
+.plan-strip span {
+  height: 20px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--slate-100);
+}
+
+.num-strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pill-up {
+  color: var(--red-600);
+  font-weight: 600;
+}
+
+.pill-down {
+  color: var(--emerald-600);
+  font-weight: 600;
+}
+
+.pill-flat {
+  color: var(--slate-400);
+}
+
+.divider {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--slate-200);
+}
+
+.callout {
+  border: 1px solid var(--siemens-100);
+  border-left: 3px solid var(--siemens-500);
+  border-radius: 6px;
+  background: var(--siemens-50);
+  padding: 10px 12px;
+  color: var(--siemens-900);
+  font-size: 13px;
+}
+
+.callout.warn {
+  border-color: var(--amber-200);
+  border-left-color: var(--amber-500);
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
+
+.callout.danger {
+  border-color: var(--red-200);
+  border-left-color: var(--red-500);
+  background: var(--red-50);
+  color: var(--red-700);
+}
+
+.src-note {
+  border-left: 2px solid var(--slate-200);
+  padding-left: 10px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.progress-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 4px 0 12px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--slate-400);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.step .n {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--slate-200);
+  color: var(--slate-600);
+  font-weight: 600;
+}
+
+.step.done .n {
+  background: var(--emerald-600);
+  color: #fff;
+}
+
+.step.active .n {
+  background: var(--siemens-500);
+  color: #fff;
+}
+
+.step.active {
+  color: var(--siemens-700);
+  font-weight: 600;
+}
+
+.step-line {
+  width: 40px;
+  height: 1px;
+  background: var(--slate-200);
+}
+
+@media (max-width: 1180px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-3,
+  .grid-2,
+  .grid-2-1,
+  .grid-1-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+</style>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230064b4'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23fff' text-anchor='middle'%3ECP%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar"></aside>
+      <div class="main">
+        <header class="topbar" id="topbar"></header>
+        <main class="content" id="view"></main>
+      </div>
+    </div>
+
+    <script>
+/* ==========================================================================
+   CorePlanner — demo visual: motor de capacidad (puro)
+   Reproduce la logica real: reparto de horas entre dias laborables del
+   calendario, imputacion por semana ISO y veredicto discreto.
+   ========================================================================== */
+
+var CoreEngine = (function () {
+  'use strict'
+
+  function pad(n) {
+    return n < 10 ? '0' + n : '' + n
+  }
+
+  function dnum(s) {
+    var p = s.split('-')
+    return Date.UTC(+p[0], +p[1] - 1, +p[2])
+  }
+
+  function dstr(ms) {
+    var d = new Date(ms)
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate())
+  }
+
+  function addDays(s, n) {
+    return dstr(dnum(s) + n * 86400000)
+  }
+
+  function dayOfWeek(s) {
+    return new Date(dnum(s)).getUTCDay()
+  }
+
+  /** Clave de semana ISO: "2026-W46". */
+  function isoWeekKey(s) {
+    var d = new Date(dnum(s))
+    var dow = (d.getUTCDay() + 6) % 7
+    d.setUTCDate(d.getUTCDate() - dow + 3)
+    var isoYear = d.getUTCFullYear()
+    var firstThursday = new Date(Date.UTC(isoYear, 0, 4))
+    var fdow = (firstThursday.getUTCDay() + 6) % 7
+    firstThursday.setUTCDate(firstThursday.getUTCDate() - fdow + 3)
+    var week = 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 86400000))
+    return isoYear + '-W' + pad(week)
+  }
+
+  /** Lunes de la semana ISO indicada. */
+  function weekMonday(weekKey) {
+    var parts = weekKey.split('-W')
+    var year = +parts[0]
+    var week = +parts[1]
+    var jan4 = Date.UTC(year, 0, 4)
+    var dow = (new Date(jan4).getUTCDay() + 6) % 7
+    return dstr(jan4 - dow * 86400000 + (week - 1) * 7 * 86400000)
+  }
+
+  /**
+   * Peso de festivo de un dia para un contexto dado.
+   * Devuelve 0, 0.5 (medio dia) o 1 (jornada completa perdida).
+   */
+  function holidayWeight(date, ctx) {
+    var holidays = DEMO.HOLIDAYS
+    for (var i = 0; i < holidays.length; i++) {
+      var h = holidays[i]
+      if (h.date !== date) continue
+      var applies = false
+      if (h.scope === 'global') applies = true
+      else if (h.scope === 'dept') applies = h.scope_label === ctx.dept
+      else if (h.scope === 'person') applies = h.scope_label === ctx.personName
+      if (!applies) continue
+      return h.half_day ? 0.5 : 1
+    }
+    return 0
+  }
+
+  /** Dias laborables del rango con su peso, ya discounting festivos. */
+  function workingDays(start, end, ctx) {
+    var out = []
+    var cur = start
+    var guard = 0
+    while (dnum(cur) <= dnum(end) && guard++ < 400) {
+      var dow = dayOfWeek(cur)
+      if (dow !== 0 && dow !== 6) {
+        var weight = 1 - holidayWeight(cur, ctx)
+        if (weight > 0) out.push({ date: cur, weight: weight })
+      }
+      cur = addDays(cur, 1)
+    }
+    return out
+  }
+
+  /** Capacidad semanal efectiva de una persona, segun su horario vigente. */
+  function weeklyCapacity(person, weekKey) {
+    var monday = weekMonday(weekKey)
+    var ctx = { dept: person.dept, personName: person.name }
+    var total = 0
+    for (var i = 0; i < 7; i++) {
+      var hours = person.schedule[i] || 0
+      if (!hours) continue
+      var day = addDays(monday, i)
+      if (dayOfWeek(day) === 0 || dayOfWeek(day) === 6) continue
+      total += hours * (1 - holidayWeight(day, ctx))
+    }
+    return total * (person.factor / 100)
+  }
+
+  /** Reparte las horas de una tarea entre sus dias laborables. */
+  function distribute(task, person) {
+    var ctx = { dept: person.dept, personName: person.name }
+    var days = workingDays(task.start, task.end, ctx)
+    var weight = 0
+    var i
+    for (i = 0; i < days.length; i++) weight += days[i].weight
+    if (!weight) return []
+    var parts = []
+    for (i = 0; i < days.length; i++) {
+      parts.push({
+        date: days[i].date,
+        week: isoWeekKey(days[i].date),
+        hours: (task.hours * days[i].weight) / weight,
+      })
+    }
+    return parts
+  }
+
+  /**
+   * Matriz de capacidad de un conjunto de proyectos.
+   * Devuelve filas por persona con las horas planificadas por semana.
+   */
+  function capacityFor(projectIds) {
+    var rows = {}
+    DEMO.TASKS.forEach(function (task) {
+      if (projectIds.indexOf(task.project) < 0) return
+      if (!task.user) return
+      var person = personById(task.user)
+      if (!person) return
+      var parts = distribute(task, person)
+      var row = rows[task.user]
+      if (!row) {
+        row = rows[task.user] = { user_id: task.user, plan: {} }
+      }
+      parts.forEach(function (part) {
+        row.plan[part.week] = (row.plan[part.week] || 0) + part.hours
+      })
+    })
+    return rows
+  }
+
+  /** Capacidad de una persona en una semana, como fraccion de su base. */
+  function capacityOf(person, weekKey) {
+    return weeklyCapacity(person, weekKey)
+  }
+
+  /**
+   * Veredicto discreto de capacidad (Leantime): la celda roja pasa a ser
+   * un estado ordenado por gravedad.
+   */
+  function verdictFor(hours, capacity) {
+    if (capacity <= 0) return 'no_capacity'
+    if (!hours) return 'no_work'
+    var ratio = (hours / capacity) * 100
+    if (ratio >= DEMO.THRESHOLDS.hard) return 'critical'
+    if (ratio >= DEMO.THRESHOLDS.warn) return 'tight'
+    if (ratio >= 50) return 'balanced'
+    return 'buffer'
+  }
+
+  function ratioOf(hours, capacity) {
+    if (!capacity) return null
+    return Math.round((hours / capacity) * 1000) / 10
+  }
+
+  function personById(id) {
+    var people = DEMO.PEOPLE
+    for (var i = 0; i < people.length; i++) {
+      if (people[i].id === id) return people[i]
+    }
+    return null
+  }
+
+  function projectById(id) {
+    var projects = DEMO.PROJECTS
+    for (var i = 0; i < projects.length; i++) {
+      if (projects[i].id === id) return projects[i]
+    }
+    return null
+  }
+
+  function taskById(id) {
+    var tasks = DEMO.TASKS
+    for (var i = 0; i < tasks.length; i++) {
+      if (tasks[i].id === id) return tasks[i]
+    }
+    return null
+  }
+
+  /** Tareas de un proyecto. */
+  function tasksOf(projectId) {
+    return DEMO.TASKS.filter(function (task) {
+      return task.project === projectId
+    })
+  }
+
+  /** Personas de un proyecto: miembros mas quienes tienen tareas asignadas. */
+  function peopleOf(projectId) {
+    var project = projectById(projectId)
+    var ids = project ? project.members.slice() : []
+    tasksOf(projectId).forEach(function (task) {
+      if (task.user && ids.indexOf(task.user) < 0) ids.push(task.user)
+    })
+    return ids.map(personById).filter(Boolean)
+  }
+
+  /** Dependencias que affectan a un conjunto de tareas. */
+  function dependenciesOf(projectId) {
+    var ids = tasksOf(projectId).map(function (task) {
+      return task.id
+    })
+    return DEMO.DEPENDENCIES.filter(function (dep) {
+      return ids.indexOf(dep.from) >= 0 && ids.indexOf(dep.to) >= 0
+    })
+  }
+
+  function fmtHours(value) {
+    if (value === null || value === undefined) return '—'
+    var rounded = Math.round(value * 100) / 100
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, '')
+  }
+
+  return {
+    pad: pad,
+    dnum: dnum,
+    dstr: dstr,
+    addDays: addDays,
+    dayOfWeek: dayOfWeek,
+    isoWeekKey: isoWeekKey,
+    weekMonday: weekMonday,
+    holidayWeight: holidayWeight,
+    workingDays: workingDays,
+    weeklyCapacity: weeklyCapacity,
+    distribute: distribute,
+    capacityFor: capacityFor,
+    capacityOf: capacityOf,
+    verdictFor: verdictFor,
+    ratioOf: ratioOf,
+    personById: personById,
+    projectById: projectById,
+    taskById: taskById,
+    tasksOf: tasksOf,
+    peopleOf: peopleOf,
+    dependenciesOf: dependenciesOf,
+    fmtHours: fmtHours,
+  }
+})()
+
+</script>
+    <script>
+/* ==========================================================================
+   CorePlanner — demo visual: datos de demostracion
+   El planificado NO se guarda aqui: se deriva de las tareas y del calendario
+   laboral con el motor de capacity (engine.js). Solo las horas reales, que
+   viven en su propia tabla de imputaciones, se guardan agregadas por semana.
+   ========================================================================== */
+
+var DEMO = (function () {
+  'use strict'
+
+  var WEEKS = [
+    { key: '2026-W44', label: 'S44', start: '2026-10-26' },
+    { key: '2026-W45', label: 'S45', start: '2026-11-02' },
+    { key: '2026-W46', label: 'S46', start: '2026-11-09' },
+    { key: '2026-W47', label: 'S47', start: '2026-11-16' },
+    { key: '2026-W48', label: 'S48', start: '2026-11-23' },
+    { key: '2026-W49', label: 'S49', start: '2026-11-30' },
+    { key: '2026-W50', label: 'S50', start: '2026-12-07' },
+    { key: '2026-W51', label: 'S51', start: '2026-12-14' },
+    { key: '2026-W52', label: 'S52', start: '2026-12-21' },
+  ]
+
+  var CURRENT_WEEK = '2026-W47'
+
+  var DEPARTMENTS = [
+    { id: 'd1', name: 'Automatización & SCADA', manager_id: 'u1', code: 'AUT' },
+    { id: 'd2', name: 'Oficina Técnica / EPLAN', manager_id: 'u4', code: 'OTE' },
+    { id: 'd3', name: 'Mantenimiento', manager_id: 'u5', code: 'MAN' },
+    { id: 'd4', name: 'Control de Calidad', manager_id: 'u8', code: 'CC' },
+  ]
+
+  var PEOPLE = [
+    {
+      id: 'u1',
+      name: 'Ana Belén Ruiz',
+      initials: 'AR',
+      dept: 'Automatización & SCADA',
+      role: 'Project Manager',
+      level: 'Senior',
+      employment: 'objetivo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { 'TIA Portal': 3, SCADA: 3, 'Gestión de proyectos': 3, PLC: 2 },
+      email: 'aruiz@coreplanner.local',
+    },
+    {
+      id: 'u2',
+      name: 'Sebastián Ortega',
+      initials: 'SO',
+      dept: 'Automatización & SCADA',
+      role: 'Ingeniero PLC',
+      level: 'Senior',
+      employment: 'objetivo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { 'TIA Portal': 3, PLC: 3, 'Redes industriales': 2, SCADA: 2 },
+      email: 'sortega@coreplanner.local',
+    },
+    {
+      id: 'u3',
+      name: 'Marta Ruiz',
+      initials: 'MR',
+      dept: 'Automatización & SCADA',
+      role: 'Ingeniero SCADA',
+      level: 'Medio',
+      employment: 'techo',
+      base_hours: 40,
+      factor: 80,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { SCADA: 3, HMI: 3, 'TIA Portal': 2 },
+      email: 'mruiz@coreplanner.local',
+    },
+    {
+      id: 'u4',
+      name: 'Jorge Landa',
+      initials: 'JL',
+      dept: 'Oficina Técnica / EPLAN',
+      role: 'Diseñador Eléctrico',
+      level: 'Senior',
+      employment: 'objetivo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { EPLAN: 3, Mecánica: 2, Cableado: 2 },
+      email: 'jlanda@coreplanner.local',
+    },
+    {
+      id: 'u5',
+      name: 'Iván Cortés',
+      initials: 'IC',
+      dept: 'Mantenimiento',
+      role: 'Técnico Mecánico',
+      level: 'Medio',
+      employment: 'techo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { Mecánica: 3, Soldadura: 3, Mantenimiento: 2 },
+      email: 'icortes@coreplanner.local',
+    },
+    {
+      id: 'u6',
+      name: 'Lucía Ferrer',
+      initials: 'LF',
+      dept: 'Oficina Técnica / EPLAN',
+      role: 'Ingeniero Eléctrico',
+      level: 'Junior',
+      employment: 'techo',
+      base_hours: 18,
+      factor: 100,
+      schedule: [6, 6, 6, 0, 0, 0, 0],
+      skills: { EPLAN: 2, Cableado: 3 },
+      email: 'lferrer@coreplanner.local',
+    },
+    {
+      id: 'u7',
+      name: 'Diego Sanz',
+      initials: 'DS',
+      dept: 'Automatización & SCADA',
+      role: 'Ingeniero PLC',
+      level: 'Medio',
+      employment: 'objetivo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { PLC: 3, SCADA: 2, 'TIA Portal': 2 },
+      email: 'dsanz@coreplanner.local',
+    },
+    {
+      id: 'u8',
+      name: 'Nuria Peña',
+      initials: 'NP',
+      dept: 'Control de Calidad',
+      role: 'Técnico QC',
+      level: 'Medio',
+      employment: 'mejor_esfuerzo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [8, 8, 8, 8, 8, 0, 0],
+      skills: { Análisis: 3, Metrología: 2, Soldadura: 1 },
+      email: 'npenal@coreplanner.local',
+    },
+    {
+      id: 'u9',
+      name: 'Héctor Navarro',
+      initials: 'HN',
+      dept: 'Automatización & SCADA',
+      role: 'Ingeniero PLC (incorporación 11-23)',
+      level: 'Junior',
+      employment: 'objetivo',
+      base_hours: 40,
+      factor: 100,
+      schedule: [0, 0, 0, 0, 0, 0, 0],
+      skills: { PLC: 2, 'Redes industriales': 1 },
+      email: 'hnavarro@coreplanner.local',
+    },
+  ]
+
+  /* Historial de horarios: cada entrada entra en vigor en su valid_from. */
+  var SCHEDULE_HISTORY = {
+    u1: [{ valid_from: '2026-01-05', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa' }],
+    u2: [
+      { valid_from: '2025-09-01', factor: 100, schedule: [7.5, 7.5, 7.5, 7.5, 7.5, 0, 0], note: 'Jornada reducida' },
+      { valid_from: '2026-01-05', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa' },
+    ],
+    u3: [
+      { valid_from: '2025-01-06', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Tiempo completo' },
+      { valid_from: '2026-01-05', factor: 80, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada parcial al 80 %' },
+    ],
+    u4: [{ valid_from: '2026-01-05', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa' }],
+    u5: [
+      { valid_from: '2024-01-08', factor: 80, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada parcial al 80 %' },
+      { valid_from: '2026-07-01', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa tras reincorporación' },
+    ],
+    u6: [
+      { valid_from: '2025-01-06', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Tiempo completo' },
+      { valid_from: '2026-04-01', factor: 100, schedule: [6, 6, 6, 0, 0, 0, 0], note: 'Reducción de jornada a 3 días' },
+    ],
+    u7: [{ valid_from: '2026-03-02', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa' }],
+    u8: [{ valid_from: '2026-01-05', factor: 100, schedule: [8, 8, 8, 8, 8, 0, 0], note: 'Jornada completa' }],
+    u9: [],
+  }
+
+  /* Horas reales imputadas por persona y semana (tabla time_entries agregada).
+     Llega hasta la semana en curso; a partir de ahí no hay imputación. */
+  var REAL = {
+    u1: [11, 17.5, 31, 31, null, null, null, null, null],
+    u2: [null, 28, 51, 33, null, null, null, null, null],
+    u3: [19, 20, 25, 23, null, null, null, null, null],
+    u4: [28, 22, 25, 46, null, null, null, null, null],
+    u5: [36, 27, 44, 30, null, null, null, null, null],
+    u6: [null, null, null, 13, null, null, null, null, null],
+    u7: [21, 25, 30, 45, null, null, null, null, null],
+    u8: [13, 20, 25, 29, null, null, null, null, null],
+    u9: [null, null, null, null, null, null, null, null, null],
+  }
+
+  var PROJECTS = [
+    {
+      id: 'p1',
+      code: 'PRJ-014',
+      name: 'Línea Pasteurizadora SIVE',
+      dept: 'Automatización & SCADA',
+      status: 'active',
+      manager_id: 'u1',
+      members: ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u9'],
+      start: '2026-10-05',
+      end: '2027-01-29',
+    },
+    {
+      id: 'p2',
+      code: 'PRJ-021',
+      name: 'Red de tuberías línea 2',
+      dept: 'Oficina Técnica / EPLAN',
+      status: 'active',
+      manager_id: 'u4',
+      members: ['u4', 'u5', 'u6', 'u8'],
+      start: '2026-09-28',
+      end: '2026-12-31',
+    },
+    {
+      id: 'p3',
+      code: 'PRJ-033',
+      name: 'Gateway IIoT — fase 2',
+      dept: 'Automatización & SCADA',
+      status: 'planning',
+      manager_id: 'u1',
+      members: ['u1', 'u2', 'u7'],
+      start: '2026-12-01',
+      end: '2027-01-15',
+    },
+    {
+      id: 'p4',
+      code: 'PRJ-008',
+      name: 'Renovación S-700',
+      dept: 'Mantenimiento',
+      status: 'on_hold',
+      manager_id: 'u5',
+      members: ['u5', 'u8'],
+      start: '2026-09-01',
+      end: '2026-11-06',
+    },
+    {
+      id: 'p5',
+      code: 'PRJ-042',
+      name: 'Cuadrante de turnos 2027',
+      dept: 'Control de Calidad',
+      status: 'planning',
+      manager_id: 'u8',
+      members: ['u8'],
+      start: '2026-11-23',
+      end: '2027-01-15',
+    },
+  ]
+
+  var STATUS_LABELS = {
+    active: { label: 'Activo', tone: 'active' },
+    planning: { label: 'Planificación', tone: 'neutral' },
+    on_hold: { label: 'Pausado', tone: 'paused' },
+    done: { label: 'Completado', tone: 'neutral' },
+    cancelled: { label: 'Cancelado', tone: 'neutral' },
+  }
+
+  var COLUMNS = [
+    { key: 'backlog', label: 'Backlog', wip: 8 },
+    { key: 'in_progress', label: 'En Desarrollo', wip: 3 },
+    { key: 'testing', label: 'Pruebas (FAT/SAT)', wip: 2 },
+    { key: 'done', label: 'Completado', wip: null },
+  ]
+
+  var TASKS = [
+    // --- PRJ-014 Línea Pasteurizadora SIVE
+    { id: 'T-101', project: 'p1', title: 'Ingeniería de requisitos y FAT', user: 'u4', start: '2026-10-26', end: '2026-11-06', hours: 54, status: 'done', progress: 100 },
+    { id: 'T-102', project: 'p1', title: 'Diseño EPLAN del cuadro de fuerza', user: 'u4', start: '2026-11-09', end: '2026-11-13', hours: 26, status: 'in_progress', progress: 85 },
+    { id: 'T-103', project: 'p1', title: 'Diseño EPLAN del cuadro de maniobra', user: 'u4', start: '2026-11-16', end: '2026-11-20', hours: 44, status: 'in_progress', progress: 40 },
+    { id: 'T-104', project: 'p1', title: 'Diseño EPLAN del conexionado', user: 'u4', start: '2026-11-23', end: '2026-11-27', hours: 36, status: 'backlog', progress: 0 },
+    { id: 'T-105', project: 'p1', title: 'Planos de montaje final', user: 'u4', start: '2026-11-30', end: '2026-12-04', hours: 24, status: 'backlog', progress: 0 },
+    { id: 'T-106', project: 'p1', title: 'Arquitectura de seguridades de la línea', user: 'u2', start: '2026-11-02', end: '2026-11-06', hours: 30, status: 'done', progress: 100 },
+    { id: 'T-107', project: 'p1', title: 'Programación PLC de seguridad', user: 'u2', start: '2026-11-09', end: '2026-11-13', hours: 48, status: 'in_progress', progress: 70 },
+    { id: 'T-108', project: 'p1', title: 'Programación PLC de seguridad (lote 2)', user: 'u2', start: '2026-11-16', end: '2026-11-27', hours: 72, status: 'in_progress', progress: 25 },
+    { id: 'T-109', project: 'p1', title: 'Programación PLC — cierre y pruebas', user: 'u2', start: '2026-11-30', end: '2026-12-11', hours: 54, status: 'backlog', progress: 0 },
+    { id: 'T-110', project: 'p1', title: 'Documentación de seguridad (marcado CE)', user: 'u2', start: '2026-12-14', end: '2026-12-18', hours: 20, status: 'backlog', progress: 0 },
+    { id: 'T-111', project: 'p1', title: 'Programación HMI / SCADA', user: 'u3', start: '2026-10-26', end: '2026-10-30', hours: 20, status: 'done', progress: 100 },
+    { id: 'T-112', project: 'p1', title: 'Programación HMI / SCADA (continuación)', user: 'u3', start: '2026-11-02', end: '2026-11-13', hours: 48, status: 'in_progress', progress: 45 },
+    { id: 'T-113', project: 'p1', title: 'Programación HMI — modelos de línea', user: 'u3', start: '2026-11-16', end: '2026-11-20', hours: 24, status: 'backlog', progress: 0 },
+    { id: 'T-114', project: 'p1', title: 'Programación HMI — alarmas y recetas', user: 'u3', start: '2026-11-23', end: '2026-11-27', hours: 18, status: 'backlog', progress: 0 },
+    { id: 'T-115', project: 'p1', title: 'Programación HMI — cierre y traspaso a pruebas', user: 'u3', start: '2026-11-30', end: '2026-12-11', hours: 22, status: 'backlog', progress: 0 },
+    { id: 'T-116', project: 'p1', title: 'Coordinación de obra y reunión de seguimiento', user: 'u1', start: '2026-10-26', end: '2026-12-18', hours: 90, status: 'in_progress', progress: 60 },
+    { id: 'T-117', project: 'p1', title: 'Gestión de proveedores y compras', user: 'u1', start: '2026-11-02', end: '2026-12-18', hours: 70, status: 'in_progress', progress: 55 },
+    { id: 'T-118', project: 'p1', title: 'Documentación de requisitos y homologaciones', user: 'u1', start: '2026-11-09', end: '2026-12-04', hours: 40, status: 'in_progress', progress: 30 },
+    { id: 'T-119', project: 'p1', title: 'Bancada de pruebas: definición', user: 'u7', start: '2026-10-26', end: '2026-10-30', hours: 22, status: 'done', progress: 100 },
+    { id: 'T-120', project: 'p1', title: 'Bancada de pruebas: montaje', user: 'u7', start: '2026-11-02', end: '2026-11-06', hours: 26, status: 'done', progress: 100 },
+    { id: 'T-121', project: 'p1', title: 'Integración: puesta en marcha', user: 'u7', start: '2026-11-09', end: '2026-11-13', hours: 32, status: 'in_progress', progress: 50 },
+    { id: 'T-122', project: 'p1', title: 'Integración: pruebas en planta', user: 'u7', start: '2026-11-16', end: '2026-11-20', hours: 42, status: 'backlog', progress: 0 },
+    { id: 'T-123', project: 'p1', title: 'Integración: cierre y traspaso', user: 'u7', start: '2026-11-23', end: '2026-11-27', hours: 36, status: 'backlog', progress: 0 },
+    { id: 'T-124', project: 'p1', title: 'Documentación de la FAT', user: 'u7', start: '2026-11-30', end: '2026-12-04', hours: 30, status: 'backlog', progress: 0 },
+    { id: 'T-125', project: 'p1', title: 'Banco de pruebas: mejoras', user: 'u7', start: '2026-12-07', end: '2026-12-11', hours: 24, status: 'backlog', progress: 0 },
+    { id: 'T-126', project: 'p1', title: 'Ingeniería de la puesta en marcha', user: 'u7', start: '2026-12-14', end: '2026-12-18', hours: 14, status: 'backlog', progress: 0 },
+    { id: 'T-127', project: 'p1', title: 'Documentación y manuales', user: 'u6', start: '2026-11-16', end: '2026-12-18', hours: 48, status: 'backlog', progress: 0 },
+    { id: 'T-128', project: 'p1', title: 'Actualización de planos de armario', user: 'u6', start: '2026-11-16', end: '2026-11-20', hours: 6, status: 'backlog', progress: 0 },
+    { id: 'T-129', project: 'p1', title: 'Puesta en marcha y acompañamiento (fase 1)', user: 'u5', start: '2026-11-09', end: '2026-11-13', hours: 41, status: 'in_progress', progress: 35 },
+    { id: 'T-130', project: 'p1', title: 'Acompañamiento en planta (fase 2)', user: 'u5', start: '2026-11-16', end: '2026-12-18', hours: 150, status: 'backlog', progress: 0 },
+    { id: 'T-131', project: 'p1', title: 'Puesta en marcha de la línea 2', user: 'u9', start: '2026-11-23', end: '2026-12-18', hours: 60, status: 'backlog', progress: 0 },
+
+    // --- PRJ-021 Red de tuberías línea 2
+    { id: 'T-133', project: 'p2', title: 'Levantamiento de campo', user: 'u4', start: '2026-10-19', end: '2026-10-23', hours: 18, status: 'done', progress: 100 },
+    { id: 'T-134', project: 'p2', title: 'Cálculo de soportes y anclajes', user: 'u6', start: '2026-11-23', end: '2026-11-27', hours: 6, status: 'in_progress', progress: 60 },
+    { id: 'T-135', project: 'p2', title: 'Planos isometricos', user: 'u4', start: '2026-11-30', end: '2026-12-04', hours: 10, status: 'backlog', progress: 0 },
+    { id: 'T-136', project: 'p2', title: 'Inspección de soldadura y radiografías', user: 'u8', start: '2026-11-02', end: '2026-11-13', hours: 48, status: 'in_progress', progress: 35 },
+    { id: 'T-137', project: 'p2', title: 'Certificación de calidad de soldadura', user: 'u8', start: '2026-11-16', end: '2026-11-27', hours: 62, status: 'backlog', progress: 0 },
+    { id: 'T-138', project: 'p2', title: 'Protocolo de prueba de estanqueidad', user: 'u5', start: '2026-12-21', end: '2026-12-31', hours: 8, status: 'backlog', progress: 0 },
+
+    // --- PRJ-033 Gateway IIoT — fase 2
+    { id: 'T-139', project: 'p3', title: 'Arquitectura del gateway y brokers MQTT', user: 'u7', start: '2026-12-21', end: '2026-12-31', hours: 8, status: 'backlog', progress: 0 },
+    { id: 'T-140', project: 'p3', title: 'Conectores OPC UA y drivers', user: 'u2', start: '2026-12-21', end: '2026-12-31', hours: 12, status: 'backlog', progress: 0 },
+    { id: 'T-141', project: 'p3', title: 'Presupuesto de hardware del gateway', user: 'u1', start: '2026-12-21', end: '2026-12-31', hours: 6, status: 'backlog', progress: 0 },
+
+    // --- PRJ-008 Renovación S-700
+    { id: 'T-142', project: 'p4', title: 'Desmontaje y evaluación de rodamientos', user: 'u5', start: '2026-10-26', end: '2026-10-30', hours: 38, status: 'done', progress: 100 },
+    { id: 'T-143', project: 'p4', title: 'Presupuesto de la intervención', user: 'u5', start: '2026-11-02', end: '2026-11-06', hours: 28, status: 'testing', progress: 90 },
+    { id: 'T-144', project: 'p4', title: 'Informe de estado del activo', user: 'u8', start: '2026-10-26', end: '2026-10-30', hours: 14, status: 'done', progress: 100 },
+
+    // --- PRJ-042 Cuadrante de turnos 2027
+    { id: 'T-145', project: 'p5', title: 'Definición de turnos por área', user: 'u8', start: '2026-11-30', end: '2026-12-11', hours: 48, status: 'backlog', progress: 0 },
+    { id: 'T-146', project: 'p5', title: 'Informe de cierre de línea', user: 'u8', start: '2026-12-14', end: '2026-12-18', hours: 10, status: 'backlog', progress: 0 },
+    { id: 'T-147', project: 'p5', title: 'Recepción de materiales', user: 'u8', start: '2026-12-21', end: '2026-12-31', hours: 8, status: 'backlog', progress: 0 },
+  ]
+
+  /* Dependencias entre tareas: predecesor -> sucesor. */
+  var DEPENDENCIES = [
+    { from: 'T-101', to: 'T-102', type: 'precedes' },
+    { from: 'T-102', to: 'T-103', type: 'precedes' },
+    { from: 'T-103', to: 'T-104', type: 'precedes' },
+    { from: 'T-104', to: 'T-124', type: 'blocks' },
+    { from: 'T-120', to: 'T-121', type: 'blocks' },
+    { from: 'T-121', to: 'T-122', type: 'precedes' },
+    { from: 'T-122', to: 'T-123', type: 'precedes' },
+    { from: 'T-123', to: 'T-126', type: 'blocks' },
+    { from: 'T-124', to: 'T-126', type: 'blocks' },
+    { from: 'T-106', to: 'T-113', type: 'blocks' },
+    { from: 'T-113', to: 'T-114', type: 'precedes' },
+    { from: 'T-129', to: 'T-130', type: 'precedes' },
+    { from: 'T-133', to: 'T-134', type: 'precedes' },
+    { from: 'T-134', to: 'T-135', type: 'precedes' },
+  ]
+
+  var CRITICAL_PATH = ['T-101', 'T-102', 'T-103', 'T-104', 'T-124', 'T-126']
+
+  /* Politicas de capacidad (Paperclip): umbral blando y umbral duro. */
+  var POLICIES = [
+    {
+      id: 'pol-1',
+      scope: 'Proyecto PRJ-014',
+      metric: 'Horas planificadas por semana',
+      window: 'Semana ISO',
+      warn: 80,
+      hard: 100,
+      warn_action: 'Notificar al responsable del proyecto',
+      hard_action: 'Requiere aprobación antes de asignar',
+      enabled: true,
+    },
+    {
+      id: 'pol-2',
+      scope: 'Persona (todas)',
+      metric: 'Horas planificadas por semana',
+      window: 'Semana ISO',
+      warn: 85,
+      hard: 100,
+      warn_action: 'Aviso en la matriz y en el panel',
+      hard_action: 'Bloquea nuevas asignaciones',
+      enabled: true,
+    },
+    {
+      id: 'pol-3',
+      scope: 'Departamento Automatización & SCADA',
+      metric: 'Horas planificadas por semana',
+      window: 'Semana ISO',
+      warn: 75,
+      hard: 95,
+      warn_action: 'Informe al jefe de departamento',
+      hard_action: 'Requiere aprobación del jefe de departamento',
+      enabled: false,
+    },
+  ]
+
+  var INCIDENTS = [
+    {
+      id: 'inc-1',
+      policy: 'pol-1',
+      project: 'p1',
+      person: 'u2',
+      week: '2026-W46',
+      level: 'hard',
+      ratio: 120,
+      status: 'open',
+      detail: '48 h planificadas frente a 40 h de capacidad efectiva. 8 h de horas extra en la semana.',
+    },
+    {
+      id: 'inc-2',
+      policy: 'pol-1',
+      project: 'p1',
+      person: 'u4',
+      week: '2026-W47',
+      level: 'hard',
+      ratio: 110,
+      status: 'open',
+      detail: '44 h planificadas frente a 40 h de capacidad efectiva.',
+    },
+    {
+      id: 'inc-3',
+      policy: 'pol-1',
+      project: 'p1',
+      person: 'u7',
+      week: '2026-W47',
+      level: 'hard',
+      ratio: 117,
+      status: 'open',
+      detail: '42 h planificadas frente a 36 h de capacidad efectiva (media jornada de formación el lunes).',
+    },
+    {
+      id: 'inc-4',
+      policy: 'pol-1',
+      project: 'p1',
+      person: 'u5',
+      week: '2026-W46',
+      level: 'hard',
+      ratio: 103,
+      status: 'open',
+      detail: '41 h planificadas frente a 40 h de capacidad efectiva.',
+    },
+    {
+      id: 'inc-5',
+      policy: 'pol-1',
+      project: 'p1',
+      person: 'u1',
+      week: '2026-W46',
+      level: 'soft',
+      ratio: 83,
+      status: 'acknowledged',
+      detail: 'Umbral blando cruzado al 83 % de la capacidad.',
+    },
+    {
+      id: 'inc-6',
+      policy: 'pol-1',
+      project: 'p2',
+      person: 'u4',
+      week: '2026-W49',
+      level: 'soft',
+      ratio: 85,
+      status: 'closed',
+      detail: 'Incidente cerrado tras reasignar 12 h a Lucía Ferrer.',
+    },
+  ]
+
+  var APPROVALS = [
+    {
+      id: 'apr-1',
+      project: 'p1',
+      requester: 'u2',
+      approver: 'u1',
+      kind: 'Sobrecarga',
+      subject: 'Aceptar 48 h en 2026-W46 (120 % de la capacidad)',
+      detail:
+        'La tarea "Programación PLC de seguridad" se solapa con el cierre de FAT. Sin aprobación, la asignación queda bloqueada.',
+      status: 'pending',
+    },
+    {
+      id: 'apr-2',
+      project: 'p1',
+      requester: 'u4',
+      approver: 'u1',
+      kind: 'Sobrecarga',
+      subject: 'Aceptar 44 h a Jorge Landa en 2026-W47 (110 %)',
+      detail:
+        'El cuadro de maniobra adelanta una semana por la entrega de material. Requiere visto bueno del responsable de proyecto.',
+      status: 'pending',
+    },
+    {
+      id: 'apr-3',
+      project: 'p1',
+      requester: 'u5',
+      approver: 'u1',
+      kind: 'Horas extra',
+      subject: 'Autorizar 8 h de horas extra en 2026-W46',
+      detail:
+        'La puesta en marcha exige 9,6 h al día durante la semana 46. Se proposes imputar el exceso como horas extra.',
+      status: 'pending',
+    },
+  ]
+
+  var SAVED_VIEWS = [
+    { name: 'Sobrecarga SCADA', scope: 'Proyecto PRJ-014', owner: 'Ana Belén Ruiz', shared: true, filters: 'Departamento AUT · S44–S48 · solo críticos' },
+    { name: 'Todo por encima del 80 %', scope: 'Global', owner: 'Ana Belén Ruiz', shared: true, filters: 'Utilización ≥ 80 % · cualquier proyecto' },
+    { name: 'Oficina Técnica', scope: 'Global', owner: 'Jorge Landa', shared: false, filters: 'Departamento OTE · vista de planificación' },
+    { name: 'Mapa de carga del trimestre', scope: 'Global', owner: 'Ana Belén Ruiz', shared: true, filters: 'S44–S52 · agrupado por persona · con deriva' },
+  ]
+
+  var HOLIDAYS = [
+    { date: '2026-10-12', name: 'Fiesta Nacional', scope: 'global', scope_label: 'Global', half_day: false, impact: 4 },
+    { date: '2026-11-02', name: 'Todos los Santos', scope: 'global', scope_label: 'Global', half_day: false, impact: 6 },
+    { date: '2026-11-09', name: 'Día de la Comunidad', scope: 'dept', scope_label: 'Oficina Técnica / EPLAN', half_day: false, impact: 2 },
+    { date: '2026-11-16', name: 'Formación interna (media jornada)', scope: 'dept', scope_label: 'Automatización & SCADA', half_day: true, impact: 3 },
+    { date: '2026-11-23', name: 'Permiso individual', scope: 'person', scope_label: 'Marta Ruiz', half_day: false, impact: 1 },
+    { date: '2026-12-07', name: 'Día de la Constitución', scope: 'global', scope_label: 'Global', half_day: false, impact: 5 },
+    { date: '2026-12-24', name: 'Nochebuena', scope: 'global', scope_label: 'Global', half_day: true, impact: 7 },
+    { date: '2026-12-31', name: 'Nochevieja', scope: 'global', scope_label: 'Global', half_day: true, impact: 3 },
+  ]
+
+  var TIME_ENTRIES = [
+    { id: 'te-1', user: 'u2', task: 'T-107', date: '2026-11-13', hours: 9, note: 'Programación de seguridades F-CPU' },
+    { id: 'te-2', user: 'u2', task: 'T-107', date: '2026-11-12', hours: 9, note: 'Pruebas de la lógica de emergency stop' },
+    { id: 'te-3', user: 'u4', task: 'T-103', date: '2026-11-16', hours: 8, note: 'Cuadro de maniobra: disconnection de potencia' },
+    { id: 'te-4', user: 'u5', task: 'T-129', date: '2026-11-16', hours: 8, note: 'Montaje provisional del rodamiento' },
+    { id: 'te-5', user: 'u3', task: 'T-113', date: '2026-11-17', hours: 6, note: 'Modelo HMI de la línea 2' },
+    { id: 'te-6', user: 'u1', task: 'T-117', date: '2026-11-17', hours: 5, note: 'Revisión de requisitos con producción' },
+    { id: 'te-7', user: 'u7', task: 'T-121', date: '2026-11-17', hours: 9, note: 'Preparación del banco de pruebas' },
+    { id: 'te-8', user: 'u5', task: 'T-129', date: '2026-11-17', hours: 9, note: 'Ajuste de rodamientos del carro' },
+  ]
+
+  var ACTIVITY = [
+    { id: 'a1', actor: 'u1', actor_type: 'human', action: 'política', entity: 'PRJ-014', when: 'hace 12 min', payload: { key: 'warn_percent', from: '75', to: '80' }, text: 'Umbral de aviso del proyecto cambiado de 75 % a 80 %.' },
+    { id: 'a2', actor: 'u2', actor_type: 'human', action: 'asignación', entity: 'T-108', when: 'hace 45 min', payload: { key: 'assigned_to', from: '—', to: 'Marta Ruiz' }, text: '8 h de "Programación PLC de seguridad (lote 2)" reasignadas a Marta Ruiz.' },
+    { id: 'a3', actor: 'agent', actor_type: 'agent', action: 'tarea', entity: 'T-123', when: 'hace 1 h', payload: { key: 'run_id', from: '—', to: '7c1f2a' }, text: 'Tarea "Integración: cierre y traspaso" creada por el agente (run 7c1f2a).' },
+    { id: 'a4', actor: 'u5', actor_type: 'human', action: 'horario', entity: 'Iván Cortés', when: 'hace 3 h', payload: { key: 'availability_factor', from: '80', to: '100' }, text: 'Factor de disponibilidad al 100 % desde 2026-07-01.' },
+    { id: 'a5', actor: 'u4', actor_type: 'human', action: 'festivo', entity: 'OTE', when: 'ayer, 17:40', payload: { key: 'scope', from: 'Global', to: 'Oficina Técnica / EPLAN' }, text: 'Festivo "Día de la Comunidad" añadido con alcance de departamento.' },
+    { id: 'a6', actor: 'u3', actor_type: 'human', action: 'imputación', entity: '2026-W47', when: 'ayer, 09:12', payload: { key: 'hours', from: '0', to: '23' }, text: '23 h imputadas en la semana en curso.' },
+    { id: 'a7', actor: 'agent', actor_type: 'agent', action: 'consulta', entity: 'capacity_matrix', when: 'ayer, 08:58', payload: { key: 'run_id', from: '—', to: '9ab310' }, text: 'Consulta de la matriz de capacidad por el agente del equipo.' },
+  ]
+
+  var MCP_TOOLS = [
+    { name: 'capacity_matrix', desc: 'Matriz de capacidad por persona y semana ISO, con veredicto y ratio de utilización.', ro: true, risk: 'bajo', default: 'permitir', profile: 'lectura' },
+    { name: 'overloaded_people', desc: 'Personas que superan su capacidad efectiva en una ventana de fechas.', ro: true, risk: 'bajo', default: 'permitir', profile: 'lectura' },
+    { name: 'project_capacity', desc: 'Capacidad y carga consolidada de un proyecto en un rango.', ro: true, risk: 'bajo', default: 'permitir', profile: 'lectura' },
+    { name: 'task_dependencies', desc: 'Dependencias entre tareas y ruta crítica de un proyecto.', ro: true, risk: 'bajo', default: 'permitir', profile: 'lectura' },
+    { name: 'time_entries', desc: 'Imputaciones de horas de una persona o de una tarea.', ro: true, risk: 'bajo', default: 'permitir', profile: 'lectura' },
+    { name: 'export_ics', desc: 'Exporta las asignaciones a un calendario iCalendar.', ro: false, risk: 'medio', default: 'denegar', profile: 'exportación' },
+    { name: 'create_task', desc: 'Crea una tarea en un proyecto, con fechas, horas y persona.', ro: false, risk: 'medio', default: 'denegar', profile: 'operación' },
+    { name: 'assign_allocation', desc: 'Asigna horas de una tarea a una persona en un rango.', ro: false, risk: 'alto', default: 'denegar', profile: 'operación' },
+    { name: 'approve_overload', desc: 'Aprueba un rebose de capacidad por encima del umbral duro.', ro: false, risk: 'alto', default: 'denegar', profile: 'aprobación' },
+    { name: 'set_working_schedule', desc: 'Cambia el horario laboral o el factor de disponibilidad de una persona.', ro: false, risk: 'alto', default: 'denegar', profile: 'administración' },
+  ]
+
+  var MCP_RUNS = [
+    { run: '7c1f2a', when: '2026-11-17 09:12', tool: 'create_task', status: 'ok', note: 'X-Run-Id: 7c1f2a — tarea T-123 creada' },
+    { run: '7c1f2a', when: '2026-11-17 09:12', tool: 'capacity_matrix', status: 'ok', note: '200 OK — 9 personas × 9 semanas' },
+    { run: '9ab310', when: '2026-11-16 08:58', tool: 'overloaded_people', status: 'ok', note: '200 OK — 4 personas' },
+    { run: '5f7d21', when: '2026-11-14 16:41', tool: 'assign_allocation', status: 'denied', note: '403 — denegado por el perfil por defecto' },
+  ]
+
+  var VERDICTS = {
+    critical: { label: 'Crítico', rank: 0, desc: 'Sobrepasa la capacidad efectiva de la semana' },
+    tight: { label: 'Ajustado', rank: 1, desc: 'Entre el 80 % y el 100 % de la capacidad' },
+    balanced: { label: 'Equilibrado', rank: 2, desc: 'Entre el 50 % y el 80 %' },
+    buffer: { label: 'Holgado', rank: 3, desc: 'Por debajo del 50 %' },
+    no_capacity: { label: 'Sin capacidad', rank: 4, desc: 'No hay horario vigente definido para esa persona' },
+    no_work: { label: 'Sin carga', rank: 5, desc: 'Semana sin trabajo asignado' },
+  }
+
+  var THRESHOLDS = { warn: 80, hard: 100 }
+
+  return {
+    WEEKS: WEEKS,
+    CURRENT_WEEK: CURRENT_WEEK,
+    DEPARTMENTS: DEPARTMENTS,
+    PEOPLE: PEOPLE,
+    SCHEDULE_HISTORY: SCHEDULE_HISTORY,
+    REAL: REAL,
+    PROJECTS: PROJECTS,
+    STATUS_LABELS: STATUS_LABELS,
+    COLUMNS: COLUMNS,
+    TASKS: TASKS,
+    DEPENDENCIES: DEPENDENCIES,
+    CRITICAL_PATH: CRITICAL_PATH,
+    POLICIES: POLICIES,
+    INCIDENTS: INCIDENTS,
+    APPROVALS: APPROVALS,
+    SAVED_VIEWS: SAVED_VIEWS,
+    HOLIDAYS: HOLIDAYS,
+    TIME_ENTRIES: TIME_ENTRIES,
+    ACTIVITY: ACTIVITY,
+    MCP_TOOLS: MCP_TOOLS,
+    MCP_RUNS: MCP_RUNS,
+    VERDICTS: VERDICTS,
+    THRESHOLDS: THRESHOLDS,
+  }
+})()
+
+</script>
+    <script>
+/* ==========================================================================
+   CorePlanner — demo visual de la integracion
+   Shell, router y vistas. Sin backend: todo se deriva de data.js con el
+   motor de capacity (engine.js).
+   ========================================================================== */
+
+;(function () {
+  'use strict'
+
+  var D = DEMO
+  var E = CoreEngine
+
+  /* --------------------------------------------------------------- iconos */
+
+  var ICONS = {
+    chart: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z',
+    calendar: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+    board: 'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z',
+    users: 'M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z',
+    sliders: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75',
+    folder: 'M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z',
+    chevronLeft: 'M15.75 19.5L8.25 12l7.5-7.5',
+    chevronRight: 'M8.25 4.5l7.5 7.5-7.5 7.5',
+    plus: 'M12 4.5v15m7.5-7.5h-15',
+    arrowLeft: 'M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18',
+    arrowRight: 'M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3',
+    building: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21',
+    logout: 'M8.25 9V5.25A2.25 2.25 0 0110.5 3h6a2.25 2.25 0 012.25 2.25v13.5A2.25 2.25 0 0116.5 21h-6a2.25 2.25 0 01-2.25-2.25V15m-3-3h12m0 0l-3-3m3 3l-3 3',
+    gauge: 'M12 12l4.5-4.5M4.5 19.5a9 9 0 1115 0M12 12h9M12 12L3 12',
+    grid: 'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z',
+    clock: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+    shield: 'M9 12.75L11.25 15 15 9.75M21 12c0 4.97-3.69 9.11-8.44 9.75a.955.955 0 01-.31 0C7.19 21.11 3.5 16.97 3.5 12V5.25L12 2.5l8.5 2.75V12z',
+    sparkles: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z',
+    check: 'M4.5 12.75l6 6 9-13.5',
+    close: 'M6 18L18 6M6 6l12 12',
+    checkCircle: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    xCircle: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    warning: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
+    download: 'M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3',
+    search: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
+    bell: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0',
+    user: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
+    link: 'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244',
+    document: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z',
+    cpu: 'M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z',
+    play: 'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z',
+    pause: 'M15.75 5.25v13.5m-7.5-13.5v13.5',
+    filter: 'M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z',
+    layers: 'M12 2.25l8.25 4.5L12 11.25 3.75 6.75 12 2.25zM3.75 12.75L12 17.25l8.25-4.5M3.75 17.25L12 21.75l8.25-4.5',
+    chip: 'M9 3.75v6.75M15 3.75v6.75M9 13.5v6.75M15 13.5v6.75M3.75 9h6.75M13.5 9h6.75M3.75 15h6.75M13.5 15h6.75M9.75 3.75h4.5v16.5h-4.5z',
+  }
+
+  function icon(name, cls) {
+    var d = ICONS[name] || ''
+    return (
+      '<svg class="' +
+      (cls || 'ico') +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="' +
+      d +
+      '"/></svg>'
+    )
+  }
+
+  /* --------------------------------------------------------------- estado */
+
+  var state = {
+    route: 'panel',
+    projectId: null,
+    matrixMode: 'plan',
+    plannerTab: 'task',
+    deptFilter: '',
+    savedView: '',
+    collapsed: false,
+    approvals: {},
+    drawer: null,
+    toast: null,
+    activityFilter: 'all',
+  }
+
+  var GLOBAL_NAV = [
+    {
+      title: 'Espacio Global',
+      items: [
+        { id: 'panel', label: 'Panel', icon: 'gauge', hint: 'Estado de la organización' },
+        { id: 'capacity', label: 'Capacidad Global', icon: 'chart', hint: 'Matriz consolidada' },
+        { id: 'planner', label: 'Planificador de Recursos', icon: 'grid', hint: 'Cuatro vistas sobre el mismo rango' },
+        { id: 'projects', label: 'Proyectos', icon: 'folder', hint: 'Cartera de proyectos' },
+        { id: 'people', label: 'Personas & Competencia', icon: 'users', hint: 'Perfiles, horarios y habilidades' },
+        { id: 'calendar', label: 'Calendario Laboral', icon: 'calendar', hint: 'Festivos y días no laborables' },
+        { id: 'activity', label: 'Actividad', icon: 'clock', hint: 'Bitácora de cambios' },
+        { id: 'agent', label: 'Agente (MCP)', icon: 'sparkles', hint: 'CorePlanner operable por un agente' },
+      ],
+    },
+  ]
+
+  var PROJECT_NAV = [
+    {
+      title: 'Planificación & ejecución',
+      items: [
+        { id: 'summary', label: 'Resumen', icon: 'gauge' },
+        { id: 'capacity', label: 'Matriz de Capacidad', icon: 'chart' },
+        { id: 'gantt', label: 'Cronograma (Gantt)', icon: 'calendar' },
+        { id: 'kanban', label: 'Tablero Kanban', icon: 'board' },
+      ],
+    },
+    {
+      title: 'Gestión & equipo',
+      items: [
+        { id: 'members', label: 'Miembros y Asignaciones', icon: 'users' },
+        { id: 'policies', label: 'Políticas de Capacidad', icon: 'shield' },
+        { id: 'time', label: 'Imputación de Horas', icon: 'clock' },
+        { id: 'activity', label: 'Actividad', icon: 'pulse' },
+      ],
+    },
+  ]
+
+  var VIEW_LABELS = {
+    panel: 'Panel',
+    capacity: 'Matriz de Capacidad',
+    planner: 'Planificador de Recursos',
+    projects: 'Proyectos',
+    people: 'Personas & Competencia',
+    calendar: 'Calendario Laboral',
+    activity: 'Actividad',
+    agent: 'Agente (MCP)',
+    summary: 'Resumen',
+    gantt: 'Cronograma (Gantt)',
+    kanban: 'Tablero Kanban',
+    members: 'Miembros y Asignaciones',
+    policies: 'Políticas de Capacidad',
+    time: 'Imputación de Horas',
+  }
+
+  /* ------------------------------------------------------------- utilidades */
+
+  function esc(value) {
+    return String(value === null || value === undefined ? '' : value).replace(
+      /[&<>"']/g,
+      function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      },
+    )
+  }
+
+  function h(value) {
+    return E.fmtHours(value)
+  }
+
+  function person(id) {
+    return E.personById(id)
+  }
+
+  function personName(id) {
+    var p = person(id)
+    return p ? p.name : '—'
+  }
+
+  function project(id) {
+    return E.projectById(id)
+  }
+
+  function projectCode(id) {
+    var p = project(id)
+    return p ? p.code : '—'
+  }
+
+  function statusBadge(status) {
+    var s = D.STATUS_LABELS[status] || { label: 'Sin estado', tone: 'neutral' }
+    return '<span class="badge badge-' + s.tone + '">' + esc(s.label) + '</span>'
+  }
+
+  function verdictBadge(verdict, title) {
+    var v = D.VERDICTS[verdict]
+    return (
+      '<span class="badge badge-' +
+      verdict +
+      '"' +
+      (title ? ' title="' + esc(title) + '"' : '') +
+      '><span class="dot"></span>' +
+      esc(v.label) +
+      '</span>'
+    )
+  }
+
+  function sourceTag(text) {
+    return '<span class="badge badge-source">' + esc(text) + '</span>'
+  }
+
+  function weekKey(index) {
+    return D.WEEKS[index].key
+  }
+
+  function weekIndex(key) {
+    for (var i = 0; i < D.WEEKS.length; i++) {
+      if (D.WEEKS[i].key === key) return i
+    }
+    return -1
+  }
+
+  function formatDate(iso) {
+    var parts = iso.split('-')
+    var months = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ]
+    return parseInt(parts[2], 10) + ' ' + months[parseInt(parts[1], 10) - 1] + ' ' + parts[0]
+  }
+
+  /* ----------------------------------------------------------- matriz base */
+
+  function buildMatrix(projectIds) {
+    var rows = E.capacityFor(projectIds)
+    var list = projectIds.length === 1 ? E.peopleOf(projectIds[0]) : D.PEOPLE.slice()
+    return list.map(function (p) {
+      var row = rows[p.id] || { plan: {} }
+      var cells = D.WEEKS.map(function (week, index) {
+        var plan = row.plan[week.key] || 0
+        var capacity = E.capacityOf(p, week.key)
+        var real = D.REAL[p.id] ? D.REAL[p.id][index] : null
+        return {
+          week: week.key,
+          label: week.label,
+          index: index,
+          plan: plan,
+          capacity: capacity,
+          real: real,
+          drift: real === null ? null : real - plan,
+          verdict: E.verdictFor(plan, capacity),
+          ratio: E.ratioOf(plan, capacity),
+          isNow: week.key === D.CURRENT_WEEK,
+        }
+      })
+      return { person: p, cells: cells }
+    })
+  }
+
+  function weekTotals(matrix) {
+    return D.WEEKS.map(function (week, index) {
+      var plan = 0
+      var capacity = 0
+      matrix.forEach(function (row) {
+        plan += row.cells[index].plan
+        capacity += row.cells[index].capacity
+      })
+      return {
+        week: week.key,
+        plan: plan,
+        capacity: capacity,
+        ratio: capacity ? Math.round((plan / capacity) * 1000) / 10 : 0,
+        max: matrix.reduce(function (acc, row) {
+          return Math.max(acc, row.cells[index].plan)
+        }, 0),
+      }
+    })
+  }
+
+  /* ---------------------------------------------------------------- router */
+
+  function parseHash() {
+    var raw = (location.hash || '').replace(/^#\/?/, '')
+    var parts = raw.split('/').filter(Boolean)
+    if (!parts.length) return { route: 'panel', projectId: null }
+    if (parts[0] === 'projects' && parts[1]) {
+      return { route: parts[2] || 'summary', projectId: parts[1] }
+    }
+    return { route: parts[0], projectId: null }
+  }
+
+  function go(path) {
+    if (location.hash === '#' + path) {
+      route()
+    } else {
+      location.hash = path
+    }
+  }
+
+  function route() {
+    var parsed = parseHash()
+    state.route = parsed.route
+    state.projectId = parsed.projectId
+    state.drawer = null
+    render()
+    document.querySelector('.content').scrollTop = 0
+  }
+
+  /* -------------------------------------------------------------- render */
+
+  var els = {}
+
+  function render() {
+    renderSidebar()
+    renderTopbar()
+    renderContent()
+    renderDrawer()
+    renderToast()
+  }
+
+  function renderSidebar() {
+    var isGlobal = !state.projectId
+    var sections = isGlobal ? GLOBAL_NAV : PROJECT_NAV
+    var project_ = isGlobal ? null : project(state.projectId)
+    var department = project_ ? deptOf(project_.dept) : null
+
+    var html =
+      '<div class="sidebar-brand">' +
+      '<span class="brand-mark">CP</span>' +
+      '<span class="brand-text"><strong>CorePlanner</strong><span>v0.2 · demo integrada</span></span>' +
+      '<button type="button" class="icon-btn" data-action="toggle-sidebar" title="Colapsar el menu">' +
+      icon(state.collapsed ? 'chevronRight' : 'chevronLeft', 'ico') +
+      '</button>' +
+      '</div>'
+
+    html +=
+      '<div class="sidebar-context">' +
+      '<p class="kicker">' +
+      (isGlobal ? 'Espacio Global' : 'Proyecto') +
+      '</p>' +
+      '<p class="name">' +
+      (isGlobal ? 'Toda la organización' : esc(project_ ? project_.name : '—')) +
+      '</p>' +
+      '<p class="sub">' +
+      (isGlobal ? 'Consolidado de todos los proyectos' : esc(department ? department.name : 'Sin departamento')) +
+      '</p>' +
+      '</div>'
+
+    html += '<nav class="sidebar-nav">'
+    sections.forEach(function (section) {
+      html += '<div class="nav-group">'
+      html += '<p class="nav-group-title">' + esc(section.title) + '</p>'
+      section.items.forEach(function (item) {
+        var active = state.route === item.id
+        html +=
+          '<button type="button" class="nav-item' +
+          (active ? ' is-active' : '') +
+          '" data-nav="' +
+          item.id +
+          '" title="' +
+          esc(item.hint || item.label) +
+          '">' +
+          icon(item.icon) +
+          '<span class="label">' +
+          esc(item.label) +
+          '</span>' +
+          '</button>'
+      })
+      html += '</div>'
+    })
+    html += '</nav>'
+
+    if (!isGlobal) {
+      html +=
+        '<button type="button" class="nav-item" data-nav="global" style="border-top:1px solid #1e293b;border-radius:0">' +
+        icon('arrowLeft') +
+        '<span class="label">Volver a vista global</span>' +
+        '</button>'
+    }
+
+    html +=
+      '<div class="sidebar-user">' +
+      '<span class="avatar">AB</span>' +
+      '<span class="who"><strong>Ana Belén Ruiz</strong><span>Automatización &amp; SCADA</span></span>' +
+      '<button type="button" class="icon-btn" title="Cerrar sesión">' + icon('logout') + '</button>' +
+      '</div>'
+
+    els.sidebar.className = 'sidebar' + (state.collapsed ? ' is-collapsed' : '')
+    els.sidebar.innerHTML = html
+  }
+
+  function deptOf(name) {
+    for (var i = 0; i < D.DEPARTMENTS.length; i++) {
+      if (D.DEPARTMENTS[i].name === name) return D.DEPARTMENTS[i]
+    }
+    return null
+  }
+
+  function renderTopbar() {
+    var isGlobal = !state.projectId
+    var project_ = isGlobal ? null : project(state.projectId)
+    var department = project_ ? deptOf(project_.dept) : null
+
+    var crumbs = ''
+    if (isGlobal) {
+      crumbs =
+        '<span class="muted">Espacio Global</span><span class="sep">/</span><span class="current">' +
+        esc(VIEW_LABELS[state.route] || state.route) +
+        '</span>'
+    } else {
+      crumbs =
+        '<span class="muted">' +
+        esc(department ? department.name : 'Sin departamento') +
+        '</span><span class="sep">/</span><span class="muted">' +
+        esc(project_ ? project_.name : '—') +
+        '</span><span class="sep">/</span><span class="current">' +
+        esc(VIEW_LABELS[state.route] || state.route) +
+        '</span>'
+    }
+
+    var options = '<option value="">Todos los proyectos (Global)</option>'
+    D.DEPARTMENTS.forEach(function (dept) {
+      options += '<optgroup label="' + esc(dept.name) + '">'
+      D.PROJECTS.filter(function (p) {
+        return p.dept === dept.name
+      }).forEach(function (p) {
+        options +=
+          '<option value="' +
+          p.id +
+          '"' +
+          (state.projectId === p.id ? ' selected' : '') +
+          '>' +
+          esc(p.code + ' · ' + p.name) +
+          '</option>'
+      })
+      options += '</optgroup>'
+    })
+
+    var actions = '<div class="field">' + icon('search', 'ico') + '<select data-action="pick-project">' + options + '</select></div>'
+
+    if (!isGlobal && project_) {
+      actions += statusBadge(project_.status)
+      actions +=
+        '<button type="button" class="btn btn-primary" data-action="new-task">' +
+        icon('plus') +
+        'Nueva Tarea</button>'
+    }
+
+    els.topbar.innerHTML =
+      '<nav class="crumbs" aria-label="Migas de pan">' + crumbs + '</nav>' +
+      '<div class="topbar-actions">' +
+      actions +
+      '</div>'
+  }
+
+  function renderContent() {
+    var view
+    if (state.projectId) {
+      view = (PROJECT_VIEWS[state.route] || PROJECT_VIEWS.summary)()
+    } else {
+      view = (GLOBAL_VIEWS[state.route] || GLOBAL_VIEWS.panel)()
+    }
+    els.content.innerHTML = view
+    afterRender()
+  }
+
+  var GLOBAL_VIEWS = {
+    panel: viewPanel,
+    capacity: viewCapacity,
+    planner: viewPlanner,
+    projects: viewProjects,
+    people: viewPeople,
+    calendar: viewCalendar,
+    activity: viewActivity,
+    agent: viewAgent,
+  }
+
+  var PROJECT_VIEWS = {
+    summary: viewProjectSummary,
+    capacity: viewProjectCapacity,
+    gantt: viewGantt,
+    kanban: viewKanban,
+    members: viewMembers,
+    policies: viewPolicies,
+    time: viewTime,
+    activity: viewProjectActivity,
+  }
+
+  function afterRender() {
+    if (els.content.querySelector('.gantt')) drawDependencies()
+  }
+
+  /* ------------------------------------------------------------- vistas */
+
+  function viewPanel() {
+    var matrix = buildMatrix(D.PROJECTS.map(function (p) {
+      return p.id
+    }))
+    var totals = weekTotals(matrix)
+    var now = weekIndex(D.CURRENT_WEEK)
+    var nowTotals = totals[now]
+
+    var criticalPeople = []
+    matrix.forEach(function (row) {
+      var hasCritical = row.cells.some(function (c) {
+        return c.verdict === 'critical'
+      })
+      if (hasCritical) criticalPeople.push(row)
+    })
+
+    var pendingApprovals = D.APPROVALS.filter(function (a) {
+      return !state.approvals[a.id]
+    })
+    var openIncidents = D.INCIDENTS.filter(function (i) {
+      return i.status === 'open'
+    })
+
+    var html = ''
+
+    html +=
+      '<div class="toolbar">' +
+      '<h2 style="margin:0;font-size:19px;font-weight:600">Panel de capacidad</h2>' +
+      sourceTag('OpenProject + Leantime + Paperclip') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Semana en curso: <strong>' +
+      esc(D.CURRENT_WEEK) +
+      '</strong></span>' +
+      '</div>'
+
+    html +=
+      '<div class="grid grid-4" style="margin-bottom:16px">' +
+      statCard(
+        'Utilización media de la semana',
+        nowTotals.ratio + '<small>%</small>',
+        nowTotals.plan.toFixed(1) + ' h planificadas de ' + nowTotals.capacity.toFixed(0) + ' h de capacidad',
+        nowTotals.ratio >= 90 ? 'up' : '',
+      ) +
+      statCard(
+        'Personas en veredicto crítico',
+        String(criticalPeople.length),
+        criticalPeople.length
+          ? criticalPeople
+              .map(function (r) {
+                return esc(r.person.name.split(' ')[0])
+              })
+              .join(', ') + ' por encima del umbral duro'
+          : 'Nadie por encima del umbral duro',
+        criticalPeople.length ? 'up' : 'good',
+      ) +
+      statCard(
+        'Aprobaciones pendientes',
+        String(pendingApprovals.length),
+        'El umbral duro no es una alerta: es una aprobación obligatoria',
+        pendingApprovals.length ? 'up' : 'good',
+      ) +
+      statCard(
+        'Incidentes de política abiertos',
+        String(openIncidents.length),
+        'Registro idempotente por política, ventana y umbral',
+        openIncidents.length ? 'up' : 'good',
+      ) +
+      '</div>'
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Veredicto de capacidad por persona</h3>' +
+      '<span class="sub">9 semanas · del peor al mejor</span></div>' +
+      '<div class="card-body tight">' +
+      personVerdictList(matrix) +
+      '</div></div>'
+
+    html +=
+      '<div class="grid grid-2" style="margin-bottom:16px">' +
+      incidentsCard(openIncidents, true) +
+      approvalsCard(pendingApprovals, true) +
+      '</div>'
+
+    html +=
+      '<div class="card"><div class="card-head"><h3>Actividad reciente</h3>' +
+      '<span class="sub">Bitácora append-only</span>' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-nav="activity">Ver toda la bitácora</button></div>' +
+      '<div class="card-body">' +
+      activityTimeline(D.ACTIVITY.slice(0, 4)) +
+      '</div></div>'
+
+    return html
+  }
+
+  function statCard(label, value, foot, tone) {
+    return (
+      '<div class="stat"><div class="stat-label">' +
+      esc(label) +
+      '</div><div class="stat-value">' +
+      value +
+      '</div><div class="stat-foot ' +
+      (tone || '') +
+      '">' +
+      esc(foot) +
+      '</div></div>'
+    )
+  }
+
+  function personVerdictList(matrix) {
+    var html =
+      '<table class="table"><thead><tr><th>Persona</th><th>Semanas</th><th style="width:150px">Distribución</th><th>Veredicto</th></tr></thead><tbody>'
+    matrix.forEach(function (row) {
+      var counts = {}
+      row.cells.forEach(function (c) {
+        counts[c.verdict] = (counts[c.verdict] || 0) + 1
+      })
+      var bar = '<div class="verdict-bar">'
+      Object.keys(D.VERDICTS)
+        .sort(function (a, b) {
+          return D.VERDICTS[a].rank - D.VERDICTS[b].rank
+        })
+        .forEach(function (verdict) {
+          if (!counts[verdict]) return
+          bar +=
+            '<span class="vb-' +
+            verdict +
+            '" style="width:' +
+            (counts[verdict] / row.cells.length) * 100 +
+            '%" title="' +
+            esc(D.VERDICTS[verdict].label) +
+            '"></span>'
+        })
+      bar += '</div>'
+
+      var chips = '<div class="week-chips">'
+      row.cells.forEach(function (c) {
+        chips +=
+          '<span class="week-chip v-' +
+          c.verdict +
+          '" title="' +
+          esc(c.week + ' · ' + h(c.plan) + ' h · ' + D.VERDICTS[c.verdict].label) +
+          '">' +
+          esc(c.label.replace('S', '')) +
+          '</span>'
+      })
+      chips += '</div>'
+
+      var worst = row.cells
+        .slice()
+        .sort(function (a, b) {
+          return D.VERDICTS[a.verdict].rank - D.VERDICTS[b.verdict].rank
+        })[0]
+
+      html +=
+        '<tr><td><div class="person-cell"><span class="avatar sm">' +
+        esc(row.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(row.person.name) +
+        '</strong><span>' +
+        esc(row.person.role) +
+        ' · ' +
+        esc(row.person.dept) +
+        '</span></span></div></td>' +
+        '<td>' +
+        chips +
+        '</td><td>' +
+        bar +
+        '</td><td>' +
+        verdictBadge(worst.verdict) +
+        '</td></tr>'
+    })
+    html += '</tbody></table>'
+    return html
+  }
+
+  function incidentsCard(incidents, compact) {
+    var html =
+      '<div class="card"><div class="card-head"><h3>Incidentes de política</h3>' +
+      '<span class="sub">' +
+      incidents.length +
+      '</span></div><div class="card-body tight">'
+    if (!incidents.length) {
+      html += '<div class="empty" style="border:0;padding:16px">Sin incidentes abiertos</div>'
+    } else {
+      html += '<table class="table"><tbody>'
+      incidents.forEach(function (inc) {
+        var p = person(inc.person)
+        html +=
+          '<tr><td style="width:1%"><span class="badge badge-' +
+          (inc.level === 'hard' ? 'critical' : 'tight') +
+          '">' +
+          (inc.level === 'hard' ? 'Duro' : 'Blando') +
+          '</span></td>' +
+          '<td><strong>' +
+          esc(p ? p.name : '') +
+          '</strong><div class="hint">' +
+          esc(inc.week) +
+          ' · ' +
+          esc(projectCode(inc.project)) +
+          ' · ' +
+          inc.ratio +
+          '%</div></td>' +
+          (compact
+            ? ''
+            : '<td class="hint">' + esc(inc.detail) + '</td>') +
+          '</tr>'
+      })
+      html += '</tbody></table>'
+    }
+    html += '</div></div>'
+    return html
+  }
+
+  function approvalsCard(approvals, compact) {
+    var html =
+      '<div class="card"><div class="card-head"><h3>Aprobaciones pendientes</h3>' +
+      sourceTag('Paperclip') +
+      '</div><div class="card-body">'
+    if (!approvals.length) {
+      html += '<div class="empty" style="border:0;padding:12px">Nada pendiente de aprobar</div>'
+    }
+    approvals.forEach(function (apr) {
+      var state_ = state.approvals[apr.id]
+      html +=
+        '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px">' +
+        '<div class="row between" style="align-items:flex-start">' +
+        '<div><span class="badge badge-neutral">' +
+        esc(apr.kind) +
+        '</span>' +
+        '<div style="font-weight:600;margin-top:6px">' +
+        esc(apr.subject) +
+        '</div>' +
+        '<div class="hint" style="margin-top:4px">' +
+        esc(apr.detail) +
+        '</div>' +
+        '<div class="hint" style="margin-top:6px">Pide: <strong>' +
+        esc(personName(apr.requester)) +
+        '</strong> · Aprueba: <strong>' +
+        esc(personName(apr.approver)) +
+        '</strong> · ' +
+        esc(projectCode(apr.project)) +
+        '</div></div>' +
+        (state_
+          ? '<span class="badge badge-' +
+            (state_ === 'approved' ? 'active' : 'critical') +
+            '">' +
+            (state_ === 'approved' ? 'Aprobada' : 'Rechazada') +
+            '</span>'
+          : '<div class="row">' +
+            '<button type="button" class="btn btn-success btn-sm" data-action="approve" data-id="' +
+            apr.id +
+            '">Aprobar</button>' +
+            '<button type="button" class="btn btn-danger btn-sm" data-action="reject" data-id="' +
+            apr.id +
+            '">Rechazar</button>' +
+            '</div>') +
+        '</div></div>'
+    })
+    html += '</div></div>'
+    return html
+  }
+
+  /* -------------------------------------------------- capacidad (global) */
+
+  function viewCapacity() {
+    var projectIds = D.PROJECTS.map(function (p) {
+      return p.id
+    })
+    return capacityBody(projectIds, true)
+  }
+
+  function viewProjectCapacity() {
+    return capacityBody([state.projectId], false)
+  }
+
+  function capacityBody(projectIds, isGlobal) {
+    var matrix = buildMatrix(projectIds)
+    var totals = weekTotals(matrix)
+    var mode = state.matrixMode
+
+    var toolbar =
+      '<div class="toolbar">' +
+      '<div class="field">' +
+      icon('layers', 'ico') +
+      '<select data-action="saved-view">' +
+      '<option value="">Vista guardada…</option>' +
+      D.SAVED_VIEWS.map(function (v) {
+        return (
+          '<option value="' +
+          esc(v.name) +
+          '"' +
+          (state.savedView === v.name ? ' selected' : '') +
+          '>' +
+          esc(v.name) +
+          ' · ' +
+          esc(v.scope) +
+          '</option>'
+        )
+      }).join('') +
+      '</select></div>' +
+      '<div class="seg">' +
+      ['plan', 'real', 'drift']
+        .map(function (m) {
+          var label = m === 'plan' ? 'Planificado' : m === 'real' ? 'Real' : 'Deriva'
+          return (
+            '<button type="button" data-mode="' +
+            m +
+            '" class="' +
+            (mode === m ? 'is-active' : '') +
+            '">' +
+            label +
+            '</button>'
+          )
+        })
+        .join('') +
+      '</div>' +
+      (isGlobal
+        ? '<div class="field">' +
+          '<select data-action="dept-filter"><option value="">Todos los departamentos</option>' +
+          D.DEPARTMENTS.map(function (d) {
+            return (
+              '<option value="' +
+              esc(d.name) +
+              '"' +
+              (state.deptFilter === d.name ? ' selected' : '') +
+              '>' +
+              esc(d.name) +
+              '</option>'
+            )
+          }).join('') +
+          '</select></div>'
+        : '') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Umbral de aviso <strong>' +
+      D.THRESHOLDS.warn +
+      '%</strong> · umbral duro <strong>' +
+      D.THRESHOLDS.hard +
+      '%</strong></span>' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-action="export">' +
+      icon('download') +
+      'Exportar .ics</button>' +
+      '</div>'
+
+    if (state.savedView) {
+      var view = D.SAVED_VIEWS.filter(function (v) {
+        return v.name === state.savedView
+      })[0]
+      if (view) {
+        toolbar +=
+          '<div class="callout" style="margin-bottom:16px;display:flex;align-items:center;gap:10px">' +
+          icon('layers', 'ico') +
+          '<span><strong>' +
+          esc(view.name) +
+          '</strong> — ' +
+          esc(view.filters) +
+          '. Filtros guardados por ' +
+          esc(view.owner) +
+          ' · ' +
+          (view.shared ? 'vista pública' : 'vista privada') +
+          '</span></div>'
+      }
+    }
+
+    var filtered = matrix
+    if (state.deptFilter) {
+      filtered = matrix.filter(function (row) {
+        return row.person.dept === state.deptFilter
+      })
+    }
+
+    var head =
+      '<table class="matrix"><thead><tr><th class="corner">Persona</th>' +
+      D.WEEKS.map(function (week) {
+        return (
+          '<th class="' +
+          (week.key === D.CURRENT_WEEK ? 'now' : '') +
+          '"><span class="wk">' +
+          esc(week.label) +
+          '</span><span class="wk-sub">' +
+          esc(week.key.slice(2)) +
+          '</span></th>'
+        )
+      }).join('') +
+      '</tr></thead><tbody>'
+
+    var body = filtered
+      .map(function (row) {
+        var cells = row.cells
+          .map(function (c) {
+            var value = mode === 'plan' ? c.plan : mode === 'real' ? c.real : c.drift
+            var sub = ''
+            var extra = ''
+            if (mode === 'plan') {
+              sub = c.ratio === null ? '—' : c.ratio + '%'
+            } else if (mode === 'real') {
+              sub = c.real === null ? 'sin imputar' : c.ratio === null ? '—' : c.ratio + '%'
+            } else {
+              if (c.drift === null) sub = 'sin imputar'
+              else if (c.drift > 0) sub = 'sobre lo previsto'
+              else if (c.drift < 0) sub = 'por debajo'
+              else sub = 'en línea'
+              if (c.drift !== null && Math.abs(c.drift) > 0.001) {
+                extra = c.drift > 0 ? ' drift-up' : ' drift-down'
+              }
+            }
+            var display =
+              value === null
+                ? '—'
+                : mode === 'drift'
+                ? (value > 0 ? '+' : '') + h(value)
+                : h(value)
+            return (
+              '<td class="cell v-' +
+              c.verdict +
+              extra +
+              '" data-cell="' +
+              row.person.id +
+              '" data-week="' +
+              c.week +
+              '" title="' +
+              esc(c.week + ' · ' + D.VERDICTS[c.verdict].label) +
+              '"><span class="h">' +
+              display +
+              '</span><span class="p">' +
+              esc(sub) +
+              '</span></td>'
+            )
+          })
+          .join('')
+
+        var worst = row.cells
+          .slice()
+          .sort(function (a, b) {
+            return D.VERDICTS[a.verdict].rank - D.VERDICTS[b.verdict].rank
+          })[0]
+
+        return (
+          '<tr><th class="corner"><div class="person-cell"><span class="avatar sm ' +
+          (worst.verdict === 'critical' ? 'tone-danger' : '') +
+          '">' +
+          esc(row.person.initials) +
+          '</span><span class="meta"><strong>' +
+          esc(row.person.name) +
+          '</strong><span>' +
+          esc(row.person.role) +
+          ' · ' +
+          h(row.cells[0].capacity) +
+          ' h/sem</span></span></div></th>' +
+          cells +
+          '</tr>'
+        )
+      })
+      .join('')
+
+    var foot =
+      '<tfoot><tr><th class="corner">Total planificado</th>' +
+      totals
+        .map(function (t) {
+          return (
+            '<td><span class="h">' +
+            h(t.plan) +
+            '</span><span class="p">' +
+            t.ratio +
+            '%</span></td>'
+          )
+        })
+        .join('') +
+      '</tr><tr><th class="corner">Capacidad del equipo</th>' +
+      totals
+        .map(function (t) {
+          return (
+            '<td><span class="h">' +
+            h(t.capacity) +
+            '</span><span class="p">máx ' +
+            h(t.max) +
+            '</span></td>'
+          )
+        })
+        .join('') +
+      '</tr></tfoot></table>'
+
+    var legend =
+      '<div class="legend">' +
+      '<strong style="color:#475569">Veredictos</strong>' +
+      Object.keys(D.VERDICTS)
+        .sort(function (a, b) {
+          return D.VERDICTS[a].rank - D.VERDICTS[b].rank
+        })
+        .map(function (v) {
+          return (
+            '<span class="badge badge-' +
+            v +
+            '"><span class="dot"></span>' +
+            esc(D.VERDICTS[v].label) +
+            '</span>'
+          )
+        })
+        .join('') +
+      '<span class="spacer"></span>' +
+      '<span>La celda roja deja de ser un color: pasa a ser el resultado de evaluar una política.</span>' +
+      '</div>'
+
+    return (
+      toolbar +
+      '<div class="matrix-wrap">' +
+      head +
+      body +
+      foot +
+      '</table></div>' +
+      legend
+    )
+  }
+
+  /* ------------------------------------------------------- planificador */
+
+  function viewPlanner() {
+    var projectIds = D.PROJECTS.map(function (p) {
+      return p.id
+    })
+    var tabs = [
+      { id: 'task', label: 'Línea de tiempo por tarea' },
+      { id: 'person', label: 'Línea de tiempo por persona' },
+      { id: 'table', label: 'Tabla de planificación' },
+      { id: 'card', label: 'Tarjetas de persona' },
+    ]
+
+    var html =
+      '<div class="toolbar">' +
+      '<h2 style="margin:0;font-size:19px;font-weight:600">Planificador de recursos</h2>' +
+      sourceTag('OpenProject · ResourcePlanner') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Cuatro vistas sobre el mismo rango de fechas</span>' +
+      '</div>'
+
+    html +=
+      '<div class="tabs">' +
+      tabs
+        .map(function (t) {
+          return (
+            '<button type="button" class="tab' +
+            (state.plannerTab === t.id ? ' is-active' : '') +
+            '" data-planner-tab="' +
+            t.id +
+            '">' +
+            esc(t.label) +
+            '</button>'
+          )
+        })
+        .join('') +
+      '</div>'
+
+    if (state.plannerTab === 'task') html += plannerTimelineByTask(projectIds)
+    else if (state.plannerTab === 'person') html += plannerTimelineByPerson(projectIds)
+    else if (state.plannerTab === 'table') html += plannerTable(projectIds)
+    else html += plannerCards(projectIds)
+
+    return html
+  }
+
+  function plannerTimelineByTask(projectIds) {
+    var matrix = buildMatrix(projectIds)
+    var rows = E.capacityFor(projectIds)
+    var people = {}
+    matrix.forEach(function (r) {
+      people[r.person.id] = r.person
+    })
+
+    var weeks = D.WEEKS
+    var html =
+      '<div class="card"><div class="card-head"><h3>Carga por persona y semana</h3>' +
+      '<span class="sub">Celda = horas planificadas · color = veredicto</span></div>' +
+      '<div class="card-body tight"><div class="matrix-wrap"><table class="matrix"><thead><tr><th class="corner">Persona</th>'
+    weeks.forEach(function (week) {
+      html +=
+        '<th class="' +
+        (week.key === D.CURRENT_WEEK ? 'now' : '') +
+        '"><span class="wk">' +
+        esc(week.label) +
+        '</span><span class="wk-sub">' +
+        esc(week.key.slice(2)) +
+        '</span></th>'
+    })
+    html += '</tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      html +=
+        '<tr><th class="corner"><div class="person-cell"><span class="avatar sm">' +
+        esc(row.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(row.person.name) +
+        '</strong><span>' +
+        h(row.cells[0].capacity) +
+        ' h/sem</span></span></div></th>'
+      row.cells.forEach(function (c) {
+        html +=
+          '<td class="cell v-' +
+          c.verdict +
+          '"><span class="h">' +
+          h(c.plan) +
+          '</span><span class="p">' +
+          (c.ratio === null ? '—' : c.ratio + '%') +
+          '</span></td>'
+      })
+      html += '</tr>'
+    })
+    html += '</tbody></table></div></div></div>'
+
+    html +=
+      '<div class="card"><div class="card-head"><h3>Asignaciones por persona</h3>' +
+      '<span class="sub">Reparto dentro de cada semana</span></div><div class="card-body">'
+    html +=
+      '<table class="table"><thead><tr><th>Persona</th><th>Semana</th><th>Tareas</th><th class="num">Horas</th></tr></thead><tbody>'
+    matrix.forEach(function (row) {
+      row.cells.forEach(function (c) {
+        if (!c.plan) return
+        var taskList = tasksOfPersonWeek(projectIds, row.person.id, c.week)
+        html +=
+          '<tr><td>' +
+          esc(row.person.name.split(' ')[0]) +
+          '</td><td>' +
+          esc(c.week) +
+          '</td><td>' +
+          taskList
+            .map(function (t) {
+              return '<span class="tag">' + esc(t.id + ' · ' + t.title) + '</span>'
+            })
+            .join(' ') +
+          '</td><td class="num num-strong">' +
+          h(c.plan) +
+          ' h</td></tr>'
+      })
+    })
+    html += '</tbody></table></div></div></div>'
+    return html
+  }
+
+  function tasksOfPersonWeek(projectIds, userId, week) {
+    var monday = E.weekMonday(week)
+    var sunday = E.addDays(monday, 6)
+    return D.TASKS.filter(function (task) {
+      if (projectIds.indexOf(task.project) < 0) return false
+      if (task.user !== userId) return false
+      return E.dnum(task.start) <= E.dnum(sunday) && E.dnum(task.end) >= E.dnum(monday)
+    })
+  }
+
+  function plannerTimelineByPerson(projectIds) {
+    var matrix = buildMatrix(projectIds)
+    var html =
+      '<div class="card"><div class="card-head"><h3>Línea de tiempo por persona</h3>' +
+      '<span class="sub">Cada barra es una tarea; la altura de la celda marca el volumen de carga</span>' +
+      '</div><div class="card-body tight"><div class="matrix-wrap">'
+
+    html +=
+      '<table class="matrix"><thead><tr><th class="corner">Persona</th>' +
+      D.WEEKS.map(function (week) {
+        return (
+          '<th class="' +
+          (week.key === D.CURRENT_WEEK ? 'now' : '') +
+          '"><span class="wk">' +
+          esc(week.label) +
+          '</span></th>'
+        )
+      }).join('') +
+      '</tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      html +=
+        '<tr><th class="corner"><div class="person-cell"><span class="avatar sm">' +
+        esc(row.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(row.person.name) +
+        '</strong><span>' +
+        esc(row.person.role) +
+        '</span></span></div></th>'
+      row.cells.forEach(function (c) {
+        var tasks = tasksOfPersonWeek(projectIds, row.person.id, c.week)
+        var chips = tasks
+          .map(function (t) {
+            var project_ = project(t.project)
+            return (
+              '<div class="tag siemens" style="margin:2px 0;display:block;overflow:hidden;text-overflow:ellipsis" title="' +
+              esc(t.title) +
+              '">' +
+              esc(t.title) +
+              '</div>'
+            )
+          })
+          .join('')
+        html +=
+          '<td class="v-' +
+          c.verdict +
+          '" style="padding:4px;min-width:120px">' +
+          (chips || '<span class="hint">—</span>') +
+          '<div class="hint" style="margin-top:2px">' +
+          h(c.plan) +
+          ' h</div></td>'
+      })
+      html += '</tr>'
+    })
+    html += '</tbody></table></div></div></div>'
+    return html
+  }
+
+  function plannerTable(projectIds) {
+    var matrix = buildMatrix(projectIds)
+    var html =
+      '<div class="card"><div class="card-head"><h3>Tabla de planificación</h3>' +
+      '<span class="sub">Cada celda reparte las horas entre los proyectos de la persona</span>' +
+      '</div><div class="card-body tight"><div class="matrix-wrap"><table class="matrix"><thead><tr><th class="corner">Persona</th>'
+    D.WEEKS.forEach(function (week) {
+      html += '<th><span class="wk">' + esc(week.label) + '</span></th>'
+    })
+    html += '</tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      html +=
+        '<tr><th class="corner"><div class="person-cell"><span class="avatar sm">' +
+        esc(row.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(row.person.name) +
+        '</strong><span>' +
+        h(row.cells[0].capacity) +
+        ' h/sem</span></span></div></th>'
+      row.cells.forEach(function (c) {
+        var tasks = tasksOfPersonWeek(projectIds, row.person.id, c.week)
+        var byProject = {}
+        tasks.forEach(function (t) {
+          byProject[t.project] = (byProject[t.project] || 0) + 1
+        })
+        var chips = Object.keys(byProject)
+          .map(function (pid) {
+            var p = project(pid)
+            return (
+              '<span class="tag" title="' +
+              esc(p.name) +
+              '">' +
+              esc(p.code) +
+              ' ×' +
+              byProject[pid] +
+              '</span>'
+            )
+          })
+          .join(' ')
+        html +=
+          '<td class="v-' +
+          c.verdict +
+          '" style="padding:6px;min-width:110px"><div>' +
+          (chips || '<span class="hint">—</span>') +
+          '</div><div class="hint" style="margin-top:2px">' +
+          h(c.plan) +
+          ' h' +
+          (c.ratio === null ? '' : ' · ' + c.ratio + '%') +
+          '</div></td>'
+      })
+      html += '</tr>'
+    })
+    html += '</tbody></table></div></div></div>'
+    return html
+  }
+
+  function plannerCards(projectIds) {
+    var matrix = buildMatrix(projectIds)
+    var html =
+      '<div class="person-grid">' +
+      matrix
+        .map(function (row) {
+          var p = row.person
+          var worst = row.cells
+            .slice()
+            .sort(function (a, b) {
+              return D.VERDICTS[a.verdict].rank - D.VERDICTS[b.verdict].rank
+            })[0]
+          var current = row.cells[weekIndex(D.CURRENT_WEEK)]
+          var ratio = current.ratio || 0
+          var chips = '<div class="week-chips">'
+          row.cells.forEach(function (c) {
+            chips +=
+              '<span class="week-chip v-' +
+              c.verdict +
+              '" title="' +
+              esc(c.week + ' · ' + h(c.plan) + ' h') +
+              '">' +
+              esc(c.label.replace('S', '')) +
+              '</span>'
+          })
+          chips += '</div>'
+          var skills = Object.keys(p.skills || {})
+            .map(function (s) {
+              return '<span class="tag">' + esc(s) + '</span>'
+            })
+            .join(' ')
+          return (
+            '<div class="person-card' +
+            (worst.verdict === 'critical' ? ' is-critical' : '') +
+            '"><div class="pc-head"><span class="avatar">' +
+            esc(p.initials) +
+            '</span><span class="who"><strong>' +
+            esc(p.name) +
+            '</strong><span>' +
+            esc(p.role) +
+            ' · ' +
+            esc(p.dept) +
+            '</span></span>' +
+            verdictBadge(
+              worst.verdict,
+              'Peor semana del rango: ' + worst.week + ' · ' + h(worst.plan) + ' h'
+            ) +
+            '</div>' +
+            '<div style="margin-top:10px">' +
+            chips +
+            '</div>' +
+            '<div class="pc-row"><span>Capacidad en S' +
+            D.CURRENT_WEEK.slice(-2) +
+            '</span><strong>' +
+            h(current.capacity) +
+            ' h</strong></div>' +
+            '<div class="pc-row"><span>Utilización en S' +
+            D.CURRENT_WEEK.slice(-2) +
+            '</span><strong>' +
+            ratio +
+            '%</strong></div>' +
+            '<div class="pc-row"><span>Tipo de contrato</span><span>' +
+            esc(employmentLabel(p.employment)) +
+            '</span></div>' +
+            '<div class="pc-row"><span>Horario</span><span>' +
+            scheduleChips(p) +
+            '</span></div>' +
+            '<div class="pc-row" style="align-items:flex-start"><span>Habilidades</span><span class="chip-list">' +
+            skills +
+            '</span></div></div>'
+          )
+        })
+        .join('') +
+      '</div>'
+    return html
+  }
+
+  function employmentLabel(value) {
+    var map = {
+      objetivo: 'Objetivo',
+      techo: 'Techo',
+      facturacion: 'Tope de facturación',
+      mejor_esfuerzo: 'Mejor esfuerzo',
+    }
+    return map[value] || value
+  }
+
+  function scheduleChips(person) {
+    var days = ['L', 'M', 'X', 'J', 'V']
+    var out = '<span class="week-chips">'
+    for (var i = 0; i < 5; i++) {
+      var hours = person.schedule[i] || 0
+      out +=
+        '<span class="week-chip" style="' +
+        (hours ? '' : 'opacity:.35') +
+        '" title="' +
+        esc(days[i] + ': ' + hours + ' h') +
+        '">' +
+        days[i] +
+        '</span>'
+    }
+    out += '</span>'
+    return out
+  }
+
+  /* ----------------------------------------------------------- proyectos */
+
+  function viewProjects() {
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Cartera de proyectos</h2>' +
+      sourceTag('Focalboard · vistas por proyecto') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">' +
+      D.PROJECTS.length +
+      ' proyectos</span></div>'
+
+    html += '<div class="grid grid-3">'
+    D.PROJECTS.forEach(function (p) {
+      var matrix = buildMatrix([p.id])
+      var totals = weekTotals(matrix)
+      var now = totals[weekIndex(D.CURRENT_WEEK)]
+      var critical = 0
+      matrix.forEach(function (row) {
+        row.cells.forEach(function (c) {
+          if (c.verdict === 'critical') critical++
+        })
+      })
+      var manager = person(p.manager_id)
+      var openTasks = D.TASKS.filter(function (t) {
+        return t.project === p.id && t.status !== 'done'
+      }).length
+
+      html +=
+        '<div class="card"><div class="card-head"><h3>' +
+        esc(p.code) +
+        '</h3>' +
+        statusBadge(p.status) +
+        '</div><div class="card-body">' +
+        '<div style="font-weight:600;font-size:15px;margin-bottom:2px">' +
+        esc(p.name) +
+        '</div>' +
+        '<div class="hint">' +
+        esc(p.dept) +
+        ' · Responsable: ' +
+        esc(manager ? manager.name : '—') +
+        '</div>' +
+        '<div class="divider"></div>' +
+        '<div class="pc-row"><span>Tareas abiertas</span><strong>' +
+        openTasks +
+        '</strong></div>' +
+        '<div class="pc-row"><span>Personas</span><strong>' +
+        matrix.length +
+        '</strong></div>' +
+        '<div class="pc-row"><span>Utilización en S' +
+        D.CURRENT_WEEK.slice(-2) +
+        '</span><strong>' +
+        now.ratio +
+        '%</strong></div>' +
+        '<div class="pc-row"><span>Celdas críticas</span><strong class="' +
+        (critical ? 'pill-up' : '') +
+        '">' +
+        critical +
+        '</strong></div>' +
+        '<div class="pc-row"><span>Fin previsto</span><strong>' +
+        formatDate(p.end) +
+        '</strong></div>' +
+        '<div style="margin-top:12px;display:flex;gap:8px">' +
+        '<button type="button" class="btn btn-secondary btn-sm" data-open-project="' +
+        p.id +
+        '">Abrir proyecto</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-open-project="' +
+        p.id +
+        '/capacity">Ver matriz</button>' +
+        '</div></div></div>'
+    })
+    html += '</div>'
+    return html
+  }
+
+  /* ------------------------------------------------------------ personas */
+
+  function viewPeople() {
+    var matrix = buildMatrix(
+      D.PROJECTS.map(function (p) {
+        return p.id
+      }),
+    )
+    var now = weekIndex(D.CURRENT_WEEK)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Personas &amp; Competencia</h2>' +
+      sourceTag('Ever Gauzy · OpenProject') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">La persona es más que un usuario: tiene puesto, contrato y horario versionado</span>' +
+      '</div>'
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Directorio de personas</h3>' +
+      '<span class="sub">Capacidad efectiva = horario vigente × factor de disponibilidad</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Persona</th><th>Puesto</th><th>Departamento</th><th>Tipo de contrato</th>' +
+      '<th>Horario vigente</th><th class="num">Factor</th><th class="num">Capacidad</th>' +
+      '<th>S' +
+      D.CURRENT_WEEK.slice(-2) +
+      '</th><th></th></tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      var p = row.person
+      var cell = row.cells[now]
+      html +=
+        '<tr><td><div class="person-cell"><span class="avatar sm">' +
+        esc(p.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(p.name) +
+        '</strong><span>' +
+        esc(p.email) +
+        '</span></span></div></td>' +
+        '<td>' +
+        esc(p.role) +
+        '</td>' +
+        '<td>' +
+        esc(p.dept) +
+        '</td>' +
+        '<td><span class="tag">' +
+        esc(employmentLabel(p.employment)) +
+        '</span></td>' +
+        '<td>' +
+        scheduleChips(p) +
+        '</td>' +
+        '<td class="num num-strong">' +
+        p.factor +
+        ' %</td>' +
+        '<td class="num num-strong">' +
+        h(cell.capacity) +
+        ' h</td>' +
+        '<td>' +
+        verdictBadge(cell.verdict) +
+        '</td>' +
+        '<td class="tight-col"><button type="button" class="btn btn-ghost btn-sm" data-person="' +
+        p.id +
+        '">Perfil</button></td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    /* Matriz de competencias */
+    var skillNames = []
+    D.PEOPLE.forEach(function (p) {
+      Object.keys(p.skills || {}).forEach(function (s) {
+        if (skillNames.indexOf(s) < 0) skillNames.push(s)
+      })
+    })
+    skillNames.sort()
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Matriz de competencias</h3>' +
+      '<span class="sub">Nivel 1 a 3 por habilidad</span></div><div class="card-body tight">' +
+      '<table class="skills"><thead><tr><th class="left">Habilidad</th>'
+    D.PEOPLE.forEach(function (p) {
+      html += '<th title="' + esc(p.name) + '">' + esc(p.initials) + '</th>'
+    })
+    html += '</tr></thead><tbody>'
+    skillNames.forEach(function (skill) {
+      html += '<tr><td class="left">' + esc(skill) + '</td>'
+      D.PEOPLE.forEach(function (p) {
+        var level = (p.skills || {})[skill] || 0
+        var dots = '<span class="dots">'
+        for (var i = 1; i <= 3; i++) {
+          dots += '<i class="' + (i <= level ? 'on' : '') + '"></i>'
+        }
+        dots += '</span>'
+        html += '<td>' + dots + '</td>'
+      })
+      html += '</tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    /* Historial de horarios */
+    html +=
+      '<div class="card"><div class="card-head"><h3>Historial de horarios</h3>' +
+      sourceTag('OpenProject · UserWorkingHours') +
+      '<span class="sub">Cada versión entra en vigor en su valid_from</span></div><div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Persona</th><th>Vigente desde</th><th>L · M · X · J · V</th>' +
+      '<th class="num">Factor</th><th>Nota</th></tr></thead><tbody>'
+    D.PEOPLE.forEach(function (p) {
+      var history = D.SCHEDULE_HISTORY[p.id] || []
+      if (!history.length) {
+        html +=
+          '<tr><td><div class="person-cell"><span class="avatar sm">' +
+          esc(p.initials) +
+          '</span><span class="meta"><strong>' +
+          esc(p.name) +
+          '</strong></span></div></td>' +
+          '<td colspan="4"><span class="badge badge-no_capacity">Sin horario vigente</span> ' +
+          '<span class="hint">Su capacidad se desconoce: no se marca como sobrecargada</span></td></tr>'
+        return
+      }
+      history.forEach(function (entry, index) {
+        html +=
+          '<tr><td>' +
+          (index === 0
+            ? '<div class="person-cell"><span class="avatar sm">' +
+              esc(p.initials) +
+              '</span><span class="meta"><strong>' +
+              esc(p.name) +
+              '</strong></span></div>'
+            : '') +
+          '</td><td>' +
+          esc(entry.valid_from) +
+          '</td><td>' +
+          dayChips(entry.schedule) +
+          '</td><td class="num num-strong">' +
+          entry.factor +
+          ' %</td><td class="hint">' +
+          esc(entry.note) +
+          '</td></tr>'
+      })
+    })
+    html += '</tbody></table></div></div>'
+
+    return html
+  }
+
+  function dayChips(schedule) {
+    var days = ['L', 'M', 'X', 'J', 'V']
+    var out = '<span class="week-chips">'
+    for (var i = 0; i < 5; i++) {
+      var hours = schedule[i] || 0
+      out +=
+        '<span class="week-chip" style="' +
+        (hours ? '' : 'opacity:.3') +
+        '" title="' +
+        esc(days[i] + ': ' + hours + ' h') +
+        '">' +
+        days[i] +
+        '</span>'
+    }
+    out += '</span>'
+    return out
+  }
+
+  /* ----------------------------------------------------------- calendario */
+
+  function viewCalendar() {
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Calendario laboral</h2>' +
+      sourceTag('ERPNext · OpenProject · Ever Gauzy') +
+      '<span class="spacer"></span>' +
+      '<button type="button" class="btn btn-primary btn-sm" data-action="recalc">' +
+      icon('play') +
+      'Recalcular afectados</button></div>'
+
+    html +=
+      '<div class="callout warn" style="margin-bottom:16px;display:flex;gap:10px;align-items:center">' +
+      icon('warning', 'ico') +
+      '<span><strong>Publicar un festivo recalcula las asignaciones afectadas.</strong> ' +
+      'No se recalcula en caliente: se encola un recálculo por persona y rango. ' +
+      'Hay <strong>12 asignaciones</strong> pendientes de recalcular en 3 personas.</span></div>'
+
+    html +=
+      '<div class="grid grid-2-1" style="margin-bottom:16px">' +
+      '<div class="card"><div class="card-head"><h3>Días no laborables</h3>' +
+      '<span class="sub">Alcance: global, por departamento o por persona</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Fecha</th><th>Festivo</th><th>Alcance</th><th>Jornada</th><th class="num">Tareas afectadas</th>' +
+      '</tr></thead><tbody>'
+    D.HOLIDAYS.forEach(function (hday) {
+      var scopeClass = hday.scope === 'global' ? 'siemens' : ''
+      html +=
+        '<tr><td class="num-strong">' +
+        formatDate(hday.date) +
+        '</td><td>' +
+        esc(hday.name) +
+        '</td><td><span class="tag ' +
+        scopeClass +
+        '">' +
+        esc(hday.scope_label) +
+        '</span></td>' +
+        '<td>' +
+        (hday.half_day
+          ? '<span class="badge badge-tight">Media jornada</span>'
+          : '<span class="hint">Jornada completa</span>') +
+        '</td>' +
+        '<td class="num num-strong">' +
+        hday.impact +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html += '<div class="card"><div class="card-head"><h3>Noviembre 2026</h3></div><div class="card-body">' +
+      monthGrid(2026, 11) +
+      '</div></div></div>'
+
+    /* Impacto en la capacidad */
+    html +=
+      '<div class="card"><div class="card-head"><h3>Impacto en la capacidad semanal</h3>' +
+      '<span class="sub">Capacidad real frente a la que habría sin festivos</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Persona</th><th>Semana</th><th>Motivo</th><th class="num">Capacidad sin festivo</th>' +
+      '<th class="num">Capacidad efectiva</th><th class="num">Diferencia</th></tr></thead><tbody>'
+
+    var impacts = []
+    D.PEOPLE.forEach(function (p) {
+      D.WEEKS.forEach(function (week) {
+        var base = 0
+        var real = 0
+        for (var i = 0; i < 5; i++) {
+          var hours = p.schedule[i] || 0
+          if (!hours) continue
+          var day = E.addDays(week.start, i)
+          base += hours * (p.factor / 100)
+          real += hours * (p.factor / 100) * (1 - E.holidayWeight(day, { dept: p.dept, personName: p.name }))
+        }
+        var diff = Math.round((base - real) * 100) / 100
+        if (diff > 0.001) {
+          impacts.push({ person: p, week: week.key, base: base, real: real, diff: diff })
+        }
+      })
+    })
+
+    impacts.forEach(function (item) {
+      var reasons = D.HOLIDAYS.filter(function (hd) {
+        var monday = E.weekMonday(item.week)
+        for (var i = 0; i < 7; i++) {
+          var day = E.addDays(monday, i)
+          if (hd.date === day) {
+            if (
+              hd.scope === 'global' ||
+              (hd.scope === 'dept' && hd.scope_label === item.person.dept) ||
+              (hd.scope === 'person' && hd.scope_label === item.person.name)
+            ) {
+              return true
+            }
+          }
+        }
+        return false
+      })
+      html +=
+        '<tr><td><div class="person-cell"><span class="avatar sm">' +
+        esc(item.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(item.person.name) +
+        '</strong></span></div></td>' +
+        '<td>' +
+        esc(item.week) +
+        '</td>' +
+        '<td class="hint">' +
+        esc(
+          reasons
+            .map(function (r) {
+              return r.name + (r.half_day ? ' (media jornada)' : '')
+            })
+            .join(', '),
+        ) +
+        '</td>' +
+        '<td class="num num-strong">' +
+        h(item.base) +
+        ' h</td>' +
+        '<td class="num num-strong">' +
+        h(item.real) +
+        ' h</td>' +
+        '<td class="num pill-up">−' +
+        h(item.diff) +
+        ' h</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    return html
+  }
+
+  function monthGrid(year, month) {
+    var first = new Date(Date.UTC(year, month - 1, 1))
+    var startPad = (first.getUTCDay() + 6) % 7
+    var daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+    var names = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+
+    var html = '<div class="month-cal">'
+    names.forEach(function (n) {
+      html += '<div class="dow">' + n + '</div>'
+    })
+    for (var i = 0; i < startPad; i++) html += '<div class="day blank"></div>'
+    for (var day = 1; day <= daysInMonth; day++) {
+      var iso = year + '-' + (month < 10 ? '0' + month : month) + '-' + (day < 10 ? '0' + day : day)
+      var holidays = D.HOLIDAYS.filter(function (hd) {
+        return hd.date === iso
+      })
+      var isToday = iso === '2026-11-17'
+      html +=
+        '<div class="day' +
+        (isToday ? ' today' : '') +
+        '"><span>' +
+        day +
+        '</span>'
+      holidays.forEach(function (hd) {
+        var cls = hd.scope === 'global' ? 'global' : hd.scope === 'dept' ? 'dept' : 'person'
+        html +=
+          '<span class="marker ' +
+          cls +
+          '" title="' +
+          esc(hd.name + ' · ' + hd.scope_label + (hd.half_day ? ' · media jornada' : '')) +
+          '">' +
+          esc(hd.name) +
+          '</span>'
+      })
+      html += '</div>'
+    }
+    html += '</div>'
+    html +=
+      '<div class="row wrap" style="margin-top:12px;gap:14px;font-size:12px;color:#64748b">' +
+      '<span><span class="swatch" style="background:#004a89"></span>Global</span>' +
+      '<span><span class="swatch" style="background:#f59e0b"></span>Departamento</span>' +
+      '<span><span class="swatch" style="background:#7c3aed"></span>Persona</span>' +
+      '</div>'
+    return html
+  }
+
+  /* ----------------------------------------------------------- actividad */
+
+  function viewActivity() {
+    return activityView(null)
+  }
+
+  function viewProjectActivity() {
+    return activityView(state.projectId)
+  }
+
+  function activityView(projectId) {
+    var entries = D.ACTIVITY
+    if (projectId) {
+      entries = D.ACTIVITY.filter(function (a) {
+        return (
+          a.entity === projectCode(projectId) ||
+          (a.entity === 'T-103' || a.entity === 'T-108' || a.entity === 'T-123') ||
+          a.entity.indexOf('2026-W') === 0
+        )
+      })
+    }
+    if (state.activityFilter !== 'all') {
+      entries = entries.filter(function (a) {
+        return a.action === state.activityFilter
+      })
+    }
+
+    var filters = ['all', 'tarea', 'asignación', 'horario', 'política', 'imputación', 'festivo', 'consulta']
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Bitácora de cambios</h2>' +
+      sourceTag('Kanboard · Leantime · Paperclip') +
+      '<span class="spacer"></span><div class="seg">' +
+      filters
+        .map(function (f) {
+          return (
+            '<button type="button" data-activity-filter="' +
+            f +
+            '" class="' +
+            (state.activityFilter === f ? 'is-active' : '') +
+            '">' +
+            (f === 'all' ? 'Todo' : esc(f)) +
+            '</button>'
+          )
+        })
+        .join('') +
+      '</div></div>'
+
+    html +=
+      '<div class="card"><div class="card-body">' +
+      activityTimeline(entries) +
+      '</div></div>'
+    return html
+  }
+
+  function activityTimeline(entries) {
+    if (!entries.length) {
+      return '<div class="empty">Sin entradas para este filtro</div>'
+    }
+    var html = '<ul class="timeline">'
+    entries.forEach(function (entry) {
+      var isAgent = entry.actor_type === 'agent'
+      var actor = isAgent
+        ? '<span class="avatar sm tone-alt">IA</span>'
+        : '<span class="avatar sm">' + esc((person(entry.actor) || {}).initials || '??') + '</span>'
+      var payload = ''
+      if (entry.payload) {
+        payload =
+          '<div class="t-payload">' +
+          esc(entry.payload.key) +
+          ': <span class="diff-del">' +
+          esc(entry.payload.from) +
+          '</span> → <span class="diff-add">' +
+          esc(entry.payload.to) +
+          '</span></div>'
+      }
+      html +=
+        '<li>' +
+        actor +
+        '<div class="t-content"><div class="t-head"><strong>' +
+        esc(isAgent ? 'Agente' : personName(entry.actor)) +
+        '</strong> · ' +
+        esc(entry.action) +
+        ' · <span class="tag">' +
+        esc(entry.entity) +
+        '</span></div>' +
+        '<div class="hint">' +
+        esc(entry.text) +
+        '</div>' +
+        payload +
+        '<div class="t-time">' +
+        esc(entry.when) +
+        (isAgent ? ' · actorType: agent' : '') +
+        '</div></div></li>'
+    })
+    html += '</ul>'
+    return html
+  }
+
+  /* -------------------------------------------------------------- agente */
+
+  function viewAgent() {
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">CorePlanner operable por un agente</h2>' +
+      sourceTag('Paperclip (MIT) · Kaneo (MIT)') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Servidor MCP por stdio · autenticación por bearer token · deny-by-default</span></div>'
+
+    html +=
+      '<div class="grid grid-2" style="margin-bottom:16px">' +
+      '<div class="card"><div class="card-head"><h3>Catálogo de herramientas</h3>' +
+      '<span class="sub">Un test de contrato fija el catálogo: si cambia, el CI falla</span></div>' +
+      '<div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Tool</th><th>Perfil</th><th>Riesgo</th><th>Acción por defecto</th></tr></thead><tbody>'
+    D.MCP_TOOLS.forEach(function (tool) {
+      html +=
+        '<tr><td><div class="t-name">' +
+        esc(tool.name) +
+        '</div><div class="t-desc">' +
+        esc(tool.desc) +
+        '</div></td>' +
+        '<td><span class="tag">' +
+        esc(tool.profile) +
+        '</span></td>' +
+        '<td><span class="badge badge-' +
+        (tool.risk === 'alto' ? 'critical' : tool.risk === 'medio' ? 'tight' : 'balanced') +
+        '">' +
+        esc(tool.risk) +
+        '</span></td>' +
+        '<td>' +
+        (tool.default === 'permitir'
+          ? '<span class="badge badge-active">permitir</span>'
+          : '<span class="badge badge-critical">denegar</span>') +
+        (tool.ro ? '' : ' <span class="hint">escritura</span>') +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html +=
+      '<div class="stack">' +
+      '<div class="card"><div class="card-head"><h3>Ejecuciones</h3>' +
+      '<span class="sub">Cabecera X-Run-Id en cada escritura</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr><th>Run</th><th>Tool</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>'
+    D.MCP_RUNS.forEach(function (run) {
+      html +=
+        '<tr><td class="num-strong">' +
+        esc(run.run) +
+        '</td><td><span class="t-name">' +
+        esc(run.tool) +
+        '</span></td>' +
+        '<td><span class="badge badge-' +
+        (run.status === 'ok' ? 'active' : 'critical') +
+        '">' +
+        esc(run.status) +
+        '</span></td>' +
+        '<td class="hint">' +
+        esc(run.when + ' · ' + run.note) +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html +=
+      '<div class="card"><div class="card-head"><h3>Sesión de agente</h3>' +
+      sourceTag('Ejemplo de uso') +
+      '</div><div class="card-body"><div class="chat">' +
+      '<div class="chat-msg user">¿Quién está por encima de su capacidad esta semana?</div>' +
+      '<div class="chat-msg bot">Consulto la matriz de capacidad de la semana 2026-W47.' +
+      '<div class="chat-tool"><b>capacity_matrix</b> { weeks: ["2026-W44" … "2026-W52"], project: null } → 200 OK · 9 personas</div>' +
+      '<div class="chat-tool"><b>overloaded_people</b> { week: "2026-W47" } → 200 OK · 2 personas</div>' +
+      'Dos personas superan su capacidad efectiva en la semana 47: <strong>Jorge Landa</strong> (44 h de 40 h) y <strong>Diego Sanz</strong> (42 h de 36 h). ' +
+      'La segunda supera el umbral duro, así que hay una aprobación pendiente.</div>' +
+      '<div class="chat-msg user">Ajusta la carga de Jorge esa semana.</div>' +
+      '<div class="chat-msg bot">La herramienta <b>assign_allocation</b> está denegada por el perfil por defecto. ' +
+      'Puedo dejar prepared el cambio y pedir la aprobación a Ana Belén Ruiz.' +
+      '<div class="chat-tool"><b>assign_allocation</b> → 403 · denegado por tool_profiles.defaultAction</div></div>' +
+      '</div></div></div></div>'
+
+    html += '</div>'
+    return html
+  }
+
+  /* ---------------------------------------------------- resumen proyecto */
+
+  function viewProjectSummary() {
+    var p = project(state.projectId)
+    var matrix = buildMatrix([p.id])
+    var totals = weekTotals(matrix)
+    var now = totals[weekIndex(D.CURRENT_WEEK)]
+
+    var tasks = E.tasksOf(p.id)
+    var open = tasks.filter(function (t) {
+      return t.status !== 'done'
+    })
+    var critical = []
+    matrix.forEach(function (row) {
+      row.cells.forEach(function (c) {
+        if (c.verdict === 'critical') critical.push({ person: row.person, cell: c })
+      })
+    })
+    var projectIncidents = D.INCIDENTS.filter(function (i) {
+      return i.project === p.id
+    })
+    var approvals = D.APPROVALS.filter(function (a) {
+      return a.project === p.id && !state.approvals[a.id]
+    })
+    var manager = person(p.manager_id)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">' +
+      esc(p.code) +
+      ' · ' +
+      esc(p.name) +
+      '</h2>' +
+      statusBadge(p.status) +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Responsable: <strong>' +
+      esc(manager ? manager.name : '—') +
+      '</strong> · ' +
+      esc(p.dept) +
+      '</span></div>'
+
+    html +=
+      '<div class="grid grid-4" style="margin-bottom:16px">' +
+      statCard('Utilización en S' + D.CURRENT_WEEK.slice(-2), now.ratio + '<small>%</small>', now.plan.toFixed(1) + ' h de ' + now.capacity.toFixed(0) + ' h de capacidad', now.ratio >= 90 ? 'up' : '') +
+      statCard('Celdas críticas', String(critical.length), critical.length ? 'Por encima del umbral duro' : 'Ninguna por encima del umbral duro', critical.length ? 'up' : 'good') +
+      statCard('Tareas abiertas', String(open.length), tasks.length + ' tareas en total') +
+      statCard('Aprobaciones pendientes', String(approvals.length), 'El umbral duro exige aprobación', approvals.length ? 'up' : 'good') +
+      '</div>'
+
+    html +=
+      '<div class="grid grid-2-1">' +
+      '<div class="card"><div class="card-head"><h3>Perfil de carga del proyecto</h3>' +
+      '<span class="sub">Veredicto por semana</span></div><div class="card-body">'
+    D.WEEKS.forEach(function (week, index) {
+      var counts = {}
+      matrix.forEach(function (row) {
+        var v = row.cells[index].verdict
+        counts[v] = (counts[v] || 0) + 1
+      })
+      var bar = '<div class="verdict-bar">'
+      Object.keys(D.VERDICTS)
+        .sort(function (a, b) {
+          return D.VERDICTS[a].rank - D.VERDICTS[b].rank
+        })
+        .forEach(function (v) {
+          if (!counts[v]) return
+          bar +=
+            '<span class="vb-' + v + '" style="width:' + (counts[v] / matrix.length) * 100 + '%" title="' + esc(D.VERDICTS[v].label + ': ' + counts[v]) + '"></span>'
+        })
+      bar += '</div>'
+      html +=
+        '<div class="row" style="margin-bottom:8px;gap:12px"><span style="width:74px" class="hint">' +
+        esc(week.label) +
+        '</span><span style="flex:1">' +
+        bar +
+        '</span><span style="width:56px;text-align:right" class="num-strong">' +
+        totals[index].ratio +
+        '%</span></div>'
+    })
+    html += '</div></div>'
+
+    html +=
+      '<div class="stack">' +
+      incidentsCard(projectIncidents.filter(function (i) {
+        return i.status !== 'closed'
+      })) +
+      approvalsCard(approvals) +
+      '</div></div>'
+
+    /* Próximas entregas */
+    var upcoming = open
+      .filter(function (t) {
+        return E.dnum(t.end) >= E.dnum('2026-11-16')
+      })
+      .sort(function (a, b) {
+        return E.dnum(a.end) - E.dnum(b.end)
+      })
+      .slice(0, 6)
+
+    html +=
+      '<div class="card" style="margin-top:16px"><div class="card-head"><h3>Próximas entregas</h3>' +
+      '<span class="sub">Ordenadas por fecha de fin</span></div><div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Tarea</th><th>Persona</th><th>Fin</th><th class="num">Horas</th><th>Estado</th></tr></thead><tbody>'
+    upcoming.forEach(function (t) {
+      html +=
+        '<tr><td><button type="button" class="btn btn-ghost btn-sm" data-task="' +
+        t.id +
+        '" style="font-weight:500">' +
+        esc(t.id + ' · ' + t.title) +
+        '</button></td>' +
+        '<td>' +
+        esc(personName(t.user)) +
+        '</td><td>' +
+        formatDate(t.end) +
+        '</td><td class="num num-strong">' +
+        t.hours +
+        '</td><td><span class="tag">' +
+        esc(statusLabel(t.status)) +
+        '</span></td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    return html
+  }
+
+  function statusLabel(status) {
+    var map = {
+      backlog: 'Backlog',
+      in_progress: 'En Desarrollo',
+      testing: 'Pruebas',
+      done: 'Completado',
+    }
+    return map[status] || status
+  }
+
+  /* --------------------------------------------------------------- gantt */
+
+  var MONTH_NAMES = [
+    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+  ]
+
+  /** Cabecera del Gantt: bandas de mes y marcas de semana sobre el rango. */
+  function ganttHead(min, max, totalDays) {
+    function pos(date) {
+      return ((E.dnum(date) - E.dnum(min)) / (totalDays * 86400000)) * 100
+    }
+    function size(from, to) {
+      return ((E.dnum(to) - E.dnum(from)) / (totalDays * 86400000)) * 100
+    }
+
+    var html = ''
+    var cursor = min
+    var guard = 0
+    while (E.dnum(cursor) <= E.dnum(max) && guard++ < 24) {
+      var date = new Date(E.dnum(cursor))
+      var year = date.getUTCFullYear()
+      var month = date.getUTCMonth()
+      var lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+      var monthEnd = year + '-' + E.pad(month + 1) + '-' + E.pad(lastDay)
+      var clipped = E.dnum(monthEnd) > E.dnum(max) ? max : monthEnd
+      html +=
+        '<div class="month" style="left:' +
+        pos(cursor) +
+        '%;width:' +
+        size(cursor, clipped) +
+        '%">' +
+        MONTH_NAMES[month] +
+        ' ' +
+        year +
+        '</div>'
+      if (month === 11) cursor = year + 1 + '-01-01'
+      else cursor = year + '-' + E.pad(month + 2) + '-01'
+    }
+
+    var monday = E.weekMonday(E.isoWeekKey(min))
+    guard = 0
+    while (E.dnum(monday) <= E.dnum(max) && guard++ < 40) {
+      var weekKey = E.isoWeekKey(monday)
+      var weekEnd = E.addDays(monday, 6)
+      var clippedEnd = E.dnum(weekEnd) > E.dnum(max) ? max : weekEnd
+      var isNow = weekKey === D.CURRENT_WEEK
+      html +=
+        '<div class="week" style="left:' +
+        pos(monday) +
+        '%;width:' +
+        size(monday, clippedEnd) +
+        '%;' +
+        (isNow ? 'background:#eef4fa;color:#004a89;font-weight:600;' : '') +
+        '">' +
+        weekKey.slice(-2) +
+        '</div>'
+      monday = E.addDays(monday, 7)
+    }
+    return html
+  }
+
+  function viewGantt() {
+    var p = project(state.projectId)
+    var tasks = E.tasksOf(p.id)
+    var deps = E.dependenciesOf(p.id)
+
+    var min = null
+    var max = null
+    tasks.forEach(function (t) {
+      if (!min || E.dnum(t.start) < E.dnum(min)) min = t.start
+      if (!max || E.dnum(t.end) > E.dnum(max)) max = t.end
+    })
+    if (!min) return '<div class="empty">Este proyecto no tiene tareas</div>'
+    min = E.addDays(min, -7)
+    max = E.addDays(max, 14)
+    var totalDays = Math.round((E.dnum(max) - E.dnum(min)) / 86400000)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Cronograma</h2>' +
+      sourceTag('ERPNext · OpenProject · dependencias') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">' +
+      tasks.length +
+      ' tareas · ' +
+      deps.length +
+      ' dependencias · ruta crítica resaltada</span></div>'
+
+    html +=
+      '<div class="gantt"><div class="gantt-inner" id="gantt-inner">' +
+      '<div class="gantt-head-row"><div class="gantt-head-label">Tarea</div>' +
+      '<div class="gantt-head-track" id="gantt-head">' +
+      ganttHead(min, max, totalDays) +
+      '</div></div>' +
+      '<svg class="gantt-deps" id="gantt-deps"></svg>'
+
+    tasks.forEach(function (t) {
+      var left = ((E.dnum(t.start) - E.dnum(min)) / (totalDays * 86400000)) * 100
+      var width = ((E.dnum(t.end) - E.dnum(t.start)) / (totalDays * 86400000)) * 100 + 100 / totalDays
+      var critical = D.CRITICAL_PATH.indexOf(t.id) >= 0
+      var owner = person(t.user)
+      var color = owner ? ownerColor(owner.id) : '#64748b'
+      html +=
+        '<div class="gantt-row" data-task="' +
+        t.id +
+        '"><div class="gantt-label"><span class="avatar sm">' +
+        esc(owner ? owner.initials : '??') +
+        '</span><span class="t" title="' +
+        esc(t.title) +
+        '">' +
+        esc(t.title) +
+        '</span></div><div class="gantt-track">' +
+        '<div class="gantt-bar' +
+        (critical ? ' critical' : '') +
+        '" data-bar="' +
+        t.id +
+        '" style="left:' +
+        left +
+        '%;width:' +
+        width +
+        '%;background:' +
+        color +
+        '">' +
+        esc(t.id + ' · ' + t.hours + ' h') +
+        '</div></div></div>'
+    })
+
+    html += '</div></div>'
+
+    html +=
+      '<div class="gantt-legend">' +
+      '<span><span class="swatch" style="background:#dc2626"></span>Ruta crítica</span>' +
+      '<span>' +
+      icon('link', 'ico') +
+      ' Las flechas son dependencias; el motor calcula el inicio más temprano pero <strong>no mueve el Gantt</strong> sin que alguien lo acepte.</span>' +
+      '</div>'
+
+    return html
+  }
+
+  function ownerColor(id) {
+    var map = {
+      u1: '#003466',
+      u2: '#0064b4',
+      u3: '#0891b2',
+      u4: '#7c3aed',
+      u5: '#b45309',
+      u6: '#059669',
+      u7: '#2563eb',
+      u8: '#db2777',
+      u9: '#94a3b8',
+    }
+    return map[id] || '#64748b'
+  }
+
+  function drawDependencies() {
+    var svg = document.getElementById('gantt-deps')
+    var inner = document.getElementById('gantt-inner')
+    if (!svg || !inner) return
+
+    var base = inner.getBoundingClientRect()
+    var width = inner.offsetWidth
+    var height = inner.offsetHeight
+    svg.setAttribute('width', width)
+    svg.setAttribute('height', height)
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height)
+    svg.innerHTML = ''
+
+    var markers = ['#dc2626', '#94a3b8']
+      .map(function (color) {
+        return (
+          '<defs><marker id="arrow-' +
+          color.slice(1) +
+          '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="' +
+          color +
+          '"/></marker></defs>'
+        )
+      })
+      .join('')
+    svg.insertAdjacentHTML('afterbegin', markers)
+
+    E.dependenciesOf(state.projectId).forEach(function (dep) {
+      var from = inner.querySelector('[data-bar="' + dep.from + '"]')
+      var to = inner.querySelector('[data-bar="' + dep.to + '"]')
+      if (!from || !to) return
+      var a = from.getBoundingClientRect()
+      var b = to.getBoundingClientRect()
+      var x1 = a.right - base.left
+      var y1 = a.top + a.height / 2 - base.top
+      var x2 = b.left - base.left
+      var y2 = b.top + b.height / 2 - base.top
+      if (x2 < x1 + 16) x2 = x1 + 16
+      var mid = x1 + Math.max(14, (x2 - x1) / 2)
+      var isCritical =
+        D.CRITICAL_PATH.indexOf(dep.from) >= 0 && D.CRITICAL_PATH.indexOf(dep.to) >= 0
+      var stroke = isCritical ? '#dc2626' : '#94a3b8'
+      var path =
+        '<path d="M ' +
+        x1 +
+        ' ' +
+        y1 +
+        ' L ' +
+        mid +
+        ' ' +
+        y1 +
+        ' L ' +
+        mid +
+        ' ' +
+        y2 +
+        ' L ' +
+        (x2 - 5) +
+        ' ' +
+        y2 +
+        '" fill="none" stroke="' +
+        stroke +
+        '" stroke-width="1.5" marker-end="url(#arrow-' +
+        stroke.slice(1) +
+        ')"/>'
+      svg.insertAdjacentHTML('beforeend', path)
+    })
+  }
+
+  /* -------------------------------------------------------------- kanban */
+
+  function viewKanban() {
+    var p = project(state.projectId)
+    var tasks = E.tasksOf(p.id)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Tablero</h2>' +
+      sourceTag('Kanboard · límite de WIP por columna') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Una columna con más tarjetas que su límite se marca en ámbar</span></div>'
+
+    html += '<div class="kanban">'
+    D.COLUMNS.forEach(function (column) {
+      var cards = tasks.filter(function (t) {
+        return t.status === column.key
+      })
+      var over = column.wip !== null && cards.length > column.wip
+      html +=
+        '<div class="kcol' +
+        (over ? ' over-limit' : '') +
+        '"><div class="kcol-head"><strong>' +
+        esc(column.label) +
+        '</strong><span class="badge badge-' +
+        (over ? 'tight' : 'neutral') +
+        '">' +
+        cards.length +
+        (column.wip !== null ? ' / ' + column.wip : '') +
+        '</span></div>'
+      if (over) {
+        html +=
+          '<div class="hint" style="color:#b45309;margin-bottom:8px">' +
+          icon('warning', 'ico') +
+          ' Límite de trabajo en curso superado</div>'
+      }
+      cards.forEach(function (t) {
+        var owner = person(t.user)
+        html +=
+          '<div class="kcard" data-task="' +
+          t.id +
+          '"><div class="t">' +
+          esc(t.title) +
+          '</div><div class="m">' +
+          (owner
+            ? '<span class="avatar sm">' + esc(owner.initials) + '</span>' + esc(owner.name.split(' ')[0])
+            : '<span class="hint">Sin asignar</span>') +
+          '<span class="tag">' +
+          t.hours +
+          ' h</span>' +
+          '<span class="tag">' +
+          formatDate(t.end) +
+          '</span>' +
+          (t.progress ? '<span class="tag">' + t.progress + ' %</span>' : '') +
+          '</div></div>'
+      })
+      if (!cards.length) html += '<div class="hint" style="padding:8px">Sin tarjetas</div>'
+      html += '</div>'
+    })
+    html += '</div>'
+    return html
+  }
+
+  /* ------------------------------------------------------------ miembros */
+
+  function viewMembers() {
+    var p = project(state.projectId)
+    var people = E.peopleOf(p.id)
+    var matrix = buildMatrix([p.id])
+    var now = weekIndex(D.CURRENT_WEEK)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Miembros y asignaciones</h2>' +
+      sourceTag('Ever Gauzy · roles por proyecto') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Las tareas se pueden asignar a cualquiera del proyecto, también de otro departamento</span></div>'
+
+    html +=
+      '<div class="card"><div class="card-head"><h3>Equipo del proyecto</h3>' +
+      '<span class="sub">' +
+      people.length +
+      ' personas</span></div><div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Persona</th><th>Departamento</th><th>Rol</th>' +
+      '<th>Tipo de contrato</th><th class="num">Capacidad</th><th class="num">Carga S' +
+      D.CURRENT_WEEK.slice(-2) +
+      '</th><th class="num">Horas en el proyecto</th><th>Veredicto</th><th></th></tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      var person_ = row.person
+      var cell = row.cells[now]
+      var projectHours = row.cells.reduce(function (acc, c) {
+        return acc + c.plan
+      }, 0)
+      html +=
+        '<tr><td><div class="person-cell"><span class="avatar sm">' +
+        esc(person_.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(person_.name) +
+        '</strong><span>' +
+        esc(person_.email) +
+        '</span></span></div></td>' +
+        '<td>' +
+        esc(person_.dept) +
+        '</td>' +
+        '<td>' +
+        esc(person_.role) +
+        '</td>' +
+        '<td><span class="tag">' +
+        esc(employmentLabel(person_.employment)) +
+        '</span></td>' +
+        '<td class="num num-strong">' +
+        h(cell.capacity) +
+        ' h</td>' +
+        '<td class="num num-strong">' +
+        h(cell.plan) +
+        ' h</td>' +
+        '<td class="num num-strong">' +
+        h(projectHours) +
+        ' h</td>' +
+        '<td>' +
+        verdictBadge(cell.verdict) +
+        '</td>' +
+        '<td class="tight-col"><button type="button" class="btn btn-ghost btn-sm" data-person="' +
+        person_.id +
+        '">Perfil</button></td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html +=
+      '<div class="card" style="margin-top:16px"><div class="card-head"><h3>Asignaciones del proyecto</h3>' +
+      '<span class="sub">Con su reparto por semana</span></div><div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Tarea</th><th>Persona</th><th>Inicio</th><th>Fin</th>' +
+      '<th class="num">Horas</th><th class="num">h/día</th><th>Veredicto de la semana actual</th></tr></thead><tbody>'
+    E.tasksOf(p.id).forEach(function (t) {
+      var owner = person(t.user)
+      var cell = null
+      matrix.forEach(function (row) {
+        if (row.person.id === t.user) {
+          row.cells.forEach(function (c) {
+            if (c.week === D.CURRENT_WEEK) cell = c
+          })
+        }
+      })
+      html +=
+        '<tr><td><button type="button" class="btn btn-ghost btn-sm" data-task="' +
+        t.id +
+        '" style="font-weight:500">' +
+        esc(t.id + ' · ' + t.title) +
+        '</button></td>' +
+        '<td>' +
+        esc(owner ? owner.name : '—') +
+        '</td>' +
+        '<td>' +
+        formatDate(t.start) +
+        '</td>' +
+        '<td>' +
+        formatDate(t.end) +
+        '</td>' +
+        '<td class="num num-strong">' +
+        t.hours +
+        '</td>' +
+        '<td class="num">' +
+        (t.hours / Math.max(1, countWorkingDays(t))).toFixed(1) +
+        '</td>' +
+        '<td>' +
+        (cell ? verdictBadge(cell.verdict) : '<span class="hint">—</span>') +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    return html
+  }
+
+  function countWorkingDays(task) {
+    var person_ = person(task.user)
+    if (!person_) return 1
+    return E.workingDays(task.start, task.end, {
+      dept: person_.dept,
+      personName: person_.name,
+    }).length
+  }
+
+  /* ------------------------------------------------------------ políticas */
+
+  function viewPolicies() {
+    var p = project(state.projectId)
+    var incidents = D.INCIDENTS.filter(function (i) {
+      return i.project === p.id
+    })
+    var approvals = D.APPROVALS.filter(function (a) {
+      return a.project === p.id
+    })
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Políticas de capacidad</h2>' +
+      sourceTag('Paperclip · budget_policies') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">El umbral duro no es una alerta: es una aprobación obligatoria</span></div>'
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Políticas vigentes</h3>' +
+      '<span class="sub">Ámbito · métrica · ventana · umbral blando · umbral duro · acción</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Ámbito</th><th>Métrica</th><th>Ventana</th><th class="num">Aviso</th><th class="num">Duro</th>' +
+      '<th>Al cruzar el aviso</th><th>Al cruzar el duro</th><th>Estado</th></tr></thead><tbody>'
+    D.POLICIES.forEach(function (pol) {
+      html +=
+        '<tr><td class="num-strong">' +
+        esc(pol.scope) +
+        '</td><td>' +
+        esc(pol.metric) +
+        '</td><td>' +
+        esc(pol.window) +
+        '</td>' +
+        '<td class="num"><span class="badge badge-tight">' +
+        pol.warn +
+        ' %</span></td>' +
+        '<td class="num"><span class="badge badge-critical">' +
+        pol.hard +
+        ' %</span></td>' +
+        '<td class="hint">' +
+        esc(pol.warn_action) +
+        '</td>' +
+        '<td class="hint">' +
+        esc(pol.hard_action) +
+        '</td>' +
+        '<td>' +
+        (pol.enabled
+          ? '<span class="badge badge-active">Activa</span>'
+          : '<span class="badge badge-neutral">Inactiva</span>') +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Incidentes</h3>' +
+      '<span class="sub">Registro idempotente por (política, ventana, umbral) mientras está abierto</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Nivel</th><th>Persona</th><th>Semana</th><th class="num">Ratio</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>'
+    incidents.forEach(function (inc) {
+      html +=
+        '<tr><td><span class="badge badge-' +
+        (inc.level === 'hard' ? 'critical' : 'tight') +
+        '">' +
+        (inc.level === 'hard' ? 'Duro' : 'Blando') +
+        '</span></td>' +
+        '<td>' +
+        esc(personName(inc.person)) +
+        '</td><td>' +
+        esc(inc.week) +
+        '</td>' +
+        '<td class="num num-strong">' +
+        inc.ratio +
+        '%</td>' +
+        '<td><span class="tag">' +
+        esc(inc.status) +
+        '</span></td>' +
+        '<td class="hint">' +
+        esc(inc.detail) +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    html +=
+      '<div class="grid grid-2"><div>' +
+      approvalsCard(
+        approvals.filter(function (a) {
+          return !state.approvals[a.id]
+        }),
+      ) +
+      '</div><div class="card"><div class="card-head"><h3>Cómo se evalúa</h3></div><div class="card-body">' +
+      '<ul style="margin:0;padding-left:18px;color:#475569;font-size:13px;line-height:1.8">' +
+      '<li>La celda roja deja de ser un color: pasa a ser el resultado de evaluar una política.</li>' +
+      '<li>Al cruzar el umbral blando se abre un incidente <span class="tag">soft</span> y se notifica.</li>' +
+      '<li>Al cruzar el duro se cierra el blando, se abre el <span class="tag">hard</span> y el ámbito queda pausado.</li>' +
+      '<li>Superar el límite <strong>no es una alerta: es una aprobación obligatoria</strong>.</li>' +
+      '<li>El registro es idempotente: no se duplica mientras el incidente está abierto.</li>' +
+      '</ul></div></div></div>'
+
+    return html
+  }
+
+  /* ------------------------------------------------------ imputación horas */
+
+  function viewTime() {
+    var p = project(state.projectId)
+    var matrix = buildMatrix([p.id])
+    var now = weekIndex(D.CURRENT_WEEK)
+
+    var html =
+      '<div class="toolbar"><h2 style="margin:0;font-size:19px;font-weight:600">Imputación de horas</h2>' +
+      sourceTag('ERPNext · Leantime · OpenProject') +
+      '<span class="spacer"></span>' +
+      '<span class="hint">Lo planificado y lo real se comparan en la ventana semanal</span></div>'
+
+    html +=
+      '<div class="callout" style="margin-bottom:16px">La capacidad y el plan son tasas semanales, ' +
+      'así que el real comparable es el de la semana en curso. <strong>Imputar es opcional</strong>: ' +
+      'quien no imputa no se penaliza, simplemente no hay deriva que leer.</div>'
+
+    html +=
+      '<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>Planificado contra real</h3>' +
+      '<span class="sub">Cada celda: <strong>real / planificado</strong> · Semana en curso: ' +
+      esc(D.CURRENT_WEEK) +
+      '</span></div><div class="card-body tight">' +
+      '<table class="table"><thead><tr><th>Persona</th>' +
+      D.WEEKS.map(function (w) {
+        return '<th class="num">' + esc(w.label) + '</th>'
+      }).join('') +
+      '</tr></thead><tbody>'
+
+    matrix.forEach(function (row) {
+      html +=
+        '<tr><td><div class="person-cell"><span class="avatar sm">' +
+        esc(row.person.initials) +
+        '</span><span class="meta"><strong>' +
+        esc(row.person.name) +
+        '</strong></span></div></td>'
+      row.cells.forEach(function (c) {
+        if (c.real === null) {
+          html += '<td class="num hint">—</td>'
+          return
+        }
+        var cls = c.drift > 0.001 ? 'pill-up' : c.drift < -0.001 ? 'pill-down' : 'pill-flat'
+        html +=
+          '<td class="num"><strong>' +
+          h(c.real) +
+          '</strong> <span class="hint">/ ' +
+          h(c.plan) +
+          '</span><br><span class="' +
+          cls +
+          '">' +
+          (c.drift > 0 ? '+' : '') +
+          h(c.drift) +
+          ' h</span></td>'
+      })
+      html += '</tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    var entries = D.TIME_ENTRIES.filter(function (e) {
+      return !p || true
+    })
+
+    html +=
+      '<div class="card"><div class="card-head"><h3>Últimas imputaciones</h3>' +
+      '<span class="sub">Tabla de horas reales, separada de la planificación</span></div>' +
+      '<div class="card-body tight"><table class="table"><thead><tr>' +
+      '<th>Fecha</th><th>Persona</th><th>Tarea</th><th class="num">Horas</th><th>Concepto</th></tr></thead><tbody>'
+    entries.forEach(function (entry) {
+      var task = E.taskById(entry.task)
+      html +=
+        '<tr><td>' +
+        formatDate(entry.date) +
+        '</td>' +
+        '<td>' +
+        esc(personName(entry.user)) +
+        '</td>' +
+        '<td>' +
+        (task ? esc(task.id + ' · ' + task.title) : esc(entry.task)) +
+        '</td>' +
+        '<td class="num num-strong">' +
+        entry.hours +
+        '</td>' +
+        '<td class="hint">' +
+        esc(entry.note) +
+        '</td></tr>'
+    })
+    html += '</tbody></table></div></div>'
+
+    return html
+  }
+
+  /* -------------------------------------------------------------- drawer */
+
+  function renderDrawer() {
+    if (!els.drawer) {
+      els.drawer = document.createElement('div')
+      document.body.appendChild(els.drawer)
+    }
+    if (!state.drawer) {
+      els.drawer.innerHTML = ''
+      return
+    }
+    var html = '<div class="drawer-backdrop" data-action="close-drawer"></div>'
+    if (state.drawer.type === 'cell') html += cellDrawer(state.drawer.userId, state.drawer.week)
+    else if (state.drawer.type === 'task') html += taskDrawer(state.drawer.taskId)
+    else if (state.drawer.type === 'person') html += personDrawer(state.drawer.userId)
+    else if (state.drawer.type === 'newtask') html += newTaskDrawer()
+    els.drawer.innerHTML = html
+  }
+
+  function cellDrawer(userId, week) {
+    var p = person(userId)
+    var index = weekIndex(week)
+    var projectIds = state.projectId ? [state.projectId] : D.PROJECTS.map(function (x) {
+      return x.id
+    })
+    var matrix = buildMatrix(projectIds)
+    var row = matrix.filter(function (r) {
+      return r.person.id === userId
+    })[0]
+    var cell = row ? row.cells[index] : null
+    if (!cell) return '<div class="drawer"></div>'
+
+    var tasks = tasksOfPersonWeek(projectIds, userId, week)
+    var verdict = D.VERDICTS[cell.verdict]
+    var overtime = Math.max(0, cell.plan - cell.capacity)
+
+    var html =
+      '<div class="drawer"><div class="drawer-head"><div><h2>' +
+      esc(p.name) +
+      '</h2><p>' +
+      esc(week) +
+      ' · ' +
+      esc(p.role) +
+      ' · ' +
+      esc(p.dept) +
+      '</p></div>' +
+      '<button type="button" class="icon-btn" data-action="close-drawer" style="color:#64748b">' +
+      icon('close') +
+      '</button></div><div class="drawer-body">'
+
+    html +=
+      '<div class="row" style="margin-bottom:16px">' +
+      verdictBadge(cell.verdict) +
+      '<span class="hint">' +
+      esc(verdict.desc) +
+      '</span></div>'
+
+    html +=
+      '<dl class="kv"><dt>Planificado</dt><dd class="num-strong">' +
+      h(cell.plan) +
+      ' h</dd>' +
+      '<dt>Capacidad efectiva</dt><dd class="num-strong">' +
+      h(cell.capacity) +
+      ' h</dd>' +
+      '<dt>Utilización</dt><dd class="num-strong">' +
+      (cell.ratio === null ? '—' : cell.ratio + ' %') +
+      '</dd>' +
+      '<dt>Horas reales</dt><dd class="num-strong">' +
+      (cell.real === null ? 'sin imputar' : h(cell.real) + ' h') +
+      '</dd>' +
+      '<dt>Deriva</dt><dd class="' +
+      (cell.drift > 0 ? 'pill-up' : cell.drift < 0 ? 'pill-down' : 'pill-flat') +
+      '">' +
+      (cell.drift === null ? '—' : (cell.drift > 0 ? '+' : '') + h(cell.drift) + ' h') +
+      '</dd>' +
+      '<dt>Horas extra</dt><dd>' +
+      (overtime > 0
+        ? '<span class="pill-up">' + h(overtime) + ' h por encima de la capacidad</span>'
+        : '<span class="hint">Ninguna</span>') +
+      '</dd>' +
+      '<dt>Capacidad de referencia</dt><dd>' +
+      h(E.weeklyCapacity(p, week)) +
+      ' h (horario vigente × factor ' +
+      p.factor +
+      ' %)</dd></dl>'
+
+    html += '<div class="divider"></div>'
+
+    html += '<h3 style="font-size:14px;margin-bottom:8px">Tareas de la semana</h3>'
+    if (!tasks.length) {
+      html += '<div class="hint">Sin tareas asignadas en esta semana.</div>'
+    } else {
+      html += '<table class="table"><tbody>'
+      tasks.forEach(function (t) {
+        var parts = E.distribute(t, p).filter(function (x) {
+          return x.week === week
+        })
+        var assigned = parts.reduce(function (acc, x) {
+          return acc + x.hours
+        }, 0)
+        html +=
+          '<tr><td><button type="button" class="btn btn-ghost btn-sm" data-task="' +
+          t.id +
+          '" style="font-weight:500;text-align:left">' +
+          esc(t.title) +
+          '</button><div class="hint">' +
+          esc(t.id + ' · ' + projectCode(t.project)) +
+          '</div></td>' +
+          '<td class="num num-strong" style="width:1%">' +
+          h(assigned) +
+          ' h</td></tr>'
+      })
+      html += '</tbody></table>'
+    }
+
+    html +=
+      '<div class="divider"></div>' +
+      '<div class="src-note">Veredicto calculado por el motor contra el horario vigente de la persona, ' +
+      'el calendario laboral y los umbrales de la política.</div>'
+
+    html +=
+      '</div><div class="drawer-foot">' +
+      '<button type="button" class="btn btn-secondary" data-person="' +
+      userId +
+      '">Ver perfil de la persona</button>' +
+      '<button type="button" class="btn btn-primary" data-action="close-drawer">Cerrar</button>' +
+      '</div></div>'
+    return html
+  }
+
+  function taskDrawer(taskId) {
+    var t = E.taskById(taskId)
+    if (!t) return '<div class="drawer"></div>'
+    var owner = person(t.user)
+    var deps = D.DEPENDENCIES.filter(function (d) {
+      return d.to === t.id || d.from === t.id
+    })
+    var days = countWorkingDays(t)
+    var critical = D.CRITICAL_PATH.indexOf(t.id) >= 0
+
+    var html =
+      '<div class="drawer"><div class="drawer-head"><div><h2>' +
+      esc(t.title) +
+      '</h2><p>' +
+      esc(t.id + ' · ' + projectCode(t.project) + ' · ' + statusLabel(t.status)) +
+      '</p></div>' +
+      '<button type="button" class="icon-btn" data-action="close-drawer" style="color:#64748b">' +
+      icon('close') +
+      '</button></div><div class="drawer-body">'
+
+    html +=
+      '<dl class="kv"><dt>Persona</dt><dd>' +
+      (owner ? esc(owner.name) + ' · ' + esc(owner.dept) : 'Sin asignar') +
+      '</dd>' +
+      '<dt>Fechas</dt><dd>' +
+      formatDate(t.start) +
+      ' → ' +
+      formatDate(t.end) +
+      '</dd>' +
+      '<dt>Horas estimadas</dt><dd class="num-strong">' +
+      t.hours +
+      ' h</dd>' +
+      '<dt>Reparto</dt><dd>' +
+      days +
+      ' días laborables · ' +
+      (t.hours / days).toFixed(1) +
+      ' h/día</dd>' +
+      '<dt>Avance</dt><dd>' +
+      t.progress +
+      ' %</dd>' +
+      '<dt>Ruta crítica</dt><dd>' +
+      (critical ? '<span class="badge badge-critical">Sí</span>' : '<span class="hint">No</span>') +
+      '</dd></dl>'
+
+    if (deps.length) {
+      html += '<div class="divider"></div><h3 style="font-size:14px;margin-bottom:8px">Dependencias</h3>'
+      deps.forEach(function (dep) {
+        var other = E.taskById(dep.from === t.id ? dep.to : dep.from)
+        var arrow = dep.from === t.id ? 'depende de' : 'bloquea a'
+        html +=
+          '<div class="row" style="margin-bottom:6px"><span class="tag">' +
+          esc(arrow) +
+          '</span><span>' +
+          esc(other ? other.id + ' · ' + other.title : '') +
+          '</span></div>'
+      })
+      html += '</div>'
+    }
+
+    html +=
+      '</div><div class="drawer-foot">' +
+      '<button type="button" class="btn btn-secondary" data-action="close-drawer">Cerrar</button>' +
+      '<button type="button" class="btn btn-primary" data-action="export">Exportar .ics</button>' +
+      '</div></div>'
+    return html
+  }
+
+  function personDrawer(userId) {
+    var p = person(userId)
+    var history = D.SCHEDULE_HISTORY[userId] || []
+    var matrix = buildMatrix(
+      D.PROJECTS.map(function (x) {
+        return x.id
+      }),
+    )
+    var row = matrix.filter(function (r) {
+      return r.person.id === userId
+    })[0]
+    var cell = row ? row.cells[weekIndex(D.CURRENT_WEEK)] : null
+
+    var html =
+      '<div class="drawer"><div class="drawer-head"><div><h2>' +
+      esc(p.name) +
+      '</h2><p>' +
+      esc(p.role + ' · ' + p.dept + ' · ' + p.level) +
+      '</p></div>' +
+      '<button type="button" class="icon-btn" data-action="close-drawer" style="color:#64748b">' +
+      icon('close') +
+      '</button></div><div class="drawer-body">'
+
+    html +=
+      '<div class="row" style="margin-bottom:16px">' +
+      (cell ? verdictBadge(cell.verdict) : '') +
+      '<span class="hint">Semana en curso: ' +
+      (cell ? h(cell.plan) + ' h de ' + h(cell.capacity) + ' h' : '—') +
+      '</span></div>'
+
+    html +=
+      '<dl class="kv"><dt>Correo</dt><dd>' +
+      esc(p.email) +
+      '</dd>' +
+      '<dt>Tipo de contrato</dt><dd>' +
+      esc(employmentLabel(p.employment)) +
+      '</dd>' +
+      '<dt>Horario vigente</dt><dd>' +
+      scheduleChips(p) +
+      '</dd>' +
+      '<dt>Factor de disponibilidad</dt><dd class="num-strong">' +
+      p.factor +
+      ' %</dd>' +
+      '<dt>Capacidad semanal</dt><dd class="num-strong">' +
+      h(cell ? cell.capacity : 0) +
+      ' h</dd></dl>'
+
+    html += '<div class="divider"></div><h3 style="font-size:14px;margin-bottom:8px">Historial de horarios</h3>'
+    if (!history.length) {
+      html +=
+        '<div class="callout warn">No hay horario vigente. Su capacidad se desconoce, ' +
+        'así que no se marca como sobrecargada: el motor no inventa un límite que nadie ha definido.</div>'
+    } else {
+      html += '<table class="table"><tbody>'
+      history.forEach(function (entry) {
+        html +=
+          '<tr><td class="num-strong">' +
+          esc(entry.valid_from) +
+          '</td><td>' +
+          dayChips(entry.schedule) +
+          '</td><td class="num num-strong">' +
+          entry.factor +
+          ' %</td><td class="hint">' +
+          esc(entry.note) +
+          '</td></tr>'
+      })
+      html += '</tbody></table>'
+    }
+
+    html +=
+      '<div class="divider"></div><h3 style="font-size:14px;margin-bottom:8px">Habilidades</h3>' +
+      '<div class="chip-list">' +
+      Object.keys(p.skills || {})
+        .map(function (s) {
+          return '<span class="tag">' + esc(s) + ' · ' + p.skills[s] + '/3</span>'
+        })
+        .join('') +
+      '</div>'
+
+    html +=
+      '</div><div class="drawer-foot">' +
+      '<button type="button" class="btn btn-secondary" data-action="close-drawer">Cerrar</button>' +
+      '</div></div>'
+    return html
+  }
+
+  function newTaskDrawer() {
+    var members = state.projectId ? E.peopleOf(state.projectId) : D.PEOPLE
+    var html =
+      '<div class="drawer"><div class="drawer-head"><div><h2>Nueva tarea</h2>' +
+      '<p>' +
+      esc(projectCode(state.projectId)) +
+      ' · el alta abre la tarea en el proyecto abierto</p></div>' +
+      '<button type="button" class="icon-btn" data-action="close-drawer" style="color:#64748b">' +
+      icon('close') +
+      '</button></div><div class="drawer-body">' +
+      '<div class="callout" style="margin-bottom:16px">Demo visual: el formulario no envía nada. ' +
+      'Lo que sí se ve es el contrato de la pantalla.</div>' +
+      '<div class="stack">' +
+      '<div class="field" style="width:100%"><input style="width:100%" placeholder="Título de la tarea"></div>' +
+      '<div class="field" style="width:100%"><select style="width:100%">' +
+      members
+        .map(function (m) {
+          return '<option>' + esc(m.name) + '</option>'
+        })
+        .join('') +
+      '</select></div>' +
+      '<div class="row"><div class="field">Inicio <input type="date" value="2026-11-16"></div>' +
+      '<div class="field">Fin <input type="date" value="2026-11-27"></div></div>' +
+      '<div class="field" style="width:100%"><input style="width:100%" placeholder="Horas estimadas"></div>' +
+      '</div></div>' +
+      '<div class="drawer-foot"><button type="button" class="btn btn-secondary" data-action="close-drawer">Cancelar</button>' +
+      '<button type="button" class="btn btn-primary" data-action="create-task">Crear tarea</button></div></div>'
+    return html
+  }
+
+  /* --------------------------------------------------------------- toast */
+
+  function renderToast() {
+    var existing = document.getElementById('demo-toast')
+    if (existing) existing.remove()
+    if (!state.toast) return
+    var el = document.createElement('div')
+    el.id = 'demo-toast'
+    el.className = 'toast'
+    el.innerHTML = icon('checkCircle') + '<span>' + esc(state.toast) + '</span>'
+    document.body.appendChild(el)
+    window.setTimeout(function () {
+      if (state.toast) {
+        state.toast = null
+        renderToast()
+      }
+    }, 3200)
+  }
+
+  function toast(message) {
+    state.toast = message
+    renderToast()
+  }
+
+  /* ------------------------------------------------------------- eventos */
+
+  document.addEventListener('click', function (event) {
+    var target = event.target.closest('[data-nav],[data-action],[data-mode],[data-cell],[data-task],[data-person],[data-planner-tab],[data-activity-filter],[data-open-project]')
+    if (!target) return
+
+    if (target.hasAttribute('data-nav')) {
+      var nav = target.getAttribute('data-nav')
+      if (nav === 'global') go('/panel')
+      else if (state.projectId) go('/projects/' + state.projectId + '/' + nav)
+      else go('/' + nav)
+      return
+    }
+
+    if (target.hasAttribute('data-open-project')) {
+      var parts = target.getAttribute('data-open-project').split('/')
+      go('/projects/' + parts[0] + '/' + (parts[1] || 'summary'))
+      return
+    }
+
+    if (target.hasAttribute('data-planner-tab')) {
+      state.plannerTab = target.getAttribute('data-planner-tab')
+      renderContent()
+      return
+    }
+
+    if (target.hasAttribute('data-activity-filter')) {
+      state.activityFilter = target.getAttribute('data-activity-filter')
+      renderContent()
+      return
+    }
+
+    if (target.hasAttribute('data-mode')) {
+      state.matrixMode = target.getAttribute('data-mode')
+      renderContent()
+      return
+    }
+
+    if (target.hasAttribute('data-cell')) {
+      state.drawer = {
+        type: 'cell',
+        userId: target.getAttribute('data-cell'),
+        week: target.getAttribute('data-week'),
+      }
+      renderDrawer()
+      return
+    }
+
+    if (target.hasAttribute('data-task')) {
+      state.drawer = { type: 'task', taskId: target.getAttribute('data-task') }
+      renderDrawer()
+      return
+    }
+
+    if (target.hasAttribute('data-person')) {
+      state.drawer = { type: 'person', userId: target.getAttribute('data-person') }
+      renderDrawer()
+      return
+    }
+
+    var action = target.getAttribute('data-action')
+    if (!action) return
+
+    if (action === 'toggle-sidebar') {
+      state.collapsed = !state.collapsed
+      renderSidebar()
+      return
+    }
+    if (action === 'close-drawer') {
+      state.drawer = null
+      renderDrawer()
+      return
+    }
+    if (action === 'approve' || action === 'reject') {
+      var id = target.getAttribute('data-id')
+      state.approvals[id] = action === 'approve' ? 'approved' : 'rejected'
+      var approval = D.APPROVALS.filter(function (a) {
+        return a.id === id
+      })[0]
+      toast(
+        action === 'approve'
+          ? 'Aprobación concedida. El incidente duro se cierra y el ámbito queda liberado.'
+          : 'Aprobación rechazada. La asignación que la rebasaba queda bloqueada.',
+      )
+      renderContent()
+      renderTopbar()
+      return
+    }
+    if (action === 'new-task') {
+      state.drawer = { type: 'newtask' }
+      renderDrawer()
+      return
+    }
+    if (action === 'create-task') {
+      state.drawer = null
+      renderDrawer()
+      toast('Tarea creada. En la demo no hay backend que la guarde.')
+      return
+    }
+    if (action === 'recalc') {
+      toast('Recálculo encolado: 12 asignaciones de 3 personas, por persona y rango.')
+      return
+    }
+    if (action === 'export') {
+      toast('Exportación .ics encolada. El DTEND es exclusivo: cada evento emite el día siguiente.')
+      return
+    }
+  })
+
+  document.addEventListener('change', function (event) {
+    var target = event.target
+    if (target.hasAttribute && target.hasAttribute('data-action')) {
+      var action = target.getAttribute('data-action')
+      if (action === 'pick-project') {
+        var value = target.value
+        if (!value) {
+          go('/' + (state.projectId ? 'panel' : 'panel'))
+        } else {
+          var view = state.projectId ? state.route : 'summary'
+          if (!state.projectId && GLOBAL_VIEWS[view] === undefined) view = 'summary'
+          go('/projects/' + value + '/' + view)
+        }
+      }
+      if (action === 'saved-view') {
+        state.savedView = target.value
+        renderContent()
+      }
+      if (action === 'dept-filter') {
+        state.deptFilter = target.value
+        renderContent()
+      }
+    }
+  })
+
+  /* ---------------------------------------------------------------- init */
+
+  function init() {
+    els.sidebar = document.getElementById('sidebar')
+    els.topbar = document.getElementById('topbar')
+    els.content = document.getElementById('view')
+
+    window.addEventListener('hashchange', route)
+    route()
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init)
+  } else {
+    init()
+  }
+})()
+
+</script>
+  </body>
+</html>

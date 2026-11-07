@@ -95,6 +95,7 @@ del proyecto, pero sin poder tocarlos.
 | Matriz de capacidad | personas por semanas, con la sobrecarga marcada |
 | Cronograma | barras de las tareas de un proyecto |
 | Calendario | la planificacion dia a dia, en rejilla de mes |
+| Calendario laboral | los dias no laborables, a quien afectan y que capacidad quitan |
 | Tablero | columnas por estado de las tareas de un proyecto |
 | Departamentos | quien hay en cada area, con su carga |
 | Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
@@ -127,7 +128,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | --- | --- |
 | Persona | nombre, correo, rol de empresa, departamento, puesto, nivel, tipo de contrato y horas base semanales |
 | Horario de persona | persona, fecha de entrada en vigor, horas laborables de cada dia y factor de disponibilidad |
-| Dia no laborable | fecha, nombre y alcance (global o de departamento) |
+| Dia no laborable | fecha, nombre y alcance (global, de departamento o de persona) |
 | Competencia | nombre del catalogo |
 | Nivel de competencia | persona, competencia y nivel |
 | Departamento | nombre, responsable |
@@ -343,7 +344,8 @@ las tareas de los proyectos visibles y en el de proyecto
   lectura.
 - Edicion desde el calendario.
 - Filtros por proyecto, persona o estado.
-- El calculo del "impacto en la capacidad" de los festivos.
+- El calculo del "impacto en la capacidad" de los festivos: vive en el
+  calendario laboral, que es su pantalla.
 - Un calendario por persona: el color de la tarea ya dice quien la tiene.
 
 ## 15. Vista semanal del calendario
@@ -418,3 +420,48 @@ de la rejilla mensual o de la semanal.
   cabecera de la semanal, no pulsando cualquier punto de la celda: en la celda
   hay una lista que se desplaza y hay que poder hacerlo sin abrir nada.
 - Al pulsarlo cambia la cabecera a "Dia" y el calendario muestra el dia entero.
+
+## 17. Calendario laboral
+
+El calendario de la planificacion dice cuando se trabaja. El calendario laboral
+dice cuando no: que dias no laborables hay, a quien afectan y cuanta capacidad
+se quitan.
+
+### Que entra
+
+- La **pantalla global** del calendario laboral, de lectura.
+- La **tabla de dias no laborables**, con fecha, festivo, alcance, jornada y las
+  **tareas afectadas**: cuantas tareas cubren ese dia y estan asignadas a
+  personas a las que el festivo aplica.
+- La **rejilla del mes** con los dias no laborables marcados por su alcance: en
+  gris los globales, en ambar los de departamento y en morado los de persona.
+- El **cuadro de impacto en la capacidad semanal**: por persona y semana, la
+  capacidad que habria sin el festivo, la capacidad efectiva, la diferencia y el
+  motivo.
+- El **alcance por persona**: un dia no laborable puede aplicar solo a una
+  persona, como un permiso individual.
+
+### Que no entra
+
+- El **recalculo de asignaciones** al publicar un festivo: eso es motor, no
+  pantalla, y va aparte.
+- El **alta de dias no laborables** desde aqui: se sigue haciendo en la
+  pestana "Dias no laborables" de Personas.
+- Los **veredictos discretos** (aprobaciones, incidencias de politica): son la
+  politica de capacidad y van aparte.
+- Un **calendario por persona**: la tabla ya dice a quien aplica cada festivo.
+
+### Decisiones de este bloque
+
+- El **alcance por persona** anade la columna `user_id` a `non_working_days`. El
+  motor de capacidad deja de aplicar solo los dias globales y de departamento:
+  aplica tambien los de la persona.
+- Las **tareas afectadas** se cuentan sobre las tareas con persona asignada y
+  con fechas, cuyo rango cubre el festivo, y solo cuando el festivo aplica a
+  esa persona.
+- El **impacto** se mide en la misma unidad que el motor, en centimas de hora,
+  con su mismo redondeo. La capacidad sin festivo es la del horario vigente de
+  esa semana por el factor de disponibilidad; la efectiva descuenta los dias no
+  laborables que apliquen a esa persona.
+- Solo se listan las filas con **diferencia**: lo que no se ve afectado no
+  ocupa sitio.

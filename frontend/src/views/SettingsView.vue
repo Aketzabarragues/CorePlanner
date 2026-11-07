@@ -82,7 +82,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
+  <div>
     <header class="mb-6">
       <h1 class="text-lg font-semibold text-siemens-900">Configuración</h1>
       <p class="mt-1 text-sm text-slate-500">

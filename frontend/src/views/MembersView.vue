@@ -130,7 +130,7 @@ watch(() => props.id, loadMembers)
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
+  <div>
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-siemens-900">Miembros y Asignaciones</h1>

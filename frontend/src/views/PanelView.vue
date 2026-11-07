@@ -46,7 +46,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
+  <div>
     <header class="mb-4">
       <h1 class="text-xl font-semibold text-siemens-900">Panel</h1>
       <p class="mt-1 text-sm text-slate-500">

@@ -68,7 +68,7 @@ watch(() => props.id, load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
+  <div>
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
 
     <p

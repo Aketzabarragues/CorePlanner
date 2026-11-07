@@ -42,7 +42,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
+  <div>
     <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-siemens-900">Mi trabajo</h1>

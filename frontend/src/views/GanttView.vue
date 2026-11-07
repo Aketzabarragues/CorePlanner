@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
+  <div>
     <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-lg font-semibold text-siemens-900">

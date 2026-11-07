@@ -71,7 +71,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl">
+  <div>
     <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="text-lg font-semibold text-siemens-900">Personas y Competencias</h1>

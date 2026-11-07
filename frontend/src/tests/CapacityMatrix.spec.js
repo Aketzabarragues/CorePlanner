@@ -35,6 +35,7 @@ const capacityReport = {
       ],
     },
   ],
+  holiday_task_ids: [],
 }
 
 const projectTasks = [
@@ -106,6 +107,26 @@ describe('CapacityMatrix', () => {
     expect(overloaded).toHaveLength(1)
     expect(overloaded[0].text()).toBe('48')
     expect(overloaded[0].classes()).toContain('text-red-900')
+  })
+
+  it('avisa de las tareas que caen enteramente en dias no laborables', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () =>
+        jsonResponse({ ...capacityReport, holiday_task_ids: [42] }),
+    })
+    const wrapper = await mountMatrix()
+
+    const aviso = wrapper.find('[data-testid="capacity-holiday-warning"]')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.text()).toContain('1 tarea(s)')
+    expect(aviso.text()).toContain('no se imputan')
+  })
+
+  it('sin tareas enteramente festivas no hay aviso', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.find('[data-testid="capacity-holiday-warning"]').exists()).toBe(false)
   })
 
   it('el alta de tareas no se duplica en la matriz', async () => {

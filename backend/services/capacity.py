@@ -143,6 +143,7 @@ class CapacityReport:
     rows: tuple[UserLoad, ...]
     unassigned_task_ids: tuple[int, ...] = ()
     undated_task_ids: tuple[int, ...] = ()
+    holiday_task_ids: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -176,6 +177,7 @@ class CapacityReport:
             ],
             "unassigned_task_ids": list(self.unassigned_task_ids),
             "undated_task_ids": list(self.undated_task_ids),
+            "holiday_task_ids": list(self.holiday_task_ids),
         }
 
 
@@ -270,8 +272,12 @@ def compute_task_week_units(
 ) -> dict[str, int]:
     """Carga de una tarea por semana ISO, en centimas de hora.
 
-    Lanza InvalidTaskRangeError si el rango esta invertido,
-    NoBusinessDaysError si no contiene dias laborables y
+    Si el rango no deja ningun dia laborable **de la persona** -porque lo
+    cubren enteramente sus dias no laborables- la tarea no se imputa y el
+    reparto sale vacio. Un informe no se rompe por una sola tarea: quien lo
+    llama decide como avisar.
+
+    Lanza InvalidTaskRangeError si el rango esta invertido e
     InvalidEstimatedHoursError si las horas estimadas son negativas.
     """
     if estimated_hours < 0:
@@ -280,10 +286,7 @@ def compute_task_week_units(
         )
     days = working_days(start_date, end_date, holidays)
     if not days:
-        raise NoBusinessDaysError(
-            f"El rango {start_date.isoformat()}..{end_date.isoformat()} "
-            "no contiene dias laborables"
-        )
+        return {}
 
     units_per_day = split_weighted_units(
         to_units(estimated_hours), [weight for _, weight in days]
@@ -319,6 +322,8 @@ def build_capacity_report(
     Las semanas del informe son la union de las semanas con actividad.
     Las tareas sin persona asignada o sin fechas no se imputan a ninguna
     fila, pero se listan para que la planificacion incompleta sea visible.
+    Lo mismo ocurre con las tareas cuyo rango lo cubren enteramente los dias
+    no laborables de su persona: valen cero horas y se listan aparte.
     La capacidad de cada celda sale del horario vigente de la persona en esa
     semana.
     """
@@ -327,6 +332,7 @@ def build_capacity_report(
     weeks: set[str] = set()
     unassigned: list[int] = []
     undated: list[int] = []
+    holidays_only: list[int] = []
     for task in tasks:
         if task.assigned_to is None:
             unassigned.append(task.id)
@@ -340,6 +346,11 @@ def build_capacity_report(
         week_units = compute_task_week_units(
             task.start_date, task.end_date, task.estimated_hours, holidays
         )
+        if not week_units:
+            # A la persona no le queda ningun dia laborable en el rango: la
+            # tarea vale cero horas, pero se avisa en vez de romper el informe.
+            holidays_only.append(task.id)
+            continue
         weeks.update(week_units)
         target = loads.setdefault(task.assigned_to, {})
         for key, units in week_units.items():
@@ -380,4 +391,5 @@ def build_capacity_report(
         rows=tuple(rows),
         unassigned_task_ids=tuple(unassigned),
         undated_task_ids=tuple(undated),
+        holiday_task_ids=tuple(holidays_only),
     )

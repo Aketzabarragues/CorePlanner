@@ -21,11 +21,13 @@ from backend.services.capacity import (
     build_capacity_report,
     business_days,
     compute_task_week_load,
+    compute_task_week_units,
     from_units,
     iso_week_key,
     split_units,
     to_units,
 )
+from backend.services.schedule import holiday_weight
 
 
 @dataclass
@@ -66,10 +68,54 @@ def test_jueves_a_miercoles_reparte_en_dos_semanas_saltando_el_fin_de_semana():
     assert sum(result.values()) == H("40.00")
 
 
-def test_los_fines_de_semana_no_cuentan_como_dias_laborables():
+def test_un_rango_solo_de_fines_de_semana_no_se_imputa():
     # Sabado 2026-03-07 -> domingo 2026-03-08: ningun dia laborable.
-    with pytest.raises(NoBusinessDaysError):
-        compute_task_week_load(date(2026, 3, 7), date(2026, 3, 8), 40)
+    # El reparto sale vacio: el alta de la tarea la rechaza el backend, pero el
+    # motor no se rompe si alguna llega hasta aqui.
+    assert compute_task_week_load(date(2026, 3, 7), date(2026, 3, 8), 40) == {}
+
+
+def test_una_tarea_cubierta_por_festivos_de_su_persona_no_se_imputa():
+    # Lunes 2026-03-09 y martes 2026-03-10 son festivos de jornada entera
+    # para esta persona: no le queda ningun dia laborable donde repartir.
+    holidays = {
+        date(2026, 3, 9): holiday_weight(half_day=False),
+        date(2026, 3, 10): holiday_weight(half_day=False),
+    }
+
+    reparto = compute_task_week_units(
+        date(2026, 3, 9), date(2026, 3, 10), 8, holidays
+    )
+
+    assert reparto == {}
+
+
+def test_el_informe_no_se_rompe_con_una_tarea_enteramente_festiva():
+    holidays = {
+        date(2026, 3, 9): holiday_weight(half_day=False),
+        date(2026, 3, 10): holiday_weight(half_day=False),
+    }
+    ana = person(1, "Ana", holidays=holidays)
+    festiva = FakeTask(
+        id=7,
+        assigned_to=1,
+        start_date=date(2026, 3, 9),
+        end_date=date(2026, 3, 10),
+        estimated_hours=Decimal("8.00"),
+    )
+    normal = FakeTask(
+        id=8,
+        assigned_to=1,
+        start_date=date(2026, 3, 11),
+        end_date=date(2026, 3, 12),
+        estimated_hours=Decimal("4.00"),
+    )
+
+    report = build_capacity_report([ana], [festiva, normal])
+
+    assert report.holiday_task_ids == (7,)
+    assert report.rows[0].total_hours == H("4.00")
+    assert report.weeks == ("2026-W11",)
 
 
 def test_rango_invertido_es_error():

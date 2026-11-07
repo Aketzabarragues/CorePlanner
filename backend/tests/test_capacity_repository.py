@@ -126,3 +126,51 @@ async def test_el_informe_serializa_a_diccionario_desde_la_base_de_datos(session
     assert data["weeks"] == ["2026-W10", "2026-W11"]
     assert any(row["user_id"] == ana.id for row in data["rows"])
     assert "is_overloaded" in data["rows"][0]["cells"][0]
+    assert data["holiday_task_ids"] == []
+
+
+async def test_una_tarea_enteramente_festiva_no_rompe_el_informe(session):
+    """Una tarea que cae entera en un dia no laborable vale cero horas.
+
+    Antes el motor lanzaba la excepcion y el informe entero devolvia un error
+    500 por culpa de una sola tarea.
+    """
+    from backend.models import NonWorkingDay, NonWorkingDayScope
+
+    ana, _luis, project = await _seed(session)
+    session.add_all(
+        [
+            NonWorkingDay(
+                date=date(2026, 3, 16),
+                name="Permiso individual",
+                scope=NonWorkingDayScope.PERSON.value,
+                user_id=ana.id,
+            ),
+            NonWorkingDay(
+                date=date(2026, 3, 17),
+                name="Permiso individual",
+                scope=NonWorkingDayScope.PERSON.value,
+                user_id=ana.id,
+            ),
+        ]
+    )
+    tarea = Task(
+        project_id=project.id,
+        assigned_to=ana.id,
+        title="Tarea en dia festivo",
+        status=TaskStatus.BACKLOG.value,
+        start_date=date(2026, 3, 16),
+        end_date=date(2026, 3, 17),
+        estimated_hours=8,
+    )
+    session.add(tarea)
+    await session.commit()
+
+    report = await load_project_capacity(session, project.id)
+
+    assert report.holiday_task_ids == (tarea.id,)
+    row = next(r for r in report.rows if r.user_id == ana.id)
+    cells = {cell.week: cell for cell in row.cells}
+    # El resto de la planificacion de Ana sigue igual.
+    assert cells["2026-W10"].hours == Decimal("66.00")
+    assert cells["2026-W11"].hours == Decimal("24.00")

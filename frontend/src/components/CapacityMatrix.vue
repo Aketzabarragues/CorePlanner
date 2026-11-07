@@ -46,6 +46,8 @@ const isGlobal = computed(() => props.id === null || props.id === undefined)
 const members = computed(() => (isGlobal.value ? globalMembers.value : store.members))
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
+/** Tareas que caen enteramente en dias no laborables: valen cero horas. */
+const holidayTaskIds = computed(() => report.value?.holiday_task_ids ?? [])
 
 function cellOf(row, week) {
   return (
@@ -342,6 +344,15 @@ watch(departmentFilter, () => {
         </tbody>
       </table>
     </div>
+
+    <p
+      v-if="!loading && !error && holidayTaskIds.length"
+      class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+      data-testid="capacity-holiday-warning"
+    >
+      {{ holidayTaskIds.length }} tarea(s) caen enteramente en dias no laborables y no se
+      imputan: su carga no aparece en la matriz.
+    </p>
 
     <p
       v-if="!loading && !error && rows.some((r) => r.has_overload)"

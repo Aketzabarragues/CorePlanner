@@ -407,6 +407,40 @@ async def test_listar_tareas_filtradas_por_persona(client: AsyncClient):
     assert len(response.json()) == 1
 
 
+async def test_listar_tareas_filtradas_por_rango_de_fechas(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+
+    dentro = await client.get(
+        "/api/tasks",
+        params={"from": "2026-03-01", "to": "2026-03-31"},
+        headers=headers,
+    )
+    fuera = await client.get(
+        "/api/tasks",
+        params={"from": "2026-04-01", "to": "2026-04-30"},
+        headers=headers,
+    )
+
+    assert len(dentro.json()) == 1
+    assert fuera.json() == []
+
+
+async def test_la_semana_manda_sobre_el_rango(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+
+    response = await client.get(
+        "/api/tasks",
+        params={
+            "week": "2026-W10",
+            "from": "2026-03-01",
+            "to": "2026-03-31",
+        },
+        headers=headers,
+    )
+
+    assert len(response.json()) == 1
+
+
 async def test_crear_tarea_cambia_el_informe_de_capacidad(client: AsyncClient):
     headers = await _auth(client, "manager@example.com")
 

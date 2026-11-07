@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 
 from ..models import Task
@@ -30,15 +32,23 @@ async def list_visible_tasks(
     user: CurrentUser,
     assigned_to: int | None = Query(default=None),
     week: str | None = Query(default=None, description="Semana ISO, por ejemplo 2026-W46"),
+    from_date: date | None = Query(default=None, alias="from"),
+    to_date: date | None = Query(default=None, alias="to"),
 ) -> list[Task]:
     """Tareas de todos los proyectos visibles, con filtro opcional.
 
     Es el listado que usa el desglose de una celda de la matriz global, donde
-    no hay un proyecto concreto de partida.
+    no hay un proyecto concreto de partida. El rango de fechas acota el
+    periodo: la semana manda si vienen las dos cosas.
     """
     projects = await list_accessible_projects(session, user)
     return await list_tasks_for_projects(
-        session, [project.id for project in projects], assigned_to, week
+        session,
+        [project.id for project in projects],
+        assigned_to,
+        week,
+        from_date,
+        to_date,
     )
 
 

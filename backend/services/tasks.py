@@ -144,13 +144,29 @@ def _task_in_week(task: Task, week: str) -> bool:
     )
 
 
+def _task_in_dates(task: Task, from_date: date, to_date: date) -> bool:
+    """Indica si la tarea toca alguno de los dias del rango."""
+    if task.start_date is None or task.end_date is None:
+        return False
+    return any(
+        from_date <= day <= to_date
+        for day in business_days(task.start_date, task.end_date)
+    )
+
+
 async def list_tasks_for_projects(
     session: AsyncSession,
     project_ids: Sequence[int],
     assigned_to: int | None = None,
     week: str | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
 ) -> list[Task]:
-    """Tareas de un conjunto de proyectos, con filtro por persona y semana."""
+    """Tareas de un conjunto de proyectos, con filtro por persona y periodo.
+
+    El periodo se puede acotar por semana ISO o por rango de fechas. La semana
+    manda si vienen las dos cosas.
+    """
     if not project_ids:
         return []
 
@@ -160,9 +176,23 @@ async def list_tasks_for_projects(
     stmt = stmt.order_by(Task.start_date, Task.id)
     tasks = list((await session.execute(stmt)).scalars().all())
 
-    if week is None:
-        return tasks
-    return [task for task in tasks if _task_in_week(task, week)]
+    if week is not None:
+        return [task for task in tasks if _task_in_week(task, week)]
+    if from_date is not None and to_date is not None:
+        return [task for task in tasks if _task_in_dates(task, from_date, to_date)]
+    if from_date is not None:
+        return [
+            task
+            for task in tasks
+            if task.end_date is not None and task.end_date >= from_date
+        ]
+    if to_date is not None:
+        return [
+            task
+            for task in tasks
+            if task.start_date is not None and task.start_date <= to_date
+        ]
+    return tasks
 
 
 async def list_project_tasks(

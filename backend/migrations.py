@@ -26,7 +26,7 @@ COLUMN_ADDITIONS = (
 NON_WORKING_DAYS_COLUMNS = ("id", "date", "name", "scope", "department_id", "user_id", "half_day")
 
 
-def _migrate_non_working_days(sync_conn, tables: set[str]) -> None:
+def _migrate_non_working_days(sync_conn, tables: set[str], inspector) -> None:
     """Recrea la tabla de dias no laborables con el alcance por persona.
 
     El alcance por persona anade la columna `user_id` y cambia las
@@ -34,13 +34,17 @@ def _migrate_non_working_days(sync_conn, tables: set[str]) -> None:
     tabla, asi que se crea la nueva con el esquema del modelo, se copian los
     dias y se le cambia el nombre. Las bases nuevas no pasan por aqui: las
     crea `create_all` con el esquema al dia.
+
+    La comprobacion es si la columna `user_id` ya existe: si existe, la
+    migracion ya se aplico. Se pregunta al inspector de SQLAlchemy y no al
+    catalogo de SQLite, que en PostgreSQL no existe y hacia fallar el
+    arranque. El resto de la migracion es SQL estandar: funciona en los dos
+    motores.
     """
     if "non_working_days" not in tables:
         return
-    ddl = sync_conn.execute(
-        text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'non_working_days'")
-    ).scalar_one_or_none()
-    if ddl is None or "'person'" in ddl:
+    columnas = {item["name"] for item in inspector.get_columns("non_working_days")}
+    if "user_id" in columnas:
         return
 
     # La tabla nueva lleva claves foraneas a users y departments: hay que
@@ -82,7 +86,7 @@ async def apply_migrations(engine: AsyncEngine) -> None:
             sync_conn.execute(
                 text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
             )
-        _migrate_non_working_days(sync_conn, tables)
+        _migrate_non_working_days(sync_conn, tables, inspector)
 
     async with engine.begin() as conn:
         await conn.run_sync(_migrate)

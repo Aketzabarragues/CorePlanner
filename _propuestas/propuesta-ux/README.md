@@ -313,4 +313,56 @@ Los datos de ejemplo (personas, proyectos, horas) sirven solo para ilustrar las 
 ---
 
 ## Decisiones tomadas
-_(el agente las va añadiendo aquí)_
+
+### Fase 1 — Componentes comunes y textos
+
+1. **El detalle se abre en un panel lateral, no en un modal centrado.** El
+   desglose de una celda tapaba la matriz justo cuando el operario la está
+   leyendo. El panel entra desde la derecha y es un diálogo (`role="dialog"`,
+   `aria-modal`, cierre con `Esc`, foco atrapado).
+2. **`PageHeader` no lleva migas.** El shell ya las pinta encima de la vista;
+   meterlas también en el componente era verlas dos veces.
+3. **El comportamiento de los diálogos vive en `useDialog`.** Esc, bloqueo del
+   desplazamiento, trampa de foco y devolución del foco. `ModalDialog` lo adopta
+   y de paso gana la trampa de foco que le faltaba.
+4. **Un solo patrón de aviso:** el banner en línea, con icono y acción
+   opcional. El toast flotante desaparece. El azul de Siemens se mantiene; los
+   avisos usan la paleta estándar de Tailwind.
+5. **El esqueleto envuelve solo el contenido, por debajo de la cabecera.** La
+   cabecera se ve mientras cargan los datos, y el esqueleto sale al cargar y al
+   reintentar, no en cada refresco.
+6. **Lo que ve el operario lleva tilde, lo que no se ve sigue en ASCII.**
+   Incluidos los mensajes de error del backend y los datos de demostración (un
+   nombre de proyecto sale en pantalla). Los mensajes de validación de Pydantic
+   siguen en inglés: es un problema de idioma, no de tildes, y queda pendiente
+   de decidir aparte.
+7. **El login automático de demostración queda detrás de una variable de
+   entorno** y desactivado por defecto en producción.
+
+### Fase 2 — Escala de carga e informes que no se piden dos veces
+
+8. **La escala vive en `utils/load.js`, no en las plantillas.** Los umbrales
+   (50 %, 85 %, 100 %, 110 %) son constantes del módulo. Las vistas pintan; no
+   calculan. Así la escala es la misma en la matriz, en el panel y en el
+   planificador, y se puede probar sola.
+9. **La capacidad desconocida (`capacity` a null) no se inventa.** La celda
+   enseña las horas sin barra, sin estado y sin color de fondo. Pinta "libre"
+   cuando no se sabe si está libre sería mentir.
+10. **El perfil de la persona viaja en el informe** (`department_id`,
+    `job_title`, `project_ids`): es el cambio 7.3 de la propuesta, adelantado
+    aquí porque sin él la pantalla global hace una petición por proyecto solo
+    para pintar el detalle. Con el perfil en la fila, se sabe además a quién se
+    puede reasignar una tarea sin mirar otra pantalla.
+11. **El filtro por persona va en SQL** (`assigned_to` y `week`), no en el
+    cliente. El backend ya filtraba por semana; faltaba el filtro por persona.
+12. **La sobrecarga la sigue diciendo el backend.** La celda usa el mismo
+    `capacity` que el motor usa para marcarla, de modo que el icono y el color
+    no pueden contradecirlo. El triángulo acompaña siempre al color.
+13. **A quién se puede reasignar: los miembros del proyecto de la tarea.** Las
+    filas del informe son el universo de personas; los no-miembros llegan con
+    `project_ids` vacío y no se ofrecen como destino.
+14. **La fila de equipo suma lo que el backend ya devuelve.** Si alguien no
+    tiene capacidad, la fila se marca como desconocida, no como cero.
+15. **La insignia de "Hoy" y el rango de fechas sí entran en la fase 2.** La
+    insignia de festivo espera a la fase 3, que necesita el cambio 7.4 de la
+    API.

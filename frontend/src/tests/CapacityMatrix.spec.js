@@ -16,22 +16,28 @@ const capacityReport = {
       user_id: 1,
       name: 'Ana',
       weekly_base_hours: 40,
+      department_id: 1,
+      job_title: 'Project Manager',
+      project_ids: [1],
       total_hours: 10,
       has_overload: false,
       cells: [
-        { week: '2026-W45', hours: 10, is_overloaded: false },
-        { week: '2026-W46', hours: 0, is_overloaded: false },
+        { week: '2026-W45', hours: 10, capacity: 40, is_overloaded: false },
+        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false },
       ],
     },
     {
       user_id: 2,
       name: 'Sebastian',
       weekly_base_hours: 40,
+      department_id: 1,
+      job_title: 'Ingeniero',
+      project_ids: [1],
       total_hours: 72,
       has_overload: true,
       cells: [
-        { week: '2026-W45', hours: 24, is_overloaded: false },
-        { week: '2026-W46', hours: 48, is_overloaded: true },
+        { week: '2026-W45', hours: 24, capacity: 40, is_overloaded: false },
+        { week: '2026-W46', hours: 48, capacity: 40, is_overloaded: true },
       ],
     },
   ],
@@ -99,14 +105,81 @@ describe('CapacityMatrix', () => {
     expect(localStorage.getItem('coreplanner_token')).toBe('tok-demo')
   })
 
-  it('pinta en rojo la celda sobrecargada', async () => {
+  it('pinta la celda sobrecargada con su icono y su porcentaje', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    const overloaded = wrapper.findAll('td.bg-red-200')
-    expect(overloaded).toHaveLength(1)
-    expect(overloaded[0].text()).toBe('48')
-    expect(overloaded[0].classes()).toContain('text-red-900')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.classes()).toContain('bg-red-200')
+    expect(celda.classes()).toContain('text-red-900')
+    // 48 h de 40 h: el 120 % y el triangulo que la marca sin depender del color.
+    expect(celda.text()).toContain('48/40')
+    expect(celda.text()).toContain('120 %')
+    expect(celda.find('svg').exists()).toBe(true)
+  })
+
+  it('una celda sin horas muestra un punto y no una barra', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    expect(celda.text()).toContain('·')
+    expect(celda.text()).not.toContain('%')
+  })
+
+  it('con capacidad desconocida la celda no se marca como libre', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          rows: capacityReport.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((cell) => ({ ...cell, capacity: null })),
+          })),
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.classes()).not.toContain('bg-blue-100')
+    expect(celda.classes()).not.toContain('bg-red-200')
+    expect(celda.text()).toContain('48')
+    expect(celda.text()).toContain('sin capacidad')
+  })
+
+  it('la cabecera de semana dice el numero y el rango, y marca la de hoy', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const cabeceras = wrapper.findAll('thead th')
+    expect(cabeceras[1].text()).toContain('Sem 45')
+    expect(cabeceras[1].text()).toContain('2 - 6 nov 2026')
+    // La semana en curso lleva la insignia.
+    const conHoy = cabeceras.filter((th) => th.text().includes('Hoy'))
+    expect(conHoy.length).toBeLessThanOrEqual(1)
+  })
+
+  it('la fila de equipo enseña el uso agregado', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const equipo = wrapper.findAll('tbody tr').at(-1)
+    expect(equipo.text()).toContain('Equipo')
+    // W45: 10 h + 24 h sobre 40 h + 40 h de capacidad.
+    expect(equipo.text()).toContain('43 %')
+    // W46: 0 h + 48 h sobre las mismas 80 h.
+    expect(equipo.text()).toContain('60 %')
+    expect(equipo.text()).toContain('82')
+  })
+
+  it('la leyenda explica la escala', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const texto = wrapper.text()
+    expect(texto).toContain('Libre (menos del 50 %)')
+    expect(texto).toContain('Óptimo (85–100 %)')
+    expect(texto).toContain('Sobrecarga alta ▲ (más del 110 %)')
   })
 
   it('avisa de las tareas que caen enteramente en dias no laborables', async () => {
@@ -161,7 +234,7 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
@@ -173,7 +246,7 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
@@ -196,7 +269,7 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
@@ -214,7 +287,7 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
@@ -240,7 +313,7 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
@@ -307,11 +380,33 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix({ id: null })
 
-    const celda = wrapper.findAll('tbody td button').find((b) => b.text() === '48')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
     await flushPromises()
 
     expect(calls.some((call) => call.url.includes('/api/tasks?week='))).toBe(true)
     expect(wrapper.text()).toContain('Puesta en marcha')
+  })
+
+  it('la matriz no pide los miembros de cada proyecto', async () => {
+    const calls = setupFetch()
+    await mountMatrix({ id: null })
+
+    // El informe trae el perfil de cada persona: no hace falta pedir los
+    // miembros de cada proyecto por separado.
+    expect(calls.some((call) => call.url.includes('/members'))).toBe(false)
+  })
+
+  it('el desglose pide solo las tareas de la persona, en el servidor', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    await celda.trigger('click')
+    await flushPromises()
+
+    const url = calls.find((call) => call.url.includes('/api/tasks?')).url
+    expect(url).toContain('assigned_to=2')
+    expect(url).toContain('week=2026-W46')
   })
 })

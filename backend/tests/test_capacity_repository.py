@@ -10,10 +10,20 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.database import create_engine
-from backend.models import Base, Project, ProjectMember, Role, Task, TaskStatus, User
+from backend.models import (
+    Base,
+    Department,
+    Project,
+    ProjectMember,
+    Role,
+    Task,
+    TaskStatus,
+    User,
+)
 from backend.services.capacity_repository import load_project_capacity
 
 
@@ -116,6 +126,42 @@ async def test_el_informe_no_incluye_tareas_de_otros_proyectos(session):
 
     assert report.unassigned_task_ids == ()
     assert report.rows[0].total_hours < 100.0
+
+
+async def test_cada_fila_trae_el_perfil_de_la_persona(session):
+    """La fila lleva departamento, puesto y proyectos: el frontend no los pide aparte."""
+    department = Department(name="Automatizacion")
+    session.add(department)
+    await session.flush()
+
+    ana, _luis, project = await _seed(session)
+    ana.department_id = department.id
+    ana.job_title = "Ingeniero PLC"
+    otro = Project(name="Linea 2")
+    session.add(otro)
+    await session.flush()
+    role_id = await session.scalar(select(Role.id).where(Role.name == "Ingeniero"))
+    session.add(ProjectMember(user_id=ana.id, project_id=otro.id, role_id=role_id))
+    await session.commit()
+
+    report = await load_project_capacity(session, project.id)
+
+    row = next(r for r in report.rows if r.user_id == ana.id)
+    assert row.department_id == department.id
+    assert row.job_title == "Ingeniero PLC"
+    # Solo los proyectos del informe: los demas no se cuelan.
+    assert row.project_ids == (project.id,)
+
+
+async def test_el_perfil_va_tambien_en_el_diccionario_del_informe(session):
+    ana, _luis, project = await _seed(session)
+
+    report = await load_project_capacity(session, project.id)
+
+    fila = next(f for f in report.to_dict()["rows"] if f["user_id"] == ana.id)
+    assert fila["job_title"] is None
+    assert fila["department_id"] is None
+    assert fila["project_ids"] == [project.id]
 
 
 async def test_el_informe_serializa_a_diccionario_desde_la_base_de_datos(session):

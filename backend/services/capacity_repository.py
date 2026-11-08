@@ -6,7 +6,7 @@ a datos, de modo que el motor se pueda probar sin base de datos.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -60,12 +60,14 @@ async def load_holidays(
 async def load_person_capacities(
     session: AsyncSession,
     users: Sequence[User],
+    project_ids_by_user: Mapping[int, Sequence[int]] | None = None,
 ) -> list[PersonCapacity]:
     """Perfil de capacidad de cada persona.
 
     Reune el horario versionado de cada una y los dias no laborables que le
     aplican: los de alcance global, los del departamento al que pertenece y
-    los que son solo suyos.
+    los que son solo suyos. Con project_ids_by_user se anaden los proyectos de
+    los que es miembro, para que el frontend no los tenga que pedir aparte.
     """
     if not users:
         return []
@@ -121,6 +123,11 @@ async def load_person_capacities(
                     sorted(versions.get(user.id, []), key=lambda item: item.valid_from)
                 ),
                 holidays=holidays,
+                department_id=user.department_id,
+                job_title=user.job_title,
+                project_ids=tuple(
+                    sorted(project_ids_by_user.get(user.id, ())) if project_ids_by_user else ()
+                ),
             )
         )
     return people
@@ -188,11 +195,18 @@ async def load_capacity_for_projects(
     if not ids:
         return build_capacity_report([], [])
 
-    members = (
+    memberships = (
         await session.execute(
-            select(ProjectMember.user_id).where(ProjectMember.project_id.in_(ids))
+            select(ProjectMember.user_id, ProjectMember.project_id).where(
+                ProjectMember.project_id.in_(ids)
+            )
         )
-    ).scalars().all()
+    ).all()
+    members = {user_id for user_id, _ in memberships}
+
+    projects_by_user: dict[int, list[int]] = {}
+    for user_id, project_id in memberships:
+        projects_by_user.setdefault(user_id, []).append(project_id)
 
     tasks = (
         await session.execute(select(Task).where(Task.project_id.in_(ids)))
@@ -206,7 +220,7 @@ async def load_capacity_for_projects(
     ).scalars().all()
 
     ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
-    people = await load_person_capacities(session, ordered)
+    people = await load_person_capacities(session, ordered, projects_by_user)
     return build_capacity_report(people, tasks)
 
 

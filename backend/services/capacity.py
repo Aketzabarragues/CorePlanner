@@ -86,6 +86,9 @@ class PersonCapacity:
     weekly_base_hours: Decimal | None = None
     schedules: tuple[ScheduleVersion, ...] = ()
     holidays: Mapping[date, int] = field(default_factory=dict)
+    department_id: int | None = None
+    job_title: str | None = None
+    project_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +124,9 @@ class UserLoad:
     name: str
     weekly_base_hours: Decimal | None
     cells: tuple[WeekLoad, ...]
+    department_id: int | None = None
+    job_title: str | None = None
+    project_ids: tuple[int, ...] = ()
 
     @property
     def total_units(self) -> int:
@@ -159,6 +165,9 @@ class CapacityReport:
                     ),
                     "total_hours": hours_to_json(row.total_hours),
                     "has_overload": row.has_overload,
+                    "department_id": row.department_id,
+                    "job_title": row.job_title,
+                    "project_ids": list(row.project_ids),
                     "cells": [
                         {
                             "week": cell.week,
@@ -383,6 +392,9 @@ def build_capacity_report(
                 name=person.name,
                 weekly_base_hours=person.weekly_base_hours,
                 cells=tuple(cells),
+                department_id=person.department_id,
+                job_title=person.job_title,
+                project_ids=person.project_ids,
             )
         )
 

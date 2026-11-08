@@ -36,9 +36,22 @@ const projectName = computed(() => {
   return (task) => names[task.project_id] ?? ''
 })
 
-const otherMembers = computed(() =>
-  props.members.filter((member) => member.user_id !== props.cell.user_id),
-)
+/**
+ * A quien se puede reasignar la tarea.
+ *
+ * Solo los miembros del proyecto de la tarea: el backend rechaza con un 422
+ * cualquier otra persona, asi que no tiene sentido offererla.
+ */
+function candidatesFor(task) {
+  if (!task) return []
+  return props.members.filter(
+    (member) =>
+      member.user_id !== props.cell.user_id &&
+      (member.project_ids ?? []).includes(task.project_id),
+  )
+}
+
+const otherMembers = computed(() => candidatesFor(reassigning.value?.task))
 
 function taskHours(task) {
   // Las horas de la tarea se muestran tal cual, sin repartir: el reparto
@@ -130,8 +143,8 @@ function taskRange(task) {
           <button
             type="button"
             class="rounded border border-slate-300 px-2 py-1"
-            :disabled="otherMembers.length === 0"
-            @click="reassigning = { task, target: otherMembers[0]?.user_id ?? null }"
+            :disabled="candidatesFor(task).length === 0"
+            @click="reassigning = { task, target: candidatesFor(task)[0]?.user_id ?? null }"
           >
             Reasignar
           </button>

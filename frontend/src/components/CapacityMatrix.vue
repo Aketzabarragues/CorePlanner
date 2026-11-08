@@ -20,6 +20,18 @@ import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import {
+  LOAD_STATE,
+  isOverloaded,
+  loadAspect,
+  loadBarWidth,
+  loadLabel,
+  loadRatio,
+  loadState,
+  teamUsage,
+} from '../utils/load'
+import { currentWeekKey, weekRangeLabel, weekTitle } from '../utils/weeks'
+import AppIcon from './AppIcon.vue'
 import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
@@ -40,7 +52,6 @@ const empty = ref(false)
 const loading = ref(true)
 const saving = ref(false)
 const departmentFilter = ref('')
-const globalMembers = ref([])
 
 const breakdown = ref(null)
 const breakdownTasks = ref([])
@@ -48,57 +59,150 @@ const breakdownTasks = ref([])
 /** Sin identificador de proyecto la matriz es global. */
 const isGlobal = computed(() => props.id === null || props.id === undefined)
 
-const members = computed(() => (isGlobal.value ? globalMembers.value : store.members))
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
 /** Tareas que caen enteramente en dias no laborables: valen cero horas. */
 const holidayTaskIds = computed(() => report.value?.holiday_task_ids ?? [])
+
+/**
+ * Personas del informe, con los proyectos de los que son miembro.
+ *
+ * El informe trae el perfil de cada persona, asi que no hace falta pedir los
+ * miembros de cada proyecto por separado: las filas son las personas y sus
+ * pertenencias.
+ */
+const people = computed(() =>
+  rows.value.map((row) => ({
+    user_id: row.user_id,
+    name: row.name,
+    project_ids: row.project_ids ?? [],
+  })),
+)
 
 /** Titulo del panel de detalle: quien y en que semana. */
 const breakdownTitle = computed(() =>
   breakdown.value ? `${breakdown.value.name} en ${breakdown.value.week}` : '',
 )
 
+/** Semana en curso, para marcar la columna con la insignia de "Hoy". */
+const currentWeek = computed(() => currentWeekKey())
+
+/** Leyenda de la escala de carga. */
+const LEGEND = [
+  { state: LOAD_STATE.FREE, label: 'Libre (menos del 50 %)' },
+  { state: LOAD_STATE.MID, label: 'Carga media' },
+  { state: LOAD_STATE.OPTIMAL, label: 'Óptimo (85–100 %)' },
+  { state: LOAD_STATE.OVERLOAD, label: 'Sobrecarga leve ▲ (hasta 110 %)' },
+  { state: LOAD_STATE.HIGH_OVERLOAD, label: 'Sobrecarga alta ▲ (más del 110 %)' },
+]
+
 function cellOf(row, week) {
   return (
     row.cells.find((cell) => cell.week === week) ?? {
       week,
       hours: 0,
+      capacity: null,
       is_overloaded: false,
     }
   )
 }
 
-/** Junta las listas de miembros de varios proyectos sin repetir personas. */
-function mergeMembers(lists) {
-  const merged = new Map()
-  for (const list of lists) {
-    for (const member of list) {
-      if (!merged.has(member.user_id)) merged.set(member.user_id, member)
-    }
+/**
+ * Como se ve una celda: cifras, estado de carga y clases.
+ *
+ * El estado lo decide la escala de carga, con la capacidad que da el backend.
+ * Una celda sin horas muestra un punto; con capacidad desconocida muestra las
+ * horas y nada mas: no se sabe si esta libre ni sobrecargada.
+ */
+function cellView(row, week) {
+  const cell = cellOf(row, week)
+  const state = loadState(cell.hours, cell.capacity)
+  const aspect = loadAspect(state)
+  const ratio = loadRatio(cell.hours, cell.capacity)
+  const vacia = !(cell.hours > 0)
+
+  return {
+    week,
+    state,
+    etiqueta: loadLabel(state),
+    sobrecargada: isOverloaded(state) || cell.is_overloaded === true,
+    principal: vacia ? '·' : cell.hours,
+    capacidad: vacia ? '' : ratio === null ? 'sin capacidad' : `/${cell.capacity}`,
+    porcentaje: vacia || ratio === null ? '' : `${ratio} %`,
+    anchoBarra: loadBarWidth(cell.hours, cell.capacity),
+    clases: [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
+    claseBarra: aspect.bar,
+    muestraBarra: !vacia && ratio !== null,
   }
-  return [...merged.values()]
 }
 
-/** Recarga la matriz y, en el espacio global, las personas de todos los proyectos. */
+/** La matriz con cada celda ya resuelta. */
+const matrix = computed(() =>
+  rows.value.map((row) => ({
+    fila: row,
+    celdas: weeks.value.map((week) => cellView(row, week)),
+  })),
+)
+
+/** Uso del equipo en cada semana: horas, capacidad y estado. */
+const team = computed(() =>
+  weeks.value.map((week) => {
+    const usage = teamUsage(rows.value, week)
+    const state = loadState(usage.hours, usage.capacity)
+    const aspect = loadAspect(state)
+    const ratio = loadRatio(usage.hours, usage.capacity)
+    return {
+      week,
+      horas: usage.hours,
+      porcentaje: ratio === null ? '' : `${ratio} %`,
+      anchoBarra: loadBarWidth(usage.hours, usage.capacity),
+      clases: [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
+      claseBarra: aspect.bar,
+    }
+  }),
+)
+
+/** Horas totales del equipo. */
+const teamTotal = computed(() =>
+  rows.value.reduce((sum, row) => sum + Number(row.total_hours ?? 0), 0),
+)
+
+/** Colores de la muestra de la leyenda. */
+function legendSwatch(state) {
+  const aspect = loadAspect(state)
+  return [aspect.cell, aspect.border].filter(Boolean).join(' ')
+}
+
+/** Lo que se lee en voz alta al saltar a una celda. */
+function cellAria(row, week) {
+  const cell = cellOf(row, week)
+  const partes = [`${row.name}, semana ${weekTitle(week)}`]
+  if (!(cell.hours > 0)) {
+    partes.push('sin horas')
+    return partes.join(', ')
+  }
+  partes.push(`${cell.hours} h`)
+  const ratio = loadRatio(cell.hours, cell.capacity)
+  if (ratio === null) {
+    partes.push('capacidad desconocida')
+  } else {
+    partes.push(`de ${cell.capacity} h`)
+    partes.push(`${ratio} %`)
+  }
+  if (cell.is_overloaded) partes.push('sobrecarga')
+  return partes.join(', ')
+}
+
+/** Recarga la matriz. */
 async function refresh() {
   const token = auth.token
   if (isGlobal.value) {
     const params = departmentFilter.value ? { department_id: departmentFilter.value } : {}
-    const [capacity, memberLists] = await Promise.all([
-      overviewApi.capacity(token, params),
-      Promise.all(store.projects.map((item) => projectsApi.members(token, item.id))),
-    ])
-    report.value = capacity
-    globalMembers.value = mergeMembers(memberLists)
+    report.value = await overviewApi.capacity(token, params)
     return
   }
 
-  const [capacity] = await Promise.all([
-    projectsApi.capacity(token, project.value.id),
-    store.ensureMembers(token, project.value.id),
-  ])
-  report.value = capacity
+  report.value = await projectsApi.capacity(token, project.value.id)
 }
 
 async function reload() {
@@ -155,18 +259,16 @@ async function openCell(row, week) {
 /**
  * Descarga las tareas de la persona en la semana abierta.
  *
- * El backend filtra por semana, asi que el filtro de persona se aplica en
- * cliente sobre el conjunto de proyectos.
+ * El backend filtra por persona y por semana, de modo que solo llegan las
+ * tareas que componen la celda.
  */
 async function loadBreakdownTasks() {
   if (!breakdown.value) return
   const token = auth.token
-  const tasks = isGlobal.value
-    ? await tasksApi.list(token, { week: breakdown.value.week })
-    : await projectsApi.tasks(token, project.value.id, { week: breakdown.value.week })
-  breakdownTasks.value = tasks.filter(
-    (task) => task.assigned_to === breakdown.value.user_id,
-  )
+  const params = { week: breakdown.value.week, assigned_to: breakdown.value.user_id }
+  breakdownTasks.value = isGlobal.value
+    ? await tasksApi.list(token, params)
+    : await projectsApi.tasks(token, project.value.id, params)
 }
 
 async function saveTask(taskId, payload) {
@@ -331,46 +433,118 @@ watch(departmentFilter, () => {
               <th
                 v-for="week in weeks"
                 :key="week"
-                class="border border-slate-200 px-3 py-2 text-center"
+                class="border border-slate-200 px-2 py-2 text-center"
               >
-                {{ week }}
+                <span class="block text-xs font-semibold text-slate-700">
+                  {{ weekTitle(week) }}
+                </span>
+                <span class="block text-[10px] font-normal text-slate-500">
+                  {{ weekRangeLabel(week) }}
+                </span>
+                <span
+                  v-if="week === currentWeek"
+                  class="mt-0.5 inline-block rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+                >
+                  Hoy
+                </span>
               </th>
               <th class="border border-slate-200 px-3 py-2 text-right">Total</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.user_id">
+            <tr v-for="entrada in matrix" :key="entrada.fila.user_id">
               <th
                 class="sticky left-0 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
               >
-                {{ row.name }}
+                {{ entrada.fila.name }}
                 <span class="block text-xs font-normal text-slate-400">
-                  {{ row.weekly_base_hours }} h/semana
+                  {{ entrada.fila.weekly_base_hours }} h/semana
                 </span>
               </th>
               <td
-                v-for="week in weeks"
-                :key="week"
-                class="border border-slate-200 px-3 py-2 text-center tabular-nums"
-                :class="cellOf(row, week).is_overloaded
-                  ? 'bg-red-200 font-semibold text-red-900'
-                  : 'text-slate-700'"
+                v-for="celda in entrada.celdas"
+                :key="celda.week"
+                class="border border-slate-200 p-1"
               >
                 <button
                   type="button"
-                  class="w-full hover:underline"
-                  :title="`Ver tareas de ${row.name} en ${week}`"
-                  @click="openCell(row, week)"
+                  class="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded border px-1 py-1.5"
+                  :class="celda.clases"
+                  :title="`Ver tareas de ${entrada.fila.name} en ${celda.week}`"
+                  :aria-label="cellAria(entrada.fila, celda.week)"
+                  :data-testid="`cell-${entrada.fila.user_id}-${celda.week}`"
+                  @click="openCell(entrada.fila, celda.week)"
                 >
-                  {{ cellOf(row, week).hours }}
+                  <span class="flex items-center gap-1">
+                    <span v-if="celda.sobrecargada" class="h-3 w-3 shrink-0">
+                      <AppIcon name="warning" />
+                    </span>
+                    <span class="text-sm font-semibold tabular-nums">{{ celda.principal }}</span>
+                    <span class="text-[11px] tabular-nums opacity-80">
+                      {{ celda.capacidad }}
+                    </span>
+                  </span>
+                  <span v-if="celda.porcentaje" class="text-[10px] tabular-nums opacity-80">
+                    {{ celda.porcentaje }}
+                  </span>
+                  <span
+                    v-if="celda.muestraBarra"
+                    class="block h-1 w-3/4 rounded bg-slate-900/10"
+                  >
+                    <span
+                      class="block h-1 rounded"
+                      :class="celda.claseBarra"
+                      :style="{ width: `${celda.anchoBarra}%` }"
+                    ></span>
+                  </span>
                 </button>
               </td>
               <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
-                {{ row.total_hours }}
+                {{ entrada.fila.total_hours }}
+              </td>
+            </tr>
+
+            <tr class="bg-slate-50">
+              <th
+                class="sticky left-0 border border-slate-200 bg-slate-50 px-3 py-2 text-left font-medium"
+              >
+                Equipo
+                <span class="block text-xs font-normal text-slate-400">uso agregado</span>
+              </th>
+              <td
+                v-for="semana in team"
+                :key="semana.week"
+                class="border border-slate-200 p-1"
+              >
+                <div
+                  class="flex min-h-14 flex-col items-center justify-center gap-1 rounded border px-1 py-1.5"
+                  :class="semana.clases"
+                >
+                  <span class="text-sm font-semibold tabular-nums">
+                    {{ semana.porcentaje || '·' }}
+                  </span>
+                  <span class="block h-1 w-3/4 rounded bg-slate-900/10">
+                    <span
+                      class="block h-1 rounded"
+                      :class="semana.claseBarra"
+                      :style="{ width: `${semana.anchoBarra}%` }"
+                    ></span>
+                  </span>
+                </div>
+              </td>
+              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
+                {{ teamTotal }}
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
+        <span v-for="item in LEGEND" :key="item.state" class="flex items-center gap-1.5">
+          <span class="h-3 w-3 rounded border" :class="legendSwatch(item.state)"></span>
+          {{ item.label }}
+        </span>
       </div>
     </AsyncState>
 
@@ -387,8 +561,8 @@ watch(departmentFilter, () => {
       v-if="!loading && !error && rows.some((r) => r.has_overload)"
       class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
     >
-      En rojo, las semanas que superan las horas base de la persona. Pulsa una celda
-      para ver y editar las tareas que la componen.
+      Las celdas con triangulo son las semanas que superan la capacidad de la persona.
+      Pulsa una celda para ver y editar las tareas que la componen.
     </p>
 
     <!-- Panel de detalle de la celda -->
@@ -405,7 +579,7 @@ watch(departmentFilter, () => {
       <CellBreakdown
         :cell="breakdown"
         :tasks="breakdownTasks"
-        :members="members"
+        :members="people"
         :projects="isGlobal ? store.projects : []"
         :saving="saving"
         @save="saveTask"

@@ -52,6 +52,11 @@ export function weekLabel(key) {
   return `S${key.split('-W')[1]}`
 }
 
+/** Titulo de la semana, para las cabeceras de columna: "Sem 46". */
+export function weekTitle(key) {
+  return `Sem ${key.split('-W')[1]}`
+}
+
 /**
  * Dias laborables de la semana: de lunes a viernes.
  *

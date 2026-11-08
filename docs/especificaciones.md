@@ -607,3 +607,84 @@ lo demas si la lleva.
     se encarga de Esc, del bloqueo del desplazamiento, de la trampa de foco y
     de devolver el foco al elemento que abrio el dialogo. `ModalDialog` lo usa
     tambien, y de paso gana la trampa de foco que le faltaba.
+
+## 20. Escala de carga e informes que no se piden dos veces
+
+La matriz de capacidad enseña las horas de cada persona en cada semana, pero
+hasta ahora solo decia si la semana estaba sobrecargada o no. El operario
+tenia que dividir a mano para saber cuanto de la jornada se lleva. Ademas, en
+el espacio global, la pantalla pedia los miembros de cada proyecto por
+separado: una peticion por proyecto solo para poder pintar el panel de
+detalle.
+
+Este bloque introduce la escala de carga y quita esas peticiones de mas. Es la
+fase 2 de la propuesta de interfaz, con el cierre de la correccion 6.5.
+
+### Que entra
+
+- **La escala de carga**, en `frontend/src/utils/load.js`, con su test
+  unitario:
+  - El uso es `horas / capacidad`, y los umbrales (50 %, 85 %, 100 %, 110 %)
+    son constantes del modulo, no valores sueltos en las plantillas.
+  - Seis estados: sin carga, libre, carga media, optimo, sobrecarga leve y
+    sobrecarga alta.
+  - **Capacidad desconocida** (`capacity` a null): la celda enseña las horas
+    sin barra y sin estado. No se marca como libre ni como sobrecargada.
+  - La sobrecarga lleva icono de triangulo ademas del color: nunca solo
+    color.
+- **Las celdas** de la matriz enseñan horas, capacidad, barra de uso e icono.
+  Una celda sin horas muestra un punto, no un cero.
+- **La fila de equipo**, al final de la tabla: el uso agregado por semana.
+- **La cabecera de semana**: el numero de semana, el rango de fechas y la
+  insignia de "Hoy" en la semana en curso.
+- **La leyenda** de la escala, debajo de la matriz.
+- **El informe de capacidad trae el perfil de cada persona**: su
+  departamento, su puesto y los proyectos de los que es miembro. Con eso, la
+  pantalla deja de pedir los miembros de cada proyecto por separado.
+- **El panel de detalle filtra por persona en el servidor**, no en el
+  cliente: se piden solo las tareas de esa persona en esa semana.
+
+### Que no entra
+
+- **Los modos de la celda** (horas, % de uso, proyectos): son de la fase 4, la
+  que unifica la pantalla de capacidad. Aqui la celda enseña siempre las
+  horas con su capacidad.
+- **El eje de semanas continuo** y los filtros por proyecto, departamento y
+  competencia: son de la fase 3, con sus cambios de API.
+- **La insignia de festivo** en la cabecera de semana: necesita que la API
+  devuelva los festivos de cada semana (cambio 7.4 de la propuesta), que es
+  de la fase 3.
+- **El arrastre de tareas** entre personas, con previsualizacion: es de la
+  fase 4.
+- **Los filtros y el estado en la URL**: son de la fase 3.
+- **La fila de equipo no la calcula el backend**: es la suma de las horas y
+  las capacidades que el backend ya devuelve. El motor sigue siendo el unico
+  sitio donde se reparten las horas.
+
+### Decisiones de este bloque
+
+1. **La escala vive en un helper, no en las plantillas.** `load.js` decide el
+   estado y devuelve las clases y las etiquetas. Las vistas pintan; no
+   calculan. Asi la escala es la misma en la matriz, en el panel y en el
+   planificador, y se puede probar sola.
+2. **La capacidad desconocida no se inventa.** Si el backend no sabe la
+   capacidad de una persona, la celda no la pinta de ninguna manera: se ve
+   la cifra, pero sin barra y sin estado. Pinta "libre" cuando no se sabe si
+   esta libre seria mentir.
+3. **El perfil de la persona va en el informe, no en una peticion aparte.**
+   Cada fila de la matriz lleva su departamento, su puesto y sus proyectos.
+   Asi el espacio global deja de hacer una peticion por proyecto, y mas
+   adelante se puede saber a quien se puede reasignar una tarea sin mirar
+   otra pantalla.
+4. **El filtro por persona va en SQL.** El backend ya filtraba por semana en
+   SQL; faltaba el filtro por persona. El panel pide solo las tareas de esa
+   persona en esa semana.
+5. **La sobrecarga la sigue diciendo el backend.** La celda usa el mismo
+   `capacity` que el backend usa para marcar la sobrecarga, de modo que el
+   icono y el color no pueden contradecir al motor.
+6. **El icono de sobrecarga es el del prototipo**: un triangulo de
+   advertencia, dibujado con `AppIcon`, que ya sabe hacer iconos decorativos.
+7. **La fila de equipo suma lo que el backend ya devolvio.** No recalcula
+   horas ni capacidades: solo las agrega para enseñar el uso del conjunto.
+   Las semanas en las que alguien no tiene capacidad definida se cuentan
+   como capacidad desconocida, no como cero.

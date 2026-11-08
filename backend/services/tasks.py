@@ -7,7 +7,7 @@ reglas sirvan al resto de la aplicacion.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import ProjectMember, Task, TaskStatus, User
 from ..schemas import TaskCreate, TaskUpdate
 from ..services.capacity import business_days, iso_week_key
+from ..services.schedule import week_start_from_key
 
 
 async def get_task_or_404(session: AsyncSession, task_id: int) -> Task:
@@ -166,6 +167,12 @@ async def list_tasks_for_projects(
 
     El periodo se puede acotar por semana ISO o por rango de fechas. La semana
     manda si vienen las dos cosas.
+
+    El filtro de periodo va en SQL: la base de datos devuelve solo las tareas
+    que solapan con el rango, en vez de traerlas todas y descartar despues.
+    Encima se hace el mismo ajuste de siempre, que deja fuera las tareas cuyo
+    rango solo pisa sabados y domingos. El resultado es identico al de filtrar
+    todo en Python, pero sin traer el resto de las tareas.
     """
     if not project_ids:
         return []
@@ -173,25 +180,42 @@ async def list_tasks_for_projects(
     stmt = select(Task).where(Task.project_id.in_(set(project_ids)))
     if assigned_to is not None:
         stmt = stmt.where(Task.assigned_to == assigned_to)
+
+    if week is not None:
+        try:
+            monday = week_start_from_key(week)
+        except ValueError:
+            # Una semana que no existe no es un error: no hay tareas que
+            # coincidan con ella, que es lo que pasaba al filtrar en Python.
+            return []
+        sunday = monday + timedelta(days=6)
+        stmt = stmt.where(
+            Task.start_date.is_not(None),
+            Task.end_date.is_not(None),
+            Task.start_date <= sunday,
+            Task.end_date >= monday,
+        )
+    elif from_date is not None and to_date is not None:
+        stmt = stmt.where(
+            Task.start_date.is_not(None),
+            Task.end_date.is_not(None),
+            Task.start_date <= to_date,
+            Task.end_date >= from_date,
+        )
+    elif from_date is not None:
+        stmt = stmt.where(Task.end_date >= from_date)
+    elif to_date is not None:
+        stmt = stmt.where(Task.start_date <= to_date)
+
     stmt = stmt.order_by(Task.start_date, Task.id)
     tasks = list((await session.execute(stmt)).scalars().all())
 
+    # El ajuste final deja fuera las tareas cuyo rango solo pisa sabados y
+    # domingos, que no se pueden expresar en una consulta.
     if week is not None:
         return [task for task in tasks if _task_in_week(task, week)]
     if from_date is not None and to_date is not None:
         return [task for task in tasks if _task_in_dates(task, from_date, to_date)]
-    if from_date is not None:
-        return [
-            task
-            for task in tasks
-            if task.end_date is not None and task.end_date >= from_date
-        ]
-    if to_date is not None:
-        return [
-            task
-            for task in tasks
-            if task.start_date is not None and task.start_date <= to_date
-        ]
     return tasks
 
 

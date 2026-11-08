@@ -954,4 +954,14 @@ Tres conclusiones que condicionan el trabajo:
   `admin@example.com` no repone una sesion que el usuario cerro: el store de
   sesion guarda esa marca en `localStorage` y el guard lleva al formulario de
   acceso.
+- **El filtro de periodo de las tareas va en SQL.** `list_tasks_for_projects`
+  acota por `week`, `from` y `to` con un `start_date <= fin AND end_date >= inicio`,
+  de modo que la base de datos devuelve solo las tareas que solapan con el
+  rango. Encima se deja fuera las tareas cuyo rango solo pisa sabados y domingos,
+  que no se pueden expresar en una consulta. El resultado es el mismo que
+  filtrando todo en Python, pero sin traer el resto de las tareas.
+- **Las vistas no se remontan al cambiar las tareas.** El shell ya no monta el
+  `router-view` con una clave por revision: cada vista se suscribe con
+  `useTaskReload` y recarga sus datos. Asi la vista conserva sus filtros, su
+  pestana activa y su desplazamiento.
 

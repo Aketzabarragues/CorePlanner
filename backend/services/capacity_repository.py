@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import (
     NonWorkingDay,
     NonWorkingDayScope,
+    PersonSkill,
     ProjectMember,
     Task,
     User,
@@ -22,6 +23,7 @@ from ..models import (
 )
 from .capacity import (
     CapacityReport,
+    Holiday,
     PersonCapacity,
     build_capacity_report,
     compute_task_week_units,
@@ -37,15 +39,18 @@ from .schedule import (
 
 async def load_holidays(
     session: AsyncSession,
-) -> dict[tuple[str, int | None], dict[date, int]]:
-    """Dias no laborables por alcance.
+) -> tuple[dict[tuple[str, int | None], dict[date, int]], list[Holiday]]:
+    """Dias no laborables por alcance, y los globales con su nombre.
 
-    La clave es el alcance y su destinatario: ("global", None) para todos,
-    ("department", id) para un departamento y ("person", id) para una persona.
-    El valor es el peso del dia en medios dias.
+    La clave del mapa es el alcance y su destinatario: ("global", None) para
+    todos, ("department", id) para un departamento y ("person", id) para una
+    persona. El valor es el peso del dia en medios dias.
+    La lista son los dias de alcance global con su nombre: son los unicos que
+    se pueden marcar en la cabecera de una semana.
     """
     days = (await session.execute(select(NonWorkingDay))).scalars().all()
-    result: dict[tuple[str, int | None], dict[date, int]] = {}
+    weights: dict[tuple[str, int | None], dict[date, int]] = {}
+    global_days: list[Holiday] = []
     for day in days:
         if day.scope == NonWorkingDayScope.GLOBAL.value:
             key = (NonWorkingDayScope.GLOBAL.value, None)
@@ -53,14 +58,24 @@ async def load_holidays(
             key = (NonWorkingDayScope.PERSON.value, day.user_id)
         else:
             key = (NonWorkingDayScope.DEPARTMENT.value, day.department_id)
-        result.setdefault(key, {})[day.date] = holiday_weight(day.half_day)
-    return result
+        weights.setdefault(key, {})[day.date] = holiday_weight(day.half_day)
+        if day.scope == NonWorkingDayScope.GLOBAL.value:
+            global_days.append(
+                Holiday(
+                    date=day.date,
+                    name=day.name,
+                    scope=day.scope,
+                    half_day=day.half_day,
+                )
+            )
+    return weights, global_days
 
 
 async def load_person_capacities(
     session: AsyncSession,
     users: Sequence[User],
     project_ids_by_user: Mapping[int, Sequence[int]] | None = None,
+    holidays_by_scope: Mapping[tuple[str, int | None], Mapping[date, int]] | None = None,
 ) -> list[PersonCapacity]:
     """Perfil de capacidad de cada persona.
 
@@ -68,6 +83,7 @@ async def load_person_capacities(
     aplican: los de alcance global, los del departamento al que pertenece y
     los que son solo suyos. Con project_ids_by_user se anaden los proyectos de
     los que es miembro, para que el frontend no los tenga que pedir aparte.
+    Con holidays_by_scope se reutilizan los dias ya leidos.
     """
     if not users:
         return []
@@ -80,7 +96,8 @@ async def load_person_capacities(
         )
     ).scalars().all()
 
-    holidays_by_scope = await load_holidays(session)
+    if holidays_by_scope is None:
+        holidays_by_scope, _ = await load_holidays(session)
 
     versions: dict[int, list[ScheduleVersion]] = {}
     for row in schedules:
@@ -178,11 +195,31 @@ async def load_week_hours(
     return totals
 
 
+async def load_users_with_skill(
+    session: AsyncSession,
+    skill_id: int,
+    min_level: int,
+) -> set[int]:
+    """Personas que tienen la competencia con ese nivel o mas."""
+    rows = (
+        await session.execute(
+            select(PersonSkill.user_id).where(
+                PersonSkill.skill_id == skill_id,
+                PersonSkill.level >= min_level,
+            )
+        )
+    ).scalars().all()
+    return set(rows)
+
+
 async def load_capacity_for_projects(
     session: AsyncSession,
     project_ids: Sequence[int],
     *,
     include_unassigned: bool = True,
+    weeks: Sequence[str] | None = None,
+    skill_id: int | None = None,
+    min_level: int | None = None,
 ) -> CapacityReport:
     """Matriz de ocupacion de un conjunto de proyectos.
 
@@ -190,10 +227,13 @@ async def load_capacity_for_projects(
     filas a cero si no tienen tareas. Con include_unassigned se incorporan
     ademas las personas que tienen tareas en ellos aunque no sean miembros.
     Las horas de cada persona se suman entre proyectos.
+    Con weeks el eje es esa lista de semanas, completa aunque no haya
+    actividad. Con skill_id solo salen las personas que tienen esa competencia
+    con ese nivel o mas.
     """
     ids = {int(project_id) for project_id in project_ids}
     if not ids:
-        return build_capacity_report([], [])
+        return build_capacity_report([], [], weeks=weeks)
 
     memberships = (
         await session.execute(
@@ -215,13 +255,20 @@ async def load_capacity_for_projects(
     assignee_ids = {task.assigned_to for task in tasks if task.assigned_to is not None}
     wanted_ids = set(members) | (assignee_ids if include_unassigned else set())
 
+    if skill_id is not None:
+        skilled = await load_users_with_skill(session, skill_id, min_level or 1)
+        wanted_ids &= skilled
+
     users = (
         await session.execute(select(User).where(User.id.in_(wanted_ids)))
     ).scalars().all()
 
     ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
-    people = await load_person_capacities(session, ordered, projects_by_user)
-    return build_capacity_report(people, tasks)
+    holidays_by_scope, global_days = await load_holidays(session)
+    people = await load_person_capacities(
+        session, ordered, projects_by_user, holidays_by_scope
+    )
+    return build_capacity_report(people, tasks, weeks=weeks, holidays=global_days)
 
 
 async def load_project_capacity(
@@ -229,8 +276,16 @@ async def load_project_capacity(
     project_id: int,
     *,
     include_unassigned: bool = True,
+    weeks: Sequence[str] | None = None,
+    skill_id: int | None = None,
+    min_level: int | None = None,
 ) -> CapacityReport:
     """Matriz de ocupacion de las personas asignadas a un proyecto."""
     return await load_capacity_for_projects(
-        session, [project_id], include_unassigned=include_unassigned
+        session,
+        [project_id],
+        include_unassigned=include_unassigned,
+        weeks=weeks,
+        skill_id=skill_id,
+        min_level=min_level,
     )

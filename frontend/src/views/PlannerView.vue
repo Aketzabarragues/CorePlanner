@@ -8,7 +8,7 @@ import AlertBanner from '../components/common/AlertBanner.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { isoDate, projectSplit, usageRatio, weeksRange } from '../utils/planner'
-import { weekMonday } from '../utils/weeks'
+import { weekKey, weekMonday } from '../utils/weeks'
 
 const auth = useAuthStore()
 
@@ -21,7 +21,8 @@ const notice = ref(null)
 const loading = ref(true)
 const dragging = ref(null)
 
-const weeks = computed(() => report.value?.weeks ?? [])
+/** Semanas del informe, como claves: el planificador no usa los festivos. */
+const weeks = computed(() => (report.value?.weeks ?? []).map(weekKey))
 const rows = computed(() => report.value?.rows ?? [])
 
 /** Clase de cada pestana del conmutador de vista. */

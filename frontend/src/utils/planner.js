@@ -6,7 +6,7 @@
  * y en que proyectos.
  */
 
-import { weekMonday } from './weeks'
+import { weekKey, weekMonday } from './weeks'
 
 /** Fecha ISO de un instante UTC: "2026-11-09". */
 export function isoDate(date) {
@@ -18,8 +18,8 @@ export function isoDate(date) {
 /** Rango de fechas que cubren las semanas indicadas: del lunes al domingo. */
 export function weeksRange(weeks) {
   if (!weeks.length) return null
-  const first = weekMonday(weeks[0])
-  const last = weekMonday(weeks[weeks.length - 1])
+  const first = weekMonday(weekKey(weeks[0]))
+  const last = weekMonday(weekKey(weeks[weeks.length - 1]))
   last.setUTCDate(last.getUTCDate() + 6)
   return { from: isoDate(first), to: isoDate(last) }
 }

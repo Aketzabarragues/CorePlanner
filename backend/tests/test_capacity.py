@@ -14,8 +14,10 @@ from decimal import Decimal
 import pytest
 
 from backend.services.capacity import (
+    Holiday,
     InvalidEstimatedHoursError,
     InvalidTaskRangeError,
+    InvalidWeekRangeError,
     NoBusinessDaysError,
     PersonCapacity,
     build_capacity_report,
@@ -26,6 +28,8 @@ from backend.services.capacity import (
     iso_week_key,
     split_units,
     to_units,
+    week_range,
+    weeks_in_range,
 )
 from backend.services.schedule import holiday_weight
 
@@ -375,7 +379,105 @@ def test_informe_serializa_a_diccionario():
 
     data = build_capacity_report([user], [task]).to_dict()
 
-    assert data["weeks"] == ["2026-W10"]
+    assert [week["week"] for week in data["weeks"]] == ["2026-W10"]
     assert data["rows"][0]["user_id"] == 1
     assert data["rows"][0]["cells"][0]["is_overloaded"] is True
     assert data["rows"][0]["cells"][0]["hours"] == 50.0
+
+
+def test_el_rango_fija_el_eje_y_deja_las_semanas_vacias():
+    """Con rango, el eje sale completo: tambien las semanas sin actividad."""
+    user = person(1, "Ana")
+    task = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50)
+
+    report = build_capacity_report(
+        [user], [task], weeks=("2026-W10", "2026-W11", "2026-W12")
+    )
+
+    assert report.weeks == ("2026-W10", "2026-W11", "2026-W12")
+    assert [cell.hours for cell in report.rows[0].cells] == [
+        H("50.00"),
+        H("0.00"),
+        H("0.00"),
+    ]
+
+
+def test_las_tareas_fuera_del_rango_no_se_imputan():
+    """El rango acota el informe: lo que cae fuera no se enseña."""
+    user = person(1, "Ana")
+    task = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50)
+
+    report = build_capacity_report([user], [task], weeks=("2026-W11", "2026-W12"))
+
+    assert report.rows[0].total_hours == H("0.00")
+    assert report.holiday_task_ids == ()
+    assert [cell.hours for cell in report.rows[0].cells] == [H("0.00"), H("0.00")]
+
+
+def test_las_semanas_del_rango_son_continuas():
+    assert weeks_in_range("2026-W45", "2026-W48") == (
+        "2026-W45",
+        "2026-W46",
+        "2026-W47",
+        "2026-W48",
+    )
+
+
+def test_el_rango_cruza_el_cambio_de_ano():
+    assert weeks_in_range("2026-W52", "2027-W02") == (
+        "2026-W52",
+        "2026-W53",
+        "2027-W01",
+        "2027-W02",
+    )
+
+
+def test_un_rango_invertido_es_error():
+    with pytest.raises(InvalidWeekRangeError):
+        weeks_in_range("2026-W48", "2026-W45")
+
+
+def test_una_semana_que_no_existe_es_error():
+    with pytest.raises(InvalidWeekRangeError):
+        weeks_in_range("2026-W99", "2026-W99")
+
+
+def test_un_rango_a_medias_es_error():
+    with pytest.raises(InvalidWeekRangeError):
+        week_range("2026-W45", None)
+
+
+def test_sin_rango_no_hay_eje_fijo():
+    assert week_range(None, None) is None
+
+
+def test_el_informe_expone_cada_semana_con_sus_festivos():
+    """La semana lleva sus dias no laborables globales, para la cabecera."""
+    user = person(1, "Ana")
+    task = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50)
+    festivo = Holiday(date=date(2026, 3, 6), name="Fiesta local", scope="global")
+
+    data = build_capacity_report([user], [task], holidays=(festivo,)).to_dict()
+
+    assert data["weeks"] == [
+        {
+            "week": "2026-W10",
+            "holidays": [
+                {
+                    "date": "2026-03-06",
+                    "name": "Fiesta local",
+                    "scope": "global",
+                    "half_day": False,
+                }
+            ],
+        }
+    ]
+
+
+def test_una_semana_sin_festivos_lleva_la_lista_vacia():
+    user = person(1, "Ana")
+    task = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 50)
+
+    data = build_capacity_report([user], [task]).to_dict()
+
+    assert data["weeks"][0]["holidays"] == []

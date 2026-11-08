@@ -366,3 +366,32 @@ Los datos de ejemplo (personas, proyectos, horas) sirven solo para ilustrar las 
 15. **La insignia de "Hoy" y el rango de fechas sí entran en la fase 2.** La
     insignia de festivo espera a la fase 3, que necesita el cambio 7.4 de la
     API.
+
+### Fase 3 — Eje de semanas continuo, filtros y estado en la URL
+
+16. **Cada semana del informe es un objeto** `{week, holidays}`. Es la forma que
+    ya usa el informe de "Mi trabajo" y deja sitio a lo que crece en la fase 4.
+    El motor sigue trabajando con las claves de semana: el cambio de forma es
+    de la capa que habla con el frontend.
+17. **El backend obedece al rango.** Si no llegan `from` y `to`, el informe sale
+    como hasta ahora: las semanas con actividad. Así el panel, el resumen de
+    proyecto y el resto de consumidores no cambian de golpe.
+18. **El rango por defecto lo decide el frontend**: la semana en curso y las
+    ocho siguientes, nueve columnas. Las flechas mueven el rango una semana, no
+    un periodo entero, y "Hoy" lo devuelve a la semana en curso.
+19. **La insignia de festivo solo enseña los días globales.** La cabecera es de
+    la matriz, no de una persona: un festivo de departamento o de persona no
+    aplica a toda la columna.
+20. **El filtro por competencia filtra personas**, no proyectos: solo salen las
+    que tienen esa competencia con ese nivel o más.
+21. **El filtro por departamento no cambia de significado**: sigue siendo "los
+    proyectos que gestiona ese departamento".
+22. **El estado en la URL usa los nombres de la propuesta** (`?from=`, `?to=`,
+    `?project=`, `?department=`, `?skill=`, `?level=`), no los de la API
+    (`project_id`, `skill_id`, `min_level`): el enlace se escribe a mano y se
+    comparte.
+23. **Con filtro de proyecto, el desglose es el de ese proyecto.** La celda
+    cuenta las horas de una persona en un proyecto, así que el panel tiene que
+    enseñar las tareas de ese mismo proyecto.
+24. **Las dos semanas del rango van juntas**: si llega una sola, es un 422. Un
+    rango a medias no significa nada.

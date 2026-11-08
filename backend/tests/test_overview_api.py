@@ -238,10 +238,71 @@ async def test_la_capacidad_global_marca_la_semana_de_cada_tarea(client: AsyncCl
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["weeks"] == ["2026-W45"]
+    assert [week["week"] for week in data["weeks"]] == ["2026-W45"]
     ana = _row(data, client.ids["ana"])
     assert ana["cells"][0]["hours"] == 12
     assert ana["cells"][0]["is_overloaded"] is False
+
+
+async def test_la_capacidad_global_acepta_un_rango_de_semanas(client: AsyncClient):
+    """Con rango, el eje sale completo aunque no haya actividad."""
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        "/api/capacity?from=2026-W45&to=2026-W47", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [week["week"] for week in data["weeks"]] == [
+        "2026-W45",
+        "2026-W46",
+        "2026-W47",
+    ]
+    ana = _row(data, client.ids["ana"])
+    assert [cell["hours"] for cell in ana["cells"]] == [12, 0, 0]
+
+
+async def test_un_rango_de_semanas_invalido_es_422(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        "/api/capacity?from=2026-W99&to=2026-W99", headers=headers
+    )
+
+    assert response.status_code == 422, response.text
+
+
+async def test_un_rango_a_medias_es_422(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get("/api/capacity?from=2026-W45", headers=headers)
+
+    assert response.status_code == 422, response.text
+
+
+async def test_la_capacidad_global_filtra_por_proyecto(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        f"/api/capacity?project_id={client.ids['linea']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # Solo la linea pasteurizadora: Ana tiene 8 h y Jorge no sale.
+    assert _row(data, client.ids["ana"])["total_hours"] == 8
+    assert _row(data, client.ids["jorge"]) is None
+
+
+async def test_un_proyecto_que_no_se_ve_es_404(client: AsyncClient):
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get(
+        f"/api/capacity?project_id={client.ids['linea']}", headers=headers
+    )
+
+    assert response.status_code == 404, response.text
 
 
 async def test_el_gantt_global_exige_token(client: AsyncClient):

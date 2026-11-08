@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PlannerView from '../views/PlannerView.vue'
 
 const capacity = {
-  weeks: ['2026-W46', '2026-W47'],
+  weeks: [
+    { week: '2026-W46', holidays: [] },
+    { week: '2026-W47', holidays: [] },
+  ],
   rows: [
     {
       user_id: 2,

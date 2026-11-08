@@ -152,7 +152,7 @@ async def test_el_administrador_global_accede_a_la_matriz(client: AsyncClient):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["weeks"] == ["2026-W10", "2026-W11"]
+    assert [week["week"] for week in data["weeks"]] == ["2026-W10", "2026-W11"]
     ana = next(row for row in data["rows"] if row["name"] == "Ana")
     assert ana["total_hours"] == 40.0
 

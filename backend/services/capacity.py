@@ -25,8 +25,10 @@ from .units import from_units, hours_to_json, to_units
 __all__ = [
     "CapacityError",
     "CapacityReport",
+    "Holiday",
     "InvalidEstimatedHoursError",
     "InvalidTaskRangeError",
+    "InvalidWeekRangeError",
     "NoBusinessDaysError",
     "PersonCapacity",
     "TaskLike",
@@ -42,6 +44,8 @@ __all__ = [
     "split_units",
     "split_weighted_units",
     "to_units",
+    "week_range",
+    "weeks_in_range",
     "working_days",
 ]
 
@@ -60,6 +64,25 @@ class NoBusinessDaysError(CapacityError):
 
 class InvalidEstimatedHoursError(CapacityError):
     """Las horas estimadas de la tarea no son validas."""
+
+
+class InvalidWeekRangeError(CapacityError):
+    """El rango de semanas del informe no es valido."""
+
+
+@dataclass(frozen=True, slots=True)
+class Holiday:
+    """Dia no laborable, con su nombre.
+
+    Los que llegan al informe son los de alcance global: son los unicos que
+    se pueden marcar en la cabecera de una semana, porque afectan a toda la
+    columna y no solo a una persona.
+    """
+
+    date: date
+    name: str
+    scope: str = "global"
+    half_day: bool = False
 
 
 class TaskLike(Protocol):
@@ -150,10 +173,26 @@ class CapacityReport:
     unassigned_task_ids: tuple[int, ...] = ()
     undated_task_ids: tuple[int, ...] = ()
     holiday_task_ids: tuple[int, ...] = ()
+    holidays: tuple[Holiday, ...] = ()
 
     def to_dict(self) -> dict:
         return {
-            "weeks": list(self.weeks),
+            "weeks": [
+                {
+                    "week": week,
+                    "holidays": [
+                        {
+                            "date": holiday.date.isoformat(),
+                            "name": holiday.name,
+                            "scope": holiday.scope,
+                            "half_day": holiday.half_day,
+                        }
+                        for holiday in self.holidays
+                        if iso_week_key(holiday.date) == week
+                    ],
+                }
+                for week in self.weeks
+            ],
             "rows": [
                 {
                     "user_id": row.user_id,
@@ -322,13 +361,60 @@ def compute_task_week_load(
     }
 
 
+def _monday_of(key: str) -> date:
+    """Lunes de la semana ISO con clave YYYY-Www."""
+    year, _, week = key.partition("-W")
+    try:
+        return date.fromisocalendar(int(year), int(week), 1)
+    except ValueError as err:
+        raise InvalidWeekRangeError(f"La semana {key} no existe") from err
+
+
+def weeks_in_range(start: str, end: str) -> tuple[str, ...]:
+    """Semanas del rango, la primera y la ultima incluidas.
+
+    El rango es continuo: sale una semana por cada semana ISO entre las dos,
+    tengan actividad o no. Si el rango esta invertido, es un error.
+    """
+    first = _monday_of(start)
+    last = _monday_of(end)
+    if last < first:
+        raise InvalidWeekRangeError(
+            f"El rango {start}..{end} esta invertido"
+        )
+    weeks: list[str] = []
+    current = first
+    while current <= last:
+        weeks.append(iso_week_key(current))
+        current += timedelta(days=7)
+    return tuple(weeks)
+
+
+def week_range(start: str | None, end: str | None) -> tuple[str, ...] | None:
+    """Rango de semanas pedido, o None si no se pide ninguno.
+
+    Las dos van juntas: un rango a medias no significa nada.
+    """
+    if start is None and end is None:
+        return None
+    if start is None or end is None:
+        raise InvalidWeekRangeError("from y to tienen que venir juntos")
+    return weeks_in_range(start, end)
+
+
 def build_capacity_report(
     people: Sequence[PersonCapacity],
     tasks: Iterable[TaskLike],
+    *,
+    weeks: Sequence[str] | None = None,
+    holidays: Sequence[Holiday] = (),
 ) -> CapacityReport:
     """Construye la matriz de ocupacion a partir de personas y tareas.
 
-    Las semanas del informe son la union de las semanas con actividad.
+    Sin weeks, las semanas del informe son la union de las semanas con
+    actividad. Con weeks, el eje es ese rango y sale completo: las semanas sin
+    actividad tambien aparecen, con cero horas, para que se vea el hueco.
+    Las tareas que caen fuera del rango no se imputan.
     Las tareas sin persona asignada o sin fechas no se imputan a ninguna
     fila, pero se listan para que la planificacion incompleta sea visible.
     Lo mismo ocurre con las tareas cuyo rango lo cubren enteramente los dias
@@ -338,7 +424,8 @@ def build_capacity_report(
     """
     by_id = {person.user_id: person for person in people}
     loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
-    weeks: set[str] = set()
+    weeks_seen: set[str] = set()
+    fixed_weeks = tuple(weeks) if weeks is not None else None
     unassigned: list[int] = []
     undated: list[int] = []
     holidays_only: list[int] = []
@@ -351,21 +438,28 @@ def build_capacity_report(
             continue
 
         person = by_id.get(task.assigned_to)
-        holidays = person.holidays if person is not None else {}
+        holidays_map = person.holidays if person is not None else {}
         week_units = compute_task_week_units(
-            task.start_date, task.end_date, task.estimated_hours, holidays
+            task.start_date, task.end_date, task.estimated_hours, holidays_map
         )
         if not week_units:
             # A la persona no le queda ningun dia laborable en el rango: la
             # tarea vale cero horas, pero se avisa en vez de romper el informe.
             holidays_only.append(task.id)
             continue
-        weeks.update(week_units)
+        if fixed_weeks is not None:
+            week_units = {
+                key: units for key, units in week_units.items() if key in fixed_weeks
+            }
+            if not week_units:
+                # La tarea cae fuera del rango pedido: no se enseña.
+                continue
+        weeks_seen.update(week_units)
         target = loads.setdefault(task.assigned_to, {})
         for key, units in week_units.items():
             target[key] = target.get(key, 0) + units
 
-    ordered_weeks = tuple(sorted(weeks))
+    ordered_weeks = fixed_weeks if fixed_weeks is not None else tuple(sorted(weeks_seen))
     rows: list[UserLoad] = []
     for person in people:
         user_load = loads.get(person.user_id, {})
@@ -404,4 +498,5 @@ def build_capacity_report(
         unassigned_task_ids=tuple(unassigned),
         undated_task_ids=tuple(undated),
         holiday_task_ids=tuple(holidays_only),
+        holidays=tuple(holidays),
     )

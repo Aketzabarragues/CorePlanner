@@ -6,17 +6,18 @@
  * matriz es global: reúne las horas de todos los proyectos visibles y admite
  * un filtro por departamento.
  *
- * En desarrollo se puede entrar con el administrador de demostracion, para
- * tener datos que ver sin pasar por el formulario de acceso. Fuera de
- * desarrollo, cada persona entra con sus credenciales.
+ * El eje de semanas es continuo: sale el rango pedido, tenga actividad o no.
+ * Los filtros y el rango viven en la URL, de modo que recargar la pagina no
+ * pierde nada y el enlace se puede compartir.
  *
  * Las celdas son clicables: al pulsar una se abre el desglose de las tareas
  * que componen esas horas, desde donde se pueden editar. Cualquier cambio
  * recalcula la matriz.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { overviewApi, projectsApi, skillsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
@@ -30,7 +31,14 @@ import {
   loadState,
   teamUsage,
 } from '../utils/load'
-import { currentWeekKey, weekRangeLabel, weekTitle } from '../utils/weeks'
+import {
+  currentWeekKey,
+  shiftWeek,
+  weekRangeLabel,
+  weekTitle,
+  weeksBetween,
+  weeksFrom,
+} from '../utils/weeks'
 import AppIcon from './AppIcon.vue'
 import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
@@ -39,6 +47,11 @@ import SidePanel from './common/SidePanel.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const route = useRoute()
+const router = useRouter()
+
+/** Numero de semanas del rango por defecto: la actual y las ocho siguientes. */
+const RANGE_SIZE = 9
 
 const props = defineProps({
   id: { type: [String, Number], default: null },
@@ -51,7 +64,7 @@ const notice = ref(null)
 const empty = ref(false)
 const loading = ref(true)
 const saving = ref(false)
-const departmentFilter = ref('')
+const skills = ref([])
 
 const breakdown = ref(null)
 const breakdownTasks = ref([])
@@ -95,6 +108,115 @@ const LEGEND = [
   { state: LOAD_STATE.OVERLOAD, label: 'Sobrecarga leve ▲ (hasta 110 %)' },
   { state: LOAD_STATE.HIGH_OVERLOAD, label: 'Sobrecarga alta ▲ (más del 110 %)' },
 ]
+
+/**
+ * El estado de la pantalla vive en la URL.
+ *
+ * Los filtros son un valor calculado con su propio setter: al cambiarlo se
+ * escribe en la URL, y de ahi lo lee la peticion del informe.
+ */
+const query = computed(() => route.query ?? {})
+
+/** Marca que el cambio de la URL es nuestro y no hay que recargar por el. */
+let escribiendo = false
+
+/**
+ * Escribe el estado en la URL.
+ *
+ * Los valores vacios se quitan: una URL con los filtros puestos se parece a
+ * la que se copia para compartirla.
+ */
+async function updateQuery(patch) {
+  const next = { ...query.value }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === '' || value === null || value === undefined) delete next[key]
+    else next[key] = String(value)
+  }
+  escribiendo = true
+  try {
+    await router.replace({ query: next })
+  } finally {
+    escribiendo = false
+  }
+  await recargar()
+}
+
+/** Filtro de proyecto: solo en el espacio global. */
+const projectFilter = computed({
+  get: () => query.value.project ?? '',
+  set: (value) => updateQuery({ project: value }),
+})
+
+/** Filtro de departamento: los proyectos que gestiona ese departamento. */
+const departmentFilter = computed({
+  get: () => query.value.department ?? '',
+  set: (value) => updateQuery({ department: value }),
+})
+
+/** Filtro de competencia. */
+const skillFilter = computed({
+  get: () => query.value.skill ?? '',
+  set: (value) =>
+    updateQuery({
+      skill: value,
+      level: value ? levelFilter.value : undefined,
+    }),
+})
+
+/** Nivel minimo de la competencia. */
+const levelFilter = computed({
+  get: () => query.value.level ?? '1',
+  set: (value) => updateQuery({ level: value }),
+})
+
+/** Rango del eje: la semana inicial y la final. */
+const range = computed(() => {
+  const porDefecto = weeksFrom(currentWeekKey(), RANGE_SIZE)
+  return {
+    from: query.value.from ?? porDefecto[0],
+    to: query.value.to ?? porDefecto[porDefecto.length - 1],
+  }
+})
+
+/** Texto del rango que se ve: "Sem 45 - Sem 53". */
+const rangeLabel = computed(
+  () => `${weekTitle(range.value.from)} - ${weekTitle(range.value.to)}`,
+)
+
+/** Mueve el rango las semanas que se le pidan y lo deja en la URL. */
+function moveRange(delta) {
+  const size = Math.max(1, weeksBetween(range.value.from, range.value.to).length)
+  const semanas = weeksFrom(shiftWeek(range.value.from, delta), size)
+  updateQuery({ from: semanas[0], to: semanas[semanas.length - 1] })
+}
+
+/** Devuelve el rango a la semana en curso. */
+function goToday() {
+  const semanas = weeksFrom(currentWeekKey(), RANGE_SIZE)
+  updateQuery({ from: semanas[0], to: semanas[semanas.length - 1] })
+}
+
+/**
+ * Escribe en la URL el rango por defecto, si no viene uno.
+ *
+ * Asi el enlace que se copia lleva el rango que se esta viendo.
+ */
+async function normalizarUrl() {
+  if (query.value.from && query.value.to) return
+  const semanas = weeksFrom(currentWeekKey(), RANGE_SIZE)
+  escribiendo = true
+  try {
+    await router.replace({
+      query: {
+        ...query.value,
+        from: semanas[0],
+        to: semanas[semanas.length - 1],
+      },
+    })
+  } finally {
+    escribiendo = false
+  }
+}
 
 function cellOf(row, week) {
   return (
@@ -140,20 +262,19 @@ function cellView(row, week) {
 const matrix = computed(() =>
   rows.value.map((row) => ({
     fila: row,
-    celdas: weeks.value.map((week) => cellView(row, week)),
+    celdas: weeks.value.map((semana) => cellView(row, semana.week)),
   })),
 )
 
 /** Uso del equipo en cada semana: horas, capacidad y estado. */
 const team = computed(() =>
-  weeks.value.map((week) => {
-    const usage = teamUsage(rows.value, week)
+  weeks.value.map((semana) => {
+    const usage = teamUsage(rows.value, semana.week)
     const state = loadState(usage.hours, usage.capacity)
     const aspect = loadAspect(state)
     const ratio = loadRatio(usage.hours, usage.capacity)
     return {
-      week,
-      horas: usage.hours,
+      week: semana.week,
       porcentaje: ratio === null ? '' : `${ratio} %`,
       anchoBarra: loadBarWidth(usage.hours, usage.capacity),
       clases: [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
@@ -193,16 +314,40 @@ function cellAria(row, week) {
   return partes.join(', ')
 }
 
-/** Recarga la matriz. */
+/**
+ * Etiqueta del festivo de la semana.
+ *
+ * Se enseño el primero, y cuantos hay mas. Un festivo de medio dia va
+ * marcado con "1/2".
+ */
+function festivoEtiqueta(holidays) {
+  const primero = holidays[0]
+  const marca = primero.half_day ? '1/2 ' : ''
+  const extra = holidays.length > 1 ? ` +${holidays.length - 1}` : ''
+  return `${marca}${primero.name}${extra}`
+}
+
+/** Todos los festivos de la semana, para el texto que aparece al pasar. */
+function festivoTitulo(holidays) {
+  return holidays.map((festivo) => festivo.name).join(', ')
+}
+
+/** Recarga la matriz con los filtros del estado. */
 async function refresh() {
   const token = auth.token
+  const params = { from: range.value.from, to: range.value.to }
+  if (skillFilter.value) {
+    params.skill_id = skillFilter.value
+    params.min_level = levelFilter.value
+  }
   if (isGlobal.value) {
-    const params = departmentFilter.value ? { department_id: departmentFilter.value } : {}
+    if (departmentFilter.value) params.department_id = departmentFilter.value
+    if (projectFilter.value) params.project_id = projectFilter.value
     report.value = await overviewApi.capacity(token, params)
     return
   }
 
-  report.value = await projectsApi.capacity(token, project.value.id)
+  report.value = await projectsApi.capacity(token, project.value.id, params)
 }
 
 async function reload() {
@@ -215,6 +360,16 @@ async function reload() {
     error.value = null
   } catch (err) {
     handleError(err)
+  }
+}
+
+/** Recarga la matriz enseñando el esqueleto: lo que se ve va a cambiar. */
+async function recargar() {
+  loading.value = true
+  try {
+    await reload()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -260,15 +415,18 @@ async function openCell(row, week) {
  * Descarga las tareas de la persona en la semana abierta.
  *
  * El backend filtra por persona y por semana, de modo que solo llegan las
- * tareas que componen la celda.
+ * tareas que componen la celda. Si hay un proyecto filtrado, tambien se pide
+ * el desglose de ese proyecto: la celda es de ese proyecto y el panel tiene
+ * que contar la misma historia.
  */
 async function loadBreakdownTasks() {
   if (!breakdown.value) return
   const token = auth.token
   const params = { week: breakdown.value.week, assigned_to: breakdown.value.user_id }
-  breakdownTasks.value = isGlobal.value
-    ? await tasksApi.list(token, params)
-    : await projectsApi.tasks(token, project.value.id, params)
+  const projectId = isGlobal.value ? projectFilter.value || null : project.value.id
+  breakdownTasks.value = projectId
+    ? await projectsApi.tasks(token, projectId, params)
+    : await tasksApi.list(token, params)
 }
 
 async function saveTask(taskId, payload) {
@@ -306,6 +464,12 @@ async function reassignTask(task, targetUserId) {
   await saveTask(task.id, { assigned_to: targetUserId })
 }
 
+/** Catalogo de competencias, para el filtro. */
+async function loadSkills(token) {
+  if (skills.value.length) return
+  skills.value = await skillsApi.catalog(token)
+}
+
 /**
  * Carga la matriz que toca.
  *
@@ -321,6 +485,8 @@ async function reassignTask(task, targetUserId) {
 async function loadReport() {
   const token = await auth.ensureSession()
   await store.ensureProjects(token)
+  await loadSkills(token)
+  await normalizarUrl()
 
   if (isGlobal.value) {
     project.value = null
@@ -373,42 +539,120 @@ watch(
   },
 )
 
-watch(departmentFilter, () => {
-  if (!isGlobal.value) return
-  reload()
-})
+watch(
+  () => route.query,
+  () => {
+    if (escribiendo) return
+    recargar()
+  },
+  { flush: 'sync' },
+)
 </script>
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">
-          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
-        </h1>
-        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
-        <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
-          Reparto de horas de todos los proyectos visibles.
-        </p>
-      </div>
+    <header class="mb-3">
+      <h1 class="text-xl font-semibold text-siemens-900">
+        {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
+      </h1>
+      <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
+      <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
+        Reparto de horas de todos los proyectos visibles.
+      </p>
+    </header>
 
+    <div class="mb-4 flex flex-wrap items-end gap-3">
       <label v-if="isGlobal" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Proyecto</span>
+        <select
+          v-model="projectFilter"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          data-testid="filter-project"
+        >
+          <option value="">Todos los proyectos</option>
+          <option v-for="item in store.projects" :key="item.id" :value="String(item.id)">
+            {{ item.name }}
+          </option>
+        </select>
+      </label>
+
+      <label class="text-xs font-medium text-slate-600">
         <span class="mb-1 block">Departamento</span>
         <select
           v-model="departmentFilter"
           class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          data-testid="filter-department"
         >
           <option value="">Todos los departamentos</option>
           <option
-            v-for="department in store.departments"
-            :key="department.id"
-            :value="department.id"
+            v-for="item in store.departments"
+            :key="item.id"
+            :value="String(item.id)"
           >
-            {{ department.name }}
+            {{ item.name }}
           </option>
         </select>
       </label>
-    </header>
+
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Competencia</span>
+        <select
+          v-model="skillFilter"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          data-testid="filter-skill"
+        >
+          <option value="">Cualquiera</option>
+          <option v-for="item in skills" :key="item.id" :value="String(item.id)">
+            {{ item.name }}
+          </option>
+        </select>
+      </label>
+
+      <label v-if="skillFilter" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Nivel mínimo</span>
+        <select
+          v-model="levelFilter"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          data-testid="filter-level"
+        >
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600"
+          aria-label="Semanas anteriores"
+          data-testid="range-previous"
+          @click="moveRange(-1)"
+        >
+          <span class="h-4 w-4"><AppIcon name="chevronLeft" /></span>
+        </button>
+        <button
+          type="button"
+          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700"
+          data-testid="range-today"
+          @click="goToday"
+        >
+          Hoy
+        </button>
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600"
+          aria-label="Semanas siguientes"
+          data-testid="range-next"
+          @click="moveRange(1)"
+        >
+          <span class="h-4 w-4"><AppIcon name="chevronRight" /></span>
+        </button>
+        <span class="ml-1 text-xs text-slate-500" data-testid="range-label">
+          {{ rangeLabel }}
+        </span>
+      </div>
+    </div>
 
     <AsyncState
       :loading="loading"
@@ -423,29 +667,39 @@ watch(departmentFilter, () => {
         {{ notice }}
       </AlertBanner>
 
-      <div class="overflow-x-auto rounded border border-slate-200 bg-white">
+      <div class="max-h-[70vh] overflow-auto rounded border border-slate-200 bg-white">
         <table class="w-full border-collapse text-sm">
-          <thead>
+          <thead class="sticky top-0 z-10 bg-slate-100">
             <tr class="bg-slate-100">
-              <th class="sticky left-0 border border-slate-200 bg-slate-100 px-3 py-2 text-left">
+              <th
+                class="sticky left-0 z-20 border border-slate-200 bg-slate-100 px-3 py-2 text-left"
+              >
                 Persona
               </th>
               <th
-                v-for="week in weeks"
-                :key="week"
+                v-for="semana in weeks"
+                :key="semana.week"
                 class="border border-slate-200 px-2 py-2 text-center"
               >
                 <span class="block text-xs font-semibold text-slate-700">
-                  {{ weekTitle(week) }}
+                  {{ weekTitle(semana.week) }}
                 </span>
                 <span class="block text-[10px] font-normal text-slate-500">
-                  {{ weekRangeLabel(week) }}
+                  {{ weekRangeLabel(semana.week) }}
                 </span>
                 <span
-                  v-if="week === currentWeek"
-                  class="mt-0.5 inline-block rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+                  v-if="semana.week === currentWeek"
+                  class="mt-0.5 mr-1 inline-block rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
                 >
                   Hoy
+                </span>
+                <span
+                  v-if="semana.holidays && semana.holidays.length"
+                  class="mt-0.5 inline-block rounded-full border border-slate-300 bg-slate-50 px-1.5 py-px text-[10px] font-medium text-slate-700"
+                  :title="festivoTitulo(semana.holidays)"
+                  data-testid="holiday-badge"
+                >
+                  {{ festivoEtiqueta(semana.holidays) }}
                 </span>
               </th>
               <th class="border border-slate-200 px-3 py-2 text-right">Total</th>
@@ -454,7 +708,7 @@ watch(departmentFilter, () => {
           <tbody>
             <tr v-for="entrada in matrix" :key="entrada.fila.user_id">
               <th
-                class="sticky left-0 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
+                class="sticky left-0 z-10 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
               >
                 {{ entrada.fila.name }}
                 <span class="block text-xs font-normal text-slate-400">
@@ -506,7 +760,7 @@ watch(departmentFilter, () => {
 
             <tr class="bg-slate-50">
               <th
-                class="sticky left-0 border border-slate-200 bg-slate-50 px-3 py-2 text-left font-medium"
+                class="sticky left-0 z-10 border border-slate-200 bg-slate-50 px-3 py-2 text-left font-medium"
               >
                 Equipo
                 <span class="block text-xs font-normal text-slate-400">uso agregado</span>

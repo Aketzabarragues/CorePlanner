@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from ..schemas import ProjectCreate, ProjectOut, ProjectUpdate
 from ..security import (
@@ -14,6 +14,7 @@ from ..security import (
 )
 from ..services.capacity_repository import load_project_capacity
 from ..services.configuration import create_project, update_project
+from .params import week_range_or_422
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -52,12 +53,32 @@ async def edit_project(
 async def project_capacity(
     project_id: int,
     session: SessionDep,
+    from_week: str | None = Query(
+        default=None, alias="from", description="Semana ISO inicial del rango"
+    ),
+    to_week: str | None = Query(
+        default=None, alias="to", description="Semana ISO final del rango"
+    ),
+    skill_id: int | None = Query(
+        default=None, description="Limita las filas a quien tenga la competencia"
+    ),
+    min_level: int | None = Query(
+        default=None, ge=1, le=3, description="Nivel minimo de la competencia"
+    ),
     _project=Depends(require_project_permission("capacity.read")),
 ) -> dict:
     """Matriz de ocupacion del proyecto.
 
     Cada celda lleva las horas de la semana y la marca de sobrecarga frente
-    a las horas base de la persona.
+    a las horas base de la persona. El rango de semanas (from y to) acota el
+    eje: sin rango, el informe sale con las semanas que tienen actividad.
+    Con skill_id salen unicamente las personas que tienen esa competencia.
     """
-    report = await load_project_capacity(session, project_id)
+    report = await load_project_capacity(
+        session,
+        project_id,
+        weeks=week_range_or_422(from_week, to_week),
+        skill_id=skill_id,
+        min_level=min_level,
+    )
     return report.to_dict()

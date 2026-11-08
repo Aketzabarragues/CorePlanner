@@ -25,7 +25,7 @@ const members = [
 ]
 
 const capacityReport = {
-  weeks: ['2026-W45'],
+  weeks: [{ week: '2026-W45', holidays: [] }],
   rows: [
     {
       user_id: 1,

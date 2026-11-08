@@ -6,7 +6,7 @@ los proyectos a los que tiene acceso la persona que entra.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..models import Project
 from ..schemas import GanttOut, PanelOut
@@ -14,6 +14,7 @@ from ..security import CurrentUser, SessionDep, list_accessible_projects
 from ..services.capacity_repository import load_capacity_for_projects
 from ..services.gantt_repository import load_gantt_for_projects
 from ..services.panel import load_panel
+from .params import week_range_or_422
 
 router = APIRouter(tags=["overview"])
 
@@ -33,19 +34,49 @@ def _by_department(
 async def global_capacity(
     session: SessionDep,
     user: CurrentUser,
+    from_week: str | None = Query(
+        default=None, alias="from", description="Semana ISO inicial del rango"
+    ),
+    to_week: str | None = Query(
+        default=None, alias="to", description="Semana ISO final del rango"
+    ),
+    project_id: int | None = Query(
+        default=None, description="Limita el informe a un proyecto visible"
+    ),
     department_id: int | None = Query(
         default=None, description="Filtra por el departamento gestor del proyecto"
+    ),
+    skill_id: int | None = Query(
+        default=None, description="Limita las filas a quien tenga la competencia"
+    ),
+    min_level: int | None = Query(
+        default=None, ge=1, le=3, description="Nivel minimo de la competencia"
     ),
 ) -> dict:
     """Matriz de ocupacion de todos los proyectos visibles.
 
     Las horas de cada persona se suman entre proyectos. Con department_id se
-    limita a los proyectos que gestiona ese departamento.
+    limita a los proyectos que gestiona ese departamento y con project_id a un
+    proyecto solo. Con skill_id salen unicamente las personas que tienen esa
+    competencia con ese nivel o mas.
+    El rango de semanas (from y to) acota el eje: sin rango, el informe sale
+    con las semanas que tienen actividad.
     """
     projects = await list_accessible_projects(session, user)
+    if project_id is not None:
+        projects = [project for project in projects if project.id == project_id]
+        if not projects:
+            raise HTTPException(
+                status_code=404,
+                detail="Ese proyecto no esta entre los que puedes ver",
+            )
     selected = _by_department(projects, department_id)
     report = await load_capacity_for_projects(
-        session, [project.id for project in selected]
+        session,
+        [project.id for project in selected],
+        weeks=week_range_or_422(from_week, to_week),
+        skill_id=skill_id,
+        min_level=min_level,
     )
     return report.to_dict()
 

@@ -58,6 +58,43 @@ export function weekTitle(key) {
 }
 
 /**
+ * Clave de la semana, venga como texto o como objeto del informe.
+ *
+ * El informe de capacidad entrega cada semana como objeto, con sus
+ * festivos; otras pantallas usan la clave suelta.
+ */
+export function weekKey(week) {
+  if (typeof week === 'string') return week
+  return week?.week ?? ''
+}
+
+/**
+ * Semanas consecutivas desde la semana dada.
+ *
+ * El rango por defecto de la matriz son nueve semanas: la actual y las ocho
+ * siguientes.
+ */
+export function weeksFrom(key, count = 9) {
+  const weeks = []
+  for (let index = 0; index < count; index += 1) {
+    weeks.push(shiftWeek(key, index))
+  }
+  return weeks
+}
+
+/** Semanas entre dos claves, ambas incluidas. */
+export function weeksBetween(from, to) {
+  const weeks = []
+  const last = weekMonday(to).getTime()
+  let current = weekMonday(from)
+  while (current.getTime() <= last) {
+    weeks.push(isoWeekKey(current))
+    current = new Date(current.getTime() + 7 * DAY_MS)
+  }
+  return weeks
+}
+
+/**
  * Dias laborables de la semana: de lunes a viernes.
  *
  * El motor de capacidad solo reparte horas entre dias laborables, asi que el

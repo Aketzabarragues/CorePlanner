@@ -17,9 +17,13 @@ from backend.database import create_engine
 from backend.models import (
     Base,
     Department,
+    NonWorkingDay,
+    NonWorkingDayScope,
+    PersonSkill,
     Project,
     ProjectMember,
     Role,
+    Skill,
     Task,
     TaskStatus,
     User,
@@ -169,7 +173,7 @@ async def test_el_informe_serializa_a_diccionario_desde_la_base_de_datos(session
 
     data = (await load_project_capacity(session, project.id)).to_dict()
 
-    assert data["weeks"] == ["2026-W10", "2026-W11"]
+    assert [week["week"] for week in data["weeks"]] == ["2026-W10", "2026-W11"]
     assert any(row["user_id"] == ana.id for row in data["rows"])
     assert "is_overloaded" in data["rows"][0]["cells"][0]
     assert data["holiday_task_ids"] == []
@@ -220,3 +224,91 @@ async def test_una_tarea_enteramente_festiva_no_rompe_el_informe(session):
     # El resto de la planificacion de Ana sigue igual.
     assert cells["2026-W10"].hours == Decimal("66.00")
     assert cells["2026-W11"].hours == Decimal("24.00")
+
+
+async def test_el_filtro_por_competencia_solo_deja_a_quien_la_tiene(session):
+    """El filtro por competencia saca del informe a quien no la tiene."""
+    ana, luis, project = await _seed(session)
+    skill = Skill(name="PLC")
+    session.add(skill)
+    await session.flush()
+    session.add(PersonSkill(user_id=ana.id, skill_id=skill.id, level=2))
+    await session.flush()
+
+    report = await load_project_capacity(session, project.id, skill_id=skill.id, min_level=2)
+
+    assert [row.user_id for row in report.rows] == [ana.id]
+    assert luis.id not in [row.user_id for row in report.rows]
+
+
+async def test_el_filtro_por_competencia_respeta_el_nivel_minimo(session):
+    ana, _luis, project = await _seed(session)
+    skill = Skill(name="PLC")
+    session.add(skill)
+    await session.flush()
+    session.add(PersonSkill(user_id=ana.id, skill_id=skill.id, level=1))
+    await session.flush()
+
+    report = await load_project_capacity(session, project.id, skill_id=skill.id, min_level=2)
+
+    assert report.rows == ()
+
+
+async def test_el_informe_lleva_los_festivos_globales_de_cada_semana(session):
+    """La cabecera de la semana necesita el nombre del festivo."""
+    _ana, _luis, project = await _seed(session)
+    session.add(
+        NonWorkingDay(
+            date=date(2026, 3, 6),
+            name="Fiesta local",
+            scope=NonWorkingDayScope.GLOBAL.value,
+        )
+    )
+    await session.flush()
+
+    data = (await load_project_capacity(session, project.id)).to_dict()
+
+    semana = next(w for w in data["weeks"] if w["week"] == "2026-W10")
+    assert semana["holidays"] == [
+        {
+            "date": "2026-03-06",
+            "name": "Fiesta local",
+            "scope": "global",
+            "half_day": False,
+        }
+    ]
+
+
+async def test_un_festivo_de_persona_no_aparece_en_la_cabecera(session):
+    """La cabecera es de la matriz: un festivo de una persona no va en ella."""
+    ana, _luis, project = await _seed(session)
+    session.add(
+        NonWorkingDay(
+            date=date(2026, 3, 6),
+            name="Permiso individual",
+            scope=NonWorkingDayScope.PERSON.value,
+            user_id=ana.id,
+        )
+    )
+    await session.flush()
+
+    data = (await load_project_capacity(session, project.id)).to_dict()
+
+    semana = next(w for w in data["weeks"] if w["week"] == "2026-W10")
+    assert semana["holidays"] == []
+
+
+async def test_el_rango_llega_al_informe_desde_la_base_de_datos(session):
+    _ana, _luis, project = await _seed(session)
+
+    data = (
+        await load_project_capacity(
+            session, project.id, weeks=("2026-W10", "2026-W11", "2026-W12")
+        )
+    ).to_dict()
+
+    assert [week["week"] for week in data["weeks"]] == [
+        "2026-W10",
+        "2026-W11",
+        "2026-W12",
+    ]

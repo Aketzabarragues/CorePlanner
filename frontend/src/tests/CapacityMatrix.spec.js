@@ -1,8 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
+import { weeksBetween } from '../utils/weeks'
 
 const members = [
   { user_id: 1, name: 'Ana', email: 'ana@example.com', role_id: 1, role_name: 'Project Manager', weekly_base_hours: 40 },
@@ -10,7 +12,10 @@ const members = [
 ]
 
 const capacityReport = {
-  weeks: ['2026-W45', '2026-W46'],
+  weeks: [
+    { week: '2026-W45', holidays: [] },
+    { week: '2026-W46', holidays: [] },
+  ],
   rows: [
     {
       user_id: 1,
@@ -54,6 +59,11 @@ const departments = [
   { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
 ]
 
+const skills = [
+  { id: 1, name: 'PLC S7-1500' },
+  { id: 2, name: 'HMI WinCC' },
+]
+
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
@@ -62,11 +72,15 @@ function setupFetch(overrides = {}) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
-    if (overrides[url]) return overrides[url](options)
+    // Las peticiones llevan el rango y los filtros en la query: el override
+    // se busca por la ruta, sin ella.
+    const ruta = url.split('?')[0]
+    if (overrides[ruta]) return overrides[ruta](options)
     if (url.endsWith('/auth/login')) {
       return jsonResponse({ access_token: 'tok-demo', token_type: 'bearer', user: { id: 9, name: 'Admin' } })
     }
     if (url.includes('/capacity')) return jsonResponse(capacityReport)
+    if (url.endsWith('/skills')) return jsonResponse(skills)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.includes('/tasks')) return jsonResponse(projectTasks)
     if (url.endsWith('/departments')) return jsonResponse(departments)
@@ -81,14 +95,32 @@ function setupFetch(overrides = {}) {
   return calls
 }
 
+let router
+
 async function mountMatrix(props = {}) {
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      { path: '/capacity', component: { template: '<div />' } },
+      { path: '/projects/:id/capacity', component: { template: '<div />' } },
+    ],
+  })
+  await router.push(props.id === null ? '/capacity' : `/projects/${props.id}/capacity`)
+  await router.isReady()
+
   const wrapper = mount(CapacityMatrix, {
     props: { id: 1, ...props },
-    global: { plugins: [createPinia()] },
+    global: { plugins: [createPinia(), router] },
   })
   await flushPromises()
   await flushPromises()
   return wrapper
+}
+
+/** Peticiones que bajaron al informe de capacidad. */
+function capacityCalls(calls) {
+  return calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
 }
 
 describe('CapacityMatrix', () => {
@@ -157,6 +189,29 @@ describe('CapacityMatrix', () => {
     // La semana en curso lleva la insignia.
     const conHoy = cabeceras.filter((th) => th.text().includes('Hoy'))
     expect(conHoy.length).toBeLessThanOrEqual(1)
+  })
+
+  it('la cabecera marca los dias no laborables de la semana', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          weeks: [
+            { week: '2026-W45', holidays: [] },
+            {
+              week: '2026-W46',
+              holidays: [
+                { date: '2026-11-11', name: 'Fiesta local', scope: 'global', half_day: false },
+              ],
+            },
+          ],
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    const insignia = wrapper.find('[data-testid="holiday-badge"]')
+    expect(insignia.exists()).toBe(true)
+    expect(insignia.text()).toContain('Fiesta local')
   })
 
   it('la fila de equipo enseña el uso agregado', async () => {
@@ -277,8 +332,9 @@ describe('CapacityMatrix', () => {
     await reasignar.trigger('click')
     await flushPromises()
 
-    // Un solo selector abierto, no uno por tarea.
-    const selects = wrapper.findAll('select')
+    // Un solo selector abierto, no uno por tarea. Los selectores de la
+    // pantalla de filtros no cuentan: estos son los del panel de detalle.
+    const selects = wrapper.findAll('[role="dialog"] select')
     expect(selects).toHaveLength(1)
     expect(wrapper.findAll('button').filter((b) => b.text() === 'Mover')).toHaveLength(1)
   })
@@ -296,7 +352,7 @@ describe('CapacityMatrix', () => {
     await flushPromises()
 
     // Se abre un selector con el resto de miembros del proyecto.
-    const select = wrapper.findAll('select').at(-1)
+    const select = wrapper.findAll('[role="dialog"] select').at(-1)
     expect(select.exists()).toBe(true)
     expect(select.findAll('option').map((o) => o.text())).toContain('Ana')
 
@@ -349,7 +405,7 @@ describe('CapacityMatrix', () => {
     await flushPromises()
     await flushPromises()
 
-    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
+    const urls = capacityCalls(calls)
     expect(urls.some((url) => url.includes('/projects/1/capacity'))).toBe(true)
     expect(urls.some((url) => url.includes('/projects/2/capacity'))).toBe(true)
   })
@@ -358,8 +414,8 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix({ id: null })
 
-    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
-    expect(urls.some((url) => url.endsWith('/api/capacity'))).toBe(true)
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('/api/capacity?'))).toBe(true)
     expect(urls.some((url) => url.includes('/projects/'))).toBe(false)
     expect(wrapper.text()).toContain('Capacidad Global')
   })
@@ -368,12 +424,82 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix({ id: null })
 
-    const filtro = wrapper.find('header select')
+    const filtro = wrapper.find('[data-testid="filter-department"]')
     await filtro.setValue('2')
     await flushPromises()
 
-    const urls = calls.filter((call) => call.url.includes('/capacity')).map((call) => call.url)
+    const urls = capacityCalls(calls)
     expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
+  })
+
+  it('el filtro por proyecto limita la capacidad global', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const filtro = wrapper.find('[data-testid="filter-project"]')
+    await filtro.setValue('2')
+    await flushPromises()
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('project_id=2'))).toBe(true)
+  })
+
+  it('el filtro por competencia va con su nivel minimo', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const filtro = wrapper.find('[data-testid="filter-skill"]')
+    await filtro.setValue('1')
+    await flushPromises()
+
+    const nivel = wrapper.find('[data-testid="filter-level"]')
+    await nivel.setValue('2')
+    await flushPromises()
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('skill_id=1'))).toBe(true)
+    expect(urls.some((url) => url.includes('min_level=2'))).toBe(true)
+  })
+
+  it('el rango por defecto son nueve semanas y queda en la URL', async () => {
+    const calls = setupFetch()
+    await mountMatrix({ id: null })
+
+    const query = router.currentRoute.value.query
+    expect(query.from).toMatch(/^\d{4}-W\d{2}$/)
+    expect(query.to).toMatch(/^\d{4}-W\d{2}$/)
+    expect(weeksBetween(query.from, query.to)).toHaveLength(9)
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('from=') && url.includes('to='))).toBe(true)
+  })
+
+  it('las flechas mueven el rango una semana y lo dejan en la URL', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    const antes = router.currentRoute.value.query.from
+    await wrapper.get('[data-testid="range-next"]').trigger('click')
+    await flushPromises()
+
+    const despues = router.currentRoute.value.query.from
+    expect(despues).not.toBe(antes)
+    expect(weeksBetween(router.currentRoute.value.query.from, router.currentRoute.value.query.to)).toHaveLength(9)
+  })
+
+  it('el boton de hoy devuelve el rango a la semana en curso', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    await wrapper.get('[data-testid="range-previous"]').trigger('click')
+    await flushPromises()
+    const movido = router.currentRoute.value.query.from
+
+    await wrapper.get('[data-testid="range-today"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.from).not.toBe(movido)
+    expect(weeksBetween(router.currentRoute.value.query.from, router.currentRoute.value.query.to)).toHaveLength(9)
   })
 
   it('el desglose global usa el listado global de tareas', async () => {
@@ -406,6 +532,22 @@ describe('CapacityMatrix', () => {
     await flushPromises()
 
     const url = calls.find((call) => call.url.includes('/api/tasks?')).url
+    expect(url).toContain('assigned_to=2')
+    expect(url).toContain('week=2026-W46')
+  })
+
+  it('con filtro de proyecto el desglose pide las tareas de ese proyecto', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: null })
+
+    await wrapper.get('[data-testid="filter-project"]').setValue('2')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    // La celda es de ese proyecto: el panel tiene que contar lo mismo.
+    const url = calls.find((call) => call.url.includes('/api/projects/2/tasks')).url
     expect(url).toContain('assigned_to=2')
     expect(url).toContain('week=2026-W46')
   })

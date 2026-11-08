@@ -688,3 +688,105 @@ fase 2 de la propuesta de interfaz, con el cierre de la correccion 6.5.
    horas ni capacidades: solo las agrega para enseñar el uso del conjunto.
    Las semanas en las que alguien no tiene capacidad definida se cuentan
    como capacidad desconocida, no como cero.
+
+## 21. Eje de semanas continuo, filtros y estado en la URL
+
+Hoy la matriz enseña solo las semanas en las que hay algo: si nadie tiene
+tareas en la semana 52, esa columna no existe. El operario no ve el hueco, no
+sabe que la semana esta libre y tiene que preguntar. Ademas, con las semanas
+sueltas, no se puede pedir un periodo concreto ni compartir un enlace que
+muestre lo mismo que ve el que lo envia.
+
+Este bloque hace que el eje sea continuo (todas las semanas del rango, tengan
+actividad o no), anade los filtros que faltan y deja el estado de la pantalla
+en la URL. Es la fase 3 de la propuesta de interfaz.
+
+### Que entra
+
+- **El informe acepta un rango de semanas.** `GET /api/capacity` y
+  `GET /api/projects/{id}/capacity` aceptan `from` y `to` con semanas ISO
+  ("2026-W45") y devuelven todas las semanas del rango, tengan actividad o no.
+  Es el cambio 7.1 de la propuesta.
+- **Los filtros que faltan** (cambio 7.2 de la propuesta):
+  - `project_id`: limita el informe a un proyecto de entre los visibles.
+  - `skill_id` con `min_level`: limita las filas a las personas que tienen esa
+    competencia con ese nivel o mas.
+  - `department_id`: ya existia, y sigue significando lo mismo (los proyectos
+    que gestiona ese departamento).
+- **Los dias no laborables de cada semana** (cambio 7.4 de la propuesta): la
+  semana del informe lleva `holidays: [{date, name, scope}]`, para que la
+  cabecera pueda marcar los festivos.
+- **La barra de filtros** de la matriz, como en el prototipo: proyecto,
+  departamento y competencia con su nivel minimo.
+- **La navegacion de rango**: anterior, "Hoy" y siguiente.
+- **La insignia de festivo** en la cabecera de la semana.
+- **El estado en la URL**: los filtros y el rango se leen de la URL al entrar y
+  se escriben al cambiar, de modo que recargar la pagina no pierde nada y el
+  enlace se puede compartir.
+- **La cabecera de la tabla queda fija** al hacer scroll vertical, como la
+  columna de personas, que ya lo estaba.
+
+### Que no entra
+
+- **Los modos de celda** (Horas / % de uso / Proyectos): son de la fase 4, que
+  unifica la pantalla de capacidad.
+- **El arrastre de tareas** con previsualizacion y el teclado: son de la fase 4.
+- **El resumen en chips** (celdas sobrecargadas, huecos libres, uso medio): es de
+  la fase 4.
+- **La celda abierta en la URL**: va con el panel lateral definitivo, que es de
+  la fase 4. En esta fase la celda abierta no sobrevive a la recarga.
+- **La escala semana / mes**: el prototipo no la tiene, asi que no entra.
+- **El panel, el resumen de proyecto y la vista de proyecto** no cambian de
+  forma: siguen pidiendo el informe sin rango y viendo las semanas con
+  actividad. El eje continuo es, de momento, cosa de la matriz.
+- **La entrada por rol** (el tecnico aterriza en "Mi trabajo"): es de las fases
+  5 y 6.
+- **Los filtros no se guardan** en el navegador entre sesiones: solo viven en
+  la URL.
+
+### Decisiones de este bloque
+
+1. **El backend obedece.** Si no llegan `from` y `to`, el informe sale como
+   hasta ahora: las semanas con actividad. Asi el panel, el resumen de
+   proyecto y el resto de consumidores no cambian de golpe.
+2. **El rango por defecto lo decide el frontend**: la semana en curso y las
+   ocho siguientes, nueve columnas. Es lo que dice la propuesta y lo que
+   enseña el prototipo.
+3. **Las flechas mueven el rango una semana**, no un periodo entero. El rango
+   siempre son nueve semanas y va deslizando: "semana siguiente" es un clic.
+   "Hoy" lo devuelve a la semana en curso.
+4. **Cada semana del informe es un objeto** `{week, holidays}`. Es la forma que
+   ya usa el informe de "Mi trabajo" y deja sitio a lo que crece en la fase 4.
+   El motor sigue trabajando con las claves de semana: el cambio de forma es
+   de la capa que habla con el frontend.
+5. **La insignia de festivo solo enseña los dias globales.** La cabecera es de
+   la matriz, no de una persona: un festivo de departamento o de persona no
+   aplica a toda la columna. El texto es el nombre del festivo, y si es de
+   medio dia se marca con "1/2". Si hay mas de un festivo en la semana, se
+   enseño el primero y cuantos hay mas.
+6. **El filtro por competencia filtra personas.** Solo salen en la matriz las
+   que tienen esa competencia con ese nivel o mas; sus tareas se siguen
+   imputando con normalidad.
+7. **El filtro por departamento no cambia de significado.** Sigue siendo "los
+   proyectos que gestiona ese departamento", que es lo que ya hacia y lo que
+   dice el endpoint.
+8. **El estado en la URL usa los nombres de la propuesta**: `?from=`, `?to=`,
+   `?project=`, `?department=`, `?skill=` y `?level=`. Los de la API son mas
+   explicitos (`project_id`, `skill_id`, `min_level`), pero el enlace se escribe
+   a mano y se comparte.
+9. **En la vista de un proyecto, el filtro de proyecto no se muestra**: ese
+   proyecto ya es el filtro. Los demas filtros si.
+10. **Con filtro de proyecto, el desglose es el de ese proyecto.** La celda
+    cuenta las horas de una persona en un proyecto, asi que el panel tiene que
+    enseñar las tareas de ese mismo proyecto. Si no, el panel contaria horas
+    que la celda no tiene.
+11. **Las dos semanas del rango van juntas.** Si llega una sola, es un 422: un
+    rango a medias no significa nada.
+
+### Decisiones cerradas
+
+1. **Que significa el filtro de departamento.** Mantiene lo que ya hacia:
+   limita los proyectos que gestiona ese departamento, no las personas. Se
+   documenta en la ayuda del filtro.
+2. **Cuantas semanas se ven por defecto.** Nueve: la semana en curso y las
+   ocho siguientes, como en el prototipo.

@@ -129,6 +129,25 @@ describe('CapacityMatrix', () => {
     expect(wrapper.find('[data-testid="capacity-holiday-warning"]').exists()).toBe(false)
   })
 
+  it('un error del servidor no cierra la sesion', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () => jsonResponse({ detail: 'Error interno' }, false, 500),
+    })
+    await mountMatrix()
+
+    expect(localStorage.getItem('coreplanner_token')).toBe('tok-demo')
+    expect(localStorage.getItem('coreplanner_signed_out')).toBeNull()
+  })
+
+  it('un 401 si cierra la sesion', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () => jsonResponse({ detail: 'Credenciales invalidas' }, false, 401),
+    })
+    await mountMatrix()
+
+    expect(localStorage.getItem('coreplanner_token')).toBeNull()
+  })
+
   it('el alta de tareas no se duplica en la matriz', async () => {
     setupFetch()
     const wrapper = await mountMatrix()

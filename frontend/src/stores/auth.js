@@ -10,6 +10,21 @@ const DEMO_CREDENTIALS = {
 
 const SIGNED_OUT_KEY = 'coreplanner_signed_out'
 
+/**
+ * Indica si el acceso automatico de demostracion esta permitido.
+ *
+ * La bandera `VITE_DEMO_AUTO_LOGIN` manda si esta puesta: `true` lo activa y
+ * `false` lo desactiva. Sin bandera, solo se activa en desarrollo, de modo
+ * que en una compilacion de produccion queda apagado: ahi cada persona entra
+ * con sus credenciales y nadie hereda la sesion del administrador.
+ */
+export function demoAutoLoginEnabled() {
+  const flag = import.meta.env.VITE_DEMO_AUTO_LOGIN
+  if (flag === 'true') return true
+  if (flag === 'false') return false
+  return import.meta.env.DEV === true
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('coreplanner_token') ?? null)
   const user = ref(JSON.parse(localStorage.getItem('coreplanner_user') ?? 'null'))
@@ -41,13 +56,14 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Devuelve el token de sesion, iniciando una si no la hay.
    *
-   * La aplicacion arranca con el administrador de demostracion, de modo que
-   * al abrir cualquiera de sus vistas haya datos que ver. Si el usuario ha
-   * cerrado la sesion, no se entra automaticamente.
+   * En desarrollo, si no hay token, se entra con el administrador de
+   * demostracion, de modo que al abrir cualquiera de sus vistas haya datos
+   * que ver. Si el usuario ha cerrado la sesion, no se entra automaticamente.
    */
   async function ensureSession() {
     if (token.value) return token.value
     if (signedOut.value) throw new Error('La sesion esta cerrada')
+    if (!demoAutoLoginEnabled()) throw new Error('No hay ninguna sesion iniciada')
     const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)
     setSession(data.access_token, data.user)
     return data.access_token
@@ -57,10 +73,13 @@ export const useAuthStore = defineStore('auth', () => {
    * Renueva la sesion con el administrador de demostracion.
    *
    * Se usa cuando el servidor responde 401, por ejemplo si el token
-   * guardado en el navegador ya no vale.
+   * guardado en el navegador ya no vale. Si el acceso automatico esta
+   * apagado, no hay nada que renovar: se devuelve null y la peticion falla
+   * con su propio 401, que es lo que debe pasar.
    */
   async function refresh() {
     if (signedOut.value) throw new Error('La sesion esta cerrada')
+    if (!demoAutoLoginEnabled()) return null
     clear()
     const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)
     setSession(data.access_token, data.user)

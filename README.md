@@ -265,7 +265,10 @@ cambiarse en cualquier despliegue real.
 Dos avisos, porque los dos son defaults de demostracion:
 
 - **El secreto JWT tiene un valor por defecto** en `backend/config.py` y nada comprueba al arrancar que se haya cambiado. Fuera de la maquina del desarrollador hay que cambiarlo.
-- **El frontend entra solo con el administrador de demostracion** (`admin@example.com` / `coreplanner`) y renueva la sesion con esas credenciales cuando la API responde 401. Es una ayuda para la demo, no un mecanismo de despliegue: cualquier despliegue real necesita su propio acceso.
+- **El frontend entra solo con el administrador de demostracion** (`admin@example.com` / `coreplanner`). Solo lo hace en desarrollo, o con la bandera `VITE_DEMO_AUTO_LOGIN` puesta a `true` (vease `frontend/.env.example`). En una compilacion de produccion queda apagado y cada persona entra con sus credenciales.
+
+Ademas, **un error del servidor ya no cierra la sesion**: solo lo hace un 401.
+Con un 500 la sesion sigue viva y recargar la vista puede resolverlo.
 
 ## Prueba en vivo
 

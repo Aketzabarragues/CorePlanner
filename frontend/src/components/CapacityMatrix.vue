@@ -100,8 +100,20 @@ async function reload() {
     }
     error.value = null
   } catch (err) {
-    error.value = err.message
+    handleError(err)
   }
+}
+
+/**
+ * Deja el error en pantalla y cierra la sesion si el servidor dice que ya no
+ * vale.
+ *
+ * Solo un 401 cierra la sesion. Un 500 o un fallo de red son problemas del
+ * servidor: la sesion sigue viva y recargar la vista puede resolverlo.
+ */
+function handleError(err) {
+  error.value = err.message
+  if (err.status === 401) auth.clear()
 }
 
 /** Actualiza las horas que muestra el desglose con las del informe nuevo. */
@@ -219,8 +231,7 @@ onMounted(async () => {
   try {
     await loadReport()
   } catch (err) {
-    error.value = err.message
-    auth.clear()
+    handleError(err)
   } finally {
     loading.value = false
   }
@@ -233,7 +244,7 @@ watch(
     try {
       await loadReport()
     } catch (err) {
-      error.value = err.message
+      handleError(err)
     } finally {
       loading.value = false
     }

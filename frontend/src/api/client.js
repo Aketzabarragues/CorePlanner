@@ -29,12 +29,16 @@ export async function apiFetch(path, { token, ...options } = {}) {
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (response.status === 401 && refreshSession && path !== '/auth/login') {
-    const fresh = await refreshSession()
+    const fresh = await refreshSession().catch(() => null)
     if (fresh) return apiFetch(path, { ...options, token: fresh })
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    throw new Error(extractErrorDetail(payload, response.status))
+    const error = new Error(extractErrorDetail(payload, response.status))
+    // El codigo de estado viaja con el error: la vista distingue un 401 de un
+    // 500 y solo cierra la sesion en el primer caso.
+    error.status = response.status
+    throw error
   }
   return response.status === 204 ? null : response.json()
 }

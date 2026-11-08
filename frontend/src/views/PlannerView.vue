@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import PlannerMatrix from '../components/PlannerMatrix.vue'
 import { useAuthStore } from '../stores/auth'
 import { isoDate, projectSplit, usageRatio, weeksRange } from '../utils/planner'
@@ -112,6 +113,7 @@ async function dropOn(row) {
 }
 
 onMounted(load)
+useTaskReload(load)
 </script>
 
 <template>

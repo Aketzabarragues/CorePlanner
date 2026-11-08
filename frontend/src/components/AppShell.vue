@@ -391,7 +391,7 @@ watch(
         >
           {{ error }}
         </p>
-        <router-view :key="store.tasksRevision" />
+        <router-view />
       </main>
     </div>
 

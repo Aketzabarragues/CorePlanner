@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { workCalendarApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import LaborMonthGrid from '../components/LaborMonthGrid.vue'
 import { useAuthStore } from '../stores/auth'
 import { hoursText, jornadaLabel, scopeText, shortDate } from '../utils/labor'
@@ -57,6 +58,7 @@ function goToday() {
 
 watch(month, load)
 onMounted(load)
+useTaskReload(load)
 </script>
 
 <template>

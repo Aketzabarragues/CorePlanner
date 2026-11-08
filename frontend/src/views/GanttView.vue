@@ -16,6 +16,7 @@ import Gantt from 'frappe-gantt'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 
@@ -106,6 +107,7 @@ function changeViewMode(mode) {
 
 onMounted(load)
 watch(() => props.id, load)
+useTaskReload(load)
 onBeforeUnmount(() => {
   gantt = null
 })

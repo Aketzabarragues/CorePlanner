@@ -18,6 +18,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { calendarApi, overviewApi, projectsApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import { useAuthStore } from '../stores/auth'
@@ -167,6 +168,7 @@ onMounted(async () => {
   await load()
   loading.value = false
 })
+useTaskReload(load)
 
 watch(
   () => props.id,

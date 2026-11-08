@@ -9,6 +9,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { projectsApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import AppIcon from '../components/AppIcon.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
@@ -65,6 +66,7 @@ async function load() {
 
 onMounted(load)
 watch(() => props.id, load)
+useTaskReload(load)
 </script>
 
 <template>

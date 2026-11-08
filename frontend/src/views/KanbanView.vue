@@ -12,6 +12,7 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
 import { projectsApi, tasksApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -110,6 +111,7 @@ async function load() {
 
 onMounted(load)
 watch(() => props.id, load)
+useTaskReload(load)
 onBeforeUnmount(() => {
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', onDragEnd)

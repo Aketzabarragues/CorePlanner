@@ -448,7 +448,7 @@ describe('AppShell', () => {
     expect(store.tasksRevision).toBe(antes + 1)
   })
 
-  it('la vista abierta se monta de nuevo cuando cambian las tareas', async () => {
+  it('la vista abierta no se monta de nuevo cuando cambian las tareas', async () => {
     mounts = 0
     const { wrapper } = await mountShell('/projects/1/capacity')
     await flushPromises()
@@ -459,8 +459,9 @@ describe('AppShell', () => {
     useProjectsStore().notifyTasksChanged()
     await flushPromises()
 
-    // Remontar la vista es lo que obliga a pedir los datos de nuevo.
-    expect(mounts).toBe(2)
+    // La vista se queda montada: sus filtros, su pestana activa y su
+    // desplazamiento se conservan. Los datos se recargan por su cuenta.
+    expect(mounts).toBe(1)
   })
 
   it('sin proyecto en la url no hay boton de nueva tarea', async () => {

@@ -12,6 +12,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { myWorkApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { columnLabel, formatHours } from '../utils/kanban'
 
@@ -39,6 +40,7 @@ onMounted(async () => {
   await load()
   loading.value = false
 })
+useTaskReload(load)
 </script>
 
 <template>

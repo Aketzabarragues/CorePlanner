@@ -6,9 +6,9 @@
  * matriz es global: reúne las horas de todos los proyectos visibles y admite
  * un filtro por departamento.
  *
- * Hace un login automatico con el usuario administrador de demostracion y
- * guarda el token en localStorage, de modo que al abrir la aplicacion ya
- * hay datos que ver.
+ * En desarrollo se puede entrar con el administrador de demostracion, para
+ * tener datos que ver sin pasar por el formulario de acceso. Fuera de
+ * desarrollo, cada persona entra con sus credenciales.
  *
  * Las celdas son clicables: al pulsar una se abre el desglose de las tareas
  * que componen esas horas, desde donde se pueden editar. Cualquier cambio
@@ -17,6 +17,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
@@ -236,6 +237,7 @@ onMounted(async () => {
     loading.value = false
   }
 })
+useTaskReload(loadReport)
 
 watch(
   () => props.id,

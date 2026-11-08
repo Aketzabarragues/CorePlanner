@@ -180,6 +180,25 @@ describe('PlannerView', () => {
     expect(JSON.parse(parche.body)).toEqual({ assigned_to: 3 })
   })
 
+  it('al cambiar las tareas se recarga sin perder la vista activa', async () => {
+    const llamadas = setupFetch()
+
+    const wrapper = await mountView()
+    await wrapper.find('[data-testid="planner-view-table"]').trigger('click')
+    const tareasAntes = llamadas.filter((llamada) => llamada.url.includes('/tasks')).length
+
+    const { useProjectsStore } = await import('../stores/projects')
+    useProjectsStore().notifyTasksChanged()
+    await flushPromises()
+    await flushPromises()
+
+    // La vista se queda en la pestana de la tabla: ya no se remonta.
+    expect(wrapper.findAll('[data-testid="planner-split"]').length).toBeGreaterThan(0)
+    // Y los datos se vuelven a pedir.
+    const tareasDespues = llamadas.filter((llamada) => llamada.url.includes('/tasks')).length
+    expect(tareasDespues).toBeGreaterThan(tareasAntes)
+  })
+
   it('avisa cuando el servidor no responde', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {

@@ -13,6 +13,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
 import { projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -130,8 +131,12 @@ onBeforeUnmount(() => {
       <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
     </header>
 
-    <p v-if="notice" class="mb-2 text-sm text-emerald-700">{{ notice }}</p>
-    <p v-if="error" class="mb-2 text-sm text-red-600">{{ error }}</p>
+    <AlertBanner v-if="notice" variant="success" class="mb-2">
+      {{ notice }}
+    </AlertBanner>
+    <AlertBanner v-if="error" variant="error" class="mb-2">
+      {{ error }}
+    </AlertBanner>
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
 
     <div class="grid grid-cols-4 gap-3">

@@ -11,6 +11,7 @@ import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { PROJECT_STATUSES } from '../../utils/navigation'
 import ModalDialog from '../ModalDialog.vue'
+import AlertBanner from '../common/AlertBanner.vue'
 
 const props = defineProps({
   projects: { type: Array, required: true },
@@ -217,12 +218,9 @@ async function save() {
           </label>
         </div>
 
-        <p
-          v-if="error"
-          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        >
+        <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}
-        </p>
+        </AlertBanner>
 
         <div class="mt-4 flex gap-2">
           <button

@@ -17,6 +17,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 
@@ -144,8 +145,12 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <p v-if="notice" class="mb-2 text-sm text-emerald-700">{{ notice }}</p>
-    <p v-if="error" class="mb-2 text-sm text-red-600">{{ error }}</p>
+    <AlertBanner v-if="notice" variant="success" class="mb-2">
+      {{ notice }}
+    </AlertBanner>
+    <AlertBanner v-if="error" variant="error" class="mb-2">
+      {{ error }}
+    </AlertBanner>
     <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
     <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
 

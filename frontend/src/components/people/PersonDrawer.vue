@@ -9,6 +9,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { peopleApi } from '../../api/client'
+import AlertBanner from '../common/AlertBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
@@ -192,12 +193,12 @@ async function saveSkills() {
       </header>
 
       <div class="flex-1 space-y-6 px-5 py-4">
-        <p v-if="error" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <AlertBanner v-if="error" variant="error">
           {{ error }}
-        </p>
-        <p v-if="notice" class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+        </AlertBanner>
+        <AlertBanner v-if="notice" variant="success">
           {{ notice }}
-        </p>
+        </AlertBanner>
 
         <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <dt class="text-slate-500">Correo</dt>

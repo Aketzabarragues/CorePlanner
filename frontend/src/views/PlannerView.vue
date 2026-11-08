@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import PlannerMatrix from '../components/PlannerMatrix.vue'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { isoDate, projectSplit, usageRatio, weeksRange } from '../utils/planner'
 import { weekMonday } from '../utils/weeks'
@@ -158,12 +159,12 @@ useTaskReload(load)
       </div>
     </div>
 
-    <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="planner-error">
+    <AlertBanner v-if="error" variant="error" class="mt-3" data-testid="planner-error">
       {{ error }}
-    </p>
-    <p v-if="notice" class="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" data-testid="planner-notice">
+    </AlertBanner>
+    <AlertBanner v-if="notice" variant="success" class="mt-3" data-testid="planner-notice">
       {{ notice }}
-    </p>
+    </AlertBanner>
 
     <section class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h2 class="text-sm font-semibold text-slate-800">

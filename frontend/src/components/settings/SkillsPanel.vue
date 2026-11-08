@@ -10,6 +10,7 @@ import { ref } from 'vue'
 import { skillsApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import ModalDialog from '../ModalDialog.vue'
+import AlertBanner from '../common/AlertBanner.vue'
 
 defineProps({
   skills: { type: Array, required: true },
@@ -100,20 +101,12 @@ async function removeSkill(skill) {
       </button>
     </div>
 
-    <p
-      v-if="error"
-      class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-      data-testid="skill-catalog-error"
-    >
+    <AlertBanner v-if="error" variant="error" data-testid="skill-catalog-error">
       {{ error }}
-    </p>
-    <p
-      v-if="notice"
-      class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
-      data-testid="skill-catalog-notice"
-    >
+    </AlertBanner>
+    <AlertBanner v-if="notice" variant="success" data-testid="skill-catalog-notice">
       {{ notice }}
-    </p>
+    </AlertBanner>
 
     <table class="w-full text-sm">
       <thead>

@@ -18,6 +18,7 @@ import { meApi, tasksApi } from '../api/client'
 import AppIcon from './AppIcon.vue'
 import ProjectPicker from './ProjectPicker.vue'
 import TaskForm from './TaskForm.vue'
+import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
@@ -385,12 +386,18 @@ watch(
       </header>
 
       <main class="flex-1 overflow-auto bg-slate-50 p-6">
-        <p
-          v-if="error"
-          class="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        >
+        <AlertBanner v-if="error" variant="error" class="mb-3">
           {{ error }}
-        </p>
+        </AlertBanner>
+        <AlertBanner
+          v-else-if="notice"
+          variant="success"
+          class="mb-3"
+          dismissible
+          @dismiss="notice = null"
+        >
+          {{ notice }}
+        </AlertBanner>
         <router-view />
       </main>
     </div>
@@ -402,14 +409,5 @@ watch(
       @cancel="showNewTask = false"
       @save="createTask"
     />
-
-    <div
-      v-if="notice"
-      class="fixed bottom-6 right-6 z-50 cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
-      title="Cerrar aviso"
-      @click="notice = null"
-    >
-      {{ notice }}
-    </div>
   </div>
 </template>

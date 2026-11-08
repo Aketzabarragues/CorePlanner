@@ -8,6 +8,7 @@
 import { ref } from 'vue'
 
 import { calendarApi } from '../../api/client'
+import AlertBanner from '../common/AlertBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
@@ -64,20 +65,12 @@ async function removeDay(day) {
 
 <template>
   <div class="space-y-4">
-    <p
-      v-if="error"
-      class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-      data-testid="calendar-error"
-    >
+    <AlertBanner v-if="error" variant="error" data-testid="calendar-error">
       {{ error }}
-    </p>
-    <p
-      v-if="notice"
-      class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
-      data-testid="calendar-notice"
-    >
+    </AlertBanner>
+    <AlertBanner v-if="notice" variant="success" data-testid="calendar-notice">
       {{ notice }}
-    </p>
+    </AlertBanner>
 
     <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <table class="w-full text-sm">

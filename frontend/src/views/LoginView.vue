@@ -9,6 +9,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { authApi } from '../api/client'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 
 const email = ref('')
@@ -76,7 +77,9 @@ onMounted(() => {
         />
       </label>
 
-      <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+      <AlertBanner v-if="error" variant="error">
+        {{ error }}
+      </AlertBanner>
 
       <button
         type="submit"

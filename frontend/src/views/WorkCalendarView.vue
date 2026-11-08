@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { workCalendarApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import LaborMonthGrid from '../components/LaborMonthGrid.vue'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { hoursText, jornadaLabel, scopeText, shortDate } from '../utils/labor'
 import { currentMonthKey, monthGrid, monthLabel, shiftMonth } from '../utils/month'
@@ -104,9 +105,9 @@ useTaskReload(load)
       </div>
     </div>
 
-    <p v-if="error" class="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="labor-error">
+    <AlertBanner v-if="error" variant="error" class="mt-3" data-testid="labor-error">
       {{ error }}
-    </p>
+    </AlertBanner>
 
     <div class="mt-4 grid gap-4 lg:grid-cols-3">
       <section class="lg:col-span-2 rounded-lg border border-slate-200 bg-white p-4">

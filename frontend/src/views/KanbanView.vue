@@ -8,10 +8,15 @@
  *
  * La tarjeta se mueve de dos maneras: arrastrarla con el raton hasta otra
  * columna o elegir el estado en su desplegable.
+ *
+ * Si la persona no tiene permiso de escritura en el proyecto, el tablero se
+ * ve en solo lectura: el desplegable no cambia de estado y la tarjeta no se
+ * puede arrastrar. El criterio es el mismo que usa el armazon: los proyectos
+ * editables de quien entra.
  */
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 
-import { projectsApi, tasksApi } from '../api/client'
+import { meApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
@@ -24,15 +29,38 @@ const props = defineProps({ id: { type: [String, Number], required: true } })
 const tasks = ref([])
 const error = ref(null)
 const notice = ref(null)
+/** Aviso que no tapa el tablero: un rechazo del servidor al mover una tarea. */
+const aviso = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const draggingId = ref(null)
 const hoverColumn = ref(null)
 const columnElements = ref([])
+/** Ambito de quien entra: rol y proyectos en los que puede escribir. */
+const scope = ref(null)
 
 const auth = useAuthStore()
 
 let dragging = null
+
+/**
+ * Si la persona puede escribir en el proyecto abierto.
+ *
+ * Es el mismo criterio que usa el armazon: el proyecto tiene que estar entre
+ * los editables de quien entra. Sin ambito no hay permiso.
+ */
+const canEdit = computed(() => {
+  const editable = scope.value?.editable_project_ids
+  if (!editable) return false
+  return editable.includes(Number(props.id))
+})
+
+/** Lo que se lee encima del tablero: cambia con el permiso. */
+const subtitle = computed(() =>
+  canEdit.value
+    ? 'Arrastra una tarjeta a otra columna o cambia su estado en el desplegable.'
+    : 'Solo lectura: no puedes mover las tarjetas de este proyecto.',
+)
 
 const board = computed(() =>
   KANBAN_COLUMNS.map((column) => ({
@@ -49,6 +77,7 @@ function columnAtPoint(x, y) {
 }
 
 function startDrag(task, event) {
+  if (!canEdit.value) return
   if (event.target.closest('select, button, input, a')) return
   dragging = { task }
   draggingId.value = task.id
@@ -78,7 +107,15 @@ function onDragEnd(event) {
 
 /** Cambia el estado de una tarea y guarda el cambio. */
 async function moveTask(task, status) {
+  // Red de seguridad: el desplegable esta deshabilitado y el arrastre no
+  // empieza sin permiso, asi que aqui solo llega si el permiso cambia con la
+  // tarjeta en pantalla.
+  if (!canEdit.value) {
+    aviso.value = 'No tienes permiso de escritura en este proyecto.'
+    return
+  }
   saving.value = true
+  aviso.value = null
   // La tarjeta se mueve al instante y el tablero se recarga con lo que
   // conteste el servidor, que es lo que manda.
   const local = tasks.value.find((t) => t.id === task.id)
@@ -86,9 +123,11 @@ async function moveTask(task, status) {
   try {
     await tasksApi.update(auth.token, task.id, { status })
     notice.value = `"${task.title}" pasa a ${columnLabel(status)}.`
-    error.value = null
   } catch (err) {
-    error.value = err.message
+    // El aviso va aparte del error de la vista: el tablero no se reemplaza
+    // por un fallo al mover una tarjeta, y la recarga que viene despues no
+    // se lleva el mensaje por delante.
+    aviso.value = `No se ha podido mover la tarea: ${err.message}`
   } finally {
     saving.value = false
     await load()
@@ -104,6 +143,9 @@ async function load() {
     const token = await auth.ensureSession()
     const data = await projectsApi.kanban(token, props.id)
     tasks.value = (data.columns ?? []).flatMap((column) => column.tasks ?? [])
+    // El ambito va aparte: si no se puede leer, el tablero se ve en solo
+    // lectura, pero se ve.
+    scope.value = await meApi.get(token).catch(() => null)
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -129,10 +171,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <PageHeader
-      title="Tablero Kanban"
-      subtitle="Arrastra una tarjeta a otra columna o cambia su estado en el desplegable."
-    >
+    <PageHeader title="Tablero Kanban" :subtitle="subtitle">
       <template #actions>
         <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
       </template>
@@ -140,6 +179,17 @@ onBeforeUnmount(() => {
 
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}
+    </AlertBanner>
+
+    <AlertBanner
+      v-if="aviso"
+      variant="warning"
+      class="mb-2"
+      data-testid="kanban-warning"
+      dismissible
+      @dismiss="aviso = null"
+    >
+      {{ aviso }}
     </AlertBanner>
 
     <AsyncState
@@ -166,8 +216,11 @@ onBeforeUnmount(() => {
           <article
             v-for="task in column.tasks"
             :key="task.id"
-            class="mb-2 cursor-grab rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
-            :class="draggingId === task.id ? 'opacity-60' : ''"
+            class="mb-2 rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
+            :class="[
+              canEdit ? 'cursor-grab' : 'cursor-default',
+              draggingId === task.id ? 'opacity-60' : '',
+            ]"
             @mousedown="startDrag(task, $event)"
           >
             <p class="text-sm font-medium text-slate-900">{{ task.title }}</p>
@@ -184,7 +237,9 @@ onBeforeUnmount(() => {
             </p>
             <select
               :value="task.status"
-              class="mt-2 w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs text-slate-700"
+              :disabled="!canEdit"
+              class="mt-2 w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              :title="canEdit ? 'Cambiar el estado de la tarea' : 'Solo lectura'"
               @change="moveFromSelect(task, $event)"
             >
               <option v-for="option in KANBAN_COLUMNS" :key="option.status" :value="option.status">

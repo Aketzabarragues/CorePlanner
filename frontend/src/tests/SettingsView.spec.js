@@ -172,6 +172,18 @@ describe('SettingsView', () => {
     expect(wrapper.text()).toContain('Roles')
   })
 
+  it('la pestaña de proyectos pinta la tabla con el estado de cada proyecto', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+
+    const tabla = wrapper.find('[data-testid="projects-table"]')
+    expect(tabla.exists()).toBe(true)
+    expect(tabla.text()).toContain('Linea Pasteurizadora SIVE')
+    expect(tabla.text()).toContain('Activo')
+  })
+
   it('la pestaña del calendario laboral muestra el mes y el detalle', async () => {
     const wrapper = await mountView()
 

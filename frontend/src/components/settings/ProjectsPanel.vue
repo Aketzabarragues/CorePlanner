@@ -9,7 +9,7 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
-import { PROJECT_STATUSES } from '../../utils/navigation'
+import { PROJECT_STATUSES, projectStatus } from '../../utils/navigation'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
 
@@ -126,7 +126,7 @@ async function save() {
       </button>
     </div>
 
-    <table class="w-full text-sm">
+    <table class="w-full text-sm" data-testid="projects-table">
       <thead>
         <tr class="border-b border-slate-200 text-left">
           <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">

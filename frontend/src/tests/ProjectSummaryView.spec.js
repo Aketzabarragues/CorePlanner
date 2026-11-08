@@ -105,9 +105,9 @@ async function mountView() {
       { path: '/projects/:id', name: 'project', component: { render: () => null } },
       { path: '/projects/:id/kanban', name: 'kanban', component: { render: () => null } },
       { path: '/projects/:id/members', name: 'members', component: { render: () => null } },
-      { path: '/projects/:id/settings', name: 'settings', component: { render: () => null } },
-      { path: '/projects/:id/gantt', name: 'gantt', component: { render: () => null } },
-      { path: '/capacity', name: 'global-capacity', component: { render: () => null } },
+      { path: '/projects/:id/settings', name: 'project-settings', component: { render: () => null } },
+      { path: '/capacity', name: 'capacity', component: { render: () => null } },
+      { path: '/gantt', name: 'gantt', component: { render: () => null } },
     ],
   })
   await router.push('/projects/1')
@@ -118,7 +118,7 @@ async function mountView() {
   })
   await flushPromises()
   await flushPromises()
-  return wrapper
+  return { wrapper, router }
 }
 
 describe('ProjectSummaryView', () => {
@@ -129,7 +129,7 @@ describe('ProjectSummaryView', () => {
   })
 
   it('muestra el nombre, el departamento, el estado y el responsable', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.text()).toContain('Linea Pasteurizadora SIVE')
     expect(wrapper.text()).toContain('Automatización & SCADA')
@@ -138,7 +138,7 @@ describe('ProjectSummaryView', () => {
   })
 
   it('ofrece las cuatro secciones del proyecto', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="project-tab-resumen"]').attributes('href')).toBe(
       '/projects/1',
@@ -155,7 +155,7 @@ describe('ProjectSummaryView', () => {
   })
 
   it('enlaza con la capacidad y el Gantt filtrados por proyecto', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="project-go-capacity"]').attributes('href')).toBe(
       '/capacity?project=1',
@@ -165,8 +165,28 @@ describe('ProjectSummaryView', () => {
     )
   })
 
+  it('el enlace al Gantt lleva de verdad a la vista con el filtro', async () => {
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('[data-testid="project-go-gantt"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/gantt')
+    expect(router.currentRoute.value.query.project).toBe('1')
+  })
+
+  it('el enlace a la capacidad lleva de verdad a la vista con el filtro', async () => {
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('[data-testid="project-go-capacity"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/capacity')
+    expect(router.currentRoute.value.query.project).toBe('1')
+  })
+
   it('cuenta las tareas por estado', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     const contadores = wrapper.findAll('[data-testid="project-status-count"]')
     expect(contadores).toHaveLength(4)
@@ -179,7 +199,7 @@ describe('ProjectSummaryView', () => {
   })
 
   it('enseña las horas del proyecto por semana', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     const grafico = wrapper.find('[data-testid="project-week-bars"]')
     expect(grafico.exists()).toBe(true)
@@ -188,7 +208,7 @@ describe('ProjectSummaryView', () => {
   })
 
   it('lista el equipo con su rol y sus horas', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     const equipo = wrapper.findAll('[data-testid="project-team-row"]')
     expect(equipo).toHaveLength(2)

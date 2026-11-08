@@ -41,7 +41,13 @@ const board = {
   ],
 }
 
-function setupFetch() {
+/**
+ * Monta el tablero.
+ *
+ * `editable` son los proyectos en los que quien entra puede escribir: el
+ * tablero se ve en solo lectura si el proyecto no esta entre ellos.
+ */
+function setupFetch({ editable = [1], failPatch = false } = {}) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -52,10 +58,30 @@ function setupFetch() {
         json: async () => ({ access_token: 'tok', user: { id: 9, name: 'Admin' } }),
       }
     }
+    if (url.endsWith('/me')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: { id: 9, name: 'Admin' },
+          role_label: 'Tecnico',
+          is_manager: false,
+          visible_project_ids: [1],
+          editable_project_ids: editable,
+        }),
+      }
+    }
     if (url.includes('/kanban')) {
       // Copia nueva en cada llamada: la vista mueve las tarjetas al instante
       // y no debe tocar los datos del test.
       return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(board)) }
+    }
+    if (options.method === 'PATCH' && failPatch) {
+      return {
+        ok: false,
+        status: 500,
+        json: async () => ({ detail: 'No se pudo guardar' }),
+      }
     }
     return { ok: true, status: 200, json: async () => ({}) }
   })
@@ -172,5 +198,57 @@ describe('KanbanView', () => {
     await flushPromises()
 
     expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+  })
+
+  it('sin permiso de escritura el desplegable esta deshabilitado', async () => {
+    setupFetch({ editable: [] })
+    const wrapper = await mountKanban()
+
+    const select = wrapper.findAll('select')[0]
+    expect(select.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Solo lectura')
+  })
+
+  it('sin permiso de escritura la tarjeta no se puede arrastrar', async () => {
+    const calls = setupFetch({ editable: [] })
+    const wrapper = await mountKanban()
+    stubColumns(wrapper)
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.trigger('mousedown', { clientX: 10, clientY: 10 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 10 }))
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 10 }))
+    await flushPromises()
+
+    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+  })
+
+  it('sin permiso de escritura el cambio de estado no sale al servidor', async () => {
+    const calls = setupFetch({ editable: [] })
+    const wrapper = await mountKanban()
+
+    // El desplegable esta deshabilitado, de modo que el cambio no se dispara
+    // y no sale nada al servidor.
+    const select = wrapper.findAll('select')[0]
+    expect(select.attributes('disabled')).toBeDefined()
+
+    await select.setValue('done')
+    await flushPromises()
+
+    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+  })
+
+  it('si el servidor rechaza el cambio, el aviso se ve', async () => {
+    setupFetch({ failPatch: true })
+    const wrapper = await mountKanban()
+
+    await wrapper.findAll('select')[0].setValue('done')
+    await flushPromises()
+
+    // El aviso no lo tapa la recarga que viene despues del intento.
+    const aviso = wrapper.find('[data-testid="kanban-warning"]')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.text()).toContain('No se ha podido mover la tarea')
+    expect(aviso.text()).toContain('No se pudo guardar')
   })
 })

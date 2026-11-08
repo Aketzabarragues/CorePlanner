@@ -125,23 +125,25 @@ function setupFetch(overrides = {}) {
 
 let router
 
-async function mountMatrix(props = {}, query = {}) {
+/**
+ * Monta la matriz.
+ *
+ * El proyecto es un filtro que vive en la URL, de modo que la vista se monta
+ * siempre en la misma ruta y lo que cambia es la consulta.
+ */
+async function mountMatrix(query = {}) {
   router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', component: { template: '<div />' } },
-      { path: '/capacity', component: { template: '<div />' } },
-      { path: '/projects/:id/capacity', component: { template: '<div />' } },
+      { path: '/capacity', name: 'capacity', component: { template: '<div />' } },
+      // El panel de detalle enlaza con el Gantt de la organizacion.
+      { path: '/gantt', name: 'gantt', component: { template: '<div />' } },
     ],
   })
-  await router.push({
-    path: props.id === null ? '/capacity' : `/projects/${props.id}/capacity`,
-    query,
-  })
+  await router.push({ path: '/capacity', query })
   await router.isReady()
 
   const wrapper = mount(CapacityMatrix, {
-    props: { id: 1, ...props },
     global: { plugins: [createPinia(), router] },
   })
   await flushPromises()
@@ -192,7 +194,7 @@ describe('CapacityMatrix', () => {
 
   it('con capacidad desconocida la celda no se marca como libre', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () =>
+      '/api/capacity': () =>
         jsonResponse({
           ...capacityReport,
           rows: capacityReport.rows.map((row) => ({
@@ -224,7 +226,7 @@ describe('CapacityMatrix', () => {
 
   it('la cabecera marca los dias no laborables de la semana', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () =>
+      '/api/capacity': () =>
         jsonResponse({
           ...capacityReport,
           weeks: [
@@ -270,8 +272,7 @@ describe('CapacityMatrix', () => {
 
   it('avisa de las tareas que caen enteramente en dias no laborables', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () =>
-        jsonResponse({ ...capacityReport, holiday_task_ids: [42] }),
+      '/api/capacity': () => jsonResponse({ ...capacityReport, holiday_task_ids: [42] }),
     })
     const wrapper = await mountMatrix()
 
@@ -290,7 +291,7 @@ describe('CapacityMatrix', () => {
 
   it('un error del servidor no cierra la sesion', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () => jsonResponse({ detail: 'Error interno' }, false, 500),
+      '/api/capacity': () => jsonResponse({ detail: 'Error interno' }, false, 500),
     })
     await mountMatrix()
 
@@ -300,7 +301,7 @@ describe('CapacityMatrix', () => {
 
   it('un 401 si cierra la sesion', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () => jsonResponse({ detail: 'Credenciales invalidas' }, false, 401),
+      '/api/capacity': () => jsonResponse({ detail: 'Credenciales invalidas' }, false, 401),
     })
     await mountMatrix()
 
@@ -363,8 +364,7 @@ describe('CapacityMatrix', () => {
     await reasignar.trigger('click')
     await flushPromises()
 
-    // Un solo selector abierto, no uno por tarea. Los selectores de la
-    // pantalla de filtros no cuentan: estos son los del panel de detalle.
+    // Un solo selector abierto, no uno por tarea.
     const selects = wrapper.findAll('[role="dialog"] select')
     expect(selects).toHaveLength(1)
     expect(wrapper.findAll('button').filter((b) => b.text() === 'Mover')).toHaveLength(1)
@@ -428,32 +428,41 @@ describe('CapacityMatrix', () => {
     expect(wrapper.text()).not.toContain('backend/seed.py')
   })
 
-  it('al cambiar de proyecto vuelve a pedir la matriz de ese proyecto', async () => {
+  it('sin filtro pide la capacidad de toda la organizacion', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: 1 })
-
-    await wrapper.setProps({ id: 2 })
-    await flushPromises()
-    await flushPromises()
-
-    const urls = capacityCalls(calls)
-    expect(urls.some((url) => url.includes('/projects/1/capacity'))).toBe(true)
-    expect(urls.some((url) => url.includes('/projects/2/capacity'))).toBe(true)
-  })
-
-  it('sin identificador pide la capacidad global', async () => {
-    const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     const urls = capacityCalls(calls)
     expect(urls.some((url) => url.includes('/api/capacity?'))).toBe(true)
-    expect(urls.some((url) => url.includes('/projects/'))).toBe(false)
-    expect(wrapper.text()).toContain('Capacidad Global')
+    expect(urls.some((url) => url.includes('project_id='))).toBe(false)
+    expect(wrapper.text()).toContain('Reparto de horas de todos los proyectos visibles')
   })
 
-  it('el filtro por departamento limita la capacidad global', async () => {
+  it('el filtro de proyecto de la URL limita la capacidad', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix({ project: '2' })
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('project_id=2'))).toBe(true)
+    expect(wrapper.text()).toContain('Ampliacion linea 2')
+  })
+
+  it('al cambiar el filtro de proyecto vuelve a pedir la matriz', async () => {
+    const calls = setupFetch()
+    await mountMatrix({ project: '1' })
+
+    await router.replace({ path: '/capacity', query: { project: '2' } })
+    await flushPromises()
+    await flushPromises()
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('project_id=1'))).toBe(true)
+    expect(urls.some((url) => url.includes('project_id=2'))).toBe(true)
+  })
+
+  it('el filtro por departamento limita la capacidad', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
 
     const filtro = wrapper.find('[data-testid="filter-department"]')
     await filtro.setValue('2')
@@ -463,21 +472,9 @@ describe('CapacityMatrix', () => {
     expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
   })
 
-  it('el filtro por proyecto limita la capacidad global', async () => {
-    const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
-
-    const filtro = wrapper.find('[data-testid="filter-project"]')
-    await filtro.setValue('2')
-    await flushPromises()
-
-    const urls = capacityCalls(calls)
-    expect(urls.some((url) => url.includes('project_id=2'))).toBe(true)
-  })
-
   it('el filtro por competencia va con su nivel minimo', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     const filtro = wrapper.find('[data-testid="filter-skill"]')
     await filtro.setValue('1')
@@ -494,7 +491,7 @@ describe('CapacityMatrix', () => {
 
   it('el rango por defecto son nueve semanas y queda en la URL', async () => {
     const calls = setupFetch()
-    await mountMatrix({ id: null })
+    await mountMatrix()
 
     const query = router.currentRoute.value.query
     expect(query.from).toMatch(/^\d{4}-W\d{2}$/)
@@ -507,7 +504,7 @@ describe('CapacityMatrix', () => {
 
   it('las flechas mueven el rango una semana y lo dejan en la URL', async () => {
     setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     const antes = router.currentRoute.value.query.from
     await wrapper.get('[data-testid="range-next"]').trigger('click')
@@ -520,7 +517,7 @@ describe('CapacityMatrix', () => {
 
   it('el boton de hoy devuelve el rango a la semana en curso', async () => {
     setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     await wrapper.get('[data-testid="range-previous"]').trigger('click')
     await flushPromises()
@@ -535,7 +532,7 @@ describe('CapacityMatrix', () => {
 
   it('el desglose global usa el listado global de tareas', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
@@ -547,7 +544,7 @@ describe('CapacityMatrix', () => {
 
   it('la matriz no pide los miembros de cada proyecto', async () => {
     const calls = setupFetch()
-    await mountMatrix({ id: null })
+    await mountMatrix()
 
     // El informe trae el perfil de cada persona: no hace falta pedir los
     // miembros de cada proyecto por separado.
@@ -556,7 +553,7 @@ describe('CapacityMatrix', () => {
 
   it('el desglose pide solo las tareas de la persona, en el servidor', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
+    const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     await celda.trigger('click')
@@ -569,10 +566,7 @@ describe('CapacityMatrix', () => {
 
   it('con filtro de proyecto el desglose pide las tareas de ese proyecto', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: null })
-
-    await wrapper.get('[data-testid="filter-project"]').setValue('2')
-    await flushPromises()
+    const wrapper = await mountMatrix({ project: '2' })
 
     await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
     await flushPromises()
@@ -646,7 +640,7 @@ describe('CapacityMatrix', () => {
 
   it('al entrar con una celda en la URL se abre su detalle', async () => {
     setupFetch()
-    const wrapper = await mountMatrix({ id: null }, { cell: '2-2026-W46' })
+    const wrapper = await mountMatrix({ cell: '2-2026-W46' })
 
     expect(wrapper.text()).toContain('Sebastian en 2026-W46')
   })
@@ -679,7 +673,7 @@ describe('CapacityMatrix', () => {
 
   it('el panel avisa de los dias no laborables de la semana', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () =>
+      '/api/capacity': () =>
         jsonResponse({
           ...capacityReport,
           weeks: [
@@ -703,7 +697,7 @@ describe('CapacityMatrix', () => {
 
   it('una celda sin tareas dice que la semana esta libre', async () => {
     setupFetch({
-      '/api/projects/1/tasks': () => jsonResponse([]),
+      '/api/tasks': () => jsonResponse([]),
     })
     const wrapper = await mountMatrix()
 
@@ -752,7 +746,7 @@ describe('CapacityMatrix', () => {
 
   it('arrastrar una tarea marca a quien no es miembro del proyecto', async () => {
     setupFetch({
-      '/api/projects/1/capacity': () => jsonResponse(reportConAjeno),
+      '/api/capacity': () => jsonResponse(reportConAjeno),
     })
     const wrapper = await mountMatrix()
 
@@ -876,13 +870,13 @@ describe('CapacityMatrix', () => {
     )
   })
 
-  it('el alta de una tarea nueva solo esta en la vista de proyecto', async () => {
+  it('el alta de una tarea nueva solo esta con un proyecto filtrado', async () => {
     setupFetch()
-    const global = await mountMatrix({ id: null })
+    const global = await mountMatrix()
     expect(global.find('[data-testid="cell-new-task"]').exists()).toBe(false)
     global.unmount()
 
-    const proyecto = await mountMatrix({ id: 1 })
+    const proyecto = await mountMatrix({ project: '1' })
     await proyecto.get('[data-testid="cell-2-2026-W46"]').trigger('click')
     await flushPromises()
 
@@ -891,7 +885,7 @@ describe('CapacityMatrix', () => {
 
   it('crea una tarea en la semana abierta', async () => {
     const calls = setupFetch()
-    const wrapper = await mountMatrix({ id: 1 })
+    const wrapper = await mountMatrix({ project: '1' })
 
     await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
     await flushPromises()

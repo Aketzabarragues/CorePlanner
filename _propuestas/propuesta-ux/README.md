@@ -89,7 +89,7 @@ El proyecto pasa de ser un **espacio** a ser un **filtro**.
 | `/gantt` y `/projects/:id/gantt` | `/gantt?project=<id>` |
 | `/calendar` y `/projects/:id/calendar` | `/calendar?project=<id>` |
 | `/planner` | se elimina, lo absorbe `/capacity` |
-| `/work-calendar` | `/configuration/calendar` |
+| `/work-calendar` | `/configuration?tab=calendar` |
 | `/projects/:id` (resumen) | se mantiene, con pestañas |
 | `/projects/:id/kanban`, `/members`, `/settings` | se mantienen como pestañas del proyecto |
 
@@ -475,3 +475,34 @@ gráfico con datos de ejemplo y da el "Resolver" de la planificación incompleta
 como un botón sin destino; aquí el gráfico lo pinta el backend con las horas
 reales de cada semana, y "Resolver" lleva al tablero del proyecto, que es
 donde se puede corregir la tarea.
+
+### Fase 5 — Menú agrupado y rutas unificadas
+
+46. **El menú tiene cuatro grupos**: Mi espacio (Panel, Mi trabajo), Planificación
+    (Capacidad, Gantt, Calendario), Organización (Proyectos, Personas y
+    Competencias, Departamentos) y Administración (Configuración, solo el
+    gerente). Es el catálogo único de `frontend/src/utils/navigation.js`: se van
+    `GLOBAL_SECTIONS`, `PROJECT_SECTIONS` y las funciones de ruta por contexto.
+47. **Las pestañas del proyecto salen del menú.** Tablero, Miembros y Ajustes se
+    llegan desde la página del proyecto (`/projects/{id}`), que es donde tiene
+    sentido abrirlas. El calendario laboral también sale: es una pestaña de
+    Configuración.
+48. **El selector de la cabecera es el filtro `?project=`**, y solo aparece en
+    Capacidad, Gantt y Calendario. En la URL el parámetro se llama `project` y en
+    la API `project_id`: es el mismo filtro con dos nombres.
+49. **El filtro de proyecto tiene un solo control**, el selector de la cabecera.
+    El desplegable "Proyecto" de la barra de filtros de la matriz se retira:
+    dos controles para el mismo filtro obligan a decidir cuál de los dos manda.
+50. **El filtro acompaña a las vistas de planificación.** Al pasar de la
+    capacidad al Gantt o al calendario, el proyecto que se estaba viendo viaja
+    con el enlace del menú. El enlace de la vista que ya está abierta conserva
+    su estado entero, para que el rango, el modo o la celda abierta no se
+    pierdan.
+
+**Lo que el código real hace distinto del prototipo.** La ruta del proyecto
+`/projects/{id}/gantt` pasa a ser `/gantt?project={id}`, y las tres rutas de
+proyecto que quedan como redirección para no romper los enlaces guardados. La
+raíz deja de llevar al primer proyecto: el técnico entra por Mi trabajo y el
+gerente y el jefe de departamento por el Panel. `GET /api/gantt` acepta
+`project_id` con el mismo comportamiento que la capacidad: si el proyecto no
+está entre los que se ven, responde 404.

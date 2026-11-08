@@ -97,31 +97,28 @@ function buildRouter() {
       { path: '/panel', name: 'panel', component: Empty },
       { path: '/my-work', name: 'my-work', component: Empty },
       { path: '/projects', name: 'projects', component: Empty },
-      { path: '/capacity', name: 'global-capacity', component: Empty },
-      { path: '/gantt', name: 'global-gantt', component: Empty },
-      { path: '/calendar', name: 'global-calendar', component: Empty },
-      { path: '/work-calendar', name: 'work-calendar', component: Empty },
+      { path: '/capacity', name: 'capacity', component: Tracked },
+      { path: '/gantt', name: 'gantt', component: Empty },
+      { path: '/calendar', name: 'calendar', component: Empty },
       { path: '/departments', name: 'departments', component: Empty },
       { path: '/people', name: 'people', component: Empty },
       { path: '/configuration', name: 'configuration', component: Empty },
       { path: '/projects/:id', name: 'project', component: Empty },
-      { path: '/projects/:id/capacity', name: 'capacity', component: Tracked },
-      { path: '/projects/:id/gantt', name: 'gantt', component: Empty },
-      { path: '/projects/:id/calendar', name: 'calendar', component: Empty },
       { path: '/projects/:id/kanban', name: 'kanban', component: Empty },
       { path: '/projects/:id/members', name: 'members', component: Empty },
-      { path: '/projects/:id/settings', name: 'settings', component: Empty },
+      { path: '/projects/:id/settings', name: 'project-settings', component: Empty },
     ],
   })
 }
 
-async function mountShell(path = '/projects/1/kanban') {
+async function mountShell(path = '/capacity') {
   const pinia = createPinia()
   setActivePinia(pinia)
   const router = buildRouter()
   await router.push(path)
   await router.isReady()
   const wrapper = mount(AppShell, { global: { plugins: [pinia, router] } })
+  await flushPromises()
   await flushPromises()
   await flushPromises()
   return { wrapper, router }
@@ -144,18 +141,60 @@ describe('AppShell', () => {
     expect(wrapper.text()).toContain('v0.1')
   })
 
-  it('el menu lateral agrupa las vistas del proyecto', async () => {
+  it('el menu agrupa las vistas en cuatro grupos', async () => {
     const { wrapper } = await mountShell()
 
-    expect(wrapper.text()).toContain('Planificación & ejecución')
-    expect(wrapper.text()).toContain('Gestión & equipo')
-    expect(wrapper.text()).toContain('Matriz de Capacidad')
-    expect(wrapper.text()).toContain('Cronograma (Gantt)')
-    expect(wrapper.text()).toContain('Tablero Kanban')
-    expect(wrapper.text()).toContain('Miembros y Asignaciones')
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Mi espacio')
+    expect(menu).toContain('Planificación')
+    expect(menu).toContain('Organización')
+    expect(menu).toContain('Administración')
   })
 
-  it('en un proyecto el menu muestra el nombre y el departamento', async () => {
+  it('el menu tiene las vistas de planificacion y de organizacion', async () => {
+    const { wrapper } = await mountShell()
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Panel')
+    expect(menu).toContain('Mi trabajo')
+    expect(menu).toContain('Capacidad')
+    expect(menu).toContain('Gantt')
+    expect(menu).toContain('Calendario')
+    expect(menu).toContain('Proyectos')
+    expect(menu).toContain('Personas y Competencias')
+    expect(menu).toContain('Departamentos')
+    expect(menu).toContain('Configuración')
+  })
+
+  it('el menu no tiene las pestanas del proyecto', async () => {
+    const { wrapper } = await mountShell()
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).not.toContain('Tablero Kanban')
+    expect(menu).not.toContain('Miembros y Asignaciones')
+  })
+
+  it('cada entrada del menu lleva a su vista', async () => {
+    const { wrapper } = await mountShell()
+
+    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe('/capacity')
+    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt')
+    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar')
+    expect(linkTo(wrapper, 'Proyectos').attributes('href')).toBe('/projects')
+    expect(linkTo(wrapper, 'Mi trabajo').attributes('href')).toBe('/my-work')
+  })
+
+  it('el grupo de administracion solo lo ve el gerente', async () => {
+    setupFetch({ manager: false })
+
+    const { wrapper } = await mountShell()
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).not.toContain('Administración')
+    expect(linkTo(wrapper, 'Configuración')).toBeUndefined()
+  })
+
+  it('en un proyecto la cabecera muestra su nombre y su departamento', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
     const cabecera = wrapper.find('aside').text()
@@ -186,77 +225,48 @@ describe('AppShell', () => {
     expect(wrapper.text()).not.toContain('Nueva Tarea')
   })
 
-  it('el gerente ve el enlace de configuracion en el espacio global', async () => {
-    const { wrapper } = await mountShell('/projects')
-
-    expect(linkTo(wrapper, 'Configuración')).toBeTruthy()
-  })
-
-  it('quien no es gerente no ve el enlace de configuracion', async () => {
-    setupFetch({ manager: false })
-
-    const { wrapper } = await mountShell('/projects')
-
-    expect(linkTo(wrapper, 'Configuración')).toBeUndefined()
-  })
-
-  it('en el espacio global el menu muestra las vistas globales', async () => {
+  it('marca la vista abierta en el menu lateral', async () => {
     const { wrapper } = await mountShell('/capacity')
 
-    const menu = wrapper.find('aside').text()
-    expect(menu).toContain('Espacio Global')
-    expect(menu).toContain('Proyectos')
-    expect(menu).toContain('Capacidad Global')
-    expect(menu).toContain('Gantt Global')
-    expect(menu).toContain('Departamentos')
-    expect(menu).not.toContain('Tablero Kanban')
-  })
-
-  it('en un proyecto el menu no muestra las vistas globales', async () => {
-    const { wrapper } = await mountShell('/projects/1/kanban')
-
-    const menu = wrapper.find('aside').text()
-    expect(menu).not.toContain('Capacidad Global')
-    expect(menu).not.toContain('Gantt Global')
-  })
-
-  it('marca la vista abierta en el menu lateral', async () => {
-    const { wrapper } = await mountShell('/projects/1/kanban')
-
-    const activo = linkTo(wrapper, 'Tablero Kanban')
+    const activo = linkTo(wrapper, 'Capacidad')
     expect(activo.classes()).toContain('bg-slate-800')
     expect(activo.classes()).toContain('border-indigo-500')
 
-    const inactivo = linkTo(wrapper, 'Matriz de Capacidad')
+    const inactivo = linkTo(wrapper, 'Gantt')
     expect(inactivo.classes()).toContain('border-transparent')
   })
 
-  it('con la pestana del calendario abierta se marca el calendario laboral', async () => {
+  it('en la pagina del proyecto no se marca ninguna entrada del menu', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    // Las pestanas del proyecto son de la pagina del proyecto, no del menu.
+    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    expect(marcados).toHaveLength(0)
+  })
+
+  it('con la pestana del calendario abierta se marca la configuracion', async () => {
     const { wrapper } = await mountShell('/configuration?tab=calendar')
 
     const enlaces = wrapper.findAll('aside a')
-    const calendario = enlaces.find((link) => link.text().includes('Calendario Laboral'))
     const configuracion = enlaces.find((link) => link.text().includes('Configuración'))
 
-    expect(calendario.classes()).toContain('border-indigo-500')
-    expect(configuracion.classes()).toContain('border-transparent')
+    expect(configuracion.classes()).toContain('border-indigo-500')
   })
 
-  it('las migas de pan muestran departamento, proyecto y vista', async () => {
-    const { wrapper } = await mountShell('/projects/1/gantt')
+  it('las migas de pan muestran la vista y el proyecto', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
 
     const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Automatización & SCADA')
+    expect(migas).toContain('Tablero')
     expect(migas).toContain('Linea Pasteurizadora SIVE')
-    expect(migas).toContain('Cronograma (Gantt)')
   })
 
-  it('en el espacio global las migas de pan muestran el contexto global', async () => {
+  it('sin proyecto las migas de pan muestran solo la vista', async () => {
     const { wrapper } = await mountShell('/capacity')
 
     const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Espacio Global')
-    expect(migas).toContain('Capacidad Global')
+    expect(migas).toContain('Capacidad')
+    expect(migas).not.toContain('Linea Pasteurizadora SIVE')
   })
 
   it('en el resumen del proyecto las migas dicen Resumen', async () => {
@@ -264,7 +274,7 @@ describe('AppShell', () => {
 
     const migas = wrapper.find('header nav').text()
     expect(migas).toContain('Resumen')
-    expect(migas).not.toContain('Matriz de Capacidad')
+    expect(migas).not.toContain('Capacidad')
   })
 
   it('muestra la pila de estado del proyecto', async () => {
@@ -273,70 +283,80 @@ describe('AppShell', () => {
     expect(wrapper.find('header').text()).toContain('Activo')
   })
 
-  it('en el espacio global no hay pila de estado', async () => {
+  it('sin proyecto no hay pila de estado', async () => {
     const { wrapper } = await mountShell('/capacity')
 
     expect(wrapper.find('header').text()).not.toContain('Activo')
   })
 
-  it('el selector muestra el proyecto abierto y su departamento', async () => {
-    const { wrapper } = await mountShell('/projects/2/kanban')
+  it('el selector aparece en las vistas de planificacion', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
+  })
+
+  it('el selector no aparece en las demas vistas', async () => {
+    const { wrapper } = await mountShell('/projects')
+
+    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(false)
+  })
+
+  it('el selector esta en la cabecera y no en el menu', async () => {
+    const { wrapper } = await mountShell('/capacity')
+
+    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
+    expect(wrapper.find('aside').findComponent(ProjectPicker).exists()).toBe(false)
+  })
+
+  it('el selector muestra el proyecto que filtra y su departamento', async () => {
+    const { wrapper } = await mountShell('/capacity?project=2')
 
     const picker = wrapper.findComponent(ProjectPicker)
     expect(picker.text()).toContain('Red de tuberias linea 2')
     expect(picker.text()).toContain('Oficina Técnica / EPLAN')
   })
 
-  it('el selector esta en la cabecera', async () => {
-    const { wrapper } = await mountShell('/projects/1/kanban')
-
-    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
-    expect(wrapper.find('aside').findComponent(ProjectPicker).exists()).toBe(false)
-  })
-
-  it('elegir otro proyecto mantiene la vista abierta', async () => {
-    const { wrapper, router } = await mountShell('/projects/1/kanban')
+  it('elegir un proyecto pone el filtro en la URL', async () => {
+    const { wrapper, router } = await mountShell('/capacity')
 
     await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
-    const opciones = wrapper.findAll('[role=option]')
-    await opciones[2].trigger('click')
+    await wrapper.findAll('[role=option]')[2].trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/projects/2/kanban')
+    expect(router.currentRoute.value.path).toBe('/capacity')
+    expect(router.currentRoute.value.query.project).toBe('2')
   })
 
-  it('elegir el espacio global lleva a la vista global homologa', async () => {
-    const { wrapper, router } = await mountShell('/projects/1/gantt')
+  it('elegir todos los proyectos quita el filtro', async () => {
+    const { wrapper, router } = await mountShell('/capacity?project=2')
 
     await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
     await wrapper.findAll('[role=option]')[0].trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/gantt')
+    expect(router.currentRoute.value.query.project).toBeUndefined()
   })
 
-  it('elegir un proyecto desde el espacio global entra por la vista homologa', async () => {
-    const { wrapper, router } = await mountShell('/capacity')
+  it('el filtro de proyecto acompaña a las vistas de planificacion', async () => {
+    const { wrapper } = await mountShell('/capacity?project=2')
 
-    await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
-    await wrapper.findAll('[role=option]')[1].trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.path).toBe('/projects/1/capacity')
+    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt?project=2')
+    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=2')
   })
 
-  it('en un proyecto hay un enlace para volver a la vista global', async () => {
-    const { wrapper } = await mountShell('/projects/1/kanban')
+  it('las demas vistas no llevan el filtro', async () => {
+    const { wrapper } = await mountShell('/capacity?project=2')
 
-    const volver = linkTo(wrapper, 'Volver a vista global')
-    expect(volver).toBeDefined()
-    expect(volver.attributes('href')).toBe('/projects')
+    expect(linkTo(wrapper, 'Panel').attributes('href')).toBe('/panel')
+    expect(linkTo(wrapper, 'Proyectos').attributes('href')).toBe('/projects')
   })
 
-  it('en el espacio global no hay enlace para volver', async () => {
-    const { wrapper } = await mountShell('/capacity')
+  it('el enlace de la vista abierta conserva su estado', async () => {
+    const { wrapper } = await mountShell('/capacity?project=2&mode=porcentaje')
 
-    expect(linkTo(wrapper, 'Volver a vista global')).toBeUndefined()
+    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe(
+      '/capacity?project=2&mode=porcentaje',
+    )
   })
 
   it('el boton de colapsar reduce el menu lateral', async () => {
@@ -377,13 +397,13 @@ describe('AppShell', () => {
     expect(wrapper.find('aside').classes()).toContain('max-sm:hidden')
   })
 
-  it('el pie muestra las iniciales, el nombre y el departamento', async () => {
+  it('el pie muestra las iniciales y el nombre', async () => {
     const { wrapper } = await mountShell()
 
     const pie = wrapper.find('aside').text()
     expect(wrapper.find('[data-testid=user-avatar]').text()).toBe('S')
     expect(pie).toContain('Sebastián')
-    expect(pie).toContain('Automatización & SCADA')
+    expect(pie).toContain('Gerente')
   })
 
   it('cerrar la sesion borra el token y lleva al acceso', async () => {
@@ -401,7 +421,7 @@ describe('AppShell', () => {
   })
 
   it('el boton de nueva tarea abre el modal con los miembros del proyecto', async () => {
-    const { wrapper } = await mountShell()
+    const { wrapper } = await mountShell('/projects/1/kanban')
 
     const nueva = wrapper
       .findAll('button')
@@ -414,7 +434,7 @@ describe('AppShell', () => {
   })
 
   it('al guardar una tarea llama a la API y avisa', async () => {
-    const { wrapper } = await mountShell()
+    const { wrapper } = await mountShell('/projects/1/kanban')
 
     const nueva = wrapper
       .findAll('button')
@@ -438,7 +458,7 @@ describe('AppShell', () => {
   })
 
   it('el aviso se puede cerrar con un clic', async () => {
-    const { wrapper } = await mountShell()
+    const { wrapper } = await mountShell('/projects/1/kanban')
 
     const nueva = wrapper
       .findAll('button')
@@ -461,7 +481,7 @@ describe('AppShell', () => {
   })
 
   it('el aviso de tarea creada queda marcado en el store', async () => {
-    const { wrapper } = await mountShell()
+    const { wrapper } = await mountShell('/projects/1/kanban')
     const { useProjectsStore } = await import('../stores/projects')
     const store = useProjectsStore()
     const antes = store.tasksRevision
@@ -484,7 +504,7 @@ describe('AppShell', () => {
 
   it('la vista abierta no se monta de nuevo cuando cambian las tareas', async () => {
     mounts = 0
-    const { wrapper } = await mountShell('/projects/1/capacity')
+    const { wrapper } = await mountShell('/capacity?project=1')
     await flushPromises()
 
     expect(mounts).toBe(1)

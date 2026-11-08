@@ -210,7 +210,7 @@ useTaskReload(load)
                 Ver su capacidad
               </RouterLink>
               <RouterLink
-                :to="`/projects/${project.id}/gantt`"
+                :to="`/gantt?project=${project.id}`"
                 class="flex h-10 items-center rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-siemens-900"
                 data-testid="project-go-gantt"
               >

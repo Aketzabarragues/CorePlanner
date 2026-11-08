@@ -12,12 +12,13 @@
  * es el detalle de un solo dia, y se abre al pulsar un dia de cualquiera de
  * las dos.
  *
- * Vive en los dos espacios: sin identificador muestra las tareas de los
- * proyectos visibles y con identificador las de ese proyecto.
+ * Es de toda la organizacion y el proyecto es un filtro (`?project=`): con
+ * filtro, solo salen las tareas de ese proyecto.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
-import { calendarApi, overviewApi, projectsApi } from '../api/client'
+import { calendarApi, overviewApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
 import DayDetail from '../components/DayDetail.vue'
@@ -43,11 +44,8 @@ import {
   weekWorkdays,
 } from '../utils/weeks'
 
-const props = defineProps({
-  id: { type: [String, Number], default: null },
-})
-
 const auth = useAuthStore()
+const route = useRoute()
 
 const view = ref('month')
 const month = ref(currentMonthKey())
@@ -60,8 +58,15 @@ const nonWorkingDays = ref([])
 const error = ref(null)
 const loading = ref(true)
 
-/** Sin identificador de proyecto el calendario es global. */
-const isGlobal = computed(() => props.id === null || props.id === undefined)
+/** Proyecto que filtra el calendario. */
+const projectFilter = computed(() => route.query.project ?? '')
+
+/** Lo que se lee encima del calendario: con filtro, solo sale ese proyecto. */
+const subtitle = computed(() =>
+  projectFilter.value
+    ? 'Las tareas del proyecto que filtra, día a día.'
+    : 'Las tareas de los proyectos visibles, día a día.',
+)
 
 /** Clase de cada pestana del conmutador de vista. */
 const monthTabClass = computed(() =>
@@ -104,8 +109,9 @@ const nonWorkingByDate = computed(() => {
 async function load() {
   try {
     const token = await auth.ensureSession()
+    const params = projectFilter.value ? { project_id: projectFilter.value } : {}
     const [feed, days] = await Promise.all([
-      isGlobal.value ? overviewApi.gantt(token) : projectsApi.gantt(token, props.id),
+      overviewApi.gantt(token, params),
       calendarApi.list(token),
     ])
     tasks.value = feed.tasks ?? []
@@ -178,7 +184,7 @@ onMounted(load)
 useTaskReload(load)
 
 watch(
-  () => props.id,
+  () => route.query.project,
   async () => {
     loading.value = true
     await load()
@@ -189,10 +195,7 @@ watch(
 
 <template>
   <div>
-    <PageHeader
-      :title="isGlobal ? 'Calendario Global' : 'Calendario'"
-      :subtitle="isGlobal ? 'Las tareas de los proyectos visibles, día a día.' : 'Las tareas del proyecto, día a día.'"
-    >
+    <PageHeader title="Calendario" :subtitle="subtitle">
       <template #actions>
           <div class="flex overflow-hidden rounded border border-slate-300">
             <button

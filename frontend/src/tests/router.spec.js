@@ -1,31 +1,37 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { redirectToFirstProject, requireSession } from '../router/guards'
+import { conFiltroDeProyecto, redirectByRole, requireSession } from '../router/guards'
 import { useAuthStore } from '../stores/auth'
-import { useProjectsStore } from '../stores/projects'
 
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-const projects = [
-  { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
-  { id: 2, name: 'Ampliacion linea 2', status: 'active', department_id: 2 },
-]
+/** Respuesta del ambito con el rol de empresa que se le pasa. */
+function ambito(companyRole) {
+  return {
+    user: { id: 9, name: 'Persona', company_role: companyRole },
+    role_label: companyRole,
+    is_manager: companyRole === 'gerente',
+    visible_project_ids: [1],
+    editable_project_ids: [1],
+  }
+}
 
-function setupFetch(loginOk = true) {
+function setupFetch(companyRole = 'gerente', loginOk = true) {
   global.fetch = vi.fn(async (url) => {
     if (url.endsWith('/auth/login')) {
       if (!loginOk) return jsonResponse({ detail: 'Credenciales invalidas' }, false, 401)
       return jsonResponse({
         access_token: 'tok-demo',
         token_type: 'bearer',
-        user: { id: 9, name: 'Admin', is_global_admin: true },
+        user: { id: 9, name: 'Admin', is_global_admin: true, company_role: companyRole },
       })
     }
+    if (url.endsWith('/me')) return jsonResponse(ambito(companyRole))
     if (url.endsWith('/departments')) return jsonResponse([])
-    if (url.endsWith('/projects')) return jsonResponse(projects)
+    if (url.endsWith('/projects')) return jsonResponse([])
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
 }
@@ -37,7 +43,7 @@ describe('guardas del router', () => {
   })
 
   it('deja pasar a una vista publica sin sesion', async () => {
-    setupFetch(false)
+    setupFetch('gerente', false)
 
     const result = await requireSession({ meta: { public: true }, fullPath: '/login' })
 
@@ -48,19 +54,19 @@ describe('guardas del router', () => {
     setupFetch()
     useAuthStore().setSession('tok', { id: 9, name: 'Admin' })
 
-    const result = await requireSession({ meta: {}, fullPath: '/projects/1/capacity' })
+    const result = await requireSession({ meta: {}, fullPath: '/capacity' })
 
     expect(result).toBe(true)
   })
 
   it('lleva al acceso cuando la sesion no se puede establecer', async () => {
-    setupFetch(false)
+    setupFetch('gerente', false)
 
-    const result = await requireSession({ meta: {}, fullPath: '/projects/1/capacity' })
+    const result = await requireSession({ meta: {}, fullPath: '/capacity' })
 
     expect(result).toEqual({
       name: 'login',
-      query: { next: '/projects/1/capacity' },
+      query: { next: '/capacity' },
     })
   })
 
@@ -68,37 +74,39 @@ describe('guardas del router', () => {
     setupFetch()
     useAuthStore().signOut()
 
-    const result = await requireSession({ meta: {}, fullPath: '/projects/1/capacity' })
+    const result = await requireSession({ meta: {}, fullPath: '/capacity' })
 
     expect(result).toEqual({
       name: 'login',
-      query: { next: '/projects/1/capacity' },
+      query: { next: '/capacity' },
     })
   })
 
-  it('lleva la raiz a la matriz del primer proyecto', async () => {
-    setupFetch()
+  it('el gerente entra por el panel', async () => {
+    setupFetch('gerente')
 
-    const result = await redirectToFirstProject()
+    const result = await redirectByRole()
 
-    expect(result).toEqual({ name: 'capacity', params: { id: '1' } })
+    expect(result).toEqual({ name: 'panel' })
   })
 
-  it('lleva la raiz al listado si no hay proyectos', async () => {
-    global.fetch = vi.fn(async (url) => {
-      if (url.endsWith('/auth/login')) {
-        return jsonResponse({ access_token: 'tok', user: { id: 9, name: 'Admin' } })
-      }
-      if (url.endsWith('/departments')) return jsonResponse([])
-      return jsonResponse([])
-    })
+  it('el jefe de departamento entra por el panel', async () => {
+    setupFetch('jefe_departamento')
 
-    const result = await redirectToFirstProject()
+    const result = await redirectByRole()
 
-    expect(result).toEqual({ name: 'projects' })
+    expect(result).toEqual({ name: 'panel' })
   })
 
-  it('lleva la raiz al listado si la peticion falla', async () => {
+  it('el tecnico entra por Mi trabajo', async () => {
+    setupFetch('tecnico')
+
+    const result = await redirectByRole()
+
+    expect(result).toEqual({ name: 'my-work' })
+  })
+
+  it('lleva al acceso si no puede saber el rol', async () => {
     global.fetch = vi.fn(async (url) => {
       if (url.endsWith('/auth/login')) {
         return jsonResponse({ access_token: 'tok', user: { id: 9, name: 'Admin' } })
@@ -106,19 +114,17 @@ describe('guardas del router', () => {
       return jsonResponse({ detail: 'error' }, false, 500)
     })
 
-    const result = await redirectToFirstProject()
+    const result = await redirectByRole()
 
-    expect(result).toEqual({ name: 'projects' })
+    expect(result).toEqual({ name: 'login' })
   })
 
-  it('carga los proyectos una sola vez en el store', async () => {
-    setupFetch()
-    const store = useProjectsStore()
+  it('las rutas antiguas de proyecto llevan a la vista con el filtro', () => {
+    const redirect = conFiltroDeProyecto('gantt')
 
-    await redirectToFirstProject()
-    await redirectToFirstProject()
-
-    const calls = global.fetch.mock.calls.filter(([url]) => url.endsWith('/projects'))
-    expect(calls).toHaveLength(1)
+    expect(redirect({ params: { id: '7' } })).toEqual({
+      name: 'gantt',
+      query: { project: '7' },
+    })
   })
 })

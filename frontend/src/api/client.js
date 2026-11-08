@@ -209,12 +209,16 @@ export const workCalendarApi = {
   },
 }
 
-/** Endpoints de la vista global, que no pertenecen a ningun proyecto. */export const overviewApi = {
+/** Endpoints de la vista global, que no pertenecen a ningun proyecto. */
+export const overviewApi = {
   capacity: (token, params = {}) => {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/capacity${query ? `?${query}` : ''}`, { token })
   },
-  gantt: (token) => apiFetch('/gantt', { token }),
+  gantt: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/gantt${query ? `?${query}` : ''}`, { token })
+  },
 }
 /** Panel global: estado de la organizacion de un vistazo. */
 export const panelApi = {

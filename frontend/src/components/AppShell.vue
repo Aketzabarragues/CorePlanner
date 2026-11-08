@@ -2,14 +2,13 @@
 /**
  * Armazon de la aplicacion.
  *
- * La navegacion tiene dos contextos. En el global se ve la organizacion
- * entera y la URL no lleva proyecto; en el de proyecto la URL lleva el
- * identificador y el menu muestra las vistas de ese proyecto. El selector de
- * la cabecera salta de un contexto al otro.
+ * La navegacion tiene un solo arbol: el proyecto no es un espacio con su
+ * propio menu, es un filtro (`?project=`) de las vistas de planificacion. El
+ * menu lateral agrupa las vistas por lo que son y el selector de la cabecera
+ * elige el proyecto que filtra.
  *
- * El proyecto abierto sale siempre de la URL: al recargar la pagina se vuelve
- * al mismo, y al cambiarlo en el desplegable se navega a la vista homologa con
- * el identificador nuevo.
+ * El proyecto sale siempre de la URL: el de la pagina del proyecto, en la
+ * ruta, o el del filtro, en la consulta. Al recargar se vuelve al mismo.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -22,16 +21,10 @@ import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
-  GLOBAL_SECTIONS,
-  PROJECT_SECTIONS,
-  globalRoute,
-  globalViewName,
-  projectRoute,
+  FILTERED_VIEWS,
+  SECTIONS,
   projectStatus,
-  toGlobalView,
-  toProjectView,
   viewLabel,
-  viewName,
 } from '../utils/navigation'
 
 const auth = useAuthStore()
@@ -53,11 +46,11 @@ const scope = ref(null)
 
 let noticeTimer = null
 
-/** Identificador del proyecto abierto, tomado de la URL. */
-const projectId = computed(() => route.params.id ?? null)
+/** Identificador del proyecto abierto: el de la ruta o el del filtro. */
+const projectId = computed(() => route.params.id ?? route.query.project ?? null)
 
-/** Sin identificador en la URL se esta en el espacio global. */
-const isGlobal = computed(() => projectId.value === null)
+/** Proyecto que filtra la vista, cuando la vista admite filtro. */
+const filtroProyecto = computed(() => route.query.project ?? null)
 
 const currentProject = computed(
   () =>
@@ -86,7 +79,7 @@ const isManager = computed(() => scope.value?.is_manager === true)
  * con una tarea sin ser miembro.
  */
 const canEdit = computed(() => {
-  if (isGlobal.value || projectId.value === null) return false
+  if (projectId.value === null) return false
   const editable = scope.value?.editable_project_ids
   if (!editable) return true
   return editable.includes(Number(projectId.value))
@@ -94,33 +87,28 @@ const canEdit = computed(() => {
 
 const status = computed(() => projectStatus(currentProject.value?.status))
 
-/** Vista abierta, para las migas de pan y al cambiar de contexto. */
-const currentView = computed(() =>
-  isGlobal.value ? globalViewName(route.name) : viewName(route.name),
-)
-
-/** Secciones del menu, que dependen del contexto abierto. */
-const sections = computed(() => {
-  const base = isGlobal.value ? GLOBAL_SECTIONS : PROJECT_SECTIONS
-  if (isManager.value) return base
-  return base.filter((section) => !section.managerOnly)
-})
-
-/** Etiqueta de la vista abierta, para las migas de pan. */
-const currentViewLabel = computed(() =>
-  route.name === 'project' ? 'Resumen' : viewLabel(currentView.value),
-)
+/** Vista abierta, para las migas de pan. */
+const currentView = computed(() => route.name)
 
 /**
  * Entrada del menu que esta abierta.
  *
- * El calendario laboral vive en la configuracion, asi que la ruta es la de
- * configuracion pero con su pestana: el enlace que se marca es el del
- * calendario.
+ * El calendario laboral es una pestana de la configuracion, de modo que la
+ * entrada marcada es la de configuracion.
  */
-const activeView = computed(() =>
-  route.name === 'configuration' && route.query.tab === 'calendar' ? 'work-calendar' : route.name,
-)
+const activeView = computed(() => route.name)
+
+/** Etiqueta de la vista abierta, para las migas de pan. */
+const currentViewLabel = computed(() => viewLabel(currentView.value))
+
+/** Las vistas de planificacion son las que aceptan el filtro de proyecto. */
+const muestraFiltro = computed(() => FILTERED_VIEWS.includes(route.name))
+
+/** Secciones del menu. La de administracion es solo del gerente. */
+const sections = computed(() => {
+  if (isManager.value) return SECTIONS
+  return SECTIONS.filter((section) => !section.managerOnly)
+})
 
 /** Iniciales de la persona con la sesion iniciada. */
 const initials = computed(() => {
@@ -156,26 +144,35 @@ const sideClasses = computed(() => {
  */
 const menuCompacto = computed(() => collapsed.value && !menuAbierto.value)
 
-/** Destino de un enlace del menu, segun el contexto abierto. */
+/**
+ * Destino de un enlace del menu.
+ *
+ * El filtro de proyecto acompaña a las vistas de planificacion: quien esta
+ * mirando un proyecto no lo pierde al pasar de la capacidad al Gantt. En la
+ * vista que ya esta abierta se conserva su estado entero, para que el rango,
+ * el modo o la celda abierta no se pierdan.
+ */
 function linkFor(item) {
-  if (isGlobal.value) return globalRoute(item.name)
-  return projectRoute(item.name, projectId.value)
+  if (item.name === route.name) return { name: item.name, query: { ...route.query } }
+  if (FILTERED_VIEWS.includes(item.name) && filtroProyecto.value) {
+    return { name: item.name, query: { project: filtroProyecto.value } }
+  }
+  return { name: item.name }
 }
 
 /**
- * Cambia de contexto.
+ * Elige el proyecto que filtra la vista.
  *
- * De un proyecto a otro se mantiene la vista; del espacio global a un
- * proyecto se entra por la vista homologa y al revés.
+ * El filtro vive en la URL (`?project=`), de modo que el enlace se puede
+ * compartir y recargar la pagina no lo pierde. Sin proyecto, el filtro se
+ * quita y la vista sale con todos los que se ven.
  */
-function selectProject(id) {
-  if (id === null || id === undefined) {
-    router.push(globalRoute(toGlobalView(currentView.value)))
-    return
-  }
-  const view = isGlobal.value ? toProjectView(currentView.value) : currentView.value
+async function selectProject(id) {
+  const query = { ...route.query }
+  if (id === null || id === undefined) delete query.project
+  else query.project = String(id)
+  await router.replace({ query })
   store.select(id)
-  router.push(projectRoute(view, id))
 }
 
 function logout() {
@@ -228,7 +225,7 @@ async function loadContext(id) {
 }
 
 watch(
-  () => route.params.id,
+  () => projectId.value,
   (id) => {
     store.select(id)
     loadContext(id)
@@ -282,12 +279,12 @@ watch(() => route.fullPath, () => {
 
       <div class="border-b border-slate-800 px-3 pb-3">
         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {{ isGlobal ? 'Espacio Global' : 'Proyecto' }}
+          {{ currentProject ? 'Proyecto' : 'Organización' }}
         </p>
         <p class="truncate text-sm text-white">
-          {{ isGlobal ? 'Toda la organización' : (currentProject?.name ?? 'Proyecto') }}
+          {{ currentProject?.name ?? 'Toda la organización' }}
         </p>
-        <p v-if="!isGlobal" class="truncate text-xs text-slate-400">
+        <p v-if="currentProject" class="truncate text-xs text-slate-400">
           {{ department?.name ?? 'Sin departamento' }}
         </p>
       </div>
@@ -319,18 +316,6 @@ watch(() => route.fullPath, () => {
           </RouterLink>
         </template>
       </nav>
-
-      <RouterLink
-        v-if="!isGlobal"
-        :to="globalRoute('projects')"
-        class="flex items-center gap-3 border-t border-slate-800 px-5 py-3 text-sm text-slate-400 hover:bg-slate-800 hover:text-white"
-        title="Volver a la vista global"
-      >
-        <span class="inline-flex h-5 w-5 shrink-0">
-          <AppIcon name="arrowLeft" />
-        </span>
-        <span v-if="!collapsed" class="flex-1 truncate">Volver a vista global</span>
-      </RouterLink>
 
       <div class="flex items-center gap-2 border-t border-slate-800 p-3">
         <span
@@ -375,31 +360,24 @@ watch(() => route.fullPath, () => {
           </span>
         </button>
         <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Migas de pan">
-          <template v-if="isGlobal">
-            <span class="text-slate-500">Espacio Global</span>
+          <span class="truncate text-slate-500">{{ currentViewLabel }}</span>
+          <template v-if="currentProject">
             <span class="text-slate-300">/</span>
-            <span class="font-medium text-slate-900">{{ currentViewLabel }}</span>
-          </template>
-          <template v-else>
-            <span class="truncate text-slate-500">{{ department?.name ?? 'Sin departamento' }}</span>
-            <span class="text-slate-300">/</span>
-            <span class="truncate font-medium text-slate-900">{{ currentProject?.name }}</span>
-            <span class="text-slate-300">/</span>
-            <span class="truncate text-slate-500">{{ currentViewLabel }}</span>
+            <span class="truncate font-medium text-slate-900">{{ currentProject.name }}</span>
           </template>
         </nav>
 
         <div class="flex shrink-0 items-center gap-3">
-          <div class="w-36 sm:w-64">
+          <div v-if="muestraFiltro" class="w-36 sm:w-64">
             <ProjectPicker
               :projects="store.projects"
               :departments="store.departments"
-              :current-id="projectId"
+              :current-id="filtroProyecto"
               @select="selectProject"
             />
           </div>
 
-          <template v-if="!isGlobal">
+          <template v-if="currentProject">
             <div class="flex items-center gap-3">
               <span
                 v-if="status.tone === 'active'"

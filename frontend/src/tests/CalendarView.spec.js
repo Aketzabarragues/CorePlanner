@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CalendarView from '../views/CalendarView.vue'
 
@@ -68,7 +69,9 @@ function jsonResponse(payload, ok = true, status = 200) {
 }
 
 function setupFetch({ payload = feed, dias = diasNoLaborables } = {}) {
+  const calls = []
   global.fetch = vi.fn(async (url) => {
+    calls.push({ url })
     if (url.endsWith('/auth/login')) {
       return jsonResponse({
         access_token: 'tok',
@@ -76,20 +79,33 @@ function setupFetch({ payload = feed, dias = diasNoLaborables } = {}) {
         user: { id: 9, name: 'Admin' },
       })
     }
-    if (url.endsWith('/gantt')) return jsonResponse(payload)
+    if (url.includes('/gantt')) return jsonResponse(payload)
     if (url.endsWith('/non-working-days')) return jsonResponse(dias)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
+  return calls
 }
 
-async function mountView(props = {}) {
+/**
+ * Monta el calendario.
+ *
+ * El proyecto es un filtro que vive en la URL, de modo que la vista se monta
+ * siempre en la misma ruta y lo que cambia es la consulta.
+ */
+async function mountView(query = {}) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/calendar', name: 'calendar', component: { template: '<div />' } }],
+  })
+  await router.push({ path: '/calendar', query })
+  await router.isReady()
+
   const wrapper = mount(CalendarView, {
-    props,
-    global: { plugins: [createPinia()] },
+    global: { plugins: [createPinia(), router] },
   })
   await flushPromises()
   await flushPromises()
-  return wrapper
+  return { wrapper, router }
 }
 
 describe('CalendarView', () => {
@@ -108,14 +124,14 @@ describe('CalendarView', () => {
   })
 
   it('muestra la rejilla del mes en curso', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
     expect(wrapper.findAll('[data-testid="calendar-cell-2026-11-02"]')).toHaveLength(1)
   })
 
   it('coloca cada tarea en los dias que ocupa', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     const celdas = wrapper.findAll('[data-testid="calendar-task"]')
     // La primera va del lunes 2 al viernes 6: cinco dias. La segunda, del
@@ -130,7 +146,7 @@ describe('CalendarView', () => {
   })
 
   it('el fin de semana queda vacio', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="calendar-cell-2026-11-07"]').text()).not.toContain(
       'Programacion SCADA',
@@ -141,7 +157,7 @@ describe('CalendarView', () => {
   })
 
   it('marca los dias no laborables con su alcance', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     const marcados = wrapper.findAll('[data-testid="calendar-non-working"]')
     expect(marcados).toHaveLength(2)
@@ -150,13 +166,31 @@ describe('CalendarView', () => {
   })
 
   it('avisa de las tareas sin fechas', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.text()).toContain('1 tarea(s) sin fechas')
   })
 
+  it('con filtro de proyecto pide solo las tareas de ese proyecto', async () => {
+    const calls = setupFetch()
+
+    await mountView({ project: '2' })
+
+    const url = calls.find((call) => call.url.includes('/gantt')).url
+    expect(url).toContain('project_id=2')
+  })
+
+  it('sin filtro pide las tareas de toda la organizacion', async () => {
+    const calls = setupFetch()
+
+    await mountView()
+
+    const url = calls.find((call) => call.url.includes('/gantt')).url
+    expect(url).not.toContain('project_id=')
+  })
+
   it('cambia de mes con los botones', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-next"]').trigger('click')
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Diciembre 2026')
@@ -187,7 +221,7 @@ describe('CalendarView', () => {
     }))
     setupFetch({ payload: { ...feed, tasks: [...feed.tasks, ...extras] } })
 
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     // Nada se esconde: la celda lleva todas sus tareas y deja que se desplace.
     const celda = wrapper.find('[data-testid="calendar-cell-2026-11-02"]')
@@ -196,7 +230,7 @@ describe('CalendarView', () => {
   })
 
   it('fija el alto de la celda para que las filas del mes midan igual', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     // El alto va en el contenido de la celda, no en la celda: en una tabla el
     // alto de la celda es el minimo y la fila crece con el contenido.
@@ -213,7 +247,7 @@ describe('CalendarView', () => {
       return jsonResponse({ detail: 'Fallo del servidor' }, false, 500)
     })
 
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="calendar-error"]').text()).toContain('Fallo del servidor')
   })
@@ -233,14 +267,14 @@ describe('CalendarView en modo semanal', () => {
   })
 
   it('arranca en la vista mensual', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="calendar-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
   })
 
   it('cambia a la vista semanal con los dias laborables de la semana', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
 
@@ -254,7 +288,7 @@ describe('CalendarView en modo semanal', () => {
   })
 
   it('muestra el detalle de cada tarea', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
 
@@ -267,7 +301,7 @@ describe('CalendarView en modo semanal', () => {
   })
 
   it('navega de semana en semana', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     await wrapper.find('[data-testid="calendar-next"]').trigger('click')
@@ -282,7 +316,7 @@ describe('CalendarView en modo semanal', () => {
   })
 
   it('marca los dias no laborables de la semana', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     const marcados = wrapper.findAll('[data-testid="week-non-working"]')
@@ -296,7 +330,7 @@ describe('CalendarView en modo semanal', () => {
   })
 
   it('vuelve a la vista mensual', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     await wrapper.find('[data-testid="calendar-view-month"]').trigger('click')
@@ -320,7 +354,7 @@ describe('CalendarView en modo dia', () => {
   })
 
   it('al pulsar un dia del mes se abre el detalle de ese dia', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
 
@@ -330,7 +364,7 @@ describe('CalendarView en modo dia', () => {
   })
 
   it('el dia se puede abrir desde la vista semanal', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     await wrapper.find('[data-testid="week-day-2026-11-04"]').trigger('click')
@@ -340,7 +374,7 @@ describe('CalendarView en modo dia', () => {
   })
 
   it('la vista de dia navega de dia en dia', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-view-day"]').trigger('click')
     expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe('Viernes 6 de noviembre de 2026')
@@ -354,7 +388,7 @@ describe('CalendarView en modo dia', () => {
   })
 
   it('un dia sin tareas lo dice', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-day-2026-11-01"]').trigger('click')
 
@@ -362,7 +396,7 @@ describe('CalendarView en modo dia', () => {
   })
 
   it('marca los dias no laborables del dia', async () => {
-    const wrapper = await mountView()
+    const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
 

@@ -1,10 +1,10 @@
 <script setup>
 /**
- * Selector de contexto.
+ * Selector de proyecto.
  *
- * La primera opcion es el espacio global, que no pertenece a ningun
- * proyecto. Debajo van los proyectos agrupados por el departamento que los
- * gestiona, que es como se reparten en la organizacion.
+ * Es un filtro: la primera opcion es no filtrar, de modo que salen todas las
+ * tareas de los proyectos visibles. Debajo van los proyectos agrupados por el
+ * departamento que los gestiona, que es como se reparten en la organizacion.
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
@@ -87,7 +87,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           {{ current ? current.name : projects.length ? 'Todos los proyectos' : 'Sin proyectos' }}
         </span>
         <span class="block truncate text-xs text-slate-500">
-          {{ current ? (currentDepartment ?? 'Sin departamento') : 'Vista global' }}
+          {{ current ? (currentDepartment ?? 'Sin departamento') : 'Sin filtro de proyecto' }}
         </span>
       </span>
       <span class="inline-flex h-4 w-4 shrink-0 text-slate-400">
@@ -113,7 +113,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           </span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-medium text-slate-900">Todos los proyectos</span>
-            <span class="block text-xs text-slate-500">Vista global de la organización</span>
+            <span class="block text-xs text-slate-500">Sin filtro de proyecto</span>
           </span>
         </button>
       </li>

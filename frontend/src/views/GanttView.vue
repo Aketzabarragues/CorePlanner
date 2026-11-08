@@ -5,8 +5,8 @@
  * Las barras llegan del backend ya con el formato que espera la libreria:
  * una por tarea, con la persona asignada en la etiqueta y su color.
  *
- * En el espacio global se reunen las barras de todos los proyectos visibles y
- * cada una lleva delante el nombre de su proyecto, para saber de donde sale.
+ * El diagrama es de toda la organizacion y el proyecto es un filtro
+ * (`?project=`): con filtro, solo salen las barras de ese proyecto.
  *
  * Al mover o redimensionar una barra se guardan las fechas nuevas con un
  * PATCH de la tarea, de modo que el diagrama y la matriz de ocupacion
@@ -14,16 +14,15 @@
  */
 import Gantt from 'frappe-gantt'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
-import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { overviewApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
-
-const props = defineProps({ id: { type: [String, Number], default: null } })
 
 const container = ref(null)
 const error = ref(null)
@@ -37,9 +36,17 @@ const undatedTaskIds = ref([])
 let gantt = null
 
 const auth = useAuthStore()
+const route = useRoute()
 
-/** Sin identificador de proyecto el diagrama es global. */
-const isGlobal = computed(() => props.id === null || props.id === undefined)
+/** Proyecto que filtra el diagrama. */
+const projectFilter = computed(() => route.query.project ?? '')
+
+/** Lo que se lee encima del diagrama: con filtro, solo sale ese proyecto. */
+const subtitle = computed(() =>
+  projectFilter.value
+    ? 'Las barras del proyecto que filtra.'
+    : 'Las barras de todos los proyectos visibles, agrupadas por proyecto.',
+)
 
 /**
  * Prepara las tareas para la libreria.
@@ -55,7 +62,7 @@ function toBarTasks(tasks) {
   return tasks.map((task) => ({
     ...task,
     id: String(task.id),
-    name: isGlobal.value && task.project_name ? `${task.project_name} · ${task.name}` : task.name,
+    name: task.project_name ? `${task.project_name} · ${task.name}` : task.name,
   }))
 }
 
@@ -76,9 +83,8 @@ async function load() {
   let feed = null
   try {
     const token = await auth.ensureSession()
-    feed = isGlobal.value
-      ? await overviewApi.gantt(token)
-      : await projectsApi.gantt(token, props.id)
+    const params = projectFilter.value ? { project_id: projectFilter.value } : {}
+    feed = await overviewApi.gantt(token, params)
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -119,7 +125,7 @@ async function reintentar() {
 }
 
 onMounted(load)
-watch(() => props.id, load)
+watch(() => route.query.project, load)
 useTaskReload(load)
 onBeforeUnmount(() => {
   gantt = null
@@ -128,10 +134,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <PageHeader
-      :title="isGlobal ? 'Gantt Global' : 'Diagrama de Gantt'"
-      :subtitle="isGlobal ? 'Las barras de todos los proyectos visibles, agrupadas por proyecto.' : 'Mueve o redimensiona una barra para guardar sus fechas.'"
-    >
+    <PageHeader title="Gantt" :subtitle="subtitle">
       <template #actions>
           <button
             v-for="mode in GANTT_VIEW_MODES"

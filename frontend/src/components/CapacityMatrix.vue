@@ -60,10 +60,6 @@ const MODE = {
   PROJECTS: 'proyectos',
 }
 
-const props = defineProps({
-  id: { type: [String, Number], default: null },
-})
-
 const report = ref(null)
 const project = ref(null)
 const error = ref(null)
@@ -77,9 +73,6 @@ const skills = ref([])
 
 const breakdown = ref(null)
 const breakdownTasks = ref([])
-
-/** Sin identificador de proyecto la matriz es global. */
-const isGlobal = computed(() => props.id === null || props.id === undefined)
 
 const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
@@ -109,11 +102,11 @@ const breakdownHolidays = computed(() => {
 })
 
 /** El alta de tareas solo tiene sentido con un proyecto delante. */
-const canCreate = computed(() => !isGlobal.value && project.value !== null)
+const canCreate = computed(() => project.value !== null)
 
-/** Enlace al Gantt: el del proyecto o el global. */
+/** Enlace al Gantt: con el proyecto que filtra, o el de toda la organizacion. */
 const ganttLink = computed(() =>
-  isGlobal.value ? '/gantt' : `/projects/${project.value?.id}/gantt`,
+  project.value ? `/gantt?project=${project.value.id}` : '/gantt',
 )
 
 /** Titulo del panel de detalle: quien y en que semana. */
@@ -209,7 +202,7 @@ const mode = computed({
   set: (value) => updateQuery({ mode: value === MODE.HOURS ? undefined : value }, false),
 })
 
-/** Filtro de proyecto: solo en el espacio global. */
+/** Filtro de proyecto: el que elige el selector de la cabecera. */
 const projectFilter = computed({
   get: () => query.value.project ?? '',
   set: (value) => updateQuery({ project: value }),
@@ -522,14 +515,9 @@ async function refresh() {
     params.skill_id = skillFilter.value
     params.min_level = levelFilter.value
   }
-  if (isGlobal.value) {
-    if (departmentFilter.value) params.department_id = departmentFilter.value
-    if (projectFilter.value) params.project_id = projectFilter.value
-    report.value = await overviewApi.capacity(token, params)
-    return
-  }
-
-  report.value = await projectsApi.capacity(token, project.value.id, params)
+  if (departmentFilter.value) params.department_id = departmentFilter.value
+  if (projectFilter.value) params.project_id = projectFilter.value
+  report.value = await overviewApi.capacity(token, params)
 }
 
 async function reload() {
@@ -642,7 +630,7 @@ async function loadBreakdownTasks() {
   if (!breakdown.value) return
   const token = auth.token
   const params = { week: breakdown.value.week, assigned_to: breakdown.value.user_id }
-  const projectId = isGlobal.value ? projectFilter.value || null : project.value.id
+  const projectId = projectFilter.value || null
   breakdownTasks.value = projectId
     ? await projectsApi.tasks(token, projectId, params)
     : await tasksApi.list(token, params)
@@ -983,14 +971,12 @@ async function loadSkills(token) {
 /**
  * Carga la matriz que toca.
  *
- * En el espacio global no hay proyecto que abrir: se piden los datos de
- * toda la organizacion. En un proyecto se busca entre los visibles y se
- * carga su matriz.
+ * El proyecto es un filtro (`?project=`), de modo que la matriz es siempre la
+ * de la organizacion: con filtro, limitada a ese proyecto.
  *
- * Se vuelve a llamar cuando cambia el identificador de la ruta. El router
- * reutiliza la misma instancia del componente cuando solo cambia el
- * parametro, de modo que sin esta recarga la matriz seguiria mostrando los
- * datos del proyecto anterior.
+ * Se vuelve a llamar cuando cambia el filtro. El router reutiliza la misma
+ * instancia del componente cuando solo cambia la consulta, de modo que sin
+ * esta recarga la matriz seguiria mostrando los datos del proyecto anterior.
  */
 async function loadReport() {
   const token = await auth.ensureSession()
@@ -998,18 +984,11 @@ async function loadReport() {
   await loadSkills(token)
   await normalizarUrl()
 
-  if (isGlobal.value) {
-    project.value = null
-    await reload()
-    await openCellFromUrl()
-    return
-  }
-
   const projects = store.projects
   empty.value = projects.length === 0
   if (empty.value) return
 
-  project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
+  project.value = projects.find((p) => String(p.id) === String(projectFilter.value)) ?? null
   await reload()
   await openCellFromUrl()
 }
@@ -1038,20 +1017,6 @@ onMounted(async () => {
 useTaskReload(loadReport)
 
 watch(
-  () => props.id,
-  async () => {
-    loading.value = true
-    try {
-      await loadReport()
-    } catch (err) {
-      handleError(err)
-    } finally {
-      loading.value = false
-    }
-  },
-)
-
-watch(
   () => [
     query.value.from,
     query.value.to,
@@ -1062,6 +1027,8 @@ watch(
   ],
   () => {
     if (escribiendo) return
+    project.value =
+      store.projects.find((p) => String(p.id) === String(projectFilter.value)) ?? null
     recargar()
   },
   { flush: 'sync' },
@@ -1072,11 +1039,9 @@ watch(
   <div>
     <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold text-siemens-900">
-          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
-        </h1>
+        <h1 class="text-xl font-semibold text-siemens-900">Capacidad</h1>
         <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
-        <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
+        <p v-else class="mt-1 text-sm text-slate-500">
           Reparto de horas de todos los proyectos visibles.
         </p>
       </div>
@@ -1098,20 +1063,6 @@ watch(
     </header>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
-      <label v-if="isGlobal" class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Proyecto</span>
-        <select
-          v-model="projectFilter"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          data-testid="filter-project"
-        >
-          <option value="">Todos los proyectos</option>
-          <option v-for="item in store.projects" :key="item.id" :value="String(item.id)">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
-
       <label class="text-xs font-medium text-slate-600">
         <span class="mb-1 block">Departamento</span>
         <select
@@ -1443,7 +1394,7 @@ watch(
         :cell="breakdown"
         :tasks="breakdownTasks"
         :members="people"
-        :projects="isGlobal ? store.projects : []"
+        :projects="store.projects"
         :holidays="breakdownHolidays"
         :saving="saving"
         :can-create="canCreate"

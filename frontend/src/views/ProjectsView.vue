@@ -121,13 +121,13 @@ onMounted(load)
               </div>
               <div class="flex shrink-0 gap-2 text-sm">
                 <RouterLink
-                  :to="{ name: 'capacity', params: { id: String(project.id) } }"
+                  :to="{ name: 'capacity', query: { project: String(project.id) } }"
                   class="rounded border border-slate-300 px-3 py-1.5"
                 >
                   Capacidad
                 </RouterLink>
                 <RouterLink
-                  :to="{ name: 'gantt', params: { id: String(project.id) } }"
+                  :to="{ name: 'gantt', query: { project: String(project.id) } }"
                   class="rounded bg-siemens-900 px-3 py-1.5 text-white"
                 >
                   Gantt

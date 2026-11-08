@@ -344,6 +344,29 @@ async def test_el_gantt_global_solo_muestra_los_proyectos_visibles(client: Async
     assert {barra["project_name"] for barra in barras} == {"Red de tuberias"}
 
 
+async def test_el_gantt_global_filtra_por_proyecto(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        f"/api/gantt?project_id={client.ids['linea']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    barras = response.json()["tasks"]
+    assert barras
+    assert {barra["project_name"] for barra in barras} == {"Linea Pasteurizadora"}
+
+
+async def test_el_gantt_global_oculta_un_proyecto_que_no_se_ve(client: AsyncClient):
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get(
+        f"/api/gantt?project_id={client.ids['linea']}", headers=headers
+    )
+
+    assert response.status_code == 404, response.text
+
+
 async def test_el_listado_global_de_tareas_reune_los_proyectos_visibles(client: AsyncClient):
     headers = await _auth(client, "admin@example.com")
 

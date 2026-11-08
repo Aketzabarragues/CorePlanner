@@ -29,11 +29,11 @@ describe('ProjectPicker', () => {
     expect(wrapper.text()).toContain('Automatización & SCADA')
   })
 
-  it('en el espacio global muestra la vista global', () => {
+  it('sin filtro muestra todos los proyectos', () => {
     const wrapper = mountPicker({ currentId: null })
 
     expect(wrapper.text()).toContain('Todos los proyectos')
-    expect(wrapper.text()).toContain('Vista global')
+    expect(wrapper.text()).toContain('Sin filtro de proyecto')
   })
 
   it('avisa cuando no hay ningun proyecto visible', () => {
@@ -52,7 +52,7 @@ describe('ProjectPicker', () => {
     expect(wrapper.find('[role=listbox]').exists()).toBe(true)
   })
 
-  it('ofrece el espacio global como primera opcion', async () => {
+  it('ofrece la opcion de no filtrar como primera', async () => {
     const wrapper = mountPicker()
 
     await wrapper.find('button').trigger('click')
@@ -61,7 +61,7 @@ describe('ProjectPicker', () => {
     expect(opciones[0].text()).toContain('Todos los proyectos')
   })
 
-  it('elige el espacio global y avisa con null', async () => {
+  it('sin filtro avisa con null', async () => {
     const wrapper = mountPicker()
 
     await wrapper.find('button').trigger('click')

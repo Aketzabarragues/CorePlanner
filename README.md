@@ -366,8 +366,8 @@ token en `localStorage`.
 | `GET` | `/api/non-working-days` | token valido; filtros `from`, `to` y `department_id` |
 | `POST` | `/api/non-working-days` | gerente |
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
-| `GET` | `/api/capacity` | token valido, filtro opcional `department_id` |
-| `GET` | `/api/gantt` | token valido |
+| `GET` | `/api/capacity` | token valido, filtros opcionales `department_id` y `project_id` |
+| `GET` | `/api/gantt` | token valido, filtro opcional `project_id` |
 | `GET` | `/api/panel` | token valido; resumen de la organizacion |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to`, `week`, `from` y `to` |
@@ -515,10 +515,12 @@ El formulario no envia campos que no se han tocado: un `PATCH` con
 
 ## Diagrama de Gantt
 
-La vista `/projects/{id}/gantt` dibuja una barra por tarea con `frappe-gantt`:
+La vista `/gantt` dibuja una barra por tarea con `frappe-gantt`:
 
 - Cada barra lleva las fechas de la tarea, su avance segun el estado y la
   persona asignada, que aparece en la etiqueta y en el color de la barra.
+- El diagrama es de toda la organizacion; con el filtro `?project=` solo entran
+  las barras de ese proyecto.
 - El selector **Dia / Semana / Mes** cambia la escala temporal.
 - Al mover o redimensionar una barra se guardan las fechas con un `PATCH` de
   la tarea, de modo que el diagrama y la matriz de ocupacion cuentan lo mismo.
@@ -534,9 +536,8 @@ estricta el identificador de la tarea con el que lee del DOM.
 
 El Gantt muestra la planificacion como barras sobre una linea de tiempo. El
 calendario muestra la misma planificacion como una rejilla de meses: cada dia
-del mes y, dentro, las tareas que lo ocupan. Vive en los dos espacios, igual
-que el Gantt: `/calendar` con los proyectos visibles y
-`/projects/{id}/calendar` con uno solo.
+del mes y, dentro, las tareas que lo ocupan. Vive en `/calendar`, con los
+proyectos visibles, y con el filtro `?project=` para uno solo.
 
 - La rejilla va de **lunes a domingo** y se navega por mes: anterior,
   siguiente y **Hoy**.
@@ -617,9 +618,8 @@ y `DELETE /api/non-working-days/{id}`, ambos reservados al gerente.
 
 ## Matriz de capacidad
 
-La capacidad esta en **una sola pantalla**: la matriz. Vive en los dos espacios,
-igual que el resto: `/capacity` con los proyectos visibles y
-`/projects/{id}/capacity` con uno solo.
+La capacidad esta en **una sola pantalla**: la matriz. Vive en `/capacity`, con
+los proyectos visibles, y con el filtro `?project=` para uno solo.
 
 - El eje de semanas es **continuo**: sale el rango pedido, tenga actividad o no.
   El rango por defecto son nueve semanas, la en curso y las ocho siguientes, y
@@ -640,7 +640,8 @@ igual que el resto: `/capacity` con los proyectos visibles y
   puede seguir usando, que es lo que deja que las celdas reciban el arrastre.
 - Los **filtros** (proyecto, departamento, competencia y nivel) y el rango viven
   en la URL: el enlace se puede compartir. El modo y la celda abierta tambien,
-  pero no recargan el informe.
+  pero no recargan el informe. El filtro de proyecto lo pone el selector de la
+  cabecera, que es el unico control que lo cambia.
 
 El arrastre con previsualizacion es la otra forma de reasignar:
 
@@ -660,9 +661,8 @@ La reasignacion se guarda con el `PATCH /api/tasks/{id}` de siempre, asi que
 sigue exigiendo que el nuevo responsable sea miembro del proyecto al que
 pertenece la tarea. La pantalla lo avisa **antes** de soltar, no despues.
 
-Lo que **no** entra: las tarjetas por persona del prototipo, los veredictos
-discretos de disponibilidad (van aparte con sus umbrales) y el menu agrupado
-con rutas unificadas, que es la fase siguiente de la propuesta de interfaz.
+Lo que **no** entra: las tarjetas por persona del prototipo y los veredictos
+discretos de disponibilidad (van aparte con sus umbrales).
 
 ## Tablero Kanban
 
@@ -786,53 +786,51 @@ indicadores; ahora es el resumen completo:
 `frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
 y una cabecera, al estilo de OpenProject o Linear.
 
-La navegacion tiene dos contextos, y el que esta abierto lo decide la URL: si
-lleva un identificador de proyecto, se esta en el espacio de proyecto; si no,
-en el espacio global. El menu lateral, las migas y las acciones de la cabecera
-cambian con el contexto.
+La navegacion tiene un solo arbol de rutas: el proyecto ya no es un espacio con
+su propio menu, es un filtro (`?project=`) de las vistas de planificacion. El
+menu lateral agrupa las vistas por lo que son y el selector de la cabecera elige
+el proyecto que filtra.
 
-El menu lateral lleva el isotipo con su version, un bloque de contexto que dice
-en que espacio se esta y, al pie, la tarjeta de quien esta dentro con su
-avatar, su departamento y el boton de cerrar sesion. Se puede colapsar a una
-tira de iconos; el estado se guarda en `localStorage` con la clave
-`coreplanner_sidebar`.
+El menu lateral lleva el isotipo con su version, un bloque que dice que se esta
+viendo, al pie la tarjeta de quien esta dentro con su avatar, su rol de empresa
+y el boton de cerrar sesion. Se puede colapsar a una tira de iconos; el estado
+se guarda en `localStorage` con la clave `coreplanner_sidebar`.
 
-La cabecera lleva las migas de pan, el selector de contexto y las acciones
-rapidas. En el espacio de proyecto aparecen la pila con el estado del proyecto
-y el boton **+ Nueva Tarea**, que abre el alta de tarea en un modal sobre la
-vista que este abierta. En el espacio global solo queda el selector.
+La cabecera lleva las migas de pan, el selector de proyecto y las acciones
+rapidas. Cuando hay un proyecto delante, en su pagina o filtrando por el,
+aparecen la pila con el estado del proyecto y el boton **+ Nueva Tarea**, que
+abre el alta de tarea en un modal sobre la vista que este abierta.
 
-### Selector de contexto
+### Selector de proyecto
 
-El desplegable de la cabecera es el que salta de un contexto al otro. Su
-primera opcion es **Todos los proyectos (Global)** y a continuacion vienen los
-proyectos agrupados por su departamento gestor. Al elegir un proyecto se entra
-en la vista homologa de la que se estaba viendo; si la vista no tiene
-equivalente global se cae en el listado de proyectos, y al reves en la matriz
-del proyecto.
+El desplegable de la cabecera es el filtro de las vistas de planificacion. Su
+primera opcion es **Todos los proyectos**, que deja el filtro sin poner, y a
+continuacion vienen los proyectos agrupados por su departamento gestor.
+
+El filtro viaja en la URL (`?project=<id>`), de modo que el enlace se puede
+compartir y recargar la pagina no lo pierde. Solo aparece en Capacidad, Gantt y
+Calendario, que son las vistas donde hay un proyecto que filtrar. Al pasar de
+una vista de planificacion a otra el filtro viaja con ella: quien esta mirando
+un proyecto no lo pierde al pasar de la capacidad al Gantt.
 
 ### Menu lateral
 
-En el espacio global:
+Un solo menu, con cuatro grupos:
 
 | Grupo | Vistas |
 | --- | --- |
-| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Departamentos, Personas y Competencias |
+| Mi espacio | Panel, Mi trabajo |
+| Planificacion | Capacidad, Gantt, Calendario |
+| Organizacion | Proyectos, Personas y Competencias, Departamentos |
 | Administracion (solo gerente) | Configuracion |
 
-En el espacio de proyecto:
+El menu no decide quien ve que: lo decide el rol de empresa, igual que hasta
+ahora. El grupo de Administracion es el unico que se esconde.
 
-| Grupo | Vistas |
-| --- | --- |
-| Planificación & ejecucion | Matriz de Capacidad, Cronograma (Gantt), Calendario, Tablero Kanban |
-| Gestion & equipo | Miembros y Asignaciones |
-
-La configuracion del proyecto no esta en el menu: se llega desde el resumen
-del proyecto, que es donde tiene sentido abrirla. Solo el gerente puede
-editarla; el resto la ve en modo de solo lectura.
-
-El enlace **Calendario Laboral** lleva a la pestana del calendario dentro de la
-configuracion, que es donde vive.
+Las pestanas del proyecto (Tablero, Miembros y Ajustes) no estan en el menu:
+son de la pagina del proyecto, que es donde tiene sentido abrirlas y la que
+tiene las cuatro. El calendario laboral tampoco esta: es una pestana de la
+configuracion.
 
 ### Menu en cajon
 
@@ -845,34 +843,35 @@ trabajo y del Panel se apilan en una sola columna.
 
 ### Rutas
 
-| Ruta | Contexto | Vista |
-| --- | --- | --- |
-| `/` | - | redirige a la matriz del primer proyecto accesible |
-| `/login` | - | acceso, con entrada automatica si ya hay sesion guardada |
-| `/panel` | global | resumen de la organizacion |
-| `/my-work` | global | tareas propias y carga por semana |
-| `/projects` | global | listado de proyectos |
-| `/capacity` | global | matriz de ocupacion consolidada |
-| `/gantt` | global | cronograma de todos los proyectos |
-| `/calendar` | global | calendario de la planificacion de todos los proyectos |
-| `/work-calendar` | global | redirige a la configuracion, pestana **Calendario laboral** |
-| `/departments` | global | departamentos y sus responsables |
-| `/people` | global | directorio y competencias |
-| `/configuration` | global | configuracion de la organizacion; su primera pestana es el calendario laboral |
-| `/projects/{id}` | proyecto | resumen del proyecto |
-| `/projects/{id}/capacity` | proyecto | matriz de ocupacion |
-| `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
-| `/projects/{id}/calendar` | proyecto | calendario de la planificacion |
-| `/projects/{id}/kanban` | proyecto | tablero Kanban |
-| `/projects/{id}/members` | proyecto | miembros y asignaciones |
-| `/projects/{id}/settings` | proyecto | configuracion del proyecto |
+| Ruta | Vista |
+| --- | --- |
+| `/` | redirige segun el rol: el tecnico a Mi trabajo y el gerente y el jefe de departamento al Panel |
+| `/login` | acceso, con entrada automatica si ya hay sesion guardada |
+| `/panel` | resumen de la organizacion |
+| `/my-work` | tareas propias y carga por semana |
+| `/projects` | listado de proyectos |
+| `/capacity` | matriz de ocupacion, con filtro `?project=` |
+| `/gantt` | cronograma, con filtro `?project=` |
+| `/calendar` | calendario de la planificacion, con filtro `?project=` |
+| `/work-calendar` | redirige a la configuracion, pestana **Calendario laboral** |
+| `/departments` | departamentos y sus responsables |
+| `/people` | directorio y competencias |
+| `/configuration` | configuracion de la organizacion; su primera pestana es el calendario laboral |
+| `/projects/{id}` | resumen del proyecto |
+| `/projects/{id}/kanban` | tablero Kanban |
+| `/projects/{id}/members` | miembros y asignaciones |
+| `/projects/{id}/settings` | configuracion del proyecto |
+
+Las tres rutas de planificacion del proyecto quedaron como redireccion:
+`/projects/{id}/capacity` lleva a `/capacity?project={id}`, y lo mismo con
+`/gantt` y `/calendar`, para no romper los enlaces guardados.
 
 El proyecto abierto se toma siempre de la URL, de modo que al recargar la
 pagina se vuelve al mismo proyecto y a la misma vista.
 
 Las guardas del router live en `frontend/src/router/guards.js`: una comprueba
-la sesion antes de entrar en una vista privada y otra lleva la raiz al primer
-proyecto disponible. Si falta la sesion, el guard lleva al formulario de acceso
+la sesion antes de entrar en una vista privada y otra lleva la raiz a la vista
+de entrada de cada rol. Si falta la sesion, el guard lleva al formulario de acceso
 recordando la vista que se queria abrir, y el formulario vuelve a ella al
 entrar.
 
@@ -883,22 +882,23 @@ persona que entra puede ver.
 
 | Endpoint | Que devuelve |
 | --- | --- |
-| `GET /api/capacity` | matriz de ocupacion de todos los proyectos accesibles, con filtro opcional `?department_id=` |
-| `GET /api/gantt` | barras de todos los proyectos accesibles, cada una con su `project_id` y `project_name` |
+| `GET /api/capacity` | matriz de ocupacion de todos los proyectos accesibles, con los filtros `?department_id=` y `?project_id=` |
+| `GET /api/gantt` | barras de todos los proyectos accesibles, cada una con su `project_id` y `project_name`, con el filtro `?project_id=` |
 | `GET /api/tasks` | tareas de todos los proyectos accesibles, con los filtros `assigned_to` y `week` |
 
 El alcance son los proyectos accesibles de quien entra: el administrador global
 ve todos y un miembro solo los suyos. La matriz global suma las horas de cada
 persona entre proyectos y sus filas son la union de los miembros de esos
 proyectos con las personas que tengan tareas asignadas. El filtro por
-departamento limita a los proyectos que gestiona ese departamento.
+departamento limita a los proyectos que gestiona ese departamento y el filtro por
+proyecto deja solo uno. Si el proyecto no esta entre los que se ven, el backend
+responde 404.
 
 El listado global de tareas es lo que permite abrir el desglose de una celda
 de la matriz global: sin el, la celda no sabria que tareas la componen.
 
-En el Gantt global cada barra lleva delante el nombre del proyecto, y el
-frontend lo antepone solo en este modo: en el espacio de proyecto la barra ya
-esta dentro de su contexto.
+En el Gantt cada barra lleva delante el nombre del proyecto, porque el
+diagrama es de toda la organizacion y el filtro solo cambia que barras entran.
 
 ### Iconos y clases
 
@@ -913,10 +913,10 @@ los literales de `:class` y los daba por clases de Tailwind que no existen.
 
 ### Datos frescos al cambiar de vista
 
-El router reutiliza la misma instancia del componente cuando solo cambia el
-parametro de la ruta, de modo que `CapacityMatrix.vue` vigila `props.id` y
-vuelve a pedir la matriz. Sin esa recarga, cambiar de proyecto en la cabecera
-dejaria en pantalla los datos del proyecto anterior.
+El router reutiliza la misma instancia del componente cuando solo cambia la
+consulta, de modo que `CapacityMatrix.vue` vigila el filtro de la URL y vuelve a
+pedir la matriz. Sin esa recarga, cambiar de proyecto en la cabecera dejaria en
+pantalla los datos del proyecto anterior.
 
 Cada vista pide sus datos al montarse, de modo que un cambio hecho en el
 Gantt o en el Kanban se ve al volver a la capacidad. Para que el alta de tarea
@@ -945,20 +945,24 @@ parcial que pierda estilos sin avisar.
 
 Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
 frontend con login, listado de proyectos, armazon de aplicacion con menu
-lateral, cabecera con migas, selector de contexto y alta de tarea, navegacion
-dual con espacio global y espacio de proyecto, matriz de ocupacion con reparto
-semanal (por proyecto y consolidada), CRUD de tareas, feed JSON del Gantt
-(por proyecto y consolidado), tablero Kanban, vista de departamentos, ambito
+lateral unico en cuatro grupos, cabecera con migas, selector de proyecto como
+filtro y alta de tarea, navegacion con un solo arbol de rutas, matriz de
+ocupacion con reparto semanal, CRUD de tareas, feed JSON del Gantt, tablero
+Kanban, vista de departamentos, ambito
 por rol de empresa (gerente, jefe de departamento y tecnico), pantalla de
 configuracion de la organizacion (personas, roles, departamentos, proyectos y
 catalogo de competencias) y bloque de personas: horario versionado,
-dias no laborables con alcance, competencias y pantalla de personas. En el
-espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
+dias no laborables con alcance, competencias y pantalla de personas. En la
+pagina del proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
 planificacion se ve como diagrama de Gantt o como calendario mensual, semanal y
 por dia. La capacidad esta en una sola pantalla: la matriz, con el detalle
 en un panel lateral, los modos de celda y el arrastre con previsualizacion para
 reasignar una tarea.
+
+La navegacion ya no tiene dos contextos: el proyecto es un filtro
+(`?project=`) de las vistas de planificacion, la pagina del proyecto conserva
+sus cuatro pestanas y la raiz lleva a cada rol a su vista de entrada.
 
 Las pantallas personales ya no son listas de tablas:
 
@@ -1050,9 +1054,9 @@ Tres conclusiones que condicionan el trabajo:
   desasignar una tarea hay que enviar `assigned_to` con null de forma
   explicita.
 - **Reutilizacion de instancia en el router.** Cuando solo cambia el
-  parametro de la ruta, el router reutiliza la instancia del componente, que
-  no se vuelve a montar. Por eso las vistas que dependen del proyecto
-  vigilan `props.id` y recargan.
+  parametro de la ruta o la consulta, el router reutiliza la instancia del
+  componente, que no se vuelve a montar. Por eso las vistas que dependen del
+  filtro vigilan la consulta y recargan.
 - **Cierre de sesion frente a acceso automatico.** El acceso automatico con
   `admin@example.com` no repone una sesion que el usuario cerro: el store de
   sesion guarda esa marca en `localStorage` y el guard lleva al formulario de

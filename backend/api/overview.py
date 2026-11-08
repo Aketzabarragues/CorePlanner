@@ -107,12 +107,25 @@ async def global_panel(
 
 
 @router.get("/gantt", response_model=GanttOut)
-async def global_gantt(session: SessionDep, user: CurrentUser) -> GanttOut:
+async def global_gantt(
+    session: SessionDep,
+    user: CurrentUser,
+    project_id: int | None = Query(
+        default=None, description="Limita el diagrama a un proyecto visible"
+    ),
+) -> GanttOut:
     """Diagrama de Gantt con las barras de todos los proyectos visibles.
 
     Cada barra lleva el proyecto al que pertenece, de modo que el frontend
-    puede agruparlas.
+    puede agruparlas. Con project_id el diagrama se limita a un proyecto.
     """
     projects = await list_accessible_projects(session, user)
+    if project_id is not None:
+        projects = [project for project in projects if project.id == project_id]
+        if not projects:
+            raise HTTPException(
+                status_code=404,
+                detail="Ese proyecto no esta entre los que puedes ver",
+            )
     feed = await load_gantt_for_projects(session, projects)
     return GanttOut.model_validate(feed.to_dict())

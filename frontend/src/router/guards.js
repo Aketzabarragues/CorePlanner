@@ -4,8 +4,8 @@
  * Se separan del fichero del router para poder probarlas sin levantar una
  * aplicacion entera: cada guarda recibe sus dependencias por parametro.
  */
+import { meApi } from '../api/client'
 import { useAuthStore } from '../stores/auth'
-import { useProjectsStore } from '../stores/projects'
 
 /**
  * Obliga a tener sesion antes de entrar en una vista privada.
@@ -25,20 +25,29 @@ export async function requireSession(to) {
 }
 
 /**
- * Lleva a la matriz del primer proyecto disponible.
+ * Lleva a la vista de entrada de cada rol.
  *
- * Es la redireccion de la raiz: en lugar de dejar una pantalla vacia, la
- * aplicacion abre el primer proyecto al que tiene acceso el usuario.
+ * El tecnico entra por Mi trabajo, que es lo suyo; el gerente y el jefe de
+ * departamento entran por el Panel, que es la foto de la organizacion.
  */
-export async function redirectToFirstProject() {
+export async function redirectByRole() {
   const auth = useAuthStore()
-  const store = useProjectsStore()
   try {
     const token = await auth.ensureSession()
-    const projects = await store.ensureProjects(token)
-    if (!projects.length) return { name: 'projects' }
-    return { name: 'capacity', params: { id: String(projects[0].id) } }
+    const scope = await meApi.get(token)
+    const rol = scope?.user?.company_role
+    return rol === 'tecnico' ? { name: 'my-work' } : { name: 'panel' }
   } catch {
-    return { name: 'projects' }
+    return { name: 'login' }
   }
+}
+
+/**
+ * Redirige una ruta de proyecto a la vista global con el filtro puesto.
+ *
+ * El proyecto paso de ser un espacio a ser un filtro, de modo que las rutas
+ * antiguas se quedan con una redireccion para no romper los enlaces.
+ */
+export function conFiltroDeProyecto(name) {
+  return (to) => ({ name, query: { project: to.params.id } })
 }

@@ -154,14 +154,14 @@ describe('ProjectSummaryView', () => {
     )
   })
 
-  it('enlaza con la capacidad y el Gantt', async () => {
+  it('enlaza con la capacidad y el Gantt filtrados por proyecto', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="project-go-capacity"]').attributes('href')).toBe(
       '/capacity?project=1',
     )
     expect(wrapper.find('[data-testid="project-go-gantt"]').attributes('href')).toBe(
-      '/projects/1/gantt',
+      '/gantt?project=1',
     )
   })
 

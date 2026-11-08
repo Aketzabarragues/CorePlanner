@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 const ganttInstances = []
 
@@ -62,14 +63,26 @@ function setupFetch() {
   return calls
 }
 
-async function mountGantt(props = { id: 1 }) {
+/**
+ * Monta el diagrama.
+ *
+ * El proyecto es un filtro que vive en la URL, de modo que la vista se monta
+ * siempre en la misma ruta y lo que cambia es la consulta.
+ */
+async function mountGantt(query = {}) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/gantt', name: 'gantt', component: { template: '<div />' } }],
+  })
+  await router.push({ path: '/gantt', query })
+  await router.isReady()
+
   const wrapper = mount(GanttView, {
-    props,
-    global: { plugins: [createPinia()] },
+    global: { plugins: [createPinia(), router] },
   })
   await flushPromises()
   await flushPromises()
-  return wrapper
+  return { wrapper, router }
 }
 
 describe('GanttView', () => {
@@ -79,14 +92,36 @@ describe('GanttView', () => {
     setActivePinia(createPinia())
   })
 
-  it('pide el diagrama al endpoint del proyecto', async () => {
+  it('pide el diagrama de toda la organizacion', async () => {
     const calls = setupFetch()
 
     await mountGantt()
 
     const call = calls.find((c) => c.url.includes('/gantt'))
     expect(call).toBeDefined()
-    expect(call.url).toBe('/api/projects/1/gantt')
+    expect(call.url).toBe('/api/gantt')
+  })
+
+  it('con filtro de proyecto pide solo ese proyecto', async () => {
+    const calls = setupFetch()
+
+    await mountGantt({ project: '2' })
+
+    const call = calls.find((c) => c.url.includes('/gantt'))
+    expect(call.url).toBe('/api/gantt?project_id=2')
+  })
+
+  it('al cambiar el filtro vuelve a pedir el diagrama', async () => {
+    const calls = setupFetch()
+    const { router } = await mountGantt()
+
+    await router.replace({ path: '/gantt', query: { project: '1' } })
+    await flushPromises()
+    await flushPromises()
+
+    const urls = calls.filter((c) => c.url.includes('/gantt')).map((c) => c.url)
+    expect(urls.some((url) => url.includes('project_id=1'))).toBe(true)
+    expect(ganttInstances).toHaveLength(2)
   })
 
   it('dibuja una barra por tarea con el color de su persona', async () => {
@@ -109,10 +144,10 @@ describe('GanttView', () => {
     expect(ganttInstances[0].tasks[0].id).toBe('10')
   })
 
-  it('muestra la leyenda con las personas del proyecto', async () => {
+  it('muestra la leyenda con las personas del diagrama', async () => {
     setupFetch()
 
-    const wrapper = await mountGantt()
+    const { wrapper } = await mountGantt()
 
     expect(wrapper.text()).toContain('Ana')
     expect(wrapper.text()).toContain('1 tarea(s) sin fechas')
@@ -121,7 +156,7 @@ describe('GanttView', () => {
   it('ofrece el selector de escala temporal', async () => {
     setupFetch()
 
-    const wrapper = await mountGantt()
+    const { wrapper } = await mountGantt()
 
     const botones = wrapper.findAll('header button').map((b) => b.text())
     expect(botones).toEqual(['Día', 'Semana', 'Mes'])
@@ -130,7 +165,7 @@ describe('GanttView', () => {
   it('cambia la escala del diagrama', async () => {
     setupFetch()
 
-    const wrapper = await mountGantt()
+    const { wrapper } = await mountGantt()
 
     const mes = wrapper.findAll('header button').find((b) => b.text() === 'Mes')
     await mes.trigger('click')
@@ -140,7 +175,7 @@ describe('GanttView', () => {
 
   it('guarda las fechas cuando se mueve una barra', async () => {
     const calls = setupFetch()
-    const wrapper = await mountGantt()
+    const { wrapper } = await mountGantt()
 
     const task = ganttInstances[0].tasks[0]
     await ganttInstances[0].options.on_date_change(
@@ -160,30 +195,12 @@ describe('GanttView', () => {
     expect(wrapper.text()).toContain('Fechas actualizadas')
   })
 
-  it('sin proyecto pide el diagrama global', async () => {
-    const calls = setupFetch()
-
-    const wrapper = await mountGantt({ id: null })
-
-    const call = calls.find((c) => c.url.includes('/gantt'))
-    expect(call.url).toBe('/api/gantt')
-    expect(wrapper.text()).toContain('Gantt Global')
-  })
-
-  it('en el diagrama global cada barra lleva delante su proyecto', async () => {
-    setupFetch()
-
-    await mountGantt({ id: null })
-
-    const barra = ganttInstances[0].tasks[0]
-    expect(barra.name).toBe('Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
-  })
-
-  it('en el diagrama de un proyecto la barra no lleva el proyecto delante', async () => {
+  it('cada barra lleva delante su proyecto', async () => {
     setupFetch()
 
     await mountGantt()
 
-    expect(ganttInstances[0].tasks[0].name).toBe('Programacion SCADA WinCC · Ana')
+    const barra = ganttInstances[0].tasks[0]
+    expect(barra.name).toBe('Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
   })
 })

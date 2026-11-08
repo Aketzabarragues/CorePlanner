@@ -14,7 +14,7 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
-import { redirectToFirstProject, requireSession } from './guards'
+import { conFiltroDeProyecto, redirectByRole, requireSession } from './guards'
 
 /** Pantalla de espera mientras la raiz decide a que vista llevar. */
 const Redirecting = { name: 'Redirecting', render: () => null }
@@ -24,54 +24,55 @@ const routes = [
     path: '/',
     name: 'home',
     component: Redirecting,
-    beforeEnter: redirectToFirstProject,
+    beforeEnter: redirectByRole,
   },
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
 
-  // Espacio global: la organizacion entera, sin proyecto en la URL.
+  // Vistas de la organizacion.
   { path: '/panel', name: 'panel', component: PanelView },
   { path: '/my-work', name: 'my-work', component: MyWorkView },
   { path: '/projects', name: 'projects', component: ProjectsView },
-  { path: '/capacity', name: 'global-capacity', component: CapacityMatrix },
-  { path: '/gantt', name: 'global-gantt', component: GanttView },
-  { path: '/calendar', name: 'global-calendar', component: CalendarView },
+  { path: '/capacity', name: 'capacity', component: CapacityMatrix },
+  { path: '/gantt', name: 'gantt', component: GanttView },
+  { path: '/calendar', name: 'calendar', component: CalendarView },
+  { path: '/departments', name: 'departments', component: DepartmentsView },
+  { path: '/people', name: 'people', component: PeopleView },
+  { path: '/configuration', name: 'configuration', component: SettingsView },
   // El calendario laboral vive en Configuracion: esta ruta lleva allí.
   {
     path: '/work-calendar',
     name: 'work-calendar',
     redirect: { name: 'configuration', query: { tab: 'calendar' } },
   },
-  { path: '/departments', name: 'departments', component: DepartmentsView },
-  { path: '/people', name: 'people', component: PeopleView },
-  { path: '/configuration', name: 'configuration', component: SettingsView },
 
-  // Espacio de proyecto: todo lo que cuelga de un identificador.
+  // Pagina del proyecto y sus pestanas.
   {
     path: '/projects/:id',
     name: 'project',
     component: ProjectSummaryView,
     props: true,
   },
-  {
-    path: '/projects/:id/capacity',
-    name: 'capacity',
-    component: CapacityMatrix,
-    props: true,
-  },
-  { path: '/projects/:id/gantt', name: 'gantt', component: GanttView, props: true },
-  {
-    path: '/projects/:id/calendar',
-    name: 'calendar',
-    component: CalendarView,
-    props: true,
-  },
   { path: '/projects/:id/kanban', name: 'kanban', component: KanbanView, props: true },
   { path: '/projects/:id/members', name: 'members', component: MembersView, props: true },
   {
     path: '/projects/:id/settings',
-    name: 'settings',
+    name: 'project-settings',
     component: ProjectSettingsView,
     props: true,
+  },
+
+  // Rutas antiguas: el proyecto era un espacio y ahora es un filtro.
+  {
+    path: '/projects/:id/capacity',
+    redirect: conFiltroDeProyecto('capacity'),
+  },
+  {
+    path: '/projects/:id/gantt',
+    redirect: conFiltroDeProyecto('gantt'),
+  },
+  {
+    path: '/projects/:id/calendar',
+    redirect: conFiltroDeProyecto('calendar'),
   },
 ]
 

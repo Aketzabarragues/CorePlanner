@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Capacidad</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:#0f172a}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #0f766e;outline-offset:2px}
+[data-dark] a:focus-visible,[data-dark] button:focus-visible{outline-color:#5eead4}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:940px;background:#f8fafc">
+
+<aside data-dark="true" style="flex:0 0 248px;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;gap:16px;padding:16px 12px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:10px;padding:4px 8px">
+<span style="width:32px;height:32px;border-radius:8px;background:#0f766e;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px">CP</span>
+<span style="color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px">CorePlanner</span>
+</div>
+<nav aria-label="Principal" style="display:flex;flex-direction:column;gap:14px;flex:1">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="padding:0 10px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;font-weight:600">{{g.title}}</div>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+<a href="{{it.href}}" aria-current="{{it.cur}}" style="display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;font-size:14px;{{it.dyn}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"></path></svg>
+<span>{{it.label}}</span>
+</a>
+</sc-for>
+</div>
+</sc-for>
+</nav>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid #1e293b">
+<span style="width:34px;height:34px;border-radius:999px;background:#334155;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">CV</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+<span style="color:#fff;font-size:13px;font-weight:600">Carlos Vega</span>
+<span style="font-size:12px;color:#94a3b8">Gerente</span>
+</div>
+<button type="button" aria-label="Cerrar sesión" style="background:none;border:0;color:#cbd5e1;padding:8px;border-radius:8px;display:flex">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9"></path></svg>
+</button>
+</div>
+</aside>
+
+<div style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+<header style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 24px;background:#fff;border-bottom:1px solid #e2e8f0">
+<nav aria-label="Migas de pan" style="font-size:13px;color:#475569;display:flex;gap:8px">
+<span>Planificación</span><span style="color:#94a3b8" aria-hidden="true">/</span><span style="color:#0f172a;font-weight:600">Capacidad</span>
+</nav>
+<div style="display:flex;align-items:center;gap:12px">
+<input type="search" aria-label="Buscar personas, proyectos y tareas" placeholder="Buscar…  Ctrl K" style="height:40px;width:240px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font-size:13px;background:#f8fafc;box-sizing:border-box">
+<button type="button" style="height:40px;display:flex;align-items:center;gap:8px;border:0;border-radius:8px;background:#0f766e;color:#fff;padding:0 16px;font-size:14px;font-weight:600">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"></path></svg>
+Nueva tarea
+</button>
+</div>
+</header>
+
+<main style="padding:24px;display:flex;flex-direction:column;gap:16px">
+
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+<div>
+<h1 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:600;letter-spacing:-.01em">Capacidad</h1>
+<p style="margin:4px 0 0;font-size:14px;color:#475569">Carga planificada frente a capacidad, por persona y semana.</p>
+</div>
+<div role="group" aria-label="Modo de visualización" style="display:flex;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#fff">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{m.pressed}}" onClick="{{m.pick}}" style="min-height:40px;padding:0 16px;border:0;font-size:13px;font-weight:500;{{m.dyn}}">{{m.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;font-weight:500">Proyecto
+<select style="height:40px;min-width:190px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:0 10px;font-size:13px">
+<option>Todos los proyectos</option>
+<option>Línea Pasteurizadora SIVE</option>
+<option>Red de tuberías línea 2</option>
+<option>Retrofit envasadora</option>
+</select>
+</label>
+<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;font-weight:500">Departamento
+<select style="height:40px;min-width:190px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:0 10px;font-size:13px">
+<option>Todos los departamentos</option>
+<option>Automatización &amp; SCADA</option>
+<option>Oficina Técnica / EPLAN</option>
+</select>
+</label>
+<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;font-weight:500">Competencia
+<select style="height:40px;min-width:200px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:0 10px;font-size:13px">
+<option>Cualquiera</option>
+<option>PLC S7-1500 · nivel 2 o más</option>
+<option>HMI WinCC · nivel 2 o más</option>
+<option>EPLAN · nivel 2 o más</option>
+</select>
+</label>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+<button type="button" aria-label="Semanas anteriores" style="width:40px;height:40px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+</button>
+<button type="button" style="height:40px;padding:0 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;font-weight:500">Hoy</button>
+<button type="button" aria-label="Semanas siguientes" style="width:40px;height:40px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+</button>
+<span style="font-size:13px;font-weight:500;color:#334155;padding:0 8px">2 nov – 27 dic 2026</span>
+<div role="group" aria-label="Escala de tiempo" style="display:flex;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#fff">
+<button type="button" aria-pressed="true" style="height:38px;padding:0 12px;border:0;background:#0f172a;color:#fff;font-size:13px;font-weight:500">Semana</button>
+<button type="button" aria-pressed="false" style="height:38px;padding:0 12px;border:0;background:#fff;color:#334155;font-size:13px;font-weight:500">Mes</button>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+<span style="display:flex;align-items:center;gap:8px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+{{sum.over}} celdas sobrecargadas
+</span>
+<span style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:500">{{sum.free}} huecos de 20 h o más libres</span>
+<span style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:500">Uso medio del equipo: {{sum.avg}} %</span>
+<sc-if value="{{drag}}" hint-placeholder-val="{{false}}">
+<span style="display:flex;align-items:center;gap:8px;background:#f0fdfa;border:2px dashed #0f766e;color:#134e4a;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:600">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 5h.01 M9 12h.01 M9 19h.01 M15 5h.01 M15 12h.01 M15 19h.01"></path></svg>
+Arrastrando: Comunicaciones PROFINET · 12 h
+</span>
+</sc-if>
+<div style="flex:1"></div>
+<button type="button" aria-pressed="{{dragPressed}}" onClick="{{toggleDrag}}" style="height:40px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:600;{{dragDyn}}">{{dragLabel}}</button>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+
+<section aria-label="Matriz de capacidad" style="flex:999 1 520px;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;box-sizing:border-box">
+<div style="overflow-x:auto">
+<div role="table" aria-label="Carga por persona y semana" style="min-width:760px">
+
+<div role="row" style="display:flex;align-items:stretch">
+<div role="columnheader" style="flex:0 0 176px;position:sticky;left:0;background:#fff;padding:8px 10px;box-sizing:border-box;font-size:12px;font-weight:600;color:#475569;display:flex;align-items:flex-end">Persona</div>
+<sc-for list="{{weeks}}" as="w" hint-placeholder-count="8">
+<div role="columnheader" style="flex:1 1 0;min-width:72px;padding:6px 2px 8px;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px">
+<span style="font-size:13px;font-weight:600">{{w.label}}</span>
+<span style="font-size:11px;color:#475569">{{w.range}}</span>
+<sc-if value="{{w.today}}" hint-placeholder-val="{{false}}">
+<span style="background:#0f766e;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600">Hoy</span>
+</sc-if>
+<sc-if value="{{w.hol}}" hint-placeholder-val="{{false}}">
+<span style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;border-radius:999px;padding:1px 6px;font-size:11px;font-weight:500">{{w.holTxt}}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<div role="row" style="display:flex;align-items:stretch;border-top:1px solid #f1f5f9">
+<div role="rowheader" style="flex:0 0 176px;position:sticky;left:0;background:#fff;padding:8px 10px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:2px">
+<span style="font-size:14px;font-weight:600">{{r.name}}</span>
+<span style="font-size:12px;color:#475569">{{r.sub}}</span>
+</div>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="8">
+<div role="cell" style="flex:1 1 0;min-width:72px;padding:3px;box-sizing:border-box;display:flex">
+<button type="button" aria-label="{{c.aria}}" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="width:100%;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:8px;border:1px solid transparent;padding:4px 2px;box-sizing:border-box;{{c.dyn}}">
+<sc-if value="{{c.isH}}" hint-placeholder-val="{{true}}">
+<span style="display:flex;align-items:center;gap:4px">
+<sc-if value="{{c.over}}" hint-placeholder-val="{{false}}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+</sc-if>
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">{{c.main}}</span>
+<span style="font-size:11px;font-variant-numeric:tabular-nums">{{c.capTxt}}</span>
+</span>
+<span style="display:block;width:78%;height:4px;border-radius:2px;background:rgba(15,23,42,.14)"><span style="display:block;height:4px;border-radius:2px;{{c.bar}}"></span></span>
+</sc-if>
+<sc-if value="{{c.isP}}" hint-placeholder-val="{{false}}">
+<span style="display:flex;align-items:center;gap:4px">
+<sc-if value="{{c.over}}" hint-placeholder-val="{{false}}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+</sc-if>
+<span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">{{c.pctMain}}</span>
+</span>
+<span style="font-size:11px;font-variant-numeric:tabular-nums">{{c.pctSub}}</span>
+</sc-if>
+<sc-if value="{{c.isX}}" hint-placeholder-val="{{false}}">
+<span style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center">
+<sc-for list="{{c.chips}}" as="ch" hint-placeholder-count="2">
+<span style="border-radius:4px;padding:1px 5px;font-size:11px;font-weight:600;{{ch.dyn}}">{{ch.code}}</span>
+</sc-for>
+</span>
+<span style="font-size:11px;font-variant-numeric:tabular-nums">{{c.xSub}}</span>
+</sc-if>
+<sc-if value="{{c.isPrev}}" hint-placeholder-val="{{false}}">
+<span style="display:flex;align-items:center;gap:4px">
+<sc-if value="{{c.over}}" hint-placeholder-val="{{false}}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+</sc-if>
+<span style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">{{c.prevMain}}</span>
+</span>
+<span style="font-size:11px;font-variant-numeric:tabular-nums;text-align:center">{{c.prevSub}}</span>
+</sc-if>
+</button>
+</div>
+</sc-for>
+</div>
+</sc-for>
+
+<div role="row" style="display:flex;align-items:stretch;border-top:2px solid #e2e8f0;margin-top:4px">
+<div role="rowheader" style="flex:0 0 176px;position:sticky;left:0;background:#fff;padding:8px 10px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center">
+<span style="font-size:13px;font-weight:600">Equipo</span>
+<span style="font-size:12px;color:#475569">Uso agregado</span>
+</div>
+<sc-for list="{{team}}" as="t" hint-placeholder-count="8">
+<div role="cell" style="flex:1 1 0;min-width:72px;padding:6px 3px;box-sizing:border-box;display:flex;align-items:center;justify-content:center">
+<span style="border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;{{t.dyn}}">{{t.txt}}</span>
+</div>
+</sc-for>
+</div>
+
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:14px 4px 4px;font-size:12px;color:#334155">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#dbeafe;border:1px solid #60a5fa"></span>Libre (menos del 50 %)</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#f1f5f9;border:1px solid #94a3b8"></span>Carga media</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#bbf7d0;border:1px solid #16a34a"></span>Óptimo (85–100 %)</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#fde68a;border:1px solid #b45309"></span>Sobrecarga leve ▲ (hasta 110 %)</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:4px;background:#fecaca;border:2px solid #b91c1c"></span>Sobrecarga alta ▲ (más del 110 %)</span>
+</div>
+</section>
+
+<aside aria-label="Detalle de la celda" style="flex:1 1 340px;max-width:420px;min-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+
+<sc-if value="{{d.closed}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:8px;padding:24px 0;text-align:center;color:#475569;font-size:14px">
+<span style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600;color:#0f172a">Selecciona una celda</span>
+<span>Verás las tareas que la componen y podrás reasignarlas o editarlas sin salir de la matriz.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{d.open}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+<div style="display:flex;flex-direction:column;gap:2px">
+<span style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:600">{{d.name}}</span>
+<span style="font-size:13px;color:#475569">{{d.week}} · {{d.range}}</span>
+</div>
+<button type="button" aria-label="Cerrar panel" onClick="{{closeDrawer}}" style="width:36px;height:36px;border:0;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18 M6 6l12 12"></path></svg>
+</button>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">
+<span style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:600;font-variant-numeric:tabular-nums">{{d.h}} h</span><span style="font-size:14px;color:#475569">de {{d.cap}} h</span></span>
+<span style="border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;{{d.statusDyn}}">{{d.status}} · {{d.pctTxt}}</span>
+</div>
+<span style="display:block;width:100%;height:8px;border-radius:4px;background:#e2e8f0"><span style="display:block;height:8px;border-radius:4px;{{d.bar}}"></span></span>
+<span style="font-size:12px;color:#475569">{{d.note}}</span>
+</div>
+
+<sc-if value="{{d.empty}}" hint-placeholder-val="{{false}}">
+<div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:16px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc">
+<span style="font-size:14px;font-weight:600">Semana libre</span>
+<span style="font-size:13px;color:#475569">Puedes asignar hasta {{d.free}} h a esta persona sin sobrecargarla.</span>
+<button type="button" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:#0f766e;color:#fff;font-size:13px;font-weight:600">Asignar tarea</button>
+</div>
+</sc-if>
+
+<sc-if value="{{d.hasTasks}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:12px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.05em">Tareas de la semana ({{d.count}})</span>
+<div role="list" style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{d.tasks}}" as="t" hint-placeholder-count="3">
+<div role="listitem" style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff">
+<span aria-hidden="true" style="color:#64748b;padding-top:2px;display:flex">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 5h.01 M9 12h.01 M9 19h.01 M15 5h.01 M15 12h.01 M15 19h.01"></path></svg>
+</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;gap:8px">
+<span style="font-size:14px;font-weight:600">{{t.title}}</span>
+<span style="font-size:14px;font-weight:600;font-variant-numeric:tabular-nums">{{t.hours}} h</span>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+<span style="border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;{{t.dyn}}">{{t.code}}</span>
+<span style="font-size:12px;color:#475569">{{d.range}}</span>
+</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap">
+<select aria-label="Reasignar tarea" style="height:36px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:0 8px;font-size:12px">
+<option>Reasignar a…</option>
+<option>Marta Gil</option>
+<option>Diego Ortiz</option>
+<option>Héctor Ruiz</option>
+<option>Lucía Navas</option>
+</select>
+<button type="button" style="height:36px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:12px;font-weight:500">Editar</button>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+<span style="font-size:12px;color:#475569">Arrastra una tarea a otra fila para reasignarla.</span>
+</div>
+</sc-if>
+
+<div style="display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #e2e8f0;padding-top:14px">
+<button type="button" style="height:40px;padding:0 14px;border:0;border-radius:8px;background:#0f766e;color:#fff;font-size:13px;font-weight:600">Nueva tarea esta semana</button>
+<button type="button" style="height:40px;padding:0 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;font-weight:500">Ver en el Gantt</button>
+</div>
+</sc-if>
+
+</aside>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":940}}'>
+const ICON = {
+  layout: 'M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z',
+  check: 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  grid: 'M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18 M15 3v18',
+  gantt: 'M3 5h9 M8 12h11 M14 19h7',
+  calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  building: 'M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16 M16 9h2a2 2 0 0 1 2 2v10 M2 21h20 M8 7h4 M8 11h4 M8 15h4',
+  sliders: 'M4 6h10 M18 6h2 M4 12h4 M12 12h8 M4 18h12 M14 4v4 M8 10v4 M16 16v4'
+};
+const NAV = [
+  { title: 'Mi espacio', items: [['Panel', 'Panel.dc.html', 'layout'], ['Mi trabajo', 'MiTrabajo.dc.html', 'check']] },
+  { title: 'Planificación', items: [['Capacidad', 'Main.dc.html', 'grid'], ['Gantt', '#', 'gantt'], ['Calendario', '#', 'calendar']] },
+  { title: 'Organización', items: [['Proyectos', 'Proyecto.dc.html', 'folder'], ['Personas', '#', 'users'], ['Departamentos', '#', 'building']] },
+  { title: 'Administración', items: [['Configuración', 'Configuracion.dc.html', 'sliders']] }
+];
+const ACTIVE = 'Capacidad';
+
+const WEEKS = [
+  { n: 45, range: '2–8 nov', today: true },
+  { n: 46, range: '9–15 nov' },
+  { n: 47, range: '16–22 nov' },
+  { n: 48, range: '23–29 nov' },
+  { n: 49, range: '30 nov–6 dic' },
+  { n: 50, range: '7–13 dic', hol: 'Festivo 8 dic' },
+  { n: 51, range: '14–20 dic' },
+  { n: 52, range: '21–27 dic', hol: 'Festivo 25 dic' }
+];
+const PEOPLE = [
+  { name: 'Sebastián Mora', dept: 'Automatización', base: 40, day: 8, hours: [36, 48, 44, 28, 12, 30, 0, 0],
+    pool: [['Programación PLC pasteurizador', 'SIVE'], ['Pantallas HMI de proceso', 'SIVE'], ['Pruebas FAT', 'RET']] },
+  { name: 'Marta Gil', dept: 'Automatización', base: 30, day: 6, hours: [28, 30, 34, 16, 0, 18, 26, 10],
+    pool: [['Esquemas de potencia', 'SIVE'], ['Documentación técnica', 'TUB'], ['Revisión de listas de E/S', 'RET']] },
+  { name: 'Diego Ortiz', dept: 'Automatización', base: 40, day: 8, hours: [40, 38, 24, 24, 30, 32, 36, 20],
+    pool: [['Cableado armario 3', 'SIVE'], ['Comunicaciones PROFINET', 'RET'], ['Pruebas de lazo', 'TUB']] },
+  { name: 'Héctor Ruiz', dept: 'Automatización', base: 40, day: 8, hours: [16, 20, 40, 44, 40, 36, 20, 0],
+    pool: [['Configuración de variadores', 'RET'], ['Puesta en marcha', 'SIVE'], ['Formación a operarios', 'SIVE']] },
+  { name: 'Lucía Navas', dept: 'Oficina Técnica', base: 40, day: 8, hours: [24, 24, 36, 40, 32, 24, 16, 8],
+    pool: [['Isométricos línea 2', 'TUB'], ['Planos EPLAN armario 3', 'SIVE'], ['Listado de materiales', 'TUB']] },
+  { name: 'Jorge Baena', dept: 'Oficina Técnica', base: 40, day: 8, hours: [0, 8, 16, 24, 24, 16, 40, 36],
+    pool: [['Cálculo de caudales', 'TUB'], ['Revisión de planos', 'TUB'], ['Coordinación con taller', 'TUB']] }
+];
+const OVERRIDE = {
+  '2-1': [['Cableado armario 3', 'SIVE', 26], ['Comunicaciones PROFINET', 'RET', 12]]
+};
+const DRAG = { hours: 12, fromP: 2, w: 1, members: [0, 1, 2, 3, 4] };
+const CHIP = {
+  SIVE: 'background:#ccfbf1;color:#115e59;',
+  TUB: 'background:#e0e7ff;color:#3730a3;',
+  RET: 'background:#fce7f3;color:#9d174d;'
+};
+const LABEL = { empty: 'Sin carga', free: 'Libre', mid: 'Carga media', ok: 'Óptimo', over1: 'Sobrecarga leve', over2: 'Sobrecarga alta' };
+
+function tone(h, cap) {
+  if (h === 0) return { k: 'empty', bg: 'transparent', fg: '#475569', bar: '#94a3b8', chip: '#f1f5f9', bd: 'transparent' };
+  const p = h / cap;
+  if (p > 1.1) return { k: 'over2', bg: '#fecaca', fg: '#7f1d1d', bar: '#b91c1c', chip: '#fecaca', bd: '#b91c1c' };
+  if (p > 1) return { k: 'over1', bg: '#fde68a', fg: '#78350f', bar: '#b45309', chip: '#fde68a', bd: '#b45309' };
+  if (p >= 0.85) return { k: 'ok', bg: '#bbf7d0', fg: '#14532d', bar: '#15803d', chip: '#bbf7d0', bd: '#16a34a' };
+  if (p >= 0.5) return { k: 'mid', bg: '#f1f5f9', fg: '#1e293b', bar: '#475569', chip: '#e2e8f0', bd: '#94a3b8' };
+  return { k: 'free', bg: '#dbeafe', fg: '#1e3a8a', bar: '#1d4ed8', chip: '#dbeafe', bd: '#60a5fa' };
+}
+function capOf(pi, wi) {
+  return PEOPLE[pi].base - (WEEKS[wi].hol ? PEOPLE[pi].day : 0);
+}
+function tasksFor(pi, wi) {
+  const person = PEOPLE[pi];
+  const h = person.hours[wi];
+  if (!h) return [];
+  const key = pi + '-' + wi;
+  if (OVERRIDE[key]) return OVERRIDE[key].map(function (t) { return { title: t[0], code: t[1], hours: t[2] }; });
+  const k = Math.min(person.pool.length, h > 40 ? 3 : h >= 20 ? 2 : 1);
+  const base = Math.floor(h / k);
+  const rest = h - base * k;
+  return person.pool.slice(0, k).map(function (t, i) {
+    return { title: t[0], code: t[1], hours: base + (i < rest ? 1 : 0) };
+  });
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'horas', sel: { p: 0, w: 1 }, drag: false };
+  }
+
+  renderVals() {
+    const self = this;
+    const mode = this.state.mode;
+    const sel = this.state.sel;
+    const drag = this.state.drag;
+
+    const nav = NAV.map(function (g) {
+      return {
+        title: g.title,
+        items: g.items.map(function (it) {
+          const on = it[0] === ACTIVE;
+          return {
+            label: it[0], href: it[1], d: ICON[it[2]], cur: on ? 'page' : 'false',
+            dyn: on ? 'background:#1e293b;color:#fff;font-weight:600;' : 'color:#cbd5e1;font-weight:500;'
+          };
+        })
+      };
+    });
+
+    const modes = [['horas', 'Horas'], ['pct', '% de uso'], ['proy', 'Proyectos']].map(function (m) {
+      const on = mode === m[0];
+      return {
+        label: m[1], pressed: on ? 'true' : 'false',
+        dyn: on ? 'background:#0f172a;color:#fff;' : 'background:#fff;color:#334155;',
+        pick: function () { self.setState({ mode: m[0] }); }
+      };
+    });
+
+    const weeks = WEEKS.map(function (w) {
+      return { label: 'Sem ' + w.n, range: w.range, today: !!w.today, hol: !!w.hol, holTxt: w.hol || '' };
+    });
+
+    let over = 0, free = 0, sumH = 0, sumCap = 0;
+    const colH = WEEKS.map(function () { return 0; });
+    const colCap = WEEKS.map(function () { return 0; });
+
+    const rows = PEOPLE.map(function (person, pi) {
+      const cells = WEEKS.map(function (wk, wi) {
+        const h = person.hours[wi];
+        const cap = capOf(pi, wi);
+        const t = tone(h, cap);
+        const pct = Math.round(h / cap * 100);
+        const isOver = h > cap;
+        if (isOver) over += 1;
+        if (cap - h >= 20) free += 1;
+        sumH += h; sumCap += cap; colH[wi] += h; colCap[wi] += cap;
+        const selected = !!(sel && sel.p === pi && sel.w === wi);
+        const tasks = tasksFor(pi, wi);
+        const seen = {};
+        const chips = [];
+        tasks.forEach(function (x) {
+          if (!seen[x.code]) { seen[x.code] = 1; chips.push({ code: x.code, dyn: CHIP[x.code] }); }
+        });
+        const c = {
+          isH: mode === 'horas', isP: mode === 'pct', isX: mode === 'proy', isPrev: false,
+          over: isOver,
+          main: h === 0 ? '·' : String(h),
+          capTxt: h === 0 ? '' : '/' + cap,
+          bar: 'width:' + Math.min(100, pct) + '%;background:' + t.bar + ';',
+          pctMain: h === 0 ? '·' : pct + ' %',
+          pctSub: h === 0 ? '' : h + '/' + cap + ' h',
+          chips: chips,
+          xSub: h === 0 ? '·' : h + ' h',
+          pressed: selected ? 'true' : 'false',
+          aria: person.name + ', semana ' + wk.n + ': ' + h + ' de ' + cap + ' horas, ' + pct + ' %' + (isOver ? ', sobrecarga' : ''),
+          dyn: 'background:' + t.bg + ';color:' + t.fg + ';border:' + (t.k === 'over2' ? '2px' : '1px') + ' solid ' + (t.k === 'empty' ? 'transparent' : t.bd) + ';' + (selected ? 'outline:2px solid #0f172a;outline-offset:1px;' : ''),
+          pick: function () { self.setState({ sel: { p: pi, w: wi } }); }
+        };
+        if (drag && wi === DRAG.w) {
+          c.isH = false; c.isP = false; c.isX = false; c.isPrev = true; c.over = false;
+          if (pi === DRAG.fromP) {
+            c.prevMain = (h - DRAG.hours) + ' h';
+            c.prevSub = 'origen · −' + DRAG.hours + ' h';
+            c.dyn = 'background:#fff;color:#334155;border:2px dashed #64748b;';
+            c.aria = person.name + ': origen de la tarea, quedaría en ' + (h - DRAG.hours) + ' de ' + cap + ' horas';
+          } else if (DRAG.members.indexOf(pi) === -1) {
+            c.prevMain = 'No es miembro';
+            c.prevSub = 'del proyecto RET';
+            c.dyn = 'background:repeating-linear-gradient(45deg,#f1f5f9,#f1f5f9 6px,#e2e8f0 6px,#e2e8f0 12px);color:#334155;border:2px dashed #64748b;cursor:not-allowed;';
+            c.aria = person.name + ': no se puede soltar aquí, no es miembro del proyecto';
+            c.pick = function () {};
+          } else {
+            const nh = h + DRAG.hours;
+            const nt = tone(nh, cap);
+            c.prevMain = nh + ' h';
+            c.prevSub = Math.round(nh / cap * 100) + ' % · +' + DRAG.hours + ' h';
+            c.over = nh > cap;
+            c.dyn = 'background:' + nt.bg + ';color:' + nt.fg + ';border:2px dashed ' + nt.bd + ';';
+            c.aria = person.name + ': si sueltas aquí pasaría a ' + nh + ' de ' + cap + ' horas, ' + Math.round(nh / cap * 100) + ' %';
+          }
+        }
+        return c;
+      });
+      return { name: person.name, sub: person.base + ' h/sem · ' + person.dept, cells: cells };
+    });
+
+    const team = WEEKS.map(function (wk, wi) {
+      const t = tone(colH[wi], colCap[wi]);
+      return { txt: Math.round(colH[wi] / colCap[wi] * 100) + ' %', dyn: 'background:' + (t.k === 'empty' ? '#f1f5f9' : t.chip) + ';color:' + t.fg + ';' };
+    });
+
+    let d = { open: false, closed: true };
+    if (sel) {
+      const person = PEOPLE[sel.p];
+      const wk = WEEKS[sel.w];
+      const h = person.hours[sel.w];
+      const cap = capOf(sel.p, sel.w);
+      const t = tone(h, cap);
+      const pct = Math.round(h / cap * 100);
+      const tasks = tasksFor(sel.p, sel.w).map(function (x) {
+        return { title: x.title, code: x.code, hours: x.hours, dyn: CHIP[x.code] };
+      });
+      let note = 'Capacidad completa de la semana.';
+      if (wk.hol) note = wk.hol + ': capacidad reducida en ' + person.day + ' h.';
+      else if (person.base < 40) note = 'Jornada de ' + person.base + ' h/semana (disponibilidad ' + Math.round(person.base / 40 * 100) + ' %).';
+      d = {
+        open: true, closed: false, name: person.name, week: 'Semana ' + wk.n, range: wk.range,
+        h: h, cap: cap, pctTxt: h === 0 ? '0 %' : pct + ' %', status: LABEL[t.k],
+        statusDyn: 'background:' + (t.k === 'empty' ? '#f1f5f9' : t.chip) + ';color:' + t.fg + ';',
+        bar: 'width:' + Math.min(100, pct) + '%;background:' + t.bar + ';',
+        note: note, empty: h === 0, hasTasks: h > 0, free: cap - h, tasks: tasks, count: tasks.length
+      };
+    }
+
+    return {
+      nav: nav, modes: modes, weeks: weeks, rows: rows, team: team, d: d,
+      drag: drag,
+      sum: { over: over, free: free, avg: Math.round(sumH / sumCap * 100) },
+      dragPressed: drag ? 'true' : 'false',
+      dragLabel: drag ? 'Terminar simulación' : 'Simular arrastre de una tarea',
+      dragDyn: drag ? 'background:#0f766e;color:#fff;border:1px solid #0f766e;' : 'background:#fff;color:#0f172a;border:1px solid #cbd5e1;',
+      toggleDrag: function () { self.setState({ drag: !self.state.drag }); },
+      closeDrawer: function () { self.setState({ sel: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-07T20:45:00Z" },
+  "title": "CorePlanner — boceto",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 940, "title": "Capacidad (pantalla central)", "expand": "fill", "is_interactive": true },
+    "MiTrabajo.dc.html": { "x": 0, "y": 1300, "w": 1440, "h": 860, "title": "Mi trabajo (entrada del técnico)", "expand": "fill", "is_interactive": true },
+    "Panel.dc.html": { "x": 1520, "y": 1300, "w": 1440, "h": 860, "title": "Panel (entrada del gerente)", "expand": "fill", "is_interactive": true },
+    "Proyecto.dc.html": { "x": 0, "y": 2520, "w": 1440, "h": 900, "title": "Proyecto: resumen", "expand": "fill", "is_interactive": true },
+    "Configuracion.dc.html": { "x": 1520, "y": 2520, "w": 1440, "h": 900, "title": "Configuración: calendario laboral", "expand": "fill", "is_interactive": true },
+    "Estados.dc.html": { "x": 0, "y": 3780, "w": 1440, "h": 860, "title": "Componentes comunes" },
+    "Movil.dc.html": { "x": 1520, "y": 3780, "w": 390, "h": 844, "title": "Mi trabajo en móvil" }
+  },
+  "order": [
+    "Main.dc.html",
+    "MiTrabajo.dc.html",
+    "Panel.dc.html",
+    "Proyecto.dc.html",
+    "Configuracion.dc.html",
+    "Estados.dc.html",
+    "Movil.dc.html"
+  ],
+  "notes": {
+    "t0": { "x": 0, "y": -260, "text": "CorePlanner: boceto con las mejoras de UX", "kind": "title1", "maxW": 2960 },
+    "n1": { "x": 1520, "y": 0, "w": 300, "fill": "teal", "text": "1. Eje de tiempo continuo: las semanas libres se ven, con «Hoy» y los festivos en la cabecera." },
+    "n2": { "x": 1520, "y": 230, "w": 300, "fill": "blue", "text": "2. La celda dice horas/capacidad, %, barra e icono. Nunca solo color." },
+    "n3": { "x": 1520, "y": 460, "w": 300, "fill": "green", "text": "3. Panel lateral en vez de modal: editas una tarea y ves cómo cambia la matriz." },
+    "n4": { "x": 1520, "y": 690, "w": 300, "fill": "orange", "text": "4. «Simular arrastre» previsualiza la carga resultante y bloquea a quien no es miembro del proyecto." },
+    "n5": { "x": 1860, "y": 0, "w": 300, "fill": "purple", "text": "5. Filtros y modo viven en la URL: /capacidad?proyecto=SIVE&modo=horas&desde=2026-W45. Se pueden compartir y sobreviven a recargar." },
+    "n6": { "x": 1860, "y": 230, "w": 300, "fill": "pink", "text": "6. Una sola pantalla de capacidad sustituye a la matriz, el planificador y su tabla de asignaciones." },
+    "t1": { "x": 0, "y": 1060, "text": "Cada rol entra por su pantalla", "kind": "title1", "maxW": 2960 },
+    "t2": { "x": 0, "y": 2280, "text": "Proyecto y administración", "kind": "title1", "maxW": 2960 },
+    "t3": { "x": 0, "y": 3540, "text": "Componentes comunes y móvil", "kind": "title1", "maxW": 2960 }
+  },
+  "designSystems": []
+}

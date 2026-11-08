@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:#0f172a}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #0f766e;outline-offset:2px}
+[data-dark] a:focus-visible,[data-dark] button:focus-visible{outline-color:#5eead4}
+</style>
+</helmet>
+<div style="display:flex;flex-wrap:wrap;min-height:860px;background:#f8fafc">
+
+<aside data-dark="true" style="flex:0 0 248px;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;gap:16px;padding:16px 12px;box-sizing:border-box">
+<div style="display:flex;align-items:center;gap:10px;padding:4px 8px">
+<span style="width:32px;height:32px;border-radius:8px;background:#0f766e;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px">CP</span>
+<span style="color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px">CorePlanner</span>
+</div>
+<nav aria-label="Principal" style="display:flex;flex-direction:column;gap:14px;flex:1">
+<sc-for list="{{nav}}" as="g" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="padding:0 10px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;font-weight:600">{{g.title}}</div>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+<a href="{{it.href}}" aria-current="{{it.cur}}" style="display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:8px;font-size:14px;{{it.dyn}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"></path></svg>
+<span>{{it.label}}</span>
+</a>
+</sc-for>
+</div>
+</sc-for>
+</nav>
+<div style="display:flex;align-items:center;gap:10px;padding:12px 8px 4px;border-top:1px solid #1e293b">
+<span style="width:34px;height:34px;border-radius:999px;background:#334155;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">CV</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+<span style="color:#fff;font-size:13px;font-weight:600">Carlos Vega</span>
+<span style="font-size:12px;color:#94a3b8">Gerente</span>
+</div>
+<button type="button" aria-label="Cerrar sesión" style="background:none;border:0;color:#cbd5e1;padding:8px;border-radius:8px;display:flex">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9"></path></svg>
+</button>
+</div>
+</aside>
+
+<div style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+<header style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 24px;background:#fff;border-bottom:1px solid #e2e8f0">
+<nav aria-label="Migas de pan" style="font-size:13px;color:#475569;display:flex;gap:8px">
+<span>Mi espacio</span><span style="color:#94a3b8" aria-hidden="true">/</span><span style="color:#0f172a;font-weight:600">Panel</span>
+</nav>
+<div style="display:flex;align-items:center;gap:12px">
+<input type="search" aria-label="Buscar personas, proyectos y tareas" placeholder="Buscar…  Ctrl K" style="height:40px;width:240px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font-size:13px;background:#f8fafc;box-sizing:border-box">
+<button type="button" style="height:40px;display:flex;align-items:center;gap:8px;border:0;border-radius:8px;background:#0f766e;color:#fff;padding:0 16px;font-size:14px;font-weight:600">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"></path></svg>
+Nueva tarea
+</button>
+</div>
+</header>
+
+<main style="padding:24px;display:flex;flex-direction:column;gap:16px">
+
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+<div>
+<h1 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:600;letter-spacing:-.01em">Panel</h1>
+<p style="margin:4px 0 0;font-size:14px;color:#475569">Estado de la organización de un vistazo. Periodo: semanas 45 a 52.</p>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px">
+<a href="Main.dc.html" style="flex:1 1 220px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:13px;color:#475569;font-weight:500">Uso del equipo, semana 46</span>
+<span style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:600;font-variant-numeric:tabular-nums">73 %</span>
+<span style="font-size:12px;color:#475569">Media del periodo: 68 %</span>
+</a>
+<a href="Main.dc.html" style="flex:1 1 220px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px">
+<span style="display:flex;align-items:center;gap:6px;font-size:13px;color:#7f1d1d;font-weight:600">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+Personas con sobrecarga</span>
+<span style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:600;color:#7f1d1d;font-variant-numeric:tabular-nums">4</span>
+<span style="font-size:12px;color:#7f1d1d">6 celdas por encima de su capacidad</span>
+</a>
+<a href="Proyecto.dc.html" style="flex:1 1 220px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:13px;color:#475569;font-weight:500">Proyectos activos</span>
+<span style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:600;font-variant-numeric:tabular-nums">3</span>
+<span style="font-size:12px;color:#475569">2 departamentos implicados</span>
+</a>
+<a href="Main.dc.html" style="flex:1 1 220px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px">
+<span style="font-size:13px;color:#78350f;font-weight:600">Planificación incompleta</span>
+<span style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:600;color:#78350f;font-variant-numeric:tabular-nums">5</span>
+<span style="font-size:12px;color:#78350f">2 sin persona · 3 sin fechas</span>
+</a>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+
+<section aria-label="Uso del equipo por semana" style="flex:2 1 480px;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+<h2 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600">Uso del equipo por semana</h2>
+<span style="font-size:12px;color:#475569">Línea discontinua: 100 % de la capacidad del equipo</span>
+</div>
+<div role="img" aria-label="{{chartAria}}" style="display:flex;gap:10px;align-items:flex-end">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="8">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px">
+<div style="position:relative;width:100%;height:136px">
+<div style="position:absolute;left:-5px;right:-5px;bottom:100px;border-top:1px dashed #64748b"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;border-radius:6px 6px 0 0;{{b.dyn}}"></div>
+</div>
+<span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">{{b.txt}}</span>
+<span style="font-size:11px;color:#475569;text-align:center">{{b.label}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin:0;font-size:13px;color:#475569">El equipo en conjunto tiene margen, pero la carga está mal repartida: cuatro personas superan su capacidad mientras la semana 52 queda al 40 %.</p>
+</section>
+
+<section aria-label="Personas con sobrecarga" style="flex:1 1 340px;min-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600">Personas con sobrecarga</h2>
+<div role="list" style="display:flex;flex-direction:column">
+<sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+<div role="listitem" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #f1f5f9">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:14px;font-weight:600">{{p.name}}</span>
+<span style="font-size:12px;color:#475569">{{p.weeks}}</span>
+</div>
+<span style="display:flex;align-items:center;gap:4px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;{{p.dyn}}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01"></path></svg>
+hasta {{p.max}} %</span>
+</div>
+</sc-for>
+</div>
+<a href="Main.dc.html" style="align-self:flex-start;height:40px;display:flex;align-items:center;padding:0 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;font-weight:600;color:#0f766e">Ver en Capacidad</a>
+</section>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+
+<section aria-label="Carga por proyecto" style="flex:1 1 420px;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600">Proyectos con más carga</h2>
+<div style="display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{projects}}" as="pr" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+<span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600"><span style="border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;{{pr.chip}}">{{pr.code}}</span>{{pr.name}}</span>
+<span style="font-size:13px;color:#334155;font-variant-numeric:tabular-nums">{{pr.hours}} h · {{pr.people}} personas</span>
+</div>
+<span style="display:block;width:100%;height:8px;border-radius:4px;background:#e2e8f0"><span style="display:block;height:8px;border-radius:4px;{{pr.bar}}"></span></span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="Planificación incompleta" style="flex:1 1 420px;min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:600">Planificación incompleta</h2>
+<span style="font-size:13px;color:#475569">Estas tareas no cuentan en la matriz hasta que tengan persona y fechas.</span>
+<div role="list" style="display:flex;flex-direction:column">
+<sc-for list="{{pending}}" as="t" hint-placeholder-count="5">
+<div role="listitem" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-top:1px solid #f1f5f9">
+<span style="flex:1 1 200px;min-width:0;font-size:14px;font-weight:500">{{t.title}}</span>
+<span style="border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;{{t.chip}}">{{t.code}}</span>
+<span style="border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;background:#fef3c7;color:#78350f">{{t.problem}}</span>
+<a href="Main.dc.html" style="height:36px;display:flex;align-items:center;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#0f766e">Resolver</a>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":860}}'>
+const ICON = {
+  layout: 'M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z',
+  check: 'M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  grid: 'M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18 M15 3v18',
+  gantt: 'M3 5h9 M8 12h11 M14 19h7',
+  calendar: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  building: 'M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16 M16 9h2a2 2 0 0 1 2 2v10 M2 21h20 M8 7h4 M8 11h4 M8 15h4',
+  sliders: 'M4 6h10 M18 6h2 M4 12h4 M12 12h8 M4 18h12 M14 4v4 M8 10v4 M16 16v4'
+};
+const NAV = [
+  { title: 'Mi espacio', items: [['Panel', 'Panel.dc.html', 'layout'], ['Mi trabajo', 'MiTrabajo.dc.html', 'check']] },
+  { title: 'Planificación', items: [['Capacidad', 'Main.dc.html', 'grid'], ['Gantt', '#', 'gantt'], ['Calendario', '#', 'calendar']] },
+  { title: 'Organización', items: [['Proyectos', 'Proyecto.dc.html', 'folder'], ['Personas', '#', 'users'], ['Departamentos', '#', 'building']] },
+  { title: 'Administración', items: [['Configuración', 'Configuracion.dc.html', 'sliders']] }
+];
+const ACTIVE = 'Panel';
+const CHIP = {
+  SIVE: 'background:#ccfbf1;color:#115e59;',
+  TUB: 'background:#e0e7ff;color:#3730a3;',
+  RET: 'background:#fce7f3;color:#9d174d;'
+};
+const TEAM = [
+  [45, '2–8 nov', 63], [46, '9–15 nov', 73], [47, '16–22 nov', 84], [48, '23–29 nov', 77],
+  [49, '30 nov–6 dic', 60], [50, '7–13 dic', 85], [51, '14–20 dic', 60], [52, '21–27 dic', 40]
+];
+function tonePct(p) {
+  if (p > 110) return { bg: '#fecaca', bd: '#b91c1c' };
+  if (p > 100) return { bg: '#fde68a', bd: '#b45309' };
+  if (p >= 85) return { bg: '#bbf7d0', bd: '#16a34a' };
+  if (p >= 50) return { bg: '#e2e8f0', bd: '#64748b' };
+  return { bg: '#dbeafe', bd: '#60a5fa' };
+}
+const PEOPLE = [
+  ['Sebastián Mora', 'Semanas 46 y 47', 120],
+  ['Marta Gil', 'Semana 47', 113],
+  ['Héctor Ruiz', 'Semanas 48 y 50', 113],
+  ['Jorge Baena', 'Semana 52', 113]
+];
+const PROJECTS = [
+  ['SIVE', 'Línea Pasteurizadora SIVE', 618, 5],
+  ['TUB', 'Red de tuberías línea 2', 333, 4],
+  ['RET', 'Retrofit envasadora', 237, 4]
+];
+const PENDING = [
+  ['Montaje de cuadros', 'SIVE', 'Sin persona'],
+  ['Pruebas de aceptación', 'RET', 'Sin persona'],
+  ['Plano de implantación', 'TUB', 'Sin fechas'],
+  ['Manual de usuario', 'SIVE', 'Sin fechas'],
+  ['Lista de repuestos', 'RET', 'Sin fechas']
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const nav = NAV.map(function (g) {
+      return {
+        title: g.title,
+        items: g.items.map(function (it) {
+          const on = it[0] === ACTIVE;
+          return {
+            label: it[0], href: it[1], d: ICON[it[2]], cur: on ? 'page' : 'false',
+            dyn: on ? 'background:#1e293b;color:#fff;font-weight:600;' : 'color:#cbd5e1;font-weight:500;'
+          };
+        })
+      };
+    });
+    const aria = [];
+    const bars = TEAM.map(function (w) {
+      const t = tonePct(w[2]);
+      aria.push('semana ' + w[0] + ': ' + w[2] + ' %');
+      return {
+        txt: w[2] + ' %', label: 'Sem ' + w[0] + ' · ' + w[1],
+        dyn: 'height:' + w[2] + 'px;background:' + t.bg + ';border:1px solid ' + t.bd + ';border-bottom:0;'
+      };
+    });
+    const people = PEOPLE.map(function (p) {
+      const t = tonePct(p[2]);
+      return { name: p[0], weeks: p[1], max: p[2], dyn: 'background:' + t.bg + ';color:' + (p[2] > 110 ? '#7f1d1d' : '#78350f') + ';' };
+    });
+    const maxH = PROJECTS[0][2];
+    const projects = PROJECTS.map(function (p) {
+      return {
+        code: p[0], chip: CHIP[p[0]], name: p[1], hours: p[2], people: p[3],
+        bar: 'width:' + Math.round(p[2] / maxH * 100) + '%;background:#0f766e;'
+      };
+    });
+    const pending = PENDING.map(function (t) {
+      return { title: t[0], code: t[1], chip: CHIP[t[1]], problem: t[2] };
+    });
+    return { nav: nav, bars: bars, chartAria: 'Uso del equipo por semana: ' + aria.join('; '), people: people, projects: projects, pending: pending };
+  }
+}
+</script>
+</body>
+</html>

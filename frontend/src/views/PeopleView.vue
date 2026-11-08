@@ -15,6 +15,7 @@ import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDrawer from '../components/people/PersonDrawer.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
 import WorkCalendar from '../components/people/WorkCalendar.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { currentWeekKey, shiftWeek, weekLabel } from '../utils/weeks'
 
@@ -79,35 +80,33 @@ onMounted(load)
 
 <template>
   <div>
-    <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="text-lg font-semibold text-siemens-900">Personas y Competencias</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Perfiles, horarios versionados y habilidades del equipo.
-        </p>
-      </div>
-      <div class="flex items-center gap-2 text-sm">
-        <button
-          type="button"
-          class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
-          data-testid="week-previous"
-          @click="moveWeek(-1)"
-        >
-          &larr;
-        </button>
-        <span class="min-w-20 text-center font-medium text-slate-900" data-testid="week-label">
-          {{ weekLabel(week) }} · {{ week }}
-        </span>
-        <button
-          type="button"
-          class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
-          data-testid="week-next"
-          @click="moveWeek(1)"
-        >
-          &rarr;
-        </button>
-      </div>
-    </header>
+    <PageHeader
+      title="Personas y Competencias"
+      subtitle="Perfiles, horarios versionados y habilidades del equipo."
+    >
+      <template #actions>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
+            data-testid="week-previous"
+            @click="moveWeek(-1)"
+          >
+            &larr;
+          </button>
+          <span class="min-w-20 text-center font-medium text-slate-900" data-testid="week-label">
+            {{ weekLabel(week) }} · {{ week }}
+          </span>
+          <button
+            type="button"
+            class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
+            data-testid="week-next"
+            @click="moveWeek(1)"
+          >
+            &rarr;
+          </button>
+
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

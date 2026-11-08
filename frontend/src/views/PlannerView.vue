@@ -5,6 +5,7 @@ import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import PlannerMatrix from '../components/PlannerMatrix.vue'
 import AlertBanner from '../components/common/AlertBanner.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { isoDate, projectSplit, usageRatio, weeksRange } from '../utils/planner'
 import { weekMonday } from '../utils/weeks'
@@ -119,45 +120,41 @@ useTaskReload(load)
 
 <template>
   <div>
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Planificador de recursos</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Tres vistas sobre el mismo rango de semanas: cuanto se ocupa cada
-          persona, en que y con quien.
-        </p>
-      </div>
+    <PageHeader
+      title="Planificador de recursos"
+      subtitle="Tres vistas sobre el mismo rango de semanas: cuanto se ocupa cada persona, en que y con quien."
+    >
+      <template #actions>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm"
+            :class="taskTabClass"
+            data-testid="planner-view-task"
+            @click="view = 'task'"
+          >
+            Carga por tarea
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm"
+            :class="personTabClass"
+            data-testid="planner-view-person"
+            @click="view = 'person'"
+          >
+            Linea de tiempo por persona
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm"
+            :class="tableTabClass"
+            data-testid="planner-view-table"
+            @click="view = 'table'"
+          >
+            Tabla de planificacion
+          </button>
 
-      <div class="flex overflow-hidden rounded border border-slate-300">
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm"
-          :class="taskTabClass"
-          data-testid="planner-view-task"
-          @click="view = 'task'"
-        >
-          Carga por tarea
-        </button>
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm"
-          :class="personTabClass"
-          data-testid="planner-view-person"
-          @click="view = 'person'"
-        >
-          Linea de tiempo por persona
-        </button>
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm"
-          :class="tableTabClass"
-          data-testid="planner-view-table"
-          @click="view = 'table'"
-        >
-          Tabla de planificacion
-        </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <AlertBanner v-if="error" variant="error" class="mt-3" data-testid="planner-error">
       {{ error }}

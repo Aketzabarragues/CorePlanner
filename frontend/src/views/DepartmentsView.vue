@@ -11,6 +11,7 @@ import { useRouter } from 'vue-router'
 
 import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { projectStatus } from '../utils/navigation'
@@ -71,12 +72,10 @@ onMounted(load)
 
 <template>
   <div>
-    <header class="mb-4">
-      <h1 class="text-xl font-semibold text-siemens-900">Departamentos</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Cada departamento gestiona sus proyectos y tiene una persona responsable.
-      </p>
-    </header>
+    <PageHeader
+      title="Departamentos"
+      subtitle="Cada departamento gestiona sus proyectos y tiene una persona responsable."
+    />
 
     <AsyncState
       :loading="loading"

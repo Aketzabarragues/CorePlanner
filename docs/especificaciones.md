@@ -534,8 +534,8 @@ lo demas si la lleva.
 - **`AlertBanner`**: el aviso en linea, con icono y accion opcional, en cuatro
   variantes (exito, aviso, info, error). Es el unico patron de aviso: el aviso
   flotante del shell desaparece.
-- **`PageHeader`**: migas, titulo, subtitulo y acciones, siempre en el mismo
-  orden y con el mismo aspecto en todas las pantallas.
+- **`PageHeader`**: titulo, subtitulo y acciones, siempre en el mismo orden y con
+  el mismo aspecto en todas las pantallas.
 - **`SidePanel`**: el panel lateral de detalle, con `role="dialog"`,
   `aria-modal`, cierre con `Esc` y trampa de foco. El modal de desglose de la
   matriz de capacidad deja de estar hecho a mano y pasa a usar este componente.
@@ -587,3 +587,13 @@ lo demas si la lleva.
    formulario avisa de que un campo no vale ("el titulo es obligatorio"), el
    mensaje se queda pegado al campo, en rojo y sin caja: son dos cosas
    distintas y el operario las distingue de un vistazo.
+8. **`PageHeader` no lleva migas.** El shell ya las pinta encima de la vista:
+   meterlas tambien en el componente seria verlas dos veces. El componente
+   aporta el titulo, el subtitulo y el hueco de acciones; las migas siguen
+   siendo del shell.
+9. **El `AsyncState` envuelve solo el contenido**, por debajo de la cabecera. La
+   cabecera de la pantalla se ve mientras cargan los datos: si no, el operario
+   pierde el titulo y las acciones en cada recarga.
+10. **El esqueleto sale al cargar y al reintentar, no en cada refresco.** Un
+    refresco por cambio de tarea no debe parpadear: cada vista decide cuando
+    recargar de verdad y avisa con su propio boton de reintentar.

@@ -22,6 +22,7 @@ import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import {
   currentMonthKey,
@@ -188,99 +189,90 @@ watch(
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">
-          {{ isGlobal ? 'Calendario Global' : 'Calendario' }}
-        </h1>
-        <p class="mt-1 text-sm text-slate-500">
-          {{
-            isGlobal
-              ? 'Las tareas de los proyectos visibles, dia a dia.'
-              : 'Las tareas del proyecto, dia a dia.'
-          }}
-        </p>
-      </div>
+    <PageHeader
+      :title="isGlobal ? 'Calendario Global' : 'Calendario'"
+      :subtitle="isGlobal ? 'Las tareas de los proyectos visibles, dia a dia.' : 'Las tareas del proyecto, dia a dia.'"
+    >
+      <template #actions>
+          <div class="flex overflow-hidden rounded border border-slate-300">
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm"
+              :class="monthTabClass"
+              data-testid="calendar-view-month"
+              @click="setView('month')"
+            >
+              Mes
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm"
+              :class="weekTabClass"
+              data-testid="calendar-view-week"
+              @click="setView('week')"
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm"
+              :class="dayTabClass"
+              data-testid="calendar-view-day"
+              @click="setView('day')"
+            >
+              Día
+            </button>
+          </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="flex overflow-hidden rounded border border-slate-300">
           <button
             type="button"
-            class="px-3 py-1.5 text-sm"
-            :class="monthTabClass"
-            data-testid="calendar-view-month"
-            @click="setView('month')"
+            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+            data-testid="calendar-prev"
+            @click="step(-1)"
           >
-            Mes
+            ‹
+          </button>
+          <span
+            v-if="view === 'month'"
+            class="min-w-36 text-center text-sm font-medium text-siemens-900"
+            data-testid="calendar-month"
+          >
+            {{ monthLabel(month) }}
+          </span>
+          <span
+            v-else-if="view === 'week'"
+            class="min-w-44 text-center text-sm font-medium text-siemens-900"
+            data-testid="calendar-week"
+          >
+            {{ weekRangeLabel(week) }}
+            <span class="ml-1 text-xs font-normal text-slate-400">{{ week }}</span>
+          </span>
+          <span
+            v-else
+            class="min-w-44 text-center text-sm font-medium text-siemens-900"
+            data-testid="calendar-day"
+          >
+            {{ longDateLabel(day) }}
+          </span>
+          <button
+            type="button"
+            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+            data-testid="calendar-next"
+            @click="step(1)"
+          >
+            ›
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 text-sm"
-            :class="weekTabClass"
-            data-testid="calendar-view-week"
-            @click="setView('week')"
+            class="rounded border border-siemens-900 bg-siemens-900 px-3 py-1.5 text-sm text-white"
+            data-testid="calendar-today"
+            @click="goToday"
           >
-            Semana
+            Hoy
           </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm"
-            :class="dayTabClass"
-            data-testid="calendar-view-day"
-            @click="setView('day')"
-          >
-            Día
-          </button>
-        </div>
 
-        <button
-          type="button"
-          class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-          data-testid="calendar-prev"
-          @click="step(-1)"
-        >
-          ‹
-        </button>
-        <span
-          v-if="view === 'month'"
-          class="min-w-36 text-center text-sm font-medium text-siemens-900"
-          data-testid="calendar-month"
-        >
-          {{ monthLabel(month) }}
-        </span>
-        <span
-          v-else-if="view === 'week'"
-          class="min-w-44 text-center text-sm font-medium text-siemens-900"
-          data-testid="calendar-week"
-        >
-          {{ weekRangeLabel(week) }}
-          <span class="ml-1 text-xs font-normal text-slate-400">{{ week }}</span>
-        </span>
-        <span
-          v-else
-          class="min-w-44 text-center text-sm font-medium text-siemens-900"
-          data-testid="calendar-day"
-        >
-          {{ longDateLabel(day) }}
-        </span>
-        <button
-          type="button"
-          class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-          data-testid="calendar-next"
-          @click="step(1)"
-        >
-          ›
-        </button>
-        <button
-          type="button"
-          class="rounded border border-siemens-900 bg-siemens-900 px-3 py-1.5 text-sm text-white"
-          data-testid="calendar-today"
-          @click="goToday"
-        >
-          Hoy
-        </button>
-      </div>
-    </header>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

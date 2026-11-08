@@ -16,6 +16,7 @@ import PeoplePanel from '../components/settings/PeoplePanel.vue'
 import ProjectsPanel from '../components/settings/ProjectsPanel.vue'
 import RolesPanel from '../components/settings/RolesPanel.vue'
 import SkillsPanel from '../components/settings/SkillsPanel.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 
 const TABS = [
@@ -90,12 +91,10 @@ onMounted(load)
 
 <template>
   <div>
-    <header class="mb-6">
-      <h1 class="text-lg font-semibold text-siemens-900">Configuración</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Personas, roles, departamentos, proyectos y competencias de la organización.
-      </p>
-    </header>
+    <PageHeader
+      title="Configuración"
+      subtitle="Personas, roles, departamentos, proyectos y competencias de la organización."
+    />
 
     <AsyncState
       :loading="loading"

@@ -19,6 +19,7 @@ import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 
@@ -127,34 +128,28 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-lg font-semibold text-siemens-900">
-          {{ isGlobal ? 'Gantt Global' : 'Diagrama de Gantt' }}
-        </h1>
-        <p class="text-xs text-slate-500">
-          {{ isGlobal
-            ? 'Las barras de todos los proyectos visibles, agrupadas por proyecto.'
-            : 'Mueve o redimensiona una barra para guardar sus fechas.' }}
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          v-for="mode in GANTT_VIEW_MODES"
-          :key="mode.id"
-          type="button"
-          class="rounded border px-3 py-1.5 text-sm"
-          :class="
-            viewMode === mode.id
-              ? 'border-siemens-900 bg-siemens-900 text-white'
-              : 'border-slate-300 bg-white text-slate-700'
-          "
-          @click="changeViewMode(mode.id)"
-        >
-          {{ mode.label }}
-        </button>
-      </div>
-    </header>
+    <PageHeader
+      :title="isGlobal ? 'Gantt Global' : 'Diagrama de Gantt'"
+      :subtitle="isGlobal ? 'Las barras de todos los proyectos visibles, agrupadas por proyecto.' : 'Mueve o redimensiona una barra para guardar sus fechas.'"
+    >
+      <template #actions>
+          <button
+            v-for="mode in GANTT_VIEW_MODES"
+            :key="mode.id"
+            type="button"
+            class="rounded border px-3 py-1.5 text-sm"
+            :class="
+              viewMode === mode.id
+                ? 'border-siemens-900 bg-siemens-900 text-white'
+                : 'border-slate-300 bg-white text-slate-700'
+            "
+            @click="changeViewMode(mode.id)"
+          >
+            {{ mode.label }}
+          </button>
+
+      </template>
+    </PageHeader>
 
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}

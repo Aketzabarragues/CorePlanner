@@ -12,6 +12,7 @@ import { projectsApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
 import AppIcon from '../components/AppIcon.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_VIEWS, projectRoute, projectStatus } from '../utils/navigation'
@@ -85,12 +86,11 @@ useTaskReload(load)
       @retry="reintentar"
     >
       <template v-if="project">
-        <header class="mb-4">
-          <h1 class="text-xl font-semibold text-siemens-900">{{ project.name }}</h1>
-          <p class="mt-1 text-sm text-slate-500">
-            {{ department?.name ?? 'Sin departamento' }}
-          </p>
-        </header>
+        <PageHeader
+          :title="project.name"
+          :subtitle="department?.name ?? 'Sin departamento'"
+        >
+        </PageHeader>
 
         <div class="grid gap-4 sm:grid-cols-3">
           <div class="rounded border border-slate-200 bg-white p-4">

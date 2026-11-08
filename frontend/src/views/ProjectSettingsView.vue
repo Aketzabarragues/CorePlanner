@@ -10,6 +10,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { configApi, meApi } from '../api/client'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
@@ -92,12 +93,10 @@ watch(() => props.id, load)
 
 <template>
   <div>
-    <header class="mb-4">
-      <h1 class="text-xl font-semibold text-siemens-900">Configuración del proyecto</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        {{ project?.name ?? 'Proyecto' }} · {{ projectStatus(project?.status).label }}
-      </p>
-    </header>
+    <PageHeader
+      title="Configuración del proyecto"
+      :subtitle="`${project?.name ?? 'Proyecto'} · ${projectStatus(project?.status).label}`"
+    />
 
     <AsyncState
       :loading="loading"

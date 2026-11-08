@@ -9,6 +9,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { projectStatus } from '../utils/navigation'
@@ -79,12 +80,10 @@ onMounted(load)
 
 <template>
   <div>
-    <header class="mb-6">
-      <h1 class="text-lg font-semibold text-siemens-900">Proyectos</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Proyectos visibles, agrupados por el departamento que los gestiona.
-      </p>
-    </header>
+    <PageHeader
+      title="Proyectos"
+      subtitle="Proyectos visibles, agrupados por el departamento que los gestiona."
+    />
 
     <AsyncState
       :loading="loading"

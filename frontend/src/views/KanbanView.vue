@@ -15,6 +15,7 @@ import { projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -128,15 +129,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-lg font-semibold text-siemens-900">Tablero Kanban</h1>
-        <p class="text-xs text-slate-500">
-          Arrastra una tarjeta a otra columna o cambia su estado en el desplegable.
-        </p>
-      </div>
-      <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
-    </header>
+    <PageHeader
+      title="Tablero Kanban"
+      subtitle="Arrastra una tarjeta a otra columna o cambia su estado en el desplegable."
+    >
+      <template #actions>
+        <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
+      </template>
+    </PageHeader>
 
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}

@@ -14,6 +14,7 @@ import { computed, onMounted, ref } from 'vue'
 import { myWorkApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { columnLabel, formatHours } from '../utils/kanban'
 
@@ -51,18 +52,16 @@ useTaskReload(load)
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Mi trabajo</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Tareas propias y carga por semana en el periodo de planificacion.
-        </p>
-      </div>
-
-      <p v-if="!loading && !error" class="text-sm text-slate-600">
-        {{ tasks.length }} tarea(s) · {{ formatHours(totalHours) }} en el periodo
-      </p>
-    </header>
+    <PageHeader
+      title="Mi trabajo"
+      subtitle="Tareas propias y carga por semana en el periodo de planificacion."
+    >
+      <template #actions>
+        <p v-if="!loading && !error" class="text-sm text-slate-600">
+            {{ tasks.length }} tarea(s) · {{ formatHours(totalHours) }} en el periodo
+          </p>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

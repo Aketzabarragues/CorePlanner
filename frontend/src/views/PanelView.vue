@@ -14,6 +14,7 @@ import { computed, onMounted, ref } from 'vue'
 import { panelApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { columnLabel, formatHours } from '../utils/kanban'
 import { projectStatus } from '../utils/navigation'
@@ -55,12 +56,10 @@ useTaskReload(load)
 
 <template>
   <div>
-    <header class="mb-4">
-      <h1 class="text-xl font-semibold text-siemens-900">Panel</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Estado de la organizacion en el periodo de planificacion.
-      </p>
-    </header>
+    <PageHeader
+      title="Panel"
+      subtitle="Estado de la organizacion en el periodo de planificacion."
+    />
 
     <AsyncState
       :loading="loading"

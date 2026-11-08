@@ -12,6 +12,7 @@ import { configApi, meApi } from '../api/client'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import ModalDialog from '../components/ModalDialog.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 
@@ -139,28 +140,26 @@ watch(() => props.id, loadMembers)
 
 <template>
   <div>
-    <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Miembros y Asignaciones</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Personas asignadas al proyecto, con su rol y sus horas base.
-        </p>
-      </div>
-      <div class="flex items-center gap-3">
-        <p v-if="!loading && members.length" class="text-sm text-slate-500">
-          {{ members.length }} persona(s) · {{ totalHours }} h base en total
-        </p>
-        <button
-          v-if="isManager"
-          type="button"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-          data-testid="new-member"
-          @click="openCreate"
-        >
-          Añadir persona
-        </button>
-      </div>
-    </header>
+    <PageHeader
+      title="Miembros y Asignaciones"
+      subtitle="Personas asignadas al proyecto, con su rol y sus horas base."
+    >
+      <template #actions>
+          <p v-if="!loading && members.length" class="text-sm text-slate-500">
+            {{ members.length }} persona(s) · {{ totalHours }} h base en total
+          </p>
+          <button
+            v-if="isManager"
+            type="button"
+            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+            data-testid="new-member"
+            @click="openCreate"
+          >
+            Añadir persona
+          </button>
+
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

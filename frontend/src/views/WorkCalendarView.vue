@@ -5,6 +5,7 @@ import { workCalendarApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import LaborMonthGrid from '../components/LaborMonthGrid.vue'
 import AlertBanner from '../components/common/AlertBanner.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { hoursText, jornadaLabel, scopeText, shortDate } from '../utils/labor'
 import { currentMonthKey, monthGrid, monthLabel, shiftMonth } from '../utils/month'
@@ -64,46 +65,43 @@ useTaskReload(load)
 
 <template>
   <div>
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Calendario laboral</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          Los dias no laborables, a quien afectan y que capacidad quitan.
-        </p>
-      </div>
+    <PageHeader
+      title="Calendario laboral"
+      subtitle="Los dias no laborables, a quien afectan y que capacidad quitan."
+    >
+      <template #actions>
+          <button
+            type="button"
+            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+            title="Mes anterior"
+            data-testid="labor-prev"
+            @click="step(-1)"
+          >
+            ‹
+          </button>
+          <span class="w-40 text-center text-sm font-medium text-slate-800" data-testid="labor-month">
+            {{ monthLabel(month) }}
+          </span>
+          <button
+            type="button"
+            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
+            title="Mes siguiente"
+            data-testid="labor-next"
+            @click="step(1)"
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            class="rounded border border-siemens-900 bg-siemens-900 px-3 py-1.5 text-sm text-white"
+            data-testid="labor-today"
+            @click="goToday"
+          >
+            Hoy
+          </button>
 
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-          title="Mes anterior"
-          data-testid="labor-prev"
-          @click="step(-1)"
-        >
-          ‹
-        </button>
-        <span class="w-40 text-center text-sm font-medium text-slate-800" data-testid="labor-month">
-          {{ monthLabel(month) }}
-        </span>
-        <button
-          type="button"
-          class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-          title="Mes siguiente"
-          data-testid="labor-next"
-          @click="step(1)"
-        >
-          ›
-        </button>
-        <button
-          type="button"
-          class="rounded border border-siemens-900 bg-siemens-900 px-3 py-1.5 text-sm text-white"
-          data-testid="labor-today"
-          @click="goToday"
-        >
-          Hoy
-        </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <AlertBanner v-if="error" variant="error" class="mt-3" data-testid="labor-error">
       {{ error }}

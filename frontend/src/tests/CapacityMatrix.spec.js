@@ -262,8 +262,10 @@ describe('CapacityMatrix', () => {
     })
 
     const wrapper = await mountMatrix()
-    expect(wrapper.text()).toContain('No hay proyectos')
-    expect(wrapper.text()).toContain('backend/seed.py')
+    expect(wrapper.text()).toContain('Todavía no hay proyectos visibles')
+    expect(wrapper.text()).toContain('Configuración')
+    // El mensaje de la semilla no se enseña al operario.
+    expect(wrapper.text()).not.toContain('backend/seed.py')
   })
 
   it('al cambiar de proyecto vuelve a pedir la matriz de ese proyecto', async () => {

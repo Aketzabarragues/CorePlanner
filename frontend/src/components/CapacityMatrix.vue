@@ -21,6 +21,8 @@ import { useTaskReload } from '../composables/useTaskReload'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
+import AlertBanner from './common/AlertBanner.vue'
+import AsyncState from './common/AsyncState.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -33,6 +35,7 @@ const report = ref(null)
 const project = ref(null)
 const error = ref(null)
 const notice = ref(null)
+const empty = ref(false)
 const loading = ref(true)
 const saving = ref(false)
 const departmentFilter = ref('')
@@ -218,14 +221,23 @@ async function loadReport() {
   }
 
   const projects = store.projects
-  if (projects.length === 0) {
-    error.value =
-      'No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.'
-    return
-  }
+  empty.value = projects.length === 0
+  if (empty.value) return
 
   project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
   await reload()
+}
+
+/** Vuelve a pedir la matriz y enseña el esqueleto mientras llega. */
+async function reintentar() {
+  loading.value = true
+  try {
+    await loadReport()
+  } catch (err) {
+    handleError(err)
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -290,73 +302,71 @@ watch(departmentFilter, () => {
       </label>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <p
-      v-else-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      :empty="empty"
+      empty-title="Todavía no hay proyectos visibles"
+      empty-text="Crea el primero en Configuración para empezar a repartir la carga."
+      loading-label="Cargando la matriz de capacidad"
+      @retry="reintentar"
     >
-      {{ error }}
-    </p>
+      <AlertBanner v-if="notice" variant="success" class="mb-3">
+        {{ notice }}
+      </AlertBanner>
 
-    <p
-      v-else-if="notice"
-      class="mb-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-    >
-      {{ notice }}
-    </p>
-
-    <div v-if="!loading && !error" class="overflow-x-auto rounded border border-slate-200 bg-white">
-      <table class="w-full border-collapse text-sm">
-        <thead>
-          <tr class="bg-slate-100">
-            <th class="sticky left-0 border border-slate-200 bg-slate-100 px-3 py-2 text-left">
-              Persona
-            </th>
-            <th
-              v-for="week in weeks"
-              :key="week"
-              class="border border-slate-200 px-3 py-2 text-center"
-            >
-              {{ week }}
-            </th>
-            <th class="border border-slate-200 px-3 py-2 text-right">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.user_id">
-            <th
-              class="sticky left-0 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
-            >
-              {{ row.name }}
-              <span class="block text-xs font-normal text-slate-400">
-                {{ row.weekly_base_hours }} h/semana
-              </span>
-            </th>
-            <td
-              v-for="week in weeks"
-              :key="week"
-              class="border border-slate-200 px-3 py-2 text-center tabular-nums"
-              :class="cellOf(row, week).is_overloaded
-                ? 'bg-red-200 font-semibold text-red-900'
-                : 'text-slate-700'"
-            >
-              <button
-                type="button"
-                class="w-full hover:underline"
-                :title="`Ver tareas de ${row.name} en ${week}`"
-                @click="openCell(row, week)"
+      <div class="overflow-x-auto rounded border border-slate-200 bg-white">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="sticky left-0 border border-slate-200 bg-slate-100 px-3 py-2 text-left">
+                Persona
+              </th>
+              <th
+                v-for="week in weeks"
+                :key="week"
+                class="border border-slate-200 px-3 py-2 text-center"
               >
-                {{ cellOf(row, week).hours }}
-              </button>
-            </td>
-            <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
-              {{ row.total_hours }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                {{ week }}
+              </th>
+              <th class="border border-slate-200 px-3 py-2 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.user_id">
+              <th
+                class="sticky left-0 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
+              >
+                {{ row.name }}
+                <span class="block text-xs font-normal text-slate-400">
+                  {{ row.weekly_base_hours }} h/semana
+                </span>
+              </th>
+              <td
+                v-for="week in weeks"
+                :key="week"
+                class="border border-slate-200 px-3 py-2 text-center tabular-nums"
+                :class="cellOf(row, week).is_overloaded
+                  ? 'bg-red-200 font-semibold text-red-900'
+                  : 'text-slate-700'"
+              >
+                <button
+                  type="button"
+                  class="w-full hover:underline"
+                  :title="`Ver tareas de ${row.name} en ${week}`"
+                  @click="openCell(row, week)"
+                >
+                  {{ cellOf(row, week).hours }}
+                </button>
+              </td>
+              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
+                {{ row.total_hours }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </AsyncState>
 
     <p
       v-if="!loading && !error && holidayTaskIds.length"

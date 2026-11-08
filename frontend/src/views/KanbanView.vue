@@ -14,6 +14,7 @@ import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -110,6 +111,12 @@ async function load() {
   }
 }
 
+/** Vuelve a pedir el tablero y enseña el esqueleto mientras llega. */
+async function reintentar() {
+  loading.value = true
+  await load()
+}
+
 onMounted(load)
 watch(() => props.id, load)
 useTaskReload(load)
@@ -134,56 +141,59 @@ onBeforeUnmount(() => {
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}
     </AlertBanner>
-    <AlertBanner v-if="error" variant="error" class="mb-2">
-      {{ error }}
-    </AlertBanner>
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
 
-    <div class="grid grid-cols-4 gap-3">
-      <section
-        v-for="(column, index) in board"
-        :key="column.status"
-        :ref="(element) => (columnElements[index] = element)"
-        class="flex min-h-32 flex-col rounded border bg-slate-100 p-2"
-        :class="hoverColumn === column.status ? 'border-siemens-500 bg-slate-200' : 'border-slate-200'"
-      >
-        <h2 class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
-          {{ columnLabel(column.status) }}
-          <span class="rounded bg-white px-1.5 py-0.5 text-slate-500">
-            {{ column.tasks.length }}
-          </span>
-        </h2>
-
-        <article
-          v-for="task in column.tasks"
-          :key="task.id"
-          class="mb-2 cursor-grab rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
-          :class="draggingId === task.id ? 'opacity-60' : ''"
-          @mousedown="startDrag(task, $event)"
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      loading-label="Cargando el tablero"
+      @retry="reintentar"
+    >
+      <div class="grid grid-cols-4 gap-3">
+        <section
+          v-for="(column, index) in board"
+          :key="column.status"
+          :ref="(element) => (columnElements[index] = element)"
+          class="flex min-h-32 flex-col rounded border bg-slate-100 p-2"
+          :class="hoverColumn === column.status ? 'border-siemens-500 bg-slate-200' : 'border-slate-200'"
         >
-          <p class="text-sm font-medium text-slate-900">{{ task.title }}</p>
-          <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-            <span class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
-              {{ task.assigned_name ?? 'Sin asignar' }}
+          <h2 class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
+            {{ columnLabel(column.status) }}
+            <span class="rounded bg-white px-1.5 py-0.5 text-slate-500">
+              {{ column.tasks.length }}
             </span>
-            <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-white">
-              {{ formatHours(task.estimated_hours) }}
-            </span>
-          </div>
-          <p v-if="task.start_date" class="mt-1 text-xs text-slate-500">
-            {{ task.start_date }} &rarr; {{ task.end_date }}
-          </p>
-          <select
-            :value="task.status"
-            class="mt-2 w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs text-slate-700"
-            @change="moveFromSelect(task, $event)"
+          </h2>
+
+          <article
+            v-for="task in column.tasks"
+            :key="task.id"
+            class="mb-2 cursor-grab rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
+            :class="draggingId === task.id ? 'opacity-60' : ''"
+            @mousedown="startDrag(task, $event)"
           >
-            <option v-for="option in KANBAN_COLUMNS" :key="option.status" :value="option.status">
-              {{ option.label }}
-            </option>
-          </select>
-        </article>
-      </section>
-    </div>
+            <p class="text-sm font-medium text-slate-900">{{ task.title }}</p>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
+                {{ task.assigned_name ?? 'Sin asignar' }}
+              </span>
+              <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-white">
+                {{ formatHours(task.estimated_hours) }}
+              </span>
+            </div>
+            <p v-if="task.start_date" class="mt-1 text-xs text-slate-500">
+              {{ task.start_date }} &rarr; {{ task.end_date }}
+            </p>
+            <select
+              :value="task.status"
+              class="mt-2 w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs text-slate-700"
+              @change="moveFromSelect(task, $event)"
+            >
+              <option v-for="option in KANBAN_COLUMNS" :key="option.status" :value="option.status">
+                {{ option.label }}
+              </option>
+            </select>
+          </article>
+        </section>
+      </div>
+    </AsyncState>
   </div>
 </template>

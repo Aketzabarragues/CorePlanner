@@ -9,6 +9,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { configApi, departmentsApi, projectsApi, skillsApi } from '../api/client'
+import AsyncState from '../components/common/AsyncState.vue'
 import DepartmentsPanel from '../components/settings/DepartmentsPanel.vue'
 import MembersPanel from '../components/settings/MembersPanel.vue'
 import PeoplePanel from '../components/settings/PeoplePanel.vue'
@@ -78,6 +79,12 @@ async function load() {
   }
 }
 
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
+  await load()
+}
+
 onMounted(load)
 </script>
 
@@ -90,9 +97,12 @@ onMounted(load)
       </p>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <template v-else>
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      loading-label="Cargando la configuración"
+      @retry="reintentar"
+    >
       <nav class="mb-4 flex gap-1 border-b border-slate-200">
         <button
           v-for="item in TABS"
@@ -110,10 +120,6 @@ onMounted(load)
           {{ item.label }}
         </button>
       </nav>
-
-      <p v-if="error" class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {{ error }}
-      </p>
 
       <PeoplePanel
         v-if="currentTab.name === 'people'"
@@ -149,6 +155,6 @@ onMounted(load)
         :project-roles="projectRoles"
       />
       <SkillsPanel v-else :skills="skills" @saved="load" />
-    </template>
+    </AsyncState>
   </div>
 </template>

@@ -6,7 +6,9 @@
  * resumen del proyecto y a sus vistas.
  */
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { projectStatus } from '../utils/navigation'
@@ -16,6 +18,7 @@ const loading = ref(true)
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const router = useRouter()
 
 /** Proyectos agrupados por el departamento que los gestiona. */
 const groups = computed(() => {
@@ -47,16 +50,31 @@ function departmentName(departmentId) {
   )
 }
 
-onMounted(async () => {
+/** Carga los proyectos visibles, agrupados por su departamento. */
+async function load() {
   try {
     const token = await auth.ensureSession()
     await store.ensureProjects(token)
+    error.value = null
   } catch (err) {
     error.value = err.message
   } finally {
     loading.value = false
   }
-})
+}
+
+/** Lleva a la pantalla donde se crean los proyectos. */
+function irAConfiguracion() {
+  router.push({ name: 'configuration' })
+}
+
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
+  await load()
+}
+
+onMounted(load)
 </script>
 
 <template>
@@ -68,62 +86,64 @@ onMounted(async () => {
       </p>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-    <p v-else-if="error" class="text-sm text-red-600">{{ error }}</p>
-
-    <div v-else class="space-y-6">
-      <section v-for="group in groups" :key="group.name">
-        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {{ group.name }}
-        </h2>
-        <ul class="space-y-2">
-          <li
-            v-for="project in group.items"
-            :key="project.id"
-            class="flex items-center justify-between gap-3 rounded border border-slate-200 bg-white p-4"
-          >
-            <div class="min-w-0">
-              <RouterLink
-                :to="{ name: 'project', params: { id: String(project.id) } }"
-                class="block truncate font-medium text-siemens-900 hover:underline"
-              >
-                {{ project.name }}
-              </RouterLink>
-              <p class="text-xs text-slate-500">
-                {{ departmentName(project.department_id) }} ·
-                {{ projectStatus(project.status).label }}
-              </p>
-            </div>
-            <div class="flex shrink-0 gap-2 text-sm">
-              <RouterLink
-                :to="{ name: 'capacity', params: { id: String(project.id) } }"
-                class="rounded border border-slate-300 px-3 py-1.5"
-              >
-                Capacidad
-              </RouterLink>
-              <RouterLink
-                :to="{ name: 'gantt', params: { id: String(project.id) } }"
-                class="rounded bg-siemens-900 px-3 py-1.5 text-white"
-              >
-                Gantt
-              </RouterLink>
-              <RouterLink
-                :to="{ name: 'kanban', params: { id: String(project.id) } }"
-                class="rounded border border-siemens-900 px-3 py-1.5 text-siemens-900"
-              >
-                Kanban
-              </RouterLink>
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <p
-        v-if="!store.projects.length"
-        class="rounded border border-dashed border-slate-300 p-4 text-sm text-slate-500"
-      >
-        No hay proyectos visibles. Ejecuta python backend/seed.py para cargar datos.
-      </p>
-    </div>
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      :empty="!store.projects.length"
+      empty-title="Todavía no hay proyectos visibles"
+      empty-text="Crea el primero en Configuración para empezar a repartir la carga."
+      empty-action="Ir a Configuración"
+      loading-label="Cargando los proyectos"
+      @retry="reintentar"
+      @empty-action="irAConfiguracion"
+    >
+      <div class="space-y-6">
+        <section v-for="group in groups" :key="group.name">
+          <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {{ group.name }}
+          </h2>
+          <ul class="space-y-2">
+            <li
+              v-for="project in group.items"
+              :key="project.id"
+              class="flex items-center justify-between gap-3 rounded border border-slate-200 bg-white p-4"
+            >
+              <div class="min-w-0">
+                <RouterLink
+                  :to="{ name: 'project', params: { id: String(project.id) } }"
+                  class="block truncate font-medium text-siemens-900 hover:underline"
+                >
+                  {{ project.name }}
+                </RouterLink>
+                <p class="text-xs text-slate-500">
+                  {{ departmentName(project.department_id) }} ·
+                  {{ projectStatus(project.status).label }}
+                </p>
+              </div>
+              <div class="flex shrink-0 gap-2 text-sm">
+                <RouterLink
+                  :to="{ name: 'capacity', params: { id: String(project.id) } }"
+                  class="rounded border border-slate-300 px-3 py-1.5"
+                >
+                  Capacidad
+                </RouterLink>
+                <RouterLink
+                  :to="{ name: 'gantt', params: { id: String(project.id) } }"
+                  class="rounded bg-siemens-900 px-3 py-1.5 text-white"
+                >
+                  Gantt
+                </RouterLink>
+                <RouterLink
+                  :to="{ name: 'kanban', params: { id: String(project.id) } }"
+                  class="rounded border border-siemens-900 px-3 py-1.5 text-siemens-900"
+                >
+                  Kanban
+                </RouterLink>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </AsyncState>
   </div>
 </template>

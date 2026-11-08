@@ -13,11 +13,12 @@
  * cuentan lo mismo.
  */
 import Gantt from 'frappe-gantt'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 
@@ -71,18 +72,22 @@ function render(feed) {
 }
 
 async function load() {
+  let feed = null
   try {
     const token = await auth.ensureSession()
-    const feed = isGlobal.value
+    feed = isGlobal.value
       ? await overviewApi.gantt(token)
       : await projectsApi.gantt(token, props.id)
-    render(feed)
     error.value = null
   } catch (err) {
     error.value = err.message
   } finally {
     loading.value = false
   }
+  // El diagrama se pinta cuando su contenedor ya esta en la pagina: mientras
+  // se carga, la pantalla muestra el esqueleto en su lugar.
+  await nextTick()
+  if (feed) render(feed)
 }
 
 /** Guarda las fechas nuevas cuando se mueve o redimensiona una barra. */
@@ -104,6 +109,12 @@ async function handleDateChange(task, start, end) {
 function changeViewMode(mode) {
   viewMode.value = mode
   if (gantt) gantt.change_view_mode(mode)
+}
+
+/** Vuelve a pedir el diagrama y enseña el esqueleto mientras llega. */
+async function reintentar() {
+  loading.value = true
+  await load()
 }
 
 onMounted(load)
@@ -148,23 +159,26 @@ onBeforeUnmount(() => {
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}
     </AlertBanner>
-    <AlertBanner v-if="error" variant="error" class="mb-2">
-      {{ error }}
-    </AlertBanner>
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-    <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      loading-label="Cargando el diagrama"
+      @retry="reintentar"
+    >
+      <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
 
-    <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
-      <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
-        <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
-        {{ member.name }}
-      </li>
-    </ul>
+      <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
+        <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
+          <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
+          {{ member.name }}
+        </li>
+      </ul>
 
-    <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
-      {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el diagrama.
-    </p>
+      <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
+        {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el diagrama.
+      </p>
 
-    <div ref="container" class="overflow-x-auto rounded border border-slate-200 bg-white p-2" />
+      <div ref="container" class="overflow-x-auto rounded border border-slate-200 bg-white p-2" />
+    </AsyncState>
   </div>
 </template>

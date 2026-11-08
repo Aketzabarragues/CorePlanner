@@ -9,6 +9,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { configApi, meApi } from '../api/client'
+import AlertBanner from '../components/common/AlertBanner.vue'
+import AsyncState from '../components/common/AsyncState.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
@@ -125,6 +127,12 @@ async function removeMember(member) {
   }
 }
 
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
+  await load()
+}
+
 onMounted(loadMembers)
 watch(() => props.id, loadMembers)
 </script>
@@ -154,24 +162,21 @@ watch(() => props.id, loadMembers)
       </div>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <div v-else>
-      <p
-        v-if="error"
-        class="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-        data-testid="members-error"
-      >
-        {{ error }}
-      </p>
-
-      <p
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      error-test-id="members-error"
+      loading-label="Cargando los miembros"
+      @retry="reintentar"
+    >
+      <AlertBanner
         v-if="notice"
-        class="mb-4 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
+        variant="success"
+        class="mb-4"
         data-testid="members-notice"
       >
         {{ notice }}
-      </p>
+      </AlertBanner>
 
       <div class="overflow-x-auto rounded border border-slate-200 bg-white">
         <table class="w-full border-collapse text-sm">
@@ -228,7 +233,7 @@ watch(() => props.id, loadMembers)
           </tbody>
         </table>
       </div>
-    </div>
+    </AsyncState>
 
     <ModalDialog :open="formOpen" title="Añadir persona al proyecto" @close="closeForm">
       <form @submit.prevent="addMember">

@@ -13,6 +13,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { myWorkApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { columnLabel, formatHours } from '../utils/kanban'
 
@@ -33,13 +34,18 @@ async function load() {
     error.value = null
   } catch (err) {
     error.value = err.message
+  } finally {
+    loading.value = false
   }
 }
 
-onMounted(async () => {
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
   await load()
-  loading.value = false
-})
+}
+
+onMounted(load)
 useTaskReload(load)
 </script>
 
@@ -58,17 +64,13 @@ useTaskReload(load)
       </p>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <p
-      v-else-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-      data-testid="my-work-error"
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      error-test-id="my-work-error"
+      loading-label="Cargando tu trabajo"
+      @retry="reintentar"
     >
-      {{ error }}
-    </p>
-
-    <template v-else>
       <p
         v-if="report?.has_overload"
         class="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
@@ -171,6 +173,6 @@ useTaskReload(load)
           </table>
         </div>
       </section>
-    </template>
+    </AsyncState>
   </div>
 </template>

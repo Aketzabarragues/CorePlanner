@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue'
 
 import { peopleApi } from '../../api/client'
 import AlertBanner from '../common/AlertBanner.vue'
+import AsyncState from '../common/AsyncState.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
@@ -223,62 +224,65 @@ async function saveSkills() {
 
         <section>
           <h3 class="mb-2 text-sm font-semibold text-slate-900">Historial de horarios</h3>
-          <div v-if="loading" class="text-sm text-slate-500">Cargando...</div>
-          <div v-else-if="!history.length" class="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-            No hay horario vigente. Su capacidad se desconoce, así que no se marca como sobrecargada:
-            el motor no inventa un límite que nadie ha definido.
-          </div>
-          <table v-else class="w-full text-sm">
-            <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="py-1 font-medium">Vigente desde</th>
-                <th class="py-1 font-medium">Días</th>
-                <th class="py-1 text-right font-medium">Factor</th>
-                <th class="py-1 pl-4 font-medium">Nota</th>
-                <th v-if="isManager" class="py-1 pl-4 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              <tr v-for="entry in history" :key="entry.id" data-testid="schedule-history-row">
-                <td class="py-2 text-slate-900">{{ entry.valid_from }}</td>
-                <td class="py-2">
-                  <span class="flex gap-1">
-                    <span
-                      v-for="day in dayChips(entry)"
-                      :key="day.label"
-                      class="flex h-6 w-6 items-center justify-center rounded text-xs"
-                      :class="day.active ? 'bg-slate-200 text-siemens-900' : 'bg-slate-50 text-slate-400'"
-                      :title="`${day.label}: ${day.hours} h`"
-                    >
-                      {{ day.label }}
+          <AsyncState
+            :loading="loading"
+            :empty="!history.length"
+            empty-title="No hay horario vigente"
+            empty-text="Su capacidad se desconoce, así que no se marca como sobrecargada: el motor no inventa un límite que nadie ha definido."
+            loading-label="Cargando el historial de horarios"
+          >
+            <table class="w-full text-sm">
+              <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th class="py-1 font-medium">Vigente desde</th>
+                  <th class="py-1 font-medium">Días</th>
+                  <th class="py-1 text-right font-medium">Factor</th>
+                  <th class="py-1 pl-4 font-medium">Nota</th>
+                  <th v-if="isManager" class="py-1 pl-4 font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr v-for="entry in history" :key="entry.id" data-testid="schedule-history-row">
+                  <td class="py-2 text-slate-900">{{ entry.valid_from }}</td>
+                  <td class="py-2">
+                    <span class="flex gap-1">
+                      <span
+                        v-for="day in dayChips(entry)"
+                        :key="day.label"
+                        class="flex h-6 w-6 items-center justify-center rounded text-xs"
+                        :class="day.active ? 'bg-slate-200 text-siemens-900' : 'bg-slate-50 text-slate-400'"
+                        :title="`${day.label}: ${day.hours} h`"
+                      >
+                        {{ day.label }}
+                      </span>
                     </span>
-                  </span>
-                </td>
-                <td class="py-2 text-right whitespace-nowrap text-slate-600">{{ entry.availability_factor }} %</td>
-                <td class="py-2 pl-4 text-slate-500">{{ entry.note ?? '—' }}</td>
-                <td v-if="isManager" class="py-2 pl-4">
-                  <span class="flex gap-3 whitespace-nowrap">
-                    <button
-                      type="button"
-                      class="text-sm font-medium text-siemens-700 hover:underline"
-                      :data-testid="`edit-schedule-${entry.id}`"
-                      @click="startEditSchedule(entry)"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      class="text-sm font-medium text-red-700 hover:underline"
-                      :data-testid="`remove-schedule-${entry.id}`"
-                      @click="removeSchedule(entry)"
-                    >
-                      Quitar
-                    </button>
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                  <td class="py-2 text-right whitespace-nowrap text-slate-600">{{ entry.availability_factor }} %</td>
+                  <td class="py-2 pl-4 text-slate-500">{{ entry.note ?? '—' }}</td>
+                  <td v-if="isManager" class="py-2 pl-4">
+                    <span class="flex gap-3 whitespace-nowrap">
+                      <button
+                        type="button"
+                        class="text-sm font-medium text-siemens-700 hover:underline"
+                        :data-testid="`edit-schedule-${entry.id}`"
+                        @click="startEditSchedule(entry)"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        class="text-sm font-medium text-red-700 hover:underline"
+                        :data-testid="`remove-schedule-${entry.id}`"
+                        @click="removeSchedule(entry)"
+                      >
+                        Quitar
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </AsyncState>
         </section>
 
         <section>

@@ -13,6 +13,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { panelApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { columnLabel, formatHours } from '../utils/kanban'
 import { projectStatus } from '../utils/navigation'
@@ -37,13 +38,18 @@ async function load() {
     error.value = null
   } catch (err) {
     error.value = err.message
+  } finally {
+    loading.value = false
   }
 }
 
-onMounted(async () => {
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
   await load()
-  loading.value = false
-})
+}
+
+onMounted(load)
 useTaskReload(load)
 </script>
 
@@ -56,17 +62,13 @@ useTaskReload(load)
       </p>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <p
-      v-else-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-      data-testid="panel-error"
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      error-test-id="panel-error"
+      loading-label="Cargando el panel"
+      @retry="reintentar"
     >
-      {{ error }}
-    </p>
-
-    <template v-else>
       <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded border border-slate-200 bg-white p-4">
           <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -296,6 +298,6 @@ useTaskReload(load)
           </ul>
         </section>
       </div>
-    </template>
+    </AsyncState>
   </div>
 </template>

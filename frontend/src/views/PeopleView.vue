@@ -10,6 +10,7 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { calendarApi, departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
+import AsyncState from '../components/common/AsyncState.vue'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDrawer from '../components/people/PersonDrawer.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
@@ -67,6 +68,12 @@ async function moveWeek(delta) {
   await load()
 }
 
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
+  await load()
+}
+
 onMounted(load)
 </script>
 
@@ -102,9 +109,12 @@ onMounted(load)
       </div>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <template v-else>
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      loading-label="Cargando las personas"
+      @retry="reintentar"
+    >
       <nav class="mb-4 flex gap-1 border-b border-slate-200">
         <button
           v-for="item in TABS"
@@ -122,10 +132,6 @@ onMounted(load)
           {{ item.label }}
         </button>
       </nav>
-
-      <p v-if="error" class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-        {{ error }}
-      </p>
 
       <PeopleDirectory
         v-if="currentTab.name === 'directory'"
@@ -155,6 +161,6 @@ onMounted(load)
         @close="selectedId = null"
         @saved="load"
       />
-    </template>
+    </AsyncState>
   </div>
 </template>

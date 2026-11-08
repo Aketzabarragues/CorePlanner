@@ -8,6 +8,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { configApi, meApi } from '../api/client'
+import AlertBanner from '../components/common/AlertBanner.vue'
+import AsyncState from '../components/common/AsyncState.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
@@ -97,104 +99,104 @@ watch(() => props.id, load)
       </p>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <p
-      v-else-if="error && !isManager"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-      data-testid="project-settings-error"
+    <AsyncState
+      :loading="loading"
+      :error="isManager ? '' : error"
+      error-test-id="project-settings-error"
+      loading-label="Cargando la configuración del proyecto"
+      @retry="load"
     >
-      {{ error }}
-    </p>
+      <div class="rounded border border-slate-200 bg-white p-5">
+        <AlertBanner
+          v-if="error"
+          variant="error"
+          class="mb-3"
+          data-testid="project-settings-error"
+        >
+          {{ error }}
+        </AlertBanner>
+        <AlertBanner
+          v-if="notice"
+          variant="success"
+          class="mb-3"
+          data-testid="project-settings-notice"
+        >
+          {{ notice }}
+        </AlertBanner>
 
-    <div v-else class="rounded border border-slate-200 bg-white p-5">
-      <p
-        v-if="error"
-        class="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-        data-testid="project-settings-error"
-      >
-        {{ error }}
-      </p>
-      <p
-        v-if="notice"
-        class="mb-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
-        data-testid="project-settings-notice"
-      >
-        {{ notice }}
-      </p>
-
-      <form @submit.prevent="save">
-        <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
-            Nombre
-            <input
-              v-model="form.name"
-              :disabled="!isManager"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="project-name"
-            />
-          </label>
-          <label class="block text-sm font-medium">
-            Estado
-            <select
-              v-model="form.status"
-              :disabled="!isManager"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="project-status"
-            >
-              <option v-for="status in PROJECT_STATUSES" :key="status.value" :value="status.value">
-                {{ status.label }}
-              </option>
-            </select>
-          </label>
-          <label class="block text-sm font-medium">
-            Departamento que lo gestiona
-            <select
-              v-model="form.department_id"
-              :disabled="!isManager"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="project-department"
-            >
-              <option value="">Sin departamento</option>
-              <option
-                v-for="department in departments"
-                :key="department.id"
-                :value="String(department.id)"
+        <form @submit.prevent="save">
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block text-sm font-medium">
+              Nombre
+              <input
+                v-model="form.name"
+                :disabled="!isManager"
+                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                data-testid="project-name"
+              />
+            </label>
+            <label class="block text-sm font-medium">
+              Estado
+              <select
+                v-model="form.status"
+                :disabled="!isManager"
+                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                data-testid="project-status"
               >
-                {{ department.name }}
-              </option>
-            </select>
-          </label>
-          <label class="block text-sm font-medium">
-            Responsable
-            <select
-              v-model="form.owner_id"
-              :disabled="!isManager"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="project-owner"
-            >
-              <option value="">Sin responsable</option>
-              <option v-for="person in people" :key="person.id" :value="String(person.id)">
-                {{ person.name }}
-              </option>
-            </select>
-          </label>
-        </div>
+                <option v-for="status in PROJECT_STATUSES" :key="status.value" :value="status.value">
+                  {{ status.label }}
+                </option>
+              </select>
+            </label>
+            <label class="block text-sm font-medium">
+              Departamento que lo gestiona
+              <select
+                v-model="form.department_id"
+                :disabled="!isManager"
+                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                data-testid="project-department"
+              >
+                <option value="">Sin departamento</option>
+                <option
+                  v-for="department in departments"
+                  :key="department.id"
+                  :value="String(department.id)"
+                >
+                  {{ department.name }}
+                </option>
+              </select>
+            </label>
+            <label class="block text-sm font-medium">
+              Responsable
+              <select
+                v-model="form.owner_id"
+                :disabled="!isManager"
+                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                data-testid="project-owner"
+              >
+                <option value="">Sin responsable</option>
+                <option v-for="person in people" :key="person.id" :value="String(person.id)">
+                  {{ person.name }}
+                </option>
+              </select>
+            </label>
+          </div>
 
-        <div v-if="isManager" class="mt-4 flex gap-2">
-          <button
-            type="submit"
-            :disabled="saving"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-            data-testid="save-project"
-          >
-            Guardar cambios
-          </button>
-        </div>
-        <p v-else class="mt-4 text-sm text-slate-500">
-          Solo el gerente puede cambiar los datos del proyecto.
-        </p>
-      </form>
-    </div>
+          <div v-if="isManager" class="mt-4 flex gap-2">
+            <button
+              type="submit"
+              :disabled="saving"
+              class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+              data-testid="save-project"
+            >
+              Guardar cambios
+            </button>
+          </div>
+          <p v-else class="mt-4 text-sm text-slate-500">
+            Solo el gerente puede cambiar los datos del proyecto.
+          </p>
+        </form>
+      </div>
+    </AsyncState>
   </div>
 </template>

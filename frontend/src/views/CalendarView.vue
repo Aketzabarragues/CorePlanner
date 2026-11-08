@@ -19,6 +19,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { calendarApi, overviewApi, projectsApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AsyncState from '../components/common/AsyncState.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import { useAuthStore } from '../stores/auth'
@@ -113,6 +114,8 @@ async function load() {
     error.value = null
   } catch (err) {
     error.value = err.message
+  } finally {
+    loading.value = false
   }
 }
 
@@ -164,10 +167,13 @@ function goToday() {
   day.value = localDateKey()
 }
 
-onMounted(async () => {
+/** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
+async function reintentar() {
+  loading.value = true
   await load()
-  loading.value = false
-})
+}
+
+onMounted(load)
 useTaskReload(load)
 
 watch(
@@ -276,17 +282,13 @@ watch(
       </div>
     </header>
 
-    <p v-if="loading" class="text-sm text-slate-500">Cargando...</p>
-
-    <p
-      v-else-if="error"
-      class="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-      data-testid="calendar-error"
+    <AsyncState
+      :loading="loading"
+      :error="error"
+      error-test-id="calendar-error"
+      loading-label="Cargando el calendario"
+      @retry="reintentar"
     >
-      {{ error }}
-    </p>
-
-    <template v-else>
       <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
         <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
           <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
@@ -411,6 +413,6 @@ watch(
         Las tareas se ven de lunes a viernes: el motor de capacidad solo reparte
         horas entre dias laborables. El fin de semana queda vacio.
       </p>
-    </template>
+    </AsyncState>
   </div>
 </template>

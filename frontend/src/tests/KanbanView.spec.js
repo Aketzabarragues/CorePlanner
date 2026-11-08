@@ -186,6 +186,24 @@ describe('KanbanView', () => {
     expect(JSON.parse(patch.body)).toEqual({ status: 'testing' })
   })
 
+  it('el arrastre cancela la seleccion de texto del navegador', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    // El navegador solo selecciona texto si el mousedown no llega cancelado.
+    const evento = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    wrapper.findAll('article')[0].element.dispatchEvent(evento)
+
+    expect(evento.defaultPrevented).toBe(true)
+  })
+
+  it('la tarjeta no deja seleccionar su texto', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    expect(wrapper.findAll('article')[0].classes()).toContain('select-none')
+  })
+
   it('soltar la tarjeta en su propia columna no guarda nada', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()

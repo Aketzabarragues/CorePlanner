@@ -79,6 +79,9 @@ function columnAtPoint(x, y) {
 function startDrag(task, event) {
   if (!canEdit.value) return
   if (event.target.closest('select, button, input, a')) return
+  // Sin esto el navegador sigue con su seleccion de texto mientras se arrastra
+  // y el resaltado azul compite con el gesto.
+  event.preventDefault()
   dragging = { task }
   draggingId.value = task.id
   window.addEventListener('mousemove', onDragMove)
@@ -216,7 +219,7 @@ onBeforeUnmount(() => {
           <article
             v-for="task in column.tasks"
             :key="task.id"
-            class="mb-2 rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
+            class="mb-2 select-none rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
             :class="[
               canEdit ? 'cursor-grab' : 'cursor-default',
               draggingId === task.id ? 'opacity-60' : '',

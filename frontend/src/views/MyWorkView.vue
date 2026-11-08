@@ -54,11 +54,11 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Mi trabajo"
-      subtitle="Tareas propias y carga por semana en el periodo de planificacion."
+      subtitle="Tareas propias y carga por semana en el período de planificación."
     >
       <template #actions>
         <p v-if="!loading && !error" class="text-sm text-slate-600">
-            {{ tasks.length }} tarea(s) · {{ formatHours(totalHours) }} en el periodo
+            {{ tasks.length }} tarea(s) · {{ formatHours(totalHours) }} en el período
           </p>
       </template>
     </PageHeader>
@@ -165,7 +165,7 @@ useTaskReload(load)
               </tr>
               <tr v-if="!tasks.length">
                 <td colspan="5" class="px-3 py-4 text-center text-sm text-slate-500">
-                  No tienes tareas asignadas en este periodo.
+                  No tienes tareas asignadas en este período.
                 </td>
               </tr>
             </tbody>

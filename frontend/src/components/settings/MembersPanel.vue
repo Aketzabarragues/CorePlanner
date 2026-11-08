@@ -55,7 +55,7 @@ async function add() {
       user_id: Number(selection.value.user_id),
       role_id: Number(selection.value.role_id),
     })
-    notice.value = 'Persona anadida al proyecto.'
+    notice.value = 'Persona añadida al proyecto.'
     reset()
     formOpen.value = false
     emit('saved')
@@ -92,7 +92,7 @@ async function remove(projectId, userId) {
         data-testid="new-member"
         @click="openCreate"
       >
-        Anadir persona a un proyecto
+        Añadir persona a un proyecto
       </button>
     </div>
 
@@ -144,7 +144,7 @@ async function remove(projectId, userId) {
       </table>
     </div>
 
-    <ModalDialog :open="formOpen" title="Anadir persona a un proyecto" @close="closeForm">
+    <ModalDialog :open="formOpen" title="Añadir persona a un proyecto" @close="closeForm">
       <form @submit.prevent="add">
         <div class="grid grid-cols-3 gap-3">
           <label class="block text-sm font-medium">
@@ -195,7 +195,7 @@ async function remove(projectId, userId) {
             :disabled="saving"
             class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
           >
-            Anadir
+            Añadir
           </button>
           <button
             type="button"

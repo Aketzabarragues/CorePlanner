@@ -282,7 +282,7 @@ watch(departmentFilter, () => {
     <header class="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-siemens-900">
-          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupacion' }}
+          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
         </h1>
         <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
         <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
@@ -379,7 +379,7 @@ watch(departmentFilter, () => {
       class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
       data-testid="capacity-holiday-warning"
     >
-      {{ holidayTaskIds.length }} tarea(s) caen enteramente en dias no laborables y no se
+      {{ holidayTaskIds.length }} tarea(s) caen enteramente en días no laborables y no se
       imputan: su carga no aparece en la matriz.
     </p>
 

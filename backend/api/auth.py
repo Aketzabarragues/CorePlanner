@@ -28,7 +28,7 @@ async def login(payload: LoginRequest, session: SessionDep) -> TokenOut:
     if user is None or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales invalidas",
+            detail="Credenciales inválidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

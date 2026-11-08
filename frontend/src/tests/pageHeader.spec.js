@@ -12,12 +12,12 @@ describe('PageHeader', () => {
 
   it('el subtitulo va debajo del titulo', () => {
     const wrapper = mount(PageHeader, {
-      props: { title: 'Panel', subtitle: 'Estado de la organizacion.' },
+      props: { title: 'Panel', subtitle: 'Estado de la organización.' },
     })
 
     const texto = wrapper.find('header').text()
     expect(texto).toContain('Panel')
-    expect(texto).toContain('Estado de la organizacion.')
+    expect(texto).toContain('Estado de la organización.')
   })
 
   it('sin subtitulo no sale un parrafo vacio', () => {

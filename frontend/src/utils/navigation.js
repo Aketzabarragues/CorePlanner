@@ -11,13 +11,13 @@ const CAPACITY_VIEW = {
   name: 'capacity',
   label: 'Matriz de Capacidad',
   icon: 'chart',
-  hint: 'Matriz matematica',
+  hint: 'Matriz matemática',
 }
 const GANTT_VIEW = {
   name: 'gantt',
   label: 'Cronograma (Gantt)',
   icon: 'calendar',
-  hint: 'Linea temporal',
+  hint: 'Línea temporal',
 }
 const KANBAN_VIEW = {
   name: 'kanban',
@@ -53,31 +53,31 @@ const MY_WORK_VIEW = {
   name: 'my-work',
   label: 'Mi trabajo',
   icon: 'check',
-  hint: 'Tareas propias del periodo',
+  hint: 'Tareas propias del período',
 }
 const PANEL_VIEW = {
   name: 'panel',
   label: 'Panel',
   icon: 'gauge',
-  hint: 'Estado de la organizacion',
+  hint: 'Estado de la organización',
 }
 const GLOBAL_CALENDAR_VIEW = {
   name: 'global-calendar',
   label: 'Calendario Global',
   icon: 'grid',
-  hint: 'La planificacion dia a dia',
+  hint: 'La planificación día a día',
 }
 const CALENDAR_VIEW = {
   name: 'calendar',
   label: 'Calendario',
   icon: 'grid',
-  hint: 'La planificacion dia a dia',
+  hint: 'La planificación día a día',
 }
 const WORK_CALENDAR_VIEW = {
   name: 'work-calendar',
   label: 'Calendario Laboral',
   icon: 'calendar',
-  hint: 'Dias no laborables y su impacto',
+  hint: 'Días no laborables y su impacto',
 }
 const PLANNER_VIEW = {
   name: 'planner',
@@ -96,7 +96,7 @@ export const GLOBAL_SECTIONS = [
         name: 'projects',
         label: 'Proyectos',
         icon: 'folder',
-        hint: 'Proyectos de la organizacion',
+        hint: 'Proyectos de la organización',
       },
       {
         name: 'global-capacity',

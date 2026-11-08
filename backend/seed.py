@@ -59,8 +59,8 @@ ROLES = {
     "Lector": ["capacity.read", "gantt.read"],
 }
 
-PROJECT_NAME = "Linea Pasteurizadora SIVE"
-PROJECT_NAME_OFFICE = "Red de tuberias linea 2"
+PROJECT_NAME = "Línea Pasteurizadora SIVE"
+PROJECT_NAME_OFFICE = "Red de tuberías línea 2"
 
 DEPARTMENT_AUTOMATION = "Automatización & SCADA"
 DEPARTMENT_OFFICE = "Oficina Técnica / EPLAN"
@@ -395,7 +395,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project.id,
                 assigned_to=sebastian.id,
-                title="Programacion SCADA WinCC",
+                title="Programación SCADA WinCC",
                 status=TaskStatus.IN_PROGRESS.value,
                 start_date=JUEVES,
                 end_date=MIERCOLES,
@@ -424,7 +424,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project.id,
                 assigned_to=sebastian.id,
-                title="Puesta en marcha de valvulas",
+                title="Puesta en marcha de válvulas",
                 status=TaskStatus.DONE.value,
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 11),
@@ -433,7 +433,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project.id,
                 assigned_to=jorge.id,
-                title="Revision de documentacion tecnica",
+                title="Revisión de documentación técnica",
                 status=TaskStatus.BACKLOG.value,
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 12),
@@ -477,7 +477,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project_office.id,
                 assigned_to=jorge.id,
-                title="Planos de tuberias",
+                title="Planos de tuberías",
                 status=TaskStatus.BACKLOG.value,
                 start_date=date(2026, 11, 2),
                 end_date=date(2026, 11, 4),
@@ -486,7 +486,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project_office.id,
                 assigned_to=ana.id,
-                title="Definicion de tags PLC",
+                title="Definición de tags PLC",
                 status=TaskStatus.IN_PROGRESS.value,
                 start_date=JUEVES,
                 end_date=MIERCOLES,
@@ -504,7 +504,7 @@ async def populate(session) -> int:
             Task(
                 project_id=project_office.id,
                 assigned_to=jorge.id,
-                title="Revision de parcelario",
+                title="Revisión de parcelario",
                 status=TaskStatus.DONE.value,
                 start_date=date(2026, 11, 9),
                 end_date=date(2026, 11, 11),

@@ -124,7 +124,7 @@ describe('GanttView', () => {
     const wrapper = await mountGantt()
 
     const botones = wrapper.findAll('header button').map((b) => b.text())
-    expect(botones).toEqual(['Dia', 'Semana', 'Mes'])
+    expect(botones).toEqual(['Día', 'Semana', 'Mes'])
   })
 
   it('cambia la escala del diagrama', async () => {

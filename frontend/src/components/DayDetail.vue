@@ -74,7 +74,7 @@ function nonWorkingClass(scope) {
     </ul>
 
     <p v-else class="px-4 py-6 text-sm text-slate-500" data-testid="day-empty">
-      No hay tareas este dia.
+      No hay tareas este día.
     </p>
   </div>
 </template>

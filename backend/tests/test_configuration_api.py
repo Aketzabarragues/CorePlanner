@@ -182,7 +182,7 @@ async def test_el_gerente_crea_una_persona(client: AsyncClient):
 
     assert response.status_code == 201, response.text
     data = response.json()
-    assert data["company_role_label"] == "Tecnico"
+    assert data["company_role_label"] == "Técnico"
     assert data["department_name"] == "Automatizacion"
     assert data["weekly_base_hours"] == 32.0
 

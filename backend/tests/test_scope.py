@@ -308,7 +308,7 @@ async def test_scope_de_un_tecnico_no_le_da_edicion(client: AsyncClient):
     response = await client.get("/api/me", headers=headers)
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["role_label"] == "Tecnico"
+    assert data["role_label"] == "Técnico"
     assert client.ids["tuberias"] in data["visible_project_ids"]
     assert client.ids["tuberias"] not in data["editable_project_ids"]
     assert client.ids["linea"] in data["editable_project_ids"]

@@ -578,7 +578,8 @@ lo demas si la lleva.
 5. **Los mensajes del backend tambien se acentuan.** El operario los ve igual
    que los de la interfaz, asi que la convencion es la misma: lo que se ve,
    lleva tilde. Lo que no se ve (comentarios, nombres de archivo, documentacion
-   tecnica) sigue en ASCII.
+   tecnica) sigue en ASCII. Tambien los datos de demostracion: el nombre de un
+   proyecto y el titulo de una tarea salen en pantalla.
 6. **Los componentes viven en `frontend/src/components/common/`**, con sus
    pruebas en `frontend/src/tests/`.
 7. **Un fallo de operacion es un banner; un fallo de validacion no.** Cuando

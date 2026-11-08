@@ -203,7 +203,7 @@ async function removeSkill(skill) {
             v-model="newName"
             type="text"
             maxlength="100"
-            placeholder="Robotica, TIA Portal..."
+            placeholder="Robótica, TIA Portal..."
             class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
             data-testid="new-skill-name"
           />

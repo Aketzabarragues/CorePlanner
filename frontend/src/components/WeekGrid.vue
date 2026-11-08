@@ -61,7 +61,7 @@ const nonWorkingByDate = computed(() => {
             <button
               type="button"
               class="ml-1 rounded text-sm font-semibold normal-case text-siemens-900 hover:underline"
-              :title="`Ver el dia ${day.date}`"
+              :title="`Ver el día ${day.date}`"
               :data-testid="`week-day-${day.date}`"
               @click="emit('open-day', day.date)"
             >

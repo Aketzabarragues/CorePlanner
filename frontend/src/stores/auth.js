@@ -62,8 +62,8 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function ensureSession() {
     if (token.value) return token.value
-    if (signedOut.value) throw new Error('La sesion esta cerrada')
-    if (!demoAutoLoginEnabled()) throw new Error('No hay ninguna sesion iniciada')
+    if (signedOut.value) throw new Error('La sesión está cerrada')
+    if (!demoAutoLoginEnabled()) throw new Error('No hay ninguna sesión iniciada')
     const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)
     setSession(data.access_token, data.user)
     return data.access_token
@@ -78,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
    * con su propio 401, que es lo que debe pasar.
    */
   async function refresh() {
-    if (signedOut.value) throw new Error('La sesion esta cerrada')
+    if (signedOut.value) throw new Error('La sesión está cerrada')
     if (!demoAutoLoginEnabled()) return null
     clear()
     const data = await authApi.login(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)

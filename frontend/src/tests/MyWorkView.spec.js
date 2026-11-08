@@ -106,7 +106,7 @@ describe('MyWorkView', () => {
 
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('No tienes tareas asignadas en este periodo')
+    expect(wrapper.text()).toContain('No tienes tareas asignadas en este período')
     expect(wrapper.find('[data-testid="my-work-overload"]').exists()).toBe(false)
   })
 

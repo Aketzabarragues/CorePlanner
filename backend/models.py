@@ -78,11 +78,11 @@ class CompanyRole(enum.StrEnum):
 COMPANY_ROLE_LABELS = {
     CompanyRole.GERENTE.value: "Gerente",
     CompanyRole.JEFE_DEPARTAMENTO.value: "Jefe de departamento",
-    CompanyRole.TECNICO.value: "Tecnico",
+    CompanyRole.TECNICO.value: "Técnico",
 }
 
 COMPANY_ROLE_SCOPES = {
-    CompanyRole.GERENTE.value: "Ve toda la organizacion y trabaja en todos los proyectos",
+    CompanyRole.GERENTE.value: "Ve toda la organización y trabaja en todos los proyectos",
     CompanyRole.JEFE_DEPARTAMENTO.value: (
         "Ve los proyectos de su departamento y trabaja en ellos, aunque no sea miembro"
     ),

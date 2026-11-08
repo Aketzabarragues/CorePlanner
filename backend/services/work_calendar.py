@@ -93,7 +93,7 @@ async def create_non_working_day(
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya hay un dia no laborable con esa fecha y ese alcance",
+            detail="Ya hay un día no laborable con esa fecha y ese alcance",
         )
 
     day = NonWorkingDay(
@@ -115,7 +115,7 @@ async def delete_non_working_day(session: AsyncSession, day_id: int) -> None:
     if day is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Dia no laborable no encontrado",
+            detail="Día no laborable no encontrado",
         )
     await session.delete(day)
     await session.commit()

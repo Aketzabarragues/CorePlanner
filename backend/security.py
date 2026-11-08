@@ -92,7 +92,7 @@ def require_manager() -> Callable[..., Coroutine[Any, Any, User]]:
         if not user.is_global_admin and user.company_role != CompanyRole.GERENTE.value:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el gerente puede configurar la organizacion",
+                detail="Solo el gerente puede configurar la organización",
             )
         return user
 

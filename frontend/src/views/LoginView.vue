@@ -67,7 +67,7 @@ onMounted(() => {
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium">Contrasena</span>
+        <span class="text-sm font-medium">Contraseña</span>
         <input
           v-model="password"
           type="password"

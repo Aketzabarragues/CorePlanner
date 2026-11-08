@@ -38,7 +38,7 @@ const people = [
     name: 'Sebastián',
     email: 's@example.com',
     company_role: 'tecnico',
-    company_role_label: 'Tecnico',
+    company_role_label: 'Técnico',
     job_title: 'Ingeniero PLC',
     seniority: null,
     seniority_label: null,

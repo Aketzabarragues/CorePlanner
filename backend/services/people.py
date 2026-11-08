@@ -300,7 +300,7 @@ async def _schedule_or_404(
     if schedule is None or schedule.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Version de horario no encontrada",
+            detail="Versión de horario no encontrada",
         )
     return schedule
 
@@ -396,7 +396,7 @@ async def delete_skill(session: AsyncSession, skill_id: int) -> None:
     if in_use is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="La competencia esta asignada a alguna persona y no se puede quitar",
+            detail="La competencia está asignada a alguna persona y no se puede quitar",
         )
     await session.delete(skill)
     await session.commit()

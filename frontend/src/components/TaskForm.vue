@@ -54,7 +54,7 @@ function submit() {
   error.value = null
 
   if (!title.value.trim()) {
-    error.value = 'El titulo es obligatorio.'
+    error.value = 'El título es obligatorio.'
     return
   }
   if (!startDate.value || !endDate.value) {
@@ -67,7 +67,7 @@ function submit() {
   }
   const hours = Number.parseFloat(estimatedHours.value)
   if (!Number.isFinite(hours) || hours < 0) {
-    error.value = 'Las horas estimadas deben ser un numero mayor o igual que 0.'
+    error.value = 'Las horas estimadas deben ser un número mayor o igual que 0.'
     return
   }
 
@@ -88,12 +88,12 @@ function submit() {
     </h3>
 
     <label class="block">
-      <span class="text-sm font-medium">Titulo</span>
+      <span class="text-sm font-medium">Título</span>
       <input
         v-model="title"
         type="text"
         required
-        placeholder="Programacion SCADA WinCC"
+        placeholder="Programación SCADA WinCC"
         class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
       />
     </label>

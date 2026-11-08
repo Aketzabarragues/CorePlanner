@@ -191,7 +191,7 @@ watch(
   <div>
     <PageHeader
       :title="isGlobal ? 'Calendario Global' : 'Calendario'"
-      :subtitle="isGlobal ? 'Las tareas de los proyectos visibles, dia a dia.' : 'Las tareas del proyecto, dia a dia.'"
+      :subtitle="isGlobal ? 'Las tareas de los proyectos visibles, día a día.' : 'Las tareas del proyecto, día a día.'"
     >
       <template #actions>
           <div class="flex overflow-hidden rounded border border-slate-300">
@@ -330,7 +330,7 @@ watch(
                       type="button"
                       class="rounded text-xs font-medium hover:underline"
                       :class="cell.inMonth ? 'text-slate-700' : 'text-slate-400'"
-                      :title="`Ver el dia ${cell.date}`"
+                      :title="`Ver el día ${cell.date}`"
                       :data-testid="`calendar-day-${cell.date}`"
                       @click="openDay(cell.date)"
                     >
@@ -403,7 +403,7 @@ watch(
 
       <p class="mt-3 text-xs text-slate-500">
         Las tareas se ven de lunes a viernes: el motor de capacidad solo reparte
-        horas entre dias laborables. El fin de semana queda vacio.
+        horas entre días laborables. El fin de semana queda vacío.
       </p>
     </AsyncState>
   </div>

@@ -121,7 +121,7 @@ useTaskReload(load)
               </span>
             </li>
           </ul>
-          <p v-else class="mt-3 text-sm text-slate-500">Todavia no hay tareas asignadas.</p>
+          <p v-else class="mt-3 text-sm text-slate-500">Todavía no hay tareas asignadas.</p>
         </section>
 
         <nav class="mt-4 flex flex-wrap gap-2">

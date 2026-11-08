@@ -226,7 +226,7 @@ watch(
         <button
           type="button"
           class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-          :title="collapsed ? 'Expandir el menu' : 'Colapsar el menu'"
+          :title="collapsed ? 'Expandir el menú' : 'Colapsar el menú'"
           @click="toggleSidebar"
         >
           <span class="inline-flex h-4 w-4">
@@ -240,7 +240,7 @@ watch(
           {{ isGlobal ? 'Espacio Global' : 'Proyecto' }}
         </p>
         <p class="truncate text-sm text-white">
-          {{ isGlobal ? 'Toda la organizacion' : (currentProject?.name ?? 'Proyecto') }}
+          {{ isGlobal ? 'Toda la organización' : (currentProject?.name ?? 'Proyecto') }}
         </p>
         <p v-if="!isGlobal" class="truncate text-xs text-slate-400">
           {{ department?.name ?? 'Sin departamento' }}
@@ -304,7 +304,7 @@ watch(
           v-if="!collapsed"
           type="button"
           class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-          title="Cerrar sesion"
+          title="Cerrar sesión"
           @click="logout"
         >
           <span class="inline-flex h-4 w-4">

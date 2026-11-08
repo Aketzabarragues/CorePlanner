@@ -336,7 +336,7 @@ describe('AppShell', () => {
 
     const colapsar = wrapper
       .findAll('button')
-      .find((button) => button.attributes('title') === 'Colapsar el menu')
+      .find((button) => button.attributes('title') === 'Colapsar el menú')
     await colapsar.trigger('click')
 
     expect(wrapper.find('aside').classes()).toContain('w-16')
@@ -357,7 +357,7 @@ describe('AppShell', () => {
 
     const salir = wrapper
       .findAll('button')
-      .find((button) => button.attributes('title') === 'Cerrar sesion')
+      .find((button) => button.attributes('title') === 'Cerrar sesión')
     await salir.trigger('click')
     await flushPromises()
 

@@ -113,7 +113,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           </span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-medium text-slate-900">Todos los proyectos</span>
-            <span class="block text-xs text-slate-500">Vista global de la organizacion</span>
+            <span class="block text-xs text-slate-500">Vista global de la organización</span>
           </span>
         </button>
       </li>

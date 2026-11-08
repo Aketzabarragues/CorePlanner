@@ -94,7 +94,7 @@ async function addMember() {
       role_id: Number(selection.value.role_id),
     })
     formOpen.value = false
-    notice.value = 'Persona anadida al proyecto.'
+    notice.value = 'Persona añadida al proyecto.'
     await refreshMembers(token)
   } catch (err) {
     formError.value = err.message

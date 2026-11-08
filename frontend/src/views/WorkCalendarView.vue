@@ -67,7 +67,7 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Calendario laboral"
-      subtitle="Los dias no laborables, a quien afectan y que capacidad quitan."
+      subtitle="Los días no laborables, a quién afectan y qué capacidad quitan."
     >
       <template #actions>
           <button
@@ -109,9 +109,9 @@ useTaskReload(load)
 
     <div class="mt-4 grid gap-4 lg:grid-cols-3">
       <section class="lg:col-span-2 rounded-lg border border-slate-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-slate-800">Dias no laborables</h2>
+        <h2 class="text-sm font-semibold text-slate-800">Días no laborables</h2>
         <p class="mt-0.5 text-xs text-slate-500">
-          El alcance dice a quien aplica: a todo el mundo, a un departamento o a
+          El alcance dice a quién aplica: a todo el mundo, a un departamento o a
           una persona.
         </p>
         <table class="mt-3 w-full text-sm" data-testid="labor-days">
@@ -147,7 +147,7 @@ useTaskReload(load)
             </tr>
             <tr v-if="!days.length">
               <td colspan="5" class="py-4 text-center text-slate-500" data-testid="labor-empty">
-                No hay dias no laborables en este mes.
+                No hay días no laborables en este mes.
               </td>
             </tr>
           </tbody>
@@ -165,7 +165,7 @@ useTaskReload(load)
     <section class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h2 class="text-sm font-semibold text-slate-800">Impacto en la capacidad semanal</h2>
       <p class="mt-0.5 text-xs text-slate-500">
-        Solo las semanas en las que un dia no laborable quita horas.
+        Solo las semanas en las que un día no laborable quita horas.
       </p>
       <table class="mt-3 w-full text-sm" data-testid="labor-impact">
         <thead>
@@ -196,7 +196,7 @@ useTaskReload(load)
           </tr>
           <tr v-if="!impact.length">
             <td colspan="6" class="py-4 text-center text-slate-500" data-testid="labor-impact-empty">
-              Ningun dia no laborable quita horas en este mes.
+              Ningún día no laborable quita horas en este mes.
             </td>
           </tr>
         </tbody>

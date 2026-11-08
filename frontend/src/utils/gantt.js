@@ -4,7 +4,7 @@
 
 /** Escalas temporales que ofrece el diagrama. */
 export const GANTT_VIEW_MODES = [
-  { id: 'Day', label: 'Dia' },
+  { id: 'Day', label: 'Día' },
   { id: 'Week', label: 'Semana' },
   { id: 'Month', label: 'Mes' },
 ]

@@ -118,11 +118,11 @@ async def test_el_seed_crea_el_catalogo_de_competencias(seeded_session):
 async def test_el_seed_crea_el_proyecto_de_pasteurizadora(seeded_session):
     project = (
         await seeded_session.execute(
-            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+            select(Project).where(Project.name == "Línea Pasteurizadora SIVE")
         )
     ).scalar_one()
 
-    assert project.name == "Linea Pasteurizadora SIVE"
+    assert project.name == "Línea Pasteurizadora SIVE"
 
 
 async def test_el_seed_crea_un_segundo_proyecto_en_la_oficina_tecnica(
@@ -137,8 +137,8 @@ async def test_el_seed_crea_un_segundo_proyecto_en_la_oficina_tecnica(
     ).all()
 
     assert [(project.name, department) for project, department in projects] == [
-        ("Linea Pasteurizadora SIVE", "Automatización & SCADA"),
-        ("Red de tuberias linea 2", "Oficina Técnica / EPLAN"),
+        ("Línea Pasteurizadora SIVE", "Automatización & SCADA"),
+        ("Red de tuberías línea 2", "Oficina Técnica / EPLAN"),
     ]
 
 
@@ -148,7 +148,7 @@ async def test_el_segundo_proyecto_reparte_gente_de_otro_departamento(
     """La pertenencia al departamento no restringe la asignacion de tareas."""
     office_project = (
         await seeded_session.execute(
-            select(Project).where(Project.name == "Red de tuberias linea 2")
+            select(Project).where(Project.name == "Red de tuberías línea 2")
         )
     ).scalar_one()
     ana = (
@@ -171,7 +171,7 @@ async def test_el_segundo_proyecto_reparte_gente_de_otro_departamento(
     ).scalars().all()
 
     assert ana.department_id == automatizacion.id
-    assert [task.title for task in tasks] == ["Definicion de tags PLC"]
+    assert [task.title for task in tasks] == ["Definición de tags PLC"]
 
 
 async def test_el_administrador_global_es_admin(seeded_session):
@@ -196,7 +196,7 @@ async def test_el_seed_deja_la_contrasena_conocida(seeded_session):
 
 async def test_la_tarea_de_scada_cruza_el_fin_de_semana(seeded_session):
     tasks = (await seeded_session.execute(select(Task))).scalars().all()
-    scada = next(t for t in tasks if t.title == "Programacion SCADA WinCC")
+    scada = next(t for t in tasks if t.title == "Programación SCADA WinCC")
 
     # De jueves a miercoles: el fin de semana queda en medio.
     assert scada.start_date == date(2026, 11, 5)
@@ -208,7 +208,7 @@ async def test_la_tarea_de_scada_cruza_el_fin_de_semana(seeded_session):
 
 async def test_las_dos_tareas_de_scada_comparten_fechas(seeded_session):
     tasks = (await seeded_session.execute(select(Task))).scalars().all()
-    scada = next(t for t in tasks if t.title == "Programacion SCADA WinCC")
+    scada = next(t for t in tasks if t.title == "Programación SCADA WinCC")
     scl = next(t for t in tasks if t.title == "Desarrollo de Bloques SCL")
 
     assert scl.start_date == scada.start_date
@@ -219,7 +219,7 @@ async def test_las_dos_tareas_de_scada_comparten_fechas(seeded_session):
 async def test_el_seed_produce_la_sobrecarga_de_sebastian(seeded_session):
     project = (
         await seeded_session.execute(
-            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+            select(Project).where(Project.name == "Línea Pasteurizadora SIVE")
         )
     ).scalar_one()
 
@@ -236,7 +236,7 @@ async def test_el_seed_produce_la_sobrecarga_de_sebastian(seeded_session):
 async def test_el_seed_no_sobrecarga_a_los_demas(seeded_session):
     project = (
         await seeded_session.execute(
-            select(Project).where(Project.name == "Linea Pasteurizadora SIVE")
+            select(Project).where(Project.name == "Línea Pasteurizadora SIVE")
         )
     ).scalar_one()
 
@@ -251,7 +251,7 @@ async def test_el_seed_no_sobrecarga_a_los_demas(seeded_session):
 async def test_el_segundo_proyecto_no_sobrecarga_a_nadie(seeded_session):
     project = (
         await seeded_session.execute(
-            select(Project).where(Project.name == "Red de tuberias linea 2")
+            select(Project).where(Project.name == "Red de tuberías línea 2")
         )
     ).scalar_one()
 

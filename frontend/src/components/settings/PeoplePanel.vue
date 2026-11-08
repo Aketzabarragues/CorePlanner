@@ -173,7 +173,7 @@ async function save() {
     </table>
 
     <p v-if="!props.people.length" class="text-sm text-slate-500">
-      No hay personas en la organizacion.
+      No hay personas en la organización.
     </p>
 
     <ModalDialog
@@ -199,7 +199,7 @@ async function save() {
             />
           </label>
           <label v-if="!editing" class="block text-sm font-medium">
-            Contrasena
+            Contraseña
             <input
               v-model="form.password"
               type="password"

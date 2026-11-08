@@ -58,7 +58,7 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Panel"
-      subtitle="Estado de la organizacion en el periodo de planificacion."
+      subtitle="Estado de la organización en el período de planificación."
     />
 
     <AsyncState
@@ -128,13 +128,13 @@ useTaskReload(load)
             {{ panel.total_people }}
           </p>
           <p class="mt-1 text-xs text-slate-500">
-            con tareas o horas en el periodo
+            con tareas o horas en el período
           </p>
         </div>
 
         <div class="rounded border border-slate-200 bg-white p-4">
           <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Tareas del periodo
+            Tareas del período
           </p>
           <p class="mt-1 text-2xl font-semibold tabular-nums text-siemens-900">
             {{ panel.total_tasks }}
@@ -183,7 +183,7 @@ useTaskReload(load)
                 </tr>
                 <tr v-if="!overloaded.length">
                   <td colspan="4" class="px-3 py-4 text-center text-sm text-slate-500">
-                    Nadie supera su capacidad en el periodo.
+                    Nadie supera su capacidad en el período.
                   </td>
                 </tr>
               </tbody>
@@ -292,7 +292,7 @@ useTaskReload(load)
               <span class="font-medium tabular-nums text-siemens-900">{{ count }}</span>
             </li>
             <li v-if="!taskStatuses.length" class="py-1 text-slate-500">
-              No hay tareas en el periodo.
+              No hay tareas en el período.
             </li>
           </ul>
         </section>

@@ -122,7 +122,7 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Planificador de recursos"
-      subtitle="Tres vistas sobre el mismo rango de semanas: cuanto se ocupa cada persona, en que y con quien."
+      subtitle="Tres vistas sobre el mismo rango de semanas: cuánto se ocupa cada persona, en qué y con quién."
     >
       <template #actions>
           <button
@@ -141,7 +141,7 @@ useTaskReload(load)
             data-testid="planner-view-person"
             @click="view = 'person'"
           >
-            Linea de tiempo por persona
+            Línea de tiempo por persona
           </button>
           <button
             type="button"
@@ -150,7 +150,7 @@ useTaskReload(load)
             data-testid="planner-view-table"
             @click="view = 'table'"
           >
-            Tabla de planificacion
+            Tabla de planificación
           </button>
 
       </template>
@@ -165,14 +165,14 @@ useTaskReload(load)
 
     <section class="mt-4 rounded-lg border border-slate-200 bg-white p-4">
       <h2 class="text-sm font-semibold text-slate-800">
-        {{ view === 'task' ? 'Carga por persona y semana' : view === 'person' ? 'Linea de tiempo por persona' : 'Tabla de planificacion' }}
+        {{ view === 'task' ? 'Carga por persona y semana' : view === 'person' ? 'Línea de tiempo por persona' : 'Tabla de planificación' }}
       </h2>
       <p class="mt-0.5 text-xs text-slate-500">
         <template v-if="view === 'task'">
           Celda = horas planificadas. En rojo, las semanas que superan las horas base.
         </template>
         <template v-else-if="view === 'person'">
-          Cada bloque es una tarea. Arrastralo a la celda de otra persona para
+          Cada bloque es una tarea. Arrástralo a la celda de otra persona para
           cambiarle el responsable.
         </template>
         <template v-else>
@@ -247,7 +247,7 @@ useTaskReload(load)
         </PlannerMatrix>
 
         <p v-if="!rows.length && !loading" class="mt-4 text-center text-sm text-slate-500" data-testid="planner-empty">
-          Todavia no hay nada planificado que repartir.
+          Todavía no hay nada planificado que repartir.
         </p>
       </div>
     </section>

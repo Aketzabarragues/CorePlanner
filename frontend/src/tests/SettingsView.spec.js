@@ -21,7 +21,7 @@ const people = [
     name: 'Sebastián',
     email: 's@example.com',
     company_role: 'tecnico',
-    company_role_label: 'Tecnico',
+    company_role_label: 'Técnico',
     department_id: 1,
     department_name: 'Automatización & SCADA',
     weekly_base_hours: 40,
@@ -45,9 +45,9 @@ const projects = [
 ]
 
 const companyRoles = [
-  { value: 'gerente', label: 'Gerente', scope: 'Ve toda la organizacion' },
+  { value: 'gerente', label: 'Gerente', scope: 'Ve toda la organización' },
   { value: 'jefe_departamento', label: 'Jefe de departamento', scope: 'Ve su departamento' },
-  { value: 'tecnico', label: 'Tecnico', scope: 'Ve sus proyectos' },
+  { value: 'tecnico', label: 'Técnico', scope: 'Ve sus proyectos' },
 ]
 
 const projectRoles = [
@@ -154,7 +154,7 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="tab-roles"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Ve toda la organizacion')
+    expect(wrapper.text()).toContain('Ve toda la organización')
     expect(wrapper.text()).toContain('Project Manager')
     expect(wrapper.text()).toContain('capacity.read')
   })
@@ -287,7 +287,7 @@ describe('SettingsView', () => {
     global.fetch = vi.fn(async (url, options = {}) => {
       if (url.endsWith('/api/skills/2') && options.method === 'DELETE') {
         return jsonResponse(
-          { detail: 'La competencia esta asignada a alguna persona y no se puede quitar' },
+          { detail: 'La competencia está asignada a alguna persona y no se puede quitar' },
           false,
           409,
         )
@@ -304,7 +304,7 @@ describe('SettingsView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="skill-catalog-error"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('La competencia esta asignada a alguna persona')
+    expect(wrapper.text()).toContain('La competencia está asignada a alguna persona')
   })
 
   it('muestra el error cuando la API lo rechaza', async () => {

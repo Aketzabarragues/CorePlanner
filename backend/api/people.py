@@ -49,7 +49,7 @@ def _week_or_400(week: str | None) -> str:
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Semana no valida: {key}",
+            detail=f"Semana no válida: {key}",
         ) from error
     return key
 

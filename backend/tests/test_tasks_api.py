@@ -211,7 +211,7 @@ async def test_no_se_puede_crear_una_tarea_solo_de_fin_de_semana(client: AsyncCl
     )
 
     assert response.status_code == 422
-    assert "dia laborable" in response.json()["detail"]
+    assert "día laborable" in response.json()["detail"]
 
 
 async def test_no_se_puede_crear_una_tarea_con_fechas_invertidas(client: AsyncClient):

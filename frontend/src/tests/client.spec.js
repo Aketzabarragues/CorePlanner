@@ -145,7 +145,7 @@ describe('store de sesion', () => {
     }))
     const store = useAuthStore()
 
-    await expect(store.ensureSession()).rejects.toThrow('No hay ninguna sesion iniciada')
+    await expect(store.ensureSession()).rejects.toThrow('No hay ninguna sesión iniciada')
 
     expect(global.fetch).not.toHaveBeenCalled()
     expect(localStorage.getItem('coreplanner_token')).toBeNull()
@@ -176,7 +176,7 @@ describe('store de sesion', () => {
     }))
     const store = useAuthStore()
 
-    await expect(store.ensureSession()).rejects.toThrow('No hay ninguna sesion iniciada')
+    await expect(store.ensureSession()).rejects.toThrow('No hay ninguna sesión iniciada')
 
     expect(global.fetch).not.toHaveBeenCalled()
   })

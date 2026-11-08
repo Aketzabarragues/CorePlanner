@@ -65,7 +65,7 @@ def hash_password(password: str) -> str:
     """Genera el hash bcrypt de una contrasena en texto plano."""
     encoded = password.encode("utf-8")
     if len(encoded) > BCRYPT_MAX_BYTES:
-        raise ValueError(f"La contrasena supera los {BCRYPT_MAX_BYTES} bytes admitidos")
+        raise ValueError(f"La contraseña supera los {BCRYPT_MAX_BYTES} bytes admitidos")
     return bcrypt.hashpw(encoded, bcrypt.gensalt()).decode("utf-8")
 
 
@@ -144,7 +144,7 @@ async def get_current_user(
     """Dependencia FastAPI que resuelve el usuario autenticado."""
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credenciales invalidas",
+        detail="Credenciales inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:

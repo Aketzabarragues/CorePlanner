@@ -109,7 +109,7 @@ async def test_login_con_contrasena_incorrecta(client: AsyncClient):
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciales invalidas"
+    assert response.json()["detail"] == "Credenciales inválidas"
 
 
 async def test_login_con_usuario_inexistente(client: AsyncClient):

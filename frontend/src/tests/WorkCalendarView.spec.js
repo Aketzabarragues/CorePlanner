@@ -21,7 +21,7 @@ const informe = {
     {
       id: 2,
       date: '2026-11-16',
-      name: 'Formacion interna',
+      name: 'Formación interna',
       scope: 'department',
       department_id: 1,
       department_name: 'Automatizacion & SCADA',

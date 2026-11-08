@@ -66,7 +66,7 @@ def _validate_dates(start_date: date, end_date: date) -> None:
     if not business_days(start_date, end_date):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="El rango de fechas no contiene ningun dia laborable",
+            detail="El rango de fechas no contiene ningún día laborable",
         )
 
 

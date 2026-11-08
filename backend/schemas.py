@@ -506,7 +506,7 @@ class ScheduleCreate(BaseModel):
     def _valid_days(cls, value: list[int]) -> list[int]:
         for day in value:
             if not 0 <= day <= 10000:
-                raise ValueError("Las horas de un dia van de 0 a 10000 centimas")
+                raise ValueError("Las horas de un día van de 0 a 10000 céntimas")
         return value
 
 
@@ -526,7 +526,7 @@ class ScheduleUpdate(BaseModel):
     def _valid_days(cls, value: list[int]) -> list[int]:
         for day in value:
             if not 0 <= day <= 10000:
-                raise ValueError("Las horas de un dia van de 0 a 10000 centimas")
+                raise ValueError("Las horas de un día van de 0 a 10000 céntimas")
         return value
 
 
@@ -637,22 +637,22 @@ class NonWorkingDayCreate(BaseModel):
         if self.scope == NonWorkingDayScope.DEPARTMENT.value:
             if self.department_id is None:
                 raise ValueError(
-                    "Un dia no laborable de departamento necesita su departamento"
+                    "Un día no laborable de departamento necesita su departamento"
                 )
             if self.user_id is not None:
                 raise ValueError(
-                    "Un dia no laborable de departamento no lleva persona"
+                    "Un día no laborable de departamento no lleva persona"
                 )
         elif self.scope == NonWorkingDayScope.PERSON.value:
             if self.user_id is None:
-                raise ValueError("Un dia no laborable de persona necesita su persona")
+                raise ValueError("Un día no laborable de persona necesita su persona")
             if self.department_id is not None:
-                raise ValueError("Un dia no laborable de persona no lleva departamento")
+                raise ValueError("Un día no laborable de persona no lleva departamento")
         else:
             if self.department_id is not None:
-                raise ValueError("Un dia no laborable global no lleva departamento")
+                raise ValueError("Un día no laborable global no lleva departamento")
             if self.user_id is not None:
-                raise ValueError("Un dia no laborable global no lleva persona")
+                raise ValueError("Un día no laborable global no lleva persona")
         return self
 
 

@@ -134,7 +134,7 @@ describe('PanelView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="panel-utilization"]').text()).toContain('sin capacidad')
-    expect(wrapper.text()).toContain('Nadie supera su capacidad en el periodo')
+    expect(wrapper.text()).toContain('Nadie supera su capacidad en el período')
     expect(wrapper.text()).toContain('No hay proyectos visibles')
   })
 

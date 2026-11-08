@@ -86,6 +86,21 @@ def week_start_from_key(key: str) -> date:
     return date.fromisocalendar(int(year), int(week), 1)
 
 
+def week_window(count: int = 9, today: date | None = None) -> tuple[str, ...]:
+    """Ventana de semanas consecutivas: la actual y las siguientes.
+
+    Es el eje por defecto de las pantallas que miran el conjunto de la
+    organizacion o de una persona. La ventana es continua: las semanas sin
+    actividad tambien salen, para que se vea el hueco.
+    """
+    monday = week_start(today or date.today())
+    weeks: list[str] = []
+    for index in range(count):
+        iso = (monday + timedelta(days=DAYS_PER_WEEK * index)).isocalendar()
+        weeks.append(f"{iso[0]:04d}-W{iso[1]:02d}")
+    return tuple(weeks)
+
+
 def schedule_in_force(
     versions: Sequence[ScheduleVersion], on_date: date
 ) -> ScheduleVersion | None:

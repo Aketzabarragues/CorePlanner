@@ -129,7 +129,33 @@ async def _seed(session) -> dict[str, int]:
         end_date=lunes + timedelta(days=8),
         estimated_hours=8,
     )
-    session.add_all([tarea_ana, tarea_jorge, tarea_otro_proyecto])
+    tarea_sin_persona = Task(
+        project_id=linea.id,
+        assigned_to=None,
+        title="Montaje de cuadros",
+        status=TaskStatus.BACKLOG.value,
+        start_date=lunes,
+        end_date=lunes + timedelta(days=2),
+        estimated_hours=8,
+    )
+    tarea_sin_fechas = Task(
+        project_id=tuberias.id,
+        assigned_to=jorge.id,
+        title="Plano de implantacion",
+        status=TaskStatus.BACKLOG.value,
+        start_date=None,
+        end_date=None,
+        estimated_hours=4,
+    )
+    session.add_all(
+        [
+            tarea_ana,
+            tarea_jorge,
+            tarea_otro_proyecto,
+            tarea_sin_persona,
+            tarea_sin_fechas,
+        ]
+    )
     await session.flush()
 
     ids.update(
@@ -141,6 +167,8 @@ async def _seed(session) -> dict[str, int]:
         tarea_ana=tarea_ana.id,
         tarea_jorge=tarea_jorge.id,
         tarea_otro_proyecto=tarea_otro_proyecto.id,
+        tarea_sin_persona=tarea_sin_persona.id,
+        tarea_sin_fechas=tarea_sin_fechas.id,
     )
     await session.commit()
     return ids
@@ -198,9 +226,40 @@ async def test_el_panel_cuenta_proyectos_y_tareas_por_estado(client: AsyncClient
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["projects_by_status"] == {"active": 1, "planning": 1}
-    assert data["tasks_by_status"] == {"in_progress": 1, "backlog": 2}
-    assert data["total_tasks"] == 3
+    assert data["tasks_by_status"] == {"in_progress": 1, "backlog": 4}
+    assert data["total_tasks"] == 5
     assert data["total_people"] == 2
+
+
+async def test_el_panel_publica_el_uso_del_equipo_semana_a_semana(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    semanas = response.json()["weeks"]
+    # La serie sale entera, con las semanas sin actividad a cero.
+    assert len(semanas) == 9
+    assert semanas[0]["week"] == client.week
+    assert semanas[0]["hours"] == 70
+    assert semanas[0]["capacity"] == 80
+    assert semanas[0]["utilization"] == 88
+    assert semanas[1]["hours"] == 8
+    assert semanas[2]["hours"] == 0
+    assert semanas[2]["utilization"] == 0
+
+
+async def test_el_panel_publica_la_planificacion_incompleta(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    pendientes = response.json()["pending"]
+    problemas = {item["title"]: item["problem"] for item in pendientes}
+    assert problemas["Montaje de cuadros"] == "Sin persona"
+    assert problemas["Plano de implantacion"] == "Sin fechas"
+    assert len(pendientes) == 2
 
 
 async def test_el_panel_ordena_los_proyectos_por_carga(client: AsyncClient):
@@ -214,11 +273,11 @@ async def test_el_panel_ordena_los_proyectos_por_carga(client: AsyncClient):
         "Linea Pasteurizadora",
         "Red de tuberias",
     ]
-    assert proyectos[0]["estimated_hours"] == 70
-    assert proyectos[0]["task_count"] == 2
+    assert proyectos[0]["estimated_hours"] == 78
+    assert proyectos[0]["task_count"] == 3
     assert proyectos[0]["people_count"] == 2
-    assert proyectos[1]["estimated_hours"] == 8
-    assert proyectos[1]["people_count"] == 1
+    assert proyectos[1]["estimated_hours"] == 12
+    assert proyectos[1]["people_count"] == 2
 
 
 async def test_el_panel_de_una_persona_sin_proyectos_no_inventa_datos(
@@ -230,8 +289,9 @@ async def test_el_panel_de_una_persona_sin_proyectos_no_inventa_datos(
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["week"] is None
+    assert data["week"] == client.week
     assert data["utilization"] is None
     assert data["overloaded"] == []
     assert data["projects"] == []
     assert data["total_tasks"] == 0
+    assert data["pending"] == []

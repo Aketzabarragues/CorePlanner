@@ -57,6 +57,11 @@ export function weekTitle(key) {
   return `Sem ${key.split('-W')[1]}`
 }
 
+/** Numero de la semana, sin el año: "46". */
+export function weekNumber(key) {
+  return key.split('-W')[1]
+}
+
 /**
  * Clave de la semana, venga como texto o como objeto del informe.
  *

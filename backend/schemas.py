@@ -72,6 +72,8 @@ class ProjectOut(BaseModel):
     parent_id: int | None = None
     department_id: int | None = None
     owner_id: int | None = None
+    owner_name: str | None = None
+    """Nombre del responsable del proyecto."""
 
 
 class ScopeOut(BaseModel):
@@ -305,6 +307,15 @@ class TaskOut(BaseModel):
     """
 
 
+class HolidayOut(BaseModel):
+    """Dia no laborable de alcance global, con su nombre."""
+
+    date: date
+    name: str
+    scope: str = "global"
+    half_day: bool = False
+
+
 class MyWorkTaskOut(BaseModel):
     """Tarea propia dentro del periodo de planificacion."""
 
@@ -317,6 +328,8 @@ class MyWorkTaskOut(BaseModel):
     end_date: date | None = None
     hours: Hours
     estimated_hours: Hours
+    weeks: list[str] = []
+    """Semanas del periodo que toca la tarea."""
 
 
 class MyWorkWeekOut(BaseModel):
@@ -326,6 +339,9 @@ class MyWorkWeekOut(BaseModel):
     hours: Hours
     capacity: Hours | None = None
     is_overloaded: bool
+    holidays: list[HolidayOut] = []
+    capacity_without: Hours | None = None
+    """Capacidad de la semana si no contaran los dias no laborables."""
 
 
 class MyWorkOut(BaseModel):
@@ -335,6 +351,8 @@ class MyWorkOut(BaseModel):
     tasks: list[MyWorkTaskOut]
     total_hours: Hours
     has_overload: bool
+    current_week: str | None = None
+    """Semana de referencia de la pantalla: la actual si cae en el periodo."""
 
 
 class PanelOverloadOut(BaseModel):
@@ -348,6 +366,25 @@ class PanelOverloadOut(BaseModel):
     excess_hours: Hours
 
 
+class PanelWeekOut(BaseModel):
+    """Uso del equipo en una semana del periodo."""
+
+    week: str
+    hours: Hours
+    capacity: Hours | None = None
+    utilization: int | None = None
+
+
+class PanelPendingOut(BaseModel):
+    """Tarea que todavia no cuenta en la matriz."""
+
+    id: int
+    title: str
+    project_id: int
+    project_name: str
+    problem: str
+
+
 class PanelProjectOut(BaseModel):
     """Proyecto visible, con el trabajo que concentra."""
 
@@ -357,6 +394,7 @@ class PanelProjectOut(BaseModel):
     estimated_hours: Hours
     task_count: int
     people_count: int
+    department_id: int | None = None
 
 
 class PanelOut(BaseModel):
@@ -373,6 +411,8 @@ class PanelOut(BaseModel):
     projects: list[PanelProjectOut]
     total_tasks: int
     total_people: int
+    weeks: list[PanelWeekOut] = []
+    pending: list[PanelPendingOut] = []
 
 
 class GanttTaskOut(BaseModel):

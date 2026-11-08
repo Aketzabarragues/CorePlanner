@@ -10,7 +10,14 @@ const departments = [
 ]
 
 const projects = [
-  { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
+  {
+    id: 1,
+    name: 'Linea Pasteurizadora SIVE',
+    status: 'active',
+    department_id: 1,
+    owner_id: 1,
+    owner_name: 'Ana Beltrán',
+  },
 ]
 
 const members = [
@@ -22,10 +29,21 @@ const members = [
     role_name: 'Project Manager',
     weekly_base_hours: 40,
   },
+  {
+    user_id: 2,
+    name: 'Jorge',
+    email: 'jorge@example.com',
+    role_id: 2,
+    role_name: 'Ingeniero',
+    weekly_base_hours: 40,
+  },
 ]
 
 const capacityReport = {
-  weeks: [{ week: '2026-W45', holidays: [] }],
+  weeks: [
+    { week: '2026-W45', holidays: [] },
+    { week: '2026-W46', holidays: [] },
+  ],
   rows: [
     {
       user_id: 1,
@@ -33,10 +51,30 @@ const capacityReport = {
       weekly_base_hours: 40,
       total_hours: 24,
       has_overload: false,
-      cells: [{ week: '2026-W45', hours: 24, is_overloaded: false }],
+      cells: [
+        { week: '2026-W45', hours: 16, is_overloaded: false },
+        { week: '2026-W46', hours: 8, is_overloaded: false },
+      ],
+    },
+    {
+      user_id: 2,
+      name: 'Jorge',
+      weekly_base_hours: 40,
+      total_hours: 8,
+      has_overload: false,
+      cells: [
+        { week: '2026-W45', hours: 8, is_overloaded: false },
+        { week: '2026-W46', hours: 0, is_overloaded: false },
+      ],
     },
   ],
 }
+
+const tasks = [
+  { id: 1, project_id: 1, assigned_to: 1, title: 'Programacion SCADA', status: 'in_progress' },
+  { id: 2, project_id: 1, assigned_to: 2, title: 'Planos', status: 'backlog' },
+  { id: 3, project_id: 1, assigned_to: 1, title: 'Pruebas', status: 'done' },
+]
 
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
@@ -51,6 +89,7 @@ function setupFetch() {
         user: { id: 9, name: 'Admin' },
       })
     }
+    if (url.includes('/tasks')) return jsonResponse(tasks)
     if (url.includes('/capacity')) return jsonResponse(capacityReport)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.endsWith('/departments')) return jsonResponse(departments)
@@ -64,12 +103,11 @@ async function mountView() {
     history: createMemoryHistory(),
     routes: [
       { path: '/projects/:id', name: 'project', component: { render: () => null } },
-      { path: '/projects/:id/capacity', name: 'capacity', component: { render: () => null } },
-      { path: '/projects/:id/gantt', name: 'gantt', component: { render: () => null } },
-      { path: '/projects/:id/calendar', name: 'calendar', component: { render: () => null } },
       { path: '/projects/:id/kanban', name: 'kanban', component: { render: () => null } },
       { path: '/projects/:id/members', name: 'members', component: { render: () => null } },
       { path: '/projects/:id/settings', name: 'settings', component: { render: () => null } },
+      { path: '/projects/:id/gantt', name: 'gantt', component: { render: () => null } },
+      { path: '/capacity', name: 'global-capacity', component: { render: () => null } },
     ],
   })
   await router.push('/projects/1')
@@ -90,32 +128,74 @@ describe('ProjectSummaryView', () => {
     setupFetch()
   })
 
-  it('muestra el nombre del proyecto y su departamento', async () => {
+  it('muestra el nombre, el departamento, el estado y el responsable', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('Linea Pasteurizadora SIVE')
     expect(wrapper.text()).toContain('Automatización & SCADA')
+    expect(wrapper.find('[data-testid="project-status"]').text()).toContain('Activo')
+    expect(wrapper.text()).toContain('Ana Beltrán')
   })
 
-  it('resume estado, personas y horas cargadas', async () => {
+  it('ofrece las cuatro secciones del proyecto', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Activo')
-    expect(wrapper.text()).toContain('24 h')
+    expect(wrapper.find('[data-testid="project-tab-resumen"]').attributes('href')).toBe(
+      '/projects/1',
+    )
+    expect(wrapper.find('[data-testid="project-tab-tablero"]').attributes('href')).toBe(
+      '/projects/1/kanban',
+    )
+    expect(wrapper.find('[data-testid="project-tab-miembros"]').attributes('href')).toBe(
+      '/projects/1/members',
+    )
+    expect(wrapper.find('[data-testid="project-tab-ajustes"]').attributes('href')).toBe(
+      '/projects/1/settings',
+    )
   })
 
-  it('enseña el reparto de carga', async () => {
+  it('enlaza con la capacidad y el Gantt', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Ana')
-    expect(wrapper.text()).toContain('24 h de 40 h base')
+    expect(wrapper.find('[data-testid="project-go-capacity"]').attributes('href')).toBe(
+      '/capacity?project=1',
+    )
+    expect(wrapper.find('[data-testid="project-go-gantt"]').attributes('href')).toBe(
+      '/projects/1/gantt',
+    )
   })
 
-  it('ofrece las vistas del proyecto', async () => {
+  it('cuenta las tareas por estado', async () => {
     const wrapper = await mountView()
 
-    const enlaces = wrapper.findAll('a').map((a) => a.attributes('href'))
-    expect(enlaces).toContain('/projects/1/capacity')
-    expect(enlaces).toContain('/projects/1/kanban')
+    const contadores = wrapper.findAll('[data-testid="project-status-count"]')
+    expect(contadores).toHaveLength(4)
+    expect(contadores[0].text()).toContain('Backlog')
+    expect(contadores[0].text()).toContain('1')
+    expect(contadores[1].text()).toContain('En Desarrollo')
+    expect(contadores[1].text()).toContain('1')
+    expect(contadores[3].text()).toContain('Completado')
+    expect(contadores[3].text()).toContain('1')
+  })
+
+  it('enseña las horas del proyecto por semana', async () => {
+    const wrapper = await mountView()
+
+    const grafico = wrapper.find('[data-testid="project-week-bars"]')
+    expect(grafico.exists()).toBe(true)
+    expect(grafico.attributes('aria-label')).toContain('semana 45')
+    expect(grafico.attributes('aria-label')).toContain('24 horas')
+  })
+
+  it('lista el equipo con su rol y sus horas', async () => {
+    const wrapper = await mountView()
+
+    const equipo = wrapper.findAll('[data-testid="project-team-row"]')
+    expect(equipo).toHaveLength(2)
+    expect(equipo[0].text()).toContain('Ana')
+    expect(equipo[0].text()).toContain('Project Manager')
+    expect(equipo[0].text()).toContain('24 h')
+    expect(equipo[1].text()).toContain('Jorge')
+    expect(equipo[1].text()).toContain('Ingeniero')
   })
 })

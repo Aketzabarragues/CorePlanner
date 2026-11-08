@@ -231,6 +231,17 @@ describe('AppShell', () => {
     expect(inactivo.classes()).toContain('border-transparent')
   })
 
+  it('con la pestana del calendario abierta se marca el calendario laboral', async () => {
+    const { wrapper } = await mountShell('/configuration?tab=calendar')
+
+    const enlaces = wrapper.findAll('aside a')
+    const calendario = enlaces.find((link) => link.text().includes('Calendario Laboral'))
+    const configuracion = enlaces.find((link) => link.text().includes('Configuración'))
+
+    expect(calendario.classes()).toContain('border-indigo-500')
+    expect(configuracion.classes()).toContain('border-transparent')
+  })
+
   it('las migas de pan muestran departamento, proyecto y vista', async () => {
     const { wrapper } = await mountShell('/projects/1/gantt')
 
@@ -331,15 +342,39 @@ describe('AppShell', () => {
   it('el boton de colapsar reduce el menu lateral', async () => {
     const { wrapper } = await mountShell()
 
-    expect(wrapper.find('aside').classes()).toContain('w-64')
+    expect(wrapper.find('aside').classes()).toContain('sm:w-64')
 
     const colapsar = wrapper
       .findAll('button')
       .find((button) => button.attributes('title') === 'Colapsar el menú')
     await colapsar.trigger('click')
 
-    expect(wrapper.find('aside').classes()).toContain('w-16')
+    expect(wrapper.find('aside').classes()).toContain('sm:w-16')
     expect(localStorage.getItem('coreplanner_sidebar')).toBe('1')
+  })
+
+  it('el boton del menu abre el cajon en el movil', async () => {
+    const { wrapper } = await mountShell()
+
+    const boton = wrapper.find('[data-testid="menu-toggle"]')
+    expect(boton.exists()).toBe(true)
+    expect(boton.attributes('aria-expanded')).toBe('false')
+
+    await boton.trigger('click')
+
+    expect(wrapper.find('[data-testid="menu-toggle"]').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('[data-testid="menu-overlay"]').exists()).toBe(true)
+    expect(wrapper.find('aside').classes()).toContain('z-50')
+  })
+
+  it('el cajon se cierra al pulsar fuera', async () => {
+    const { wrapper } = await mountShell()
+
+    await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+    await wrapper.find('[data-testid="menu-overlay"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="menu-overlay"]').exists()).toBe(false)
+    expect(wrapper.find('aside').classes()).toContain('max-sm:hidden')
   })
 
   it('el pie muestra las iniciales, el nombre y el departamento', async () => {

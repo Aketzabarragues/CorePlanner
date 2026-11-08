@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import Project, Task
 from .capacity import CapacityReport, build_capacity_report
 from .capacity_repository import load_capacity_for_projects
-from .schedule import current_week_key
+from .schedule import current_week_key, week_window
 from .tasks import list_tasks_for_projects
 from .units import from_units, to_units
 
@@ -36,6 +36,27 @@ class PanelOverload:
 
 
 @dataclass(frozen=True, slots=True)
+class PanelWeek:
+    """Uso del equipo en una semana del periodo."""
+
+    week: str
+    units: int
+    capacity_units: int | None
+    utilization: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class PanelPending:
+    """Tarea que todavia no cuenta en la matriz."""
+
+    id: int
+    title: str
+    project_id: int
+    project_name: str
+    problem: str
+
+
+@dataclass(frozen=True, slots=True)
 class PanelProject:
     """Proyecto visible, con el trabajo que concentra."""
 
@@ -45,6 +66,7 @@ class PanelProject:
     estimated_units: int
     task_count: int
     people_count: int
+    department_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +84,8 @@ class Panel:
     projects: tuple[PanelProject, ...]
     total_tasks: int
     total_people: int
+    weeks: tuple[PanelWeek, ...] = ()
+    pending: tuple[PanelPending, ...] = ()
 
     def to_dict(self) -> dict:
         """Representacion del panel. Las horas siguen siendo Decimal."""
@@ -92,11 +116,35 @@ class Panel:
                     "estimated_hours": from_units(project.estimated_units),
                     "task_count": project.task_count,
                     "people_count": project.people_count,
+                    "department_id": project.department_id,
                 }
                 for project in self.projects
             ],
             "total_tasks": self.total_tasks,
             "total_people": self.total_people,
+            "weeks": [
+                {
+                    "week": item.week,
+                    "hours": from_units(item.units),
+                    "capacity": (
+                        from_units(item.capacity_units)
+                        if item.capacity_units is not None
+                        else None
+                    ),
+                    "utilization": item.utilization,
+                }
+                for item in self.weeks
+            ],
+            "pending": [
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "project_id": task.project_id,
+                    "project_name": task.project_name,
+                    "problem": task.problem,
+                }
+                for task in self.pending
+            ],
         }
 
 
@@ -123,6 +171,71 @@ def reference_week(weeks: Sequence[str], today: date | None = None) -> str | Non
     if current in weeks:
         return current
     return weeks[0]
+
+
+def team_weeks(report: CapacityReport) -> tuple[PanelWeek, ...]:
+    """Uso del equipo en cada semana del periodo.
+
+    Una semana en la que alguien no tiene capacidad conocida no se cuenta como
+    capacidad cero: no se sabe, y por eso el porcentaje tampoco se publica.
+    """
+    rows: list[PanelWeek] = []
+    for week in report.weeks:
+        units = 0
+        capacity = 0
+        unknown = False
+        for row in report.rows:
+            cell = next((item for item in row.cells if item.week == week), None)
+            if cell is None:
+                continue
+            units += cell.units
+            if cell.capacity_units is None:
+                unknown = True
+                continue
+            capacity += cell.capacity_units
+        rows.append(
+            PanelWeek(
+                week=week,
+                units=units,
+                capacity_units=None if unknown else capacity,
+                utilization=None if unknown else utilization_percent(units, capacity),
+            )
+        )
+    return tuple(rows)
+
+
+def pending_tasks(
+    report: CapacityReport,
+    tasks: Sequence[Task],
+    project_names: dict[int, str],
+) -> tuple[PanelPending, ...]:
+    """Tareas que no cuentan todavia en la matriz.
+
+    Son las que no tienen persona o las que no tienen fechas: el motor las deja
+    fuera y aqui se ven, con el motivo, para que la planificacion incompleta no
+    pase desapercibida.
+    """
+    unassigned = set(report.unassigned_task_ids)
+    undated = set(report.undated_task_ids)
+    entries: list[PanelPending] = []
+    for task in tasks:
+        if task.id in unassigned:
+            problem = "Sin persona"
+        elif task.id in undated:
+            problem = "Sin fechas"
+        else:
+            continue
+        entries.append(
+            PanelPending(
+                id=task.id,
+                title=task.title,
+                project_id=task.project_id,
+                project_name=project_names.get(task.project_id, ""),
+                problem=problem,
+            )
+        )
+    entries.sort(key=lambda item: (item.project_name.lower(), item.title.lower()))
+    return tuple(entries)
 
 
 def build_panel(
@@ -189,9 +302,12 @@ def build_panel(
                 ),
                 task_count=len(project_tasks),
                 people_count=len(people),
+                department_id=project.department_id,
             )
         )
     panel_projects.sort(key=lambda item: (-item.estimated_units, item.name))
+
+    project_names = {project.id: project.name for project in projects}
 
     return Panel(
         week=week,
@@ -205,18 +321,25 @@ def build_panel(
         projects=tuple(panel_projects),
         total_tasks=len(tasks),
         total_people=len(report.rows),
+        weeks=team_weeks(report),
+        pending=pending_tasks(report, tasks, project_names),
     )
 
 
 async def load_panel(
     session: AsyncSession,
     projects: Sequence[Project],
+    weeks: Sequence[str] | None = None,
+    today: date | None = None,
 ) -> Panel:
     """Panel de la organizacion para los proyectos visibles."""
+    window = tuple(weeks) if weeks else week_window(today=today)
     project_ids = [project.id for project in projects]
     if not project_ids:
-        return build_panel(build_capacity_report([], []), [], [])
+        return build_panel(build_capacity_report([], [], weeks=window), [], [], today)
 
-    report = await load_capacity_for_projects(session, project_ids)
+    report = await load_capacity_for_projects(
+        session, project_ids, weeks=window
+    )
     tasks = await list_tasks_for_projects(session, project_ids)
-    return build_panel(report, projects, tasks)
+    return build_panel(report, projects, tasks, today)

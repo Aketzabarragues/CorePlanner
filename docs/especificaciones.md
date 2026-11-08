@@ -237,7 +237,8 @@ las partes coincide exactamente con el total.
 5. **El tipo de contrato tiene tres valores** (objetivo, techo, mejor
    esfuerzo) y no cambia todavia el calculo.
 6. **La pantalla de personas y competencias vive en el espacio global** y tiene
-   tres pestanas: directorio, competencias y dias no laborables.
+   dos pestanas: directorio y competencias. Los dias no laborables se han ido
+   a la configuracion, en la pestana de calendario laboral.
 
 ### Donde se configura cada cosa
 
@@ -246,7 +247,7 @@ las partes coincide exactamente con el total.
 | Competencias del catalogo | Configuracion, pestana de competencias | Gerente |
 | Nivel de una persona en cada competencia | Ficha de la persona | Gerente |
 | Horario de una persona | Ficha de la persona, historial de horarios | Gerente |
-| Dias no laborables | Pestana de dias no laborables | Gerente |
+| Dias no laborables | Configuracion, pestana de calendario laboral | Gerente |
 | Puesto, nivel y tipo de contrato | Configuracion, personas | Gerente |
 | Equipo de un proyecto | Vista de miembros del proyecto | Gerente |
 | Nombre, estado, departamento gestor y responsable de un proyecto | Vista de configuracion del proyecto | Gerente |
@@ -435,12 +436,13 @@ se quitan.
 
 ### Que entra
 
-- La **pantalla global** del calendario laboral, de lectura.
-- La **tabla de dias no laborables**, con fecha, festivo, alcance, jornada y las
-  **tareas afectadas**: cuantas tareas cubren ese dia y estan asignadas a
-  personas a las que el festivo aplica.
+- La **pestana de calendario laboral** de la configuracion, que es donde vive
+  desde el §23. Es de lectura para cualquier rol y de escritura para el gerente.
 - La **rejilla del mes** con los dias no laborables marcados por su alcance: en
   gris los globales, en ambar los de departamento y en morado los de persona.
+- El **detalle del dia** con el festivo, su alcance, su jornada y las
+  **tareas afectadas**: cuantas tareas cubren ese dia y estan asignadas a
+  personas a las que el festivo aplica.
 - El **cuadro de impacto en la capacidad semanal**: por persona y semana, la
   capacidad que habria sin el festivo, la capacidad efectiva, la diferencia y el
   motivo.
@@ -451,8 +453,6 @@ se quitan.
 
 - El **recalculo de asignaciones** al publicar un festivo: eso es motor, no
   pantalla, y va aparte.
-- El **alta de dias no laborables** desde aqui: se sigue haciendo en la
-  pestana "Dias no laborables" de Personas.
 - Los **veredictos discretos** (aprobaciones, incidencias de politica): son la
   politica de capacidad y van aparte.
 - Un **calendario por persona**: la tabla ya dice a quien aplica cada festivo.
@@ -871,3 +871,124 @@ interfaz.
 3. **La previsualizacion usa las horas de la tarea en esa semana**, no las
    estimadas enteras: es lo que cuenta la celda, asi que lo que se previsualiza
    es exactamente lo que va a pasar.
+
+## 23. Pantallas personales, panel, proyecto y calendario laboral integrado
+
+Las cuatro pantallas que faltan de la propuesta (5.2 a 5.5) son hoy listas de
+tablas: Mi trabajo es una tabla de semanas y otra de tareas, el Panel son
+cuatro cifras sueltas, el resumen de proyecto son tres indicadores, y el
+calendario laboral vive en una vista aparte a la que no se llega desde
+Configuracion.
+
+Este bloque las lleva al estado del prototipo. Es la fase 6 de la propuesta de
+interfaz, la ultima antes del menu agrupado y las rutas unificadas (fase 5).
+
+### Que entra
+
+**Mi trabajo** (`views/MyWorkView.vue`)
+
+- **Banner de sobrecarga**, uno por cada semana sobrecargada, con las horas y
+  la capacidad de esa semana.
+- **Grafico de barras de las proximas 8 semanas**, con la linea del 100 % de
+  la capacidad, el icono de sobrecarga y la marca de "Hoy" y de festivo. El
+  contenedor lleva `role="img"` y un `aria-label` que resume las cifras.
+- **Tarjeta "Esta semana"**: horas, capacidad, barra y pila de estado.
+- **Pestanas de tareas**: "Esta semana", "Proximas" y "Completadas".
+- **Selector de estado por tarea**, para cambiar el estado sin salir de la
+  pantalla.
+- **Los festivos de cada semana**, que el backend ya calcula: hacen falta para
+  la insignia de festivo del grafico.
+
+**Panel** (`views/PanelView.vue`)
+
+- **Cuatro indicadores clicables**, que llevan a la pantalla de origen: uso del
+  equipo, personas con sobrecarga, proyectos activos y planificacion
+  incompleta.
+- **Uso del equipo por semana**, con la linea del 100 %.
+- **Personas con sobrecarga**, agrupadas por persona, con su semana y su
+  maximo.
+- **Proyectos con mas carga**, con su barra.
+- **Planificacion incompleta**: las tareas sin persona y las tareas sin fechas,
+  con el motivo y una accion para resolverlas.
+
+**Proyecto** (`views/ProjectSummaryView.vue`)
+
+- **Cabecera** con nombre, estado, departamento y responsable.
+- **Pestanas**: Resumen, Tablero, Miembros y Ajustes. Las cuatro vistas ya
+  existen; aqui entran en la pantalla de resumen.
+- **Accesos a "Ver su capacidad" y "Ver su Gantt"**.
+- **Estado de las tareas**: barra segmentada y contadores por estado.
+- **Horas del proyecto por semana**.
+- **Equipo**, con el rol de cada persona en el proyecto.
+
+**Configuracion** (`views/SettingsView.vue`)
+
+- **Pestana "Calendario laboral"** al principio de la lista; el resto de las
+  pestanas no cambia.
+- **Lectura para cualquier rol**: quien no es gerente ve solo esta pestana y sin
+  los controles de alta y baja.
+- **Cuadricula mensual** con los tres alcances distinguibles (Global,
+  Departamento, Persona) y el medio dia marcado con "1/2".
+- **Panel de detalle del dia**: nombre, alcance, jornada, impacto por persona
+  (antes h -> despues h) y el aviso de las tareas afectadas.
+- **Alta de dia no laborable** desde la propia pestana.
+- **Eliminacion con confirmacion**.
+
+**Movil y menu en cajon**
+
+- **Menu en cajon** por debajo de 640 px, con el boton de apertura en la
+  cabecera y su `aria-expanded`.
+- **Objetivos tactiles de 44 px** en los controles de la barra superior.
+- **Tarjetas apiladas** en Mi trabajo y en el Panel.
+
+### Que no entra
+
+- **El menu agrupado y las rutas unificadas**: son de la fase 5, la de mayor
+  riesgo. La fase 6 no cambia ninguna URL, salvo la entrada del calendario.
+- **El Gantt global con filtro de proyecto**: "Ver su Gantt" abre la vista del
+  proyecto, no la global con filtro.
+- **La edicion completa de una tarea**: el selector de estado cambia el estado
+  y nada mas.
+- **Los filtros y el rango de la matriz**: son de la fase 3 y no cambian.
+- **La entrada por rol**: el tecnico sigue entrando por Mi trabajo y el gerente
+  por Panel.
+- **Las mejoras estructurales** que estan pendientes de decidir (Alembic, CI,
+  LICENSE, limite de intentos del login).
+
+### Decisiones tomadas
+
+Del operario:
+
+1. **El boton "Avisar a mi jefa" se retira.** No hay endpoint de notificacion y
+   no lo hay en esta fase: el banner de sobrecarga informa y nada mas.
+2. **El selector de estado de las tareas de Mi trabajo se implementa.** Cada
+   tarea lleva un desplegable que la mueve de estado con el
+   `PATCH /api/tasks/{id}` de siempre.
+3. **El calendario laboral vive en un solo sitio**: la primera pestana de la
+   configuracion. La ruta `/work-calendar` redirige ahi, de modo que los
+   enlaces antiguos siguen funcionando.
+
+Del agente:
+
+4. **La ventana por defecto son nueve semanas**, la en curso y las ocho
+   siguientes, en `/api/my-work` y en `/api/panel`: la misma que muestra por
+   defecto la matriz, para que las tres vistas hablen de las mismas semanas.
+   Los dos endpoints aceptan `from` y `to`, y rechazan con 422 un rango a medias.
+5. **La planificacion incompleta se resuelve desde el tablero**: el enlace
+   "Resolver" lleva a `/projects/{id}/kanban`, que lista todas las tareas del
+   proyecto, incluidas las que no tienen persona y las que no tienen fechas.
+6. **"Ver su Gantt" abre el Gantt del proyecto** (`/projects/{id}/gantt`). El
+   Gantt global con filtro de proyecto es de la fase 5.
+7. **Se mantiene la pestana "Miembros"** de la configuracion. El prototipo no
+   la trae, pero quitarla perderia funcionalidad.
+8. **Las horas por semana de la pantalla de proyecto se suman en el frontend**,
+   con lo que da el motor, que es el mismo criterio que ya usa el informe de
+   carga por proyecto.
+9. **El calendario laboral se lee desde cualquier rol y solo lo escribe el
+   gerente.** Antes de mudarse de sitio, la tabla de festivos era visible para
+   todos y solo el gerente podia darlos de alta o quitarlos; ese reparto se
+   conserva: quien no es gerente ve la pestana del calendario y nada mas, sin
+   el formulario ni los botones de alta y baja.
+10. **La ruta `/work-calendar` sigue en el menu** y lleva a la pestana del
+    calendario dentro de la configuracion, que es la que queda marcada como
+    vista abierta.

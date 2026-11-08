@@ -3,18 +3,19 @@
  * Personas y competencias.
  *
  * La persona es mas que un usuario: tiene puesto, tipo de contrato, horario
- * versionado y competencias. La pantalla tiene tres pestanas: el directorio
- * con el horario vigente de cada persona, la matriz de competencias y el
+ * versionado y competencias. La pantalla tiene dos pestanas: el directorio con
+ * el horario vigente de cada persona y la matriz de competencias.
+ *
+ * Los dias no laborables se mantienen en Configuracion, en la pestana del
  * calendario laboral.
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { calendarApi, departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
+import { departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
 import AsyncState from '../components/common/AsyncState.vue'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDrawer from '../components/people/PersonDrawer.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
-import WorkCalendar from '../components/people/WorkCalendar.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { currentWeekKey, shiftWeek, weekLabel } from '../utils/weeks'
@@ -22,7 +23,6 @@ import { currentWeekKey, shiftWeek, weekLabel } from '../utils/weeks'
 const TABS = [
   { name: 'directory', label: 'Directorio' },
   { name: 'skills', label: 'Competencias' },
-  { name: 'calendar', label: 'Días no laborables' },
 ]
 
 const auth = useAuthStore()
@@ -34,7 +34,6 @@ const isManager = ref(false)
 
 const people = ref([])
 const skills = ref([])
-const days = ref([])
 const departments = ref([])
 const selectedId = ref(null)
 
@@ -47,15 +46,13 @@ async function load() {
     const token = await auth.ensureSession()
     const scope = await meApi.get(token)
     isManager.value = scope.is_manager === true
-    const [peopleData, skillsData, daysData, departmentsData] = await Promise.all([
+    const [peopleData, skillsData, departmentsData] = await Promise.all([
       peopleApi.list(token, { week: week.value }),
       skillsApi.catalog(token),
-      calendarApi.list(token),
       departmentsApi.list(token),
     ])
     people.value = peopleData
     skills.value = skillsData
-    days.value = daysData
     departments.value = departmentsData
   } catch (err) {
     error.value = err.message
@@ -139,16 +136,9 @@ onMounted(load)
         @open="selectedId = $event"
       />
       <SkillsMatrix
-        v-else-if="currentTab.name === 'skills'"
+        v-else
         :people="people"
         :skills="skills"
-      />
-      <WorkCalendar
-        v-else
-        :days="days"
-        :departments="departments"
-        :is-manager="isManager"
-        @saved="load"
       />
 
       <PersonDrawer

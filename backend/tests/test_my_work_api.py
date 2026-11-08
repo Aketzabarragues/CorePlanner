@@ -18,6 +18,8 @@ from backend.database import create_engine, get_db
 from backend.main import app
 from backend.models import (
     Base,
+    NonWorkingDay,
+    NonWorkingDayScope,
     Project,
     ProjectMember,
     Role,
@@ -25,8 +27,12 @@ from backend.models import (
     TaskStatus,
     User,
 )
+from backend.services.schedule import current_week_key, week_window
 
 PASSWORD = "clave-de-prueba"
+
+RANGO = "?from=2026-W45&to=2026-W46"
+"""Rango del periodo de los datos de prueba, para no depender del reloj."""
 
 
 @pytest.fixture
@@ -135,6 +141,14 @@ async def _seed(session) -> dict[str, int]:
     )
     await session.flush()
 
+    session.add(
+        NonWorkingDay(
+            date=date(2026, 12, 8),
+            name="Dia de la Constitucion",
+            scope=NonWorkingDayScope.GLOBAL.value,
+        )
+    )
+
     ids.update(
         linea=linea.id,
         red=red.id,
@@ -174,7 +188,7 @@ async def test_mi_trabajo_exige_token(client: AsyncClient):
 async def test_mi_trabajo_devuelve_solo_las_tareas_propias(client: AsyncClient):
     headers = await _auth(client, "ana@example.com")
 
-    response = await client.get("/api/my-work", headers=headers)
+    response = await client.get(f"/api/my-work{RANGO}", headers=headers)
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -185,7 +199,9 @@ async def test_mi_trabajo_devuelve_solo_las_tareas_propias(client: AsyncClient):
 async def test_mi_trabajo_reparte_las_horas_por_semana(client: AsyncClient):
     headers = await _auth(client, "ana@example.com")
 
-    response = await client.get("/api/my-work", headers=headers)
+    response = await client.get(
+        "/api/my-work?from=2026-W45&to=2026-W46", headers=headers
+    )
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -197,10 +213,62 @@ async def test_mi_trabajo_reparte_las_horas_por_semana(client: AsyncClient):
     assert data["total_hours"] == 24
 
 
-async def test_mi_trabajo_marca_la_sobrecarga(client: AsyncClient):
+async def test_la_ventana_por_defecto_es_continua(client: AsyncClient):
     headers = await _auth(client, "ana@example.com")
 
     response = await client.get("/api/my-work", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # La ventana por defecto es la semana actual y las ocho siguientes, y sale
+    # entera aunque no haya actividad en ella.
+    assert [cell["week"] for cell in data["weeks"]] == list(week_window())
+    assert data["current_week"] == current_week_key()
+    assert _week(data, "2026-W47")["hours"] == 0
+
+
+async def test_mi_trabajo_solo_acepta_un_rango_completo(client: AsyncClient):
+    headers = await _auth(client, "ana@example.com")
+
+    response = await client.get("/api/my-work?from=2026-W45", headers=headers)
+
+    assert response.status_code == 422, response.text
+
+
+async def test_mi_trabajo_marca_el_festivo_de_la_semana(client: AsyncClient):
+    headers = await _auth(client, "ana@example.com")
+
+    response = await client.get(
+        "/api/my-work?from=2026-W50&to=2026-W50", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    festivos = _week(data, "2026-W50")["holidays"]
+    assert [festivo["name"] for festivo in festivos] == ["Dia de la Constitucion"]
+    assert festivos[0]["date"] == "2026-12-08"
+    assert festivos[0]["scope"] == "global"
+
+
+async def test_mi_trabajo_dice_las_semanas_de_cada_tarea(client: AsyncClient):
+    headers = await _auth(client, "ana@example.com")
+
+    response = await client.get(
+        "/api/my-work?from=2026-W45&to=2026-W46", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    tareas = {tarea["id"]: tarea for tarea in response.json()["tasks"]}
+    assert tareas[client.ids["tarea_semana"]]["weeks"] == ["2026-W45"]
+    # La tarea partida cae en las dos semanas.
+    assert tareas[client.ids["tarea_partida"]]["weeks"] == ["2026-W45", "2026-W46"]
+    assert tareas[client.ids["tarea_otro_proyecto"]]["weeks"] == ["2026-W46"]
+
+
+async def test_mi_trabajo_marca_la_sobrecarga(client: AsyncClient):
+    headers = await _auth(client, "ana@example.com")
+
+    response = await client.get(f"/api/my-work{RANGO}", headers=headers)
 
     assert response.status_code == 200, response.text
     data = response.json()
@@ -228,7 +296,7 @@ async def test_mi_trabajo_de_una_persona_sin_tareas_no_muestra_trabajo_ajeno(
 async def test_mi_trabajo_devuelve_el_proyecto_de_cada_tarea(client: AsyncClient):
     headers = await _auth(client, "ana@example.com")
 
-    response = await client.get("/api/my-work", headers=headers)
+    response = await client.get(f"/api/my-work{RANGO}", headers=headers)
 
     assert response.status_code == 200, response.text
     tareas = {tarea["id"]: tarea for tarea in response.json()["tasks"]}

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 
+from ..models import Project, User
 from ..schemas import ProjectCreate, ProjectOut, ProjectUpdate
 from ..security import (
     CurrentUser,
@@ -19,11 +21,38 @@ from .params import week_range_or_422
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+async def _project_out(session: SessionDep, projects: list[Project]) -> list[ProjectOut]:
+    """Proyectos con el nombre de su responsable.
+
+    El nombre del responsable se resuelve aqui, en una sola consulta, para que
+    la cabecera del proyecto no tenga que ir a buscarlo.
+    """
+    owner_ids = {project.owner_id for project in projects if project.owner_id is not None}
+    names: dict[int, str] = {}
+    if owner_ids:
+        rows = (
+            await session.execute(select(User.id, User.name).where(User.id.in_(owner_ids)))
+        ).all()
+        names = {row.id: row.name for row in rows}
+    return [
+        ProjectOut(
+            id=project.id,
+            name=project.name,
+            status=project.status,
+            parent_id=project.parent_id,
+            department_id=project.department_id,
+            owner_id=project.owner_id,
+            owner_name=names.get(project.owner_id) if project.owner_id else None,
+        )
+        for project in projects
+    ]
+
+
 @router.get("", response_model=list[ProjectOut])
 async def list_projects(user: CurrentUser, session: SessionDep) -> list[ProjectOut]:
     """Proyectos a los que tiene acceso el usuario."""
     projects = await list_accessible_projects(session, user)
-    return [ProjectOut.model_validate(project) for project in projects]
+    return await _project_out(session, projects)
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)

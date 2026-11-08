@@ -15,6 +15,32 @@ export function columnLabel(status) {
   return KANBAN_COLUMNS.find((column) => column.status === status)?.label ?? status
 }
 
+/** Color de la pila de estado, para que todas las pantallas hablen igual. */
+const STATUS_PILL = {
+  backlog: 'bg-slate-100 text-slate-700',
+  in_progress: 'bg-blue-100 text-blue-900',
+  testing: 'bg-amber-100 text-amber-800',
+  done: 'bg-emerald-100 text-emerald-800',
+}
+
+/** Clases de la pila de estado de una tarea. */
+export function statusPill(status) {
+  return STATUS_PILL[status] ?? 'bg-slate-100 text-slate-700'
+}
+
+/** Color solido de cada estado, para la barra de reparto de tareas. */
+const STATUS_BAR = {
+  backlog: 'bg-slate-400',
+  in_progress: 'bg-blue-600',
+  testing: 'bg-amber-500',
+  done: 'bg-emerald-600',
+}
+
+/** Color solido del estado de una tarea. */
+export function statusBar(status) {
+  return STATUS_BAR[status] ?? 'bg-slate-400'
+}
+
 /**
  * Columna que hay bajo un punto de la pantalla.
  *

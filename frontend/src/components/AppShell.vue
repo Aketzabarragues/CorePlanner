@@ -46,6 +46,8 @@ const showNewTask = ref(false)
 const saving = ref(false)
 const error = ref(null)
 const notice = ref(null)
+/** Cajon del menu en movil: por debajo de 640 px el menu lateral se esconde. */
+const menuAbierto = ref(false)
 /** Ambito de la persona que entra: rol, departamento y proyectos editables. */
 const scope = ref(null)
 
@@ -109,6 +111,17 @@ const currentViewLabel = computed(() =>
   route.name === 'project' ? 'Resumen' : viewLabel(currentView.value),
 )
 
+/**
+ * Entrada del menu que esta abierta.
+ *
+ * El calendario laboral vive en la configuracion, asi que la ruta es la de
+ * configuracion pero con su pestana: el enlace que se marca es el del
+ * calendario.
+ */
+const activeView = computed(() =>
+  route.name === 'configuration' && route.query.tab === 'calendar' ? 'work-calendar' : route.name,
+)
+
 /** Iniciales de la persona con la sesion iniciada. */
 const initials = computed(() => {
   const name = auth.user?.name ?? ''
@@ -122,6 +135,26 @@ function toggleSidebar() {
   collapsed.value = !collapsed.value
   localStorage.setItem(SIDEBAR_KEY, collapsed.value ? '1' : '0')
 }
+
+/**
+ * Como se pinta el menu lateral.
+ *
+ * En pantallas anchas es una columna que se puede colapsar. En las estrechas
+ * se esconde y, cuando el menu esta abierto, sale como un cajon encima de la
+ * pagina.
+ */
+const sideClasses = computed(() => {
+  if (menuAbierto.value) return 'fixed inset-y-0 left-0 z-50 w-64 shadow-xl'
+  return collapsed.value ? 'max-sm:hidden sm:w-16' : 'max-sm:hidden sm:w-64'
+})
+
+/**
+ * El menu se colapsa solo en pantallas anchas.
+ *
+ * El cajon del movil va siempre desplegado: ocultar sus entradas dejaria el
+ * menu sin contenidos.
+ */
+const menuCompacto = computed(() => collapsed.value && !menuAbierto.value)
 
 /** Destino de un enlace del menu, segun el contexto abierto. */
 function linkFor(item) {
@@ -202,31 +235,43 @@ watch(
   },
   { immediate: true },
 )
+
+/** Al cambiar de vista, el cajon del menu se cierra. */
+watch(() => route.fullPath, () => {
+  menuAbierto.value = false
+})
 </script>
 
 <template>
   <div class="flex h-screen overflow-hidden bg-slate-50">
+    <div
+      v-if="menuAbierto"
+      class="fixed inset-0 z-40 bg-slate-900/50 sm:hidden"
+      data-testid="menu-overlay"
+      @click="menuAbierto = false"
+    ></div>
     <aside
-      class="flex flex-shrink-0 flex-col bg-slate-900 text-slate-300 transition-all duration-200"
-      :class="collapsed ? 'w-16' : 'w-64'"
+      class="flex shrink-0 flex-col bg-slate-900 text-slate-300 transition-all duration-200"
+      :class="sideClasses"
     >
       <div
         class="flex items-center gap-2 px-3 py-4"
-        :class="collapsed ? 'flex-col gap-2 px-2' : ''"
+        :class="menuCompacto ? 'flex-col gap-2 px-2' : ''"
       >
         <span
           class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-siemens-500 text-sm font-bold text-white"
         >
           CP
         </span>
-        <span v-if="!collapsed" class="min-w-0 flex-1">
+        <span v-if="!menuCompacto" class="min-w-0 flex-1">
           <span class="block truncate text-sm font-semibold text-white">CorePlanner</span>
           <span class="block text-[11px] leading-tight text-slate-400">v0.1</span>
         </span>
         <button
           type="button"
-          class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+          class="hidden h-11 w-11 items-center justify-center rounded text-slate-400 hover:bg-slate-800 hover:text-white sm:flex"
           :title="collapsed ? 'Expandir el menú' : 'Colapsar el menú'"
+          data-testid="sidebar-toggle"
           @click="toggleSidebar"
         >
           <span class="inline-flex h-4 w-4">
@@ -250,7 +295,7 @@ watch(
       <nav class="flex-1 overflow-y-auto px-2 py-2">
         <template v-for="section in sections" :key="section.title">
           <p
-            v-if="!collapsed && sections.length > 1"
+            v-if="!menuCompacto && sections.length > 1"
             class="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
           >
             {{ section.title }}
@@ -259,18 +304,18 @@ watch(
             v-for="item in section.items"
             :key="item.name"
             :to="linkFor(item)"
-            class="flex items-center gap-3 rounded-r-md border-l-4 px-3 py-2 text-sm transition-colors"
+            class="flex min-h-11 items-center gap-3 rounded-r-md border-l-4 px-3 py-2 text-sm transition-colors"
             :class="
-              route.name === item.name
+              activeView === item.name
                 ? 'border-indigo-500 bg-slate-800 pl-3 font-medium text-white'
                 : 'border-transparent pl-3 text-slate-400 hover:bg-slate-800 hover:text-white'
             "
-            :title="collapsed ? item.label : undefined"
+            :title="menuCompacto ? item.label : undefined"
           >
             <span class="inline-flex h-5 w-5 shrink-0">
               <AppIcon :name="item.icon" />
             </span>
-            <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
+            <span v-if="!menuCompacto" class="flex-1 truncate">{{ item.label }}</span>
           </RouterLink>
         </template>
       </nav>
@@ -294,17 +339,18 @@ watch(
         >
           {{ initials }}
         </span>
-        <span v-if="!collapsed" class="min-w-0 flex-1">
+        <span v-if="!menuCompacto" class="min-w-0 flex-1">
           <span class="block truncate text-sm font-medium text-white">{{ auth.user?.name }}</span>
           <span class="block truncate text-xs text-slate-400">
             {{ roleLabel || userDepartment?.name || 'Sin departamento' }}
           </span>
         </span>
         <button
-          v-if="!collapsed"
+          v-if="!menuCompacto"
           type="button"
-          class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+          class="flex h-11 w-11 items-center justify-center rounded text-slate-400 hover:bg-slate-800 hover:text-white"
           title="Cerrar sesión"
+          data-testid="logout"
           @click="logout"
         >
           <span class="inline-flex h-4 w-4">
@@ -315,7 +361,19 @@ watch(
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex h-14 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6">
+      <header class="flex h-14 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
+        <button
+          type="button"
+          class="flex h-11 w-11 flex-none items-center justify-center rounded border border-slate-300 bg-white text-slate-700 sm:hidden"
+          aria-label="Abrir el menú"
+          :aria-expanded="menuAbierto"
+          data-testid="menu-toggle"
+          @click="menuAbierto = true"
+        >
+          <span class="inline-flex h-5 w-5">
+            <AppIcon name="menu" />
+          </span>
+        </button>
         <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Migas de pan">
           <template v-if="isGlobal">
             <span class="text-slate-500">Espacio Global</span>
@@ -332,7 +390,7 @@ watch(
         </nav>
 
         <div class="flex shrink-0 items-center gap-3">
-          <div class="w-64">
+          <div class="w-36 sm:w-64">
             <ProjectPicker
               :projects="store.projects"
               :departments="store.departments"
@@ -373,7 +431,8 @@ watch(
             <button
               v-if="canEdit"
               type="button"
-              class="flex items-center gap-1.5 whitespace-nowrap rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white hover:bg-siemens-700"
+              class="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white hover:bg-siemens-700"
+              data-testid="new-task"
               @click="openNewTask"
             >
               <span class="inline-flex h-4 w-4">
@@ -385,7 +444,7 @@ watch(
         </div>
       </header>
 
-      <main class="flex-1 overflow-auto bg-slate-50 p-6">
+      <main class="flex-1 overflow-auto bg-slate-50 p-3 sm:p-6">
         <AlertBanner v-if="error" variant="error" class="mb-3">
           {{ error }}
         </AlertBanner>

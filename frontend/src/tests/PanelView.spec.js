@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import PanelView from '../views/PanelView.vue'
 
@@ -13,11 +14,27 @@ const panel = {
   overloaded: [
     {
       user_id: 3,
-      name: 'Sebastián',
+      name: 'Sebastian',
       week: '2026-W45',
       hours: 50,
       capacity: 40,
       excess_hours: 10,
+    },
+    {
+      user_id: 3,
+      name: 'Sebastian',
+      week: '2026-W46',
+      hours: 44,
+      capacity: 40,
+      excess_hours: 4,
+    },
+    {
+      user_id: 4,
+      name: 'Marta',
+      week: '2026-W46',
+      hours: 44,
+      capacity: 40,
+      excess_hours: 4,
     },
   ],
   projects_by_status: { active: 1, planning: 1 },
@@ -30,6 +47,7 @@ const panel = {
       estimated_hours: 70,
       task_count: 2,
       people_count: 2,
+      department_id: 4,
     },
     {
       id: 2,
@@ -38,10 +56,32 @@ const panel = {
       estimated_hours: 8,
       task_count: 1,
       people_count: 1,
+      department_id: 5,
     },
   ],
   total_tasks: 3,
   total_people: 4,
+  weeks: [
+    { week: '2026-W45', hours: 70, capacity: 80, utilization: 88 },
+    { week: '2026-W46', hours: 94, capacity: 80, utilization: 118 },
+    { week: '2026-W47', hours: 0, capacity: 80, utilization: 0 },
+  ],
+  pending: [
+    {
+      id: 7,
+      title: 'Montaje de cuadros',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      problem: 'Sin persona',
+    },
+    {
+      id: 8,
+      title: 'Plano de implantacion',
+      project_id: 2,
+      project_name: 'Ampliacion linea 2',
+      problem: 'Sin fechas',
+    },
+  ],
 }
 
 function jsonResponse(payload, ok = true, status = 200) {
@@ -63,8 +103,17 @@ function setupFetch(payload = panel) {
 }
 
 async function mountView() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      { path: '/capacity', component: { template: '<div />' } },
+      { path: '/projects', component: { template: '<div />' } },
+      { path: '/projects/:id/kanban', component: { template: '<div />' } },
+    ],
+  })
   const wrapper = mount(PanelView, {
-    global: { plugins: [createPinia()] },
+    global: { plugins: [createPinia(), router] },
   })
   await flushPromises()
   await flushPromises()
@@ -84,28 +133,62 @@ describe('PanelView', () => {
     expect(wrapper.find('[data-testid="panel-utilization"]').text()).toContain('88 %')
     expect(wrapper.text()).toContain('70 h planificadas')
     expect(wrapper.text()).toContain('80 h de capacidad')
-    expect(wrapper.text()).toContain('2026-W45')
+    expect(wrapper.text()).toContain('Media del periodo: 69 %')
   })
 
-  it('lista a quien supera su capacidad', async () => {
+  it('los cuatro indicadores llevan a la pantalla de origen', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.find('[data-testid="panel-overloaded-count"]').text()).toContain('1')
-    const filas = wrapper.findAll('[data-testid="panel-overloaded-row"]')
-    expect(filas).toHaveLength(1)
-    expect(filas[0].text()).toContain('Sebastián')
-    expect(filas[0].text()).toContain('50 h / 40 h')
-    expect(filas[0].text()).toContain('10 h')
+    expect(wrapper.find('[data-testid="panel-card-usage"]').attributes('href')).toBe('/capacity')
+    expect(wrapper.find('[data-testid="panel-card-overloaded"]').attributes('href')).toBe(
+      '/capacity',
+    )
+    expect(wrapper.find('[data-testid="panel-card-projects"]').attributes('href')).toBe('/projects')
+    expect(wrapper.find('[data-testid="panel-card-pending"]').attributes('href')).toBe('/capacity')
   })
 
-  it('ordena los proyectos por carga', async () => {
+  it('agrupa a quien supera su capacidad y ensena su peor semana', async () => {
+    const wrapper = await mountView()
+
+    const filas = wrapper.findAll('[data-testid="panel-overloaded-row"]')
+    expect(filas).toHaveLength(2)
+    expect(filas[0].text()).toContain('Sebastian')
+    expect(filas[0].text()).toContain('Semanas 45 y 46')
+    expect(filas[0].text()).toContain('hasta 125 %')
+    expect(filas[1].text()).toContain('Marta')
+  })
+
+  it('dibuja el uso del equipo semana a semana', async () => {
+    const wrapper = await mountView()
+
+    const grafico = wrapper.find('[data-testid="panel-bars"]')
+    expect(grafico.exists()).toBe(true)
+    expect(grafico.attributes('role')).toBe('img')
+    expect(grafico.attributes('aria-label')).toContain('semana 45')
+  })
+
+  it('ordena los proyectos por carga y cuenta los activos', async () => {
     const wrapper = await mountView()
 
     const filas = wrapper.findAll('[data-testid="panel-project-row"]')
     expect(filas).toHaveLength(2)
     expect(filas[0].text()).toContain('Linea Pasteurizadora SIVE')
     expect(filas[0].text()).toContain('70 h')
-    expect(filas[1].text()).toContain('Ampliacion linea 2')
+    expect(wrapper.find('[data-testid="panel-card-projects"]').text()).toContain('1')
+  })
+
+  it('lista la planificacion incompleta con su motivo', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-pending-count"]').text()).toContain('2')
+    const filas = wrapper.findAll('[data-testid="panel-pending-row"]')
+    expect(filas).toHaveLength(2)
+    expect(filas[0].text()).toContain('Montaje de cuadros')
+    expect(filas[0].text()).toContain('Sin persona')
+    expect(filas[1].text()).toContain('Sin fechas')
+    expect(wrapper.find('[data-testid="panel-pending-resolve"]').attributes('href')).toBe(
+      '/projects/1/kanban',
+    )
   })
 
   it('cuenta los proyectos y las tareas por estado', async () => {
@@ -113,7 +196,6 @@ describe('PanelView', () => {
 
     expect(wrapper.find('[data-testid="panel-projects-status"]').text()).toContain('Activo')
     expect(wrapper.find('[data-testid="panel-tasks-status"]').text()).toContain('En Desarrollo')
-    expect(wrapper.text()).toContain('3')
   })
 
   it('avisa cuando no hay nada planificado', async () => {
@@ -129,12 +211,15 @@ describe('PanelView', () => {
       projects: [],
       total_tasks: 0,
       total_people: 0,
+      weeks: [],
+      pending: [],
     })
 
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="panel-utilization"]').text()).toContain('sin capacidad')
-    expect(wrapper.text()).toContain('Nadie supera su capacidad en el período')
+    expect(wrapper.find('[data-testid="panel-overloaded-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-pending-empty"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('No hay proyectos visibles')
   })
 

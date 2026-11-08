@@ -111,6 +111,7 @@ coreplanner/
 │   │   ├── kanban.py         # tablero por estados
 │   │   ├── me.py             # ambito de la persona que entra
 │   │   ├── members.py        # miembros del proyecto
+│   │   ├── my_work.py        # tareas propias y carga por semana
 │   │   ├── non_working_days.py # dias no laborables del calendario
 │   │   ├── overview.py       # capacidad y Gantt globales
 │   │   ├── people.py         # directorio, horarios y competencias
@@ -118,7 +119,8 @@ coreplanner/
 │   │   ├── roles.py          # catalogo de roles
 │   │   ├── skills.py         # catalogo de competencias
 │   │   ├── tasks.py          # CRUD de tareas
-│   │   └── users.py          # personas de la organizacion
+│   │   ├── users.py          # personas de la organizacion
+│   │   └── work_calendar.py  # informe del calendario laboral
 │   ├── auth.py           # hash bcrypt, emision y validacion de JWT
 │   ├── config.py         # settings via pydantic-settings (prefijo COREPLANNER_)
 │   ├── database.py       # engine asincrono y sesion por peticion
@@ -157,18 +159,19 @@ coreplanner/
 │       │   ├── AppShell.vue       # menu lateral, cabecera y area de contenido
 │       │   ├── CapacityMatrix.vue  # tabla de ocupacion
 │       │   ├── CellBreakdown.vue   # desglose de una celda
+│       │   ├── LoadBars.vue        # grafico de barras de carga por semana
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── LaborMonthGrid.vue  # rejilla del mes del calendario laboral
-│       │   ├── people/             # directorio, ficha, competencias y calendario
-│       │   └── settings/           # paneles de la configuracion
+│       │   │   ├── people/             # directorio, ficha y competencias
+│       │   │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -403,17 +406,23 @@ El detalle completo esta en `docs/especificaciones.md`.
 
 ## Configuracion
 
-La pantalla `/configuration` es del gerente. Reune en seis pestanas todo lo
-que se puede cambiar de la organizacion:
+La pantalla `/configuration` es del gerente, con una excepcion: la pestana del
+calendario laboral se puede leer desde cualquier rol. Reune en siete pestanas
+todo lo que se puede cambiar de la organizacion:
 
 | Pestana | Que se gestiona |
 | --- | --- |
+| Calendario laboral | dias no laborables: alta, baja, alcance y su impacto en la capacidad |
 | Personas | alta y modificacion de gente: rol de empresa, departamento y horas base |
 | Departamentos | alta, renombre y responsable |
 | Proyectos | alta y modificacion: estado, departamento que lo gestiona y responsable |
 | Miembros | quien entra en cada proyecto y con que rol |
 | Roles | catalogo de roles de empresa con su alcance, y de roles de proyecto con sus permisos |
 | Competencias | catalogo de habilidades: alta, renombre y baja |
+
+La pestana abierta vive en la URL (`?tab=`). Quien no es gerente ve solo la del
+calendario laboral, y en modo de lectura: puede consultar los festivos y su
+impacto, pero no darlos de alta ni quitarlos.
 
 Cada panel tiene su boton de alta: el formulario se abre en un modal centrado
 y la tabla se queda limpia. Se cierra con ESC, con el boton o pulsando fuera.
@@ -433,11 +442,12 @@ Reglas del dominio, en `backend/services/configuration.py`:
 
 ## Personas y competencias
 
-La pantalla `/people` es global y tiene tres pestanas: **Directorio**,
-**Competencias** y **Días no laborables**. La persona deja de ser un usuario con
-acceso y pasa a tener una identidad profesional. La pestana **Competencias**
-muestra la matriz de quien cubre que; el catalogo de habilidades se mantiene en
-`/configuration`, en la pestana **Competencias**.
+La pantalla `/people` es global y tiene dos pestanas: **Directorio** y
+**Competencias**. La persona deja de ser un usuario con acceso y pasa a tener una
+identidad profesional. La pestana **Competencias** muestra la matriz de quien
+cubre que; el catalogo de habilidades se mantiene en `/configuration`, en la
+pestana **Competencias**. Los dias no laborables ya no estan aqui: viven en la
+pestana **Calendario laboral** de la configuracion.
 
 | Pieza | Que resuelve |
 | --- | --- |
@@ -472,7 +482,7 @@ a su departamento **sin** la carga.
 | Competencias del catalogo | `/configuration`, pestana **Competencias** | Gerente |
 | Nivel de una persona en cada competencia | Ficha de la persona, en "Competencias" | Gerente |
 | Horario de una persona | Ficha de la persona, en "Historial de horarios" y "Nueva version de horario" | Gerente |
-| Dias no laborables | Pestana **Dias no laborables** | Gerente |
+| Dias no laborables | `/configuration`, pestana **Calendario laboral** | Gerente |
 | Puesto, nivel y tipo de contrato | `/configuration`, pestana **Personas** | Gerente |
 | Horas base semanales | `/configuration`, pestana **Personas** | Gerente |
 | Equipo de un proyecto | `/projects/{id}/members` | Gerente |
@@ -571,17 +581,24 @@ separado, y con los dias no laborables (`/api/non-working-days`).
 
 ## Calendario laboral
 
-La vista `/work-calendar` es la contraparte del calendario de la planificacion:
-el calendario de la planificacion dice **cuando se trabaja** y este dice
+El calendario laboral es la contraparte del calendario de la planificacion: el
+calendario de la planificacion dice **cuando se trabaja** y este dice
 **cuando no**, con el efecto que tiene sobre el trabajo.
 
-- La **tabla de dias no laborables** lleva fecha, motivo, alcance, jornada y las
-  **tareas afectadas**: cuantas tareas cubren ese dia y estan asignadas a
-  personas a las que el festivo aplica.
-- El **alcance** dice a quien aplica el dia: a todo el mundo, a un departamento o
-  a una sola persona (un permiso individual). La rejilla del mes marca cada
-  festivo con su color y su leyenda.
-- El **cuadro de impacto en la capacidad semanal** compara, por persona y
+Vive en **una sola pantalla**: la primera pestana de `/configuration`, la
+**Calendario laboral**. La ruta `/work-calendar` redirige ahi, de modo que los
+enlaces antiguos siguen funcionando.
+
+- La **rejilla del mes** muestra los dias no laborables de cada mes, con el
+  motivo y el color de su alcance. El mes vive en la URL (`?month=`).
+- El **detalle del dia** dice a quien aplica el festivo, que jornada quita y
+  cuanto le cuesta a cada persona, con las **tareas afectadas**: cuantas
+  tareas cubren ese dia y estan asignadas a personas a las que el festivo
+  aplica.
+- El **alcance** distingue tres casos: a todo el mundo, a un departamento o a
+  una sola persona (un permiso individual). Un festivo de medio dia se marca
+  con "1/2".
+- El **cuadro de impacto en la capacidad** del mes compara, por persona y
   semana, la capacidad que habria sin el festivo con la que queda con el: la
   diferencia y el motivo. Solo se listan las semanas en las que un festivo quita
   horas.
@@ -589,9 +606,14 @@ el calendario de la planificacion dice **cuando se trabaja** y este dice
   capacidad, de modo que el cuadro cuadra con ella: una persona con jornada de
   3,6 h pierde 3,60 h, no 8.
 
+**Quien puede hacer que.** La consulta es de lectura y la puede hacer cualquier
+persona con sesion: la pantalla muestra solo el calendario laboral y oculta las
+pestanas de configuracion. El alta y la baja de dias no laborables las lleva
+**solo el gerente**, que es quien puede cambiar la organizacion.
+
 El backend tiene un endpoint propio, `GET /api/work-calendar`, con el rango de
-fechas en `from` y `to`. El alta de dias no laborables sigue en la pestana
-"Dias no laborables" de **Personas y Competencias**.
+fechas en `from` y `to`. El alta y la baja van por `POST /api/non-working-days`
+y `DELETE /api/non-working-days/{id}`, ambos reservados al gerente.
 
 ## Matriz de capacidad
 
@@ -692,14 +714,21 @@ cuando quien entra no es gerente.
 `GET /api/panel` devuelve el estado de la organizacion de un vistazo. La vista
 `/panel` es global y no depende del rol.
 
+- **Cuatro indicadores**, que llevan a la pantalla de origen: uso del equipo en
+  la semana de referencia, personas con sobrecarga, proyectos activos y
+  planificacion incompleta.
 - **Utilizacion**: horas planificadas frente a capacidad en la semana de
   referencia, en porcentaje. La semana de referencia es la semana en curso si
   hay actividad en ella y, si no, la primera del periodo, para que siempre haya
   una semana con datos.
+- **Uso del equipo por semana**: la serie de las nueve semanas del periodo, con
+  la linea del 100 %.
 - **Personas sobrecargadas**: quien supera su capacidad en alguna semana, con
-  sus horas, su capacidad y el exceso.
+  sus semanas y su peor porcentaje.
 - **Proyectos con mas carga**: horas estimadas, numero de tareas y de personas
   de cada proyecto visible, del mas cargado al menos cargado.
+- **Planificacion incompleta**: las tareas sin persona y las tareas sin fechas,
+  con el motivo y un enlace al tablero del proyecto.
 - **Recuentos**: proyectos por estado, tareas por estado, personas con carga y
   tareas del periodo.
 
@@ -714,19 +743,43 @@ capacidad y va aparte.
 entra. La vista `/my-work` es global y no depende del rol: cada quien ve lo
 suyo.
 
-- **Carga por semana**: las horas propias de cada semana del periodo, la
-  capacidad de esa semana y la marca de sobrecarga.
+- **Aviso de sobrecarga**: una banda por cada semana en la que se supera la
+  capacidad, con las horas y el exceso.
+- **Grafico de barras** de las semanas del periodo, con la linea del 100 % de la
+  capacidad, la marca de "Hoy", la insignia de festivo y el triangulo de
+  sobrecarga. El grafico es una imagen con su descripcion: lleva `role="img"`
+  y un `aria-label` que resume las cifras.
+- **Tarjeta "Esta semana"**: horas, capacidad, barra, pila de estado, el numero
+  de tareas y el proximo festivo con lo que le quita de capacidad.
 - **Tareas**: las propias de los proyectos visibles, con su proyecto, su estado,
-  sus fechas y las horas que caen dentro del periodo.
+  sus fechas y las horas que caen dentro del periodo. Se reparten en tres
+  pestanas: **Esta semana**, **Proximas** y **Completadas**.
+- **Cambio de estado**: cada tarea lleva un desplegable que la mueve de estado
+  sin salir de la pantalla.
 
-El periodo es el mismo que muestra la matriz de capacidad global: las semanas
-en las que hay actividad en los proyectos visibles. Asi las dos vistas hablan
-del mismo periodo. Las horas de una tarea son las que caen dentro del periodo,
-que no tienen por que ser las estimadas enteras: una tarea puede empezar antes
-o terminar despues.
+El periodo es una **ventana continua de semanas** que empieza en la actual, la
+misma que muestra por defecto la matriz de capacidad global: asi las dos vistas
+hablan de las mismas semanas. Sin rango, el backend devuelve la semana actual y
+las ocho siguientes; con `from` y `to` se pide el que se quiera.
 
-Es de lectura. Las tareas se editan en el tablero o en el desglose de una
-celda de la matriz.
+Las horas de una tarea son las que caen dentro del periodo, que no tienen por
+que ser las estimadas enteras: una tarea puede empezar antes o terminar
+despues. Cada tarea dice en que semanas del periodo cae.
+
+## Pantalla de proyecto
+
+`/projects/{id}` es el punto de entrada al proyecto. Antes solo mostraba tres
+indicadores; ahora es el resumen completo:
+
+- **Cabecera** con el nombre, el estado, el departamento gestor y el
+  responsable.
+- **Cuatro secciones**: Resumen, Tablero, Miembros y Ajustes, que enlazan con las
+  vistas que ya existen.
+- **Accesos** a *Ver su capacidad* (la matriz global filtrada por proyecto) y a
+  *Ver su Gantt*.
+- **Estado de las tareas**: barra segmentada y contador por estado.
+- **Horas del proyecto por semana**.
+- **Equipo**: quien participa, con su rol en el proyecto y las horas que lleva.
 
 ## Armazon de la aplicacion
 
@@ -765,6 +818,7 @@ En el espacio global:
 | Grupo | Vistas |
 | --- | --- |
 | Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Departamentos, Personas y Competencias |
+| Administracion (solo gerente) | Configuracion |
 
 En el espacio de proyecto:
 
@@ -776,6 +830,18 @@ En el espacio de proyecto:
 La configuracion del proyecto no esta en el menu: se llega desde el resumen
 del proyecto, que es donde tiene sentido abrirla. Solo el gerente puede
 editarla; el resto la ve en modo de solo lectura.
+
+El enlace **Calendario Laboral** lleva a la pestana del calendario dentro de la
+configuracion, que es donde vive.
+
+### Menu en cajon
+
+Por debajo de 640 px el menu lateral no cabe: se esconde y sale como un cajon
+encima de la pagina, abierto con el boton de la cabecera, que lleva su
+`aria-expanded`. Un velo oscuro lo cierra al tocar fuera y el menu se cierra
+solo al cambiar de vista. Los enlaces del menu y los botones de la cabecera
+tienen 44 px de alto, que es el objetivo tactil minimo, y las tarjetas de Mi
+trabajo y del Panel se apilan en una sola columna.
 
 ### Rutas
 
@@ -789,10 +855,10 @@ editarla; el resto la ve en modo de solo lectura.
 | `/capacity` | global | matriz de ocupacion consolidada |
 | `/gantt` | global | cronograma de todos los proyectos |
 | `/calendar` | global | calendario de la planificacion de todos los proyectos |
-| `/work-calendar` | global | dias no laborables y su impacto en la capacidad |
+| `/work-calendar` | global | redirige a la configuracion, pestana **Calendario laboral** |
 | `/departments` | global | departamentos y sus responsables |
-| `/people` | global | directorio, competencias y dias no laborables |
-| `/configuration` | global | configuracion de la organizacion (solo gerente) |
+| `/people` | global | directorio y competencias |
+| `/configuration` | global | configuracion de la organizacion; su primera pestana es el calendario laboral |
 | `/projects/{id}` | proyecto | resumen del proyecto |
 | `/projects/{id}/capacity` | proyecto | matriz de ocupacion |
 | `/projects/{id}/gantt` | proyecto | diagrama de Gantt |
@@ -889,13 +955,26 @@ catalogo de competencias) y bloque de personas: horario versionado,
 dias no laborables con alcance, competencias y pantalla de personas. En el
 espacio de proyecto, los miembros se anaden, cambian de rol y se quitan, y el
 proyecto se configura con nombre, estado, departamento gestor y responsable. La
-pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
-y el panel global resume la organizacion de un vistazo. La planificacion se ve
-como diagrama de Gantt o como calendario mensual, semanal y por dia. El
-calendario laboral dice cuando no se trabaja y cuanto se pierde, con el alcance
-por persona. La capacidad esta en una sola pantalla: la matriz, con el detalle
+planificacion se ve como diagrama de Gantt o como calendario mensual, semanal y
+por dia. La capacidad esta en una sola pantalla: la matriz, con el detalle
 en un panel lateral, los modos de celda y el arrastre con previsualizacion para
 reasignar una tarea.
+
+Las pantallas personales ya no son listas de tablas:
+
+- **Mi trabajo** (`/my-work`) tiene el grafico de carga de las nueve semanas,
+  la tarjeta de la semana en curso, el aviso de sobrecarga y las tareas
+  repartidas en *Esta semana*, *Proximas* y *Completadas*, con el cambio de
+  estado desde la propia pantalla.
+- **El panel** (`/panel`) resume la organizacion con cuatro indicadores que
+  llevan a su origen, la serie del equipo, las sobrecargas, los proyectos con
+  mas carga y la planificacion incompleta.
+- **El resumen del proyecto** (`/projects/{id}`) es la portada del proyecto:
+  estado, equipo, horas por semana y accesos a las demas vistas.
+- **El calendario laboral** vive en la primera pestana de la configuracion, con
+  el mes navegable, el detalle del dia y el impacto en la capacidad.
+- **En movil** el menu lateral sale como un cajon y las tarjetas se apilan.
+
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

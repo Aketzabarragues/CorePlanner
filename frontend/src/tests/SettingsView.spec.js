@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 import SettingsView from '../views/SettingsView.vue'
 
@@ -64,6 +65,30 @@ const skills = [
   { id: 2, name: 'SCADA', person_count: 1 },
 ]
 
+const informeLaboral = {
+  days: [
+    {
+      id: 1,
+      date: '2026-11-02',
+      name: 'Dia de la Constitucion',
+      scope: 'global',
+      half_day: false,
+      affected_task_count: 2,
+    },
+  ],
+  impact: [
+    {
+      user_id: 2,
+      user_name: 'Ana',
+      week: '2026-W45',
+      capacity_without: 40,
+      capacity_effective: 32,
+      difference: 8,
+      reasons: ['Dia de la Constitucion'],
+    },
+  ],
+}
+
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
@@ -84,6 +109,15 @@ function setupFetch(overrides = {}) {
         },
       })
     }
+    if (url.endsWith('/me')) {
+      return jsonResponse({
+        role_label: overrides.manager === false ? 'Técnico' : 'Gerente',
+        is_manager: overrides.manager !== false,
+        department_name: 'Automatización & SCADA',
+        visible_project_ids: [1, 2],
+        editable_project_ids: [1, 2],
+      })
+    }
     if (url.endsWith('/users') && options.method === 'POST') {
       return jsonResponse({ ...people[0], id: 3 }, true, 201)
     }
@@ -100,6 +134,7 @@ function setupFetch(overrides = {}) {
     if (url.endsWith('/roles')) return jsonResponse(companyRoles)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.endsWith('/api/skills')) return jsonResponse(skills)
+    if (url.includes('/work-calendar')) return jsonResponse(informeLaboral)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
 }
@@ -107,7 +142,13 @@ function setupFetch(overrides = {}) {
 async function mountView() {
   const pinia = createPinia()
   setActivePinia(pinia)
-  const wrapper = mount(SettingsView, { global: { plugins: [pinia] } })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/configuration', name: 'configuration', component: { template: '<div />' } }],
+  })
+  await router.push('/configuration')
+  await router.isReady()
+  const wrapper = mount(SettingsView, { global: { plugins: [pinia, router] } })
   await flushPromises()
   await flushPromises()
   return wrapper
@@ -123,11 +164,108 @@ describe('SettingsView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('Configuración')
+    expect(wrapper.text()).toContain('Calendario laboral')
     expect(wrapper.text()).toContain('Personas')
     expect(wrapper.text()).toContain('Departamentos')
     expect(wrapper.text()).toContain('Proyectos')
     expect(wrapper.text()).toContain('Miembros')
     expect(wrapper.text()).toContain('Roles')
+  })
+
+  it('la pestaña del calendario laboral muestra el mes y el detalle', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="labor-month-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="labor-detail"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(true)
+  })
+
+  it('la pestana del calendario no arrastra el catalogo de competencias', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="new-skill"]').exists()).toBe(false)
+  })
+
+  it('al elegir un dia se ve su detalle con el impacto en la capacidad', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .find('[data-testid="labor-month-day"][title="Dia de la Constitucion"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="labor-day-name"]').text()).toContain(
+      'Dia de la Constitucion',
+    )
+    expect(wrapper.find('[data-testid="labor-day-scope"]').text()).toContain('Global')
+    expect(wrapper.find('[data-testid="labor-impact-row"]').text()).toContain('Ana')
+  })
+
+  it('da de alta un dia no laborable de una persona', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="day-date"]').setValue('2026-12-08')
+    await wrapper.find('[data-testid="day-name"]').setValue('Inmaculada')
+    await wrapper.find('[data-testid="day-scope"]').setValue('person')
+    await flushPromises()
+    await wrapper.find('[data-testid="day-user"]').setValue('2')
+    await wrapper.find('[data-testid="non-working-form"]').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url.includes('/api/non-working-days') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toMatchObject({
+      date: '2026-12-08',
+      name: 'Inmaculada',
+      scope: 'person',
+      user_id: 2,
+    })
+  })
+
+  it('elimina un dia no laborable previa confirmacion', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
+    await flushPromises()
+
+    const celdas = wrapper.findAll('[data-testid="labor-month-cell"]')
+    const dia = celdas.find((celda) => celda.attributes('aria-label') === 'Dia 2')
+    await dia.trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="labor-delete-day"]').trigger('click')
+    await flushPromises()
+
+    // Nada se borra hasta que se confirma.
+    const antes = global.fetch.mock.calls.filter(
+      ([url, options]) =>
+        url.includes('/api/non-working-days/') && options.method === 'DELETE',
+    )
+    expect(antes).toHaveLength(0)
+
+    await wrapper.find('[data-testid="labor-confirm-delete"]').trigger('click')
+    await flushPromises()
+
+    const despues = global.fetch.mock.calls.filter(
+      ([url, options]) =>
+        url.includes('/api/non-working-days/') && options.method === 'DELETE',
+    )
+    expect(despues).toHaveLength(1)
   })
 
   it('lista las personas con su rol y su departamento', async () => {
@@ -321,5 +459,32 @@ describe('SettingsView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('Solo el gerente puede configurar la organizacion')
+  })
+
+  it('un tecnico ve el calendario laboral y nada mas', async () => {
+    setupFetch({ manager: false })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).toContain('Calendario laboral')
+    expect(wrapper.find('[data-testid="tab-people"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tab-roles"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="labor-month-grid"]').exists()).toBe(true)
+  })
+
+  it('un tecnico no puede dar de alta ni quitar dias no laborables', async () => {
+    setupFetch({ manager: false })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(false)
+
+    await wrapper
+      .find('[data-testid="labor-month-day"][title="Dia de la Constitucion"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="labor-delete-day"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="labor-add-day"]').exists()).toBe(false)
   })
 })

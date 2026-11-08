@@ -82,14 +82,27 @@ async def global_capacity(
 
 
 @router.get("/panel", response_model=PanelOut)
-async def global_panel(session: SessionDep, user: CurrentUser) -> PanelOut:
+async def global_panel(
+    session: SessionDep,
+    user: CurrentUser,
+    from_week: str | None = Query(
+        default=None, alias="from", description="Semana ISO inicial del rango"
+    ),
+    to_week: str | None = Query(
+        default=None, alias="to", description="Semana ISO final del rango"
+    ),
+) -> PanelOut:
     """Resumen de la organizacion: utilizacion, sobrecargas, proyectos y tareas.
 
     Todo sale de la matriz de capacidad y del listado de tareas de los
     proyectos visibles, de modo que el panel no puede discrepar de la matriz.
+    Sin rango, el periodo es la ventana por defecto: la semana actual y las
+    ocho siguientes.
     """
     projects = await list_accessible_projects(session, user)
-    panel = await load_panel(session, projects)
+    panel = await load_panel(
+        session, projects, weeks=week_range_or_422(from_week, to_week)
+    )
     return PanelOut.model_validate(panel.to_dict())
 
 

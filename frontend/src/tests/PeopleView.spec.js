@@ -139,13 +139,14 @@ describe('PeopleView', () => {
     setupFetch()
   })
 
-  it('muestra el titulo y las tres pestanas', async () => {
+  it('muestra el titulo y las dos pestanas', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).toContain('Personas y Competencias')
     expect(wrapper.text()).toContain('Directorio')
     expect(wrapper.text()).toContain('Competencias')
-    expect(wrapper.text()).toContain('Días no laborables')
+    // Los dias no laborables viven en Configuracion.
+    expect(wrapper.text()).not.toContain('Días no laborables')
   })
 
   it('lista el directorio con el horario vigente y la capacidad', async () => {
@@ -181,16 +182,6 @@ describe('PeopleView', () => {
     expect(wrapper.findAll('[data-testid="skill-row"]').length).toBe(2)
   })
 
-  it('cambia de pestana y muestra el calendario laboral', async () => {
-    const wrapper = await mountView()
-
-    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Día de la Comunidad')
-    expect(wrapper.text()).toContain('Oficina Técnica / EPLAN')
-  })
-
   it('abre la ficha de una persona con su historial', async () => {
     const wrapper = await mountView()
 
@@ -200,26 +191,6 @@ describe('PeopleView', () => {
     expect(wrapper.find('[data-testid="person-drawer"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Historial de horarios')
     expect(wrapper.findAll('[data-testid="schedule-history-row"]').length).toBe(1)
-  })
-
-  it('el gerente ve el formulario del calendario', async () => {
-    const wrapper = await mountView()
-
-    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(true)
-  })
-
-  it('un tecnico no ve el formulario del calendario', async () => {
-    setupFetch({ isManager: false })
-
-    const wrapper = await mountView()
-
-    await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(false)
   })
 
   it('la pestana de competencias muestra la matriz y no el catalogo', async () => {

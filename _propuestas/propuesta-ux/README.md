@@ -178,7 +178,7 @@ Archivo: `views/ProjectSummaryView.vue`.
 - Estado de las tareas (barra segmentada + contadores), horas por semana del proyecto y equipo con su rol.
 
 ### 5.5 Configuración › Calendario laboral  ·  `prototipos/Configuracion.dc.html`
-Archivos: `views/SettingsView.vue`, `views/WorkCalendarView.vue`, `components/people/WorkCalendar.vue`.
+Archivos: `views/SettingsView.vue`, `components/settings/LaborCalendarPanel.vue`.
 - Pestañas: **Calendario laboral · Personas · Departamentos · Proyectos · Roles · Competencias**.
 - Alta y consulta de días no laborables en el mismo sitio (hoy están en dos: una pestaña de Personas y una vista aparte).
 - Cuadrícula mensual con tres alcances, distinguibles por forma/etiqueta y color: **Global**, **Departamento**, **Persona**. Medio día marcado con «½».
@@ -434,3 +434,44 @@ el nativo del navegador y sale de la lista de tareas del panel lateral. La
 previsualización enseña las horas con el formato de la celda ("36 h", "48 h")
 en vez de una simulación fija, y el destino bloqueado se marca con rayado
 como en el prototipo, pero con el texto del proyecto real en vez de "RET".
+
+### Fase 6 — Mi trabajo, Panel, Proyecto y calendario laboral integrado
+
+35. **El botón "Avisar a mi jefa" se retira.** No hay endpoint de notificación y
+    no lo hay en esta fase: el banner de sobrecarga informa y nada más.
+36. **El selector de estado de Mi trabajo se implementa.** Cada tarea lleva un
+    desplegable que la mueve de estado con el `PATCH /api/tasks/{id}` de siempre.
+37. **El calendario laboral vive en un solo sitio**: la primera pestaña de
+    Configuración. La ruta `/work-calendar` redirige allí, de modo que los
+    enlaces antiguos siguen funcionando.
+38. **El calendario laboral se lee desde cualquier rol y solo lo escribe el
+    gerente.** Antes de mudarse de sitio, la tabla de festivos era visible para
+    todos y solo el gerente podía darlos de alta o quitarlos; ese reparto se
+    conserva. Quien no es gerente ve la pestaña del calendario y nada más, sin
+    el formulario ni los botones de alta y baja.
+39. **La ventana por defecto son nueve semanas**, la en curso y las ocho
+    siguientes, en `/api/my-work` y en `/api/panel`: la misma que muestra por
+    defecto la matriz, para que las tres vistas hablen de las mismas semanas.
+    Los dos endpoints aceptan `from` y `to`, y rechazan con 422 un rango a medias.
+40. **La planificación incompleta se resuelve desde el tablero**: el enlace
+    "Resolver" lleva a `/projects/{id}/kanban`, que lista todas las tareas del
+    proyecto, incluidas las que no tienen persona y las que no tienen fechas.
+41. **"Ver su Gantt" abre el Gantt del proyecto** (`/projects/{id}/gantt`). El
+    Gantt global con filtro de proyecto es de la fase 5.
+42. **Se mantiene la pestaña "Miembros"** de Configuración. El prototipo no la
+    trae, pero quitarla perdería funcionalidad.
+43. **Las horas por semana de la pantalla de proyecto se suman en el frontend**,
+    con lo que da el motor, que es el mismo criterio que ya usa el informe de
+    carga por proyecto.
+44. **El gráfico de barras es un componente compartido** (`LoadBars.vue`), con la
+    línea del 100 %, la marca de "Hoy", la insignia de festivo y el triángulo de
+    sobrecarga. Lleva `role="img"` y un `aria-label` que resume las cifras.
+45. **El menú sale como cajón por debajo de 640 px**, con el botón de apertura en
+    la cabecera y su `aria-expanded`. Los enlaces del menú y los botones de la
+    cabecera tienen 44 px de alto, que es el objetivo táctil mínimo.
+
+**Lo que el código real hace distinto del prototipo.** El prototipo dibuja el
+gráfico con datos de ejemplo y da el "Resolver" de la planificación incompleta
+como un botón sin destino; aquí el gráfico lo pinta el backend con las horas
+reales de cada semana, y "Resolver" lleva al tablero del proyecto, que es
+donde se puede corregir la tarea.

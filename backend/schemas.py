@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -305,6 +305,31 @@ class TaskOut(BaseModel):
     Una tarea puede cruzar varias semanas, de modo que sus horas estimadas no
     son las horas de esa semana. Es None si la peticion no filtraba por semana.
     """
+
+
+class ActivityOut(BaseModel):
+    """Entrada de la bitacora de cambios."""
+
+    id: int
+    actor_id: int
+    actor_name: str
+    action: str
+    entity_type: str
+    entity_id: int
+    project_id: int
+    project_name: str
+    payload: dict = {}
+    created_at: datetime
+    """Momento de la accion, en UTC y con zona."""
+
+
+class ActivityPageOut(BaseModel):
+    """Pagina de la bitacora: las entradas y cuanto hay en total."""
+
+    items: list[ActivityOut] = []
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
 
 
 class HolidayOut(BaseModel):

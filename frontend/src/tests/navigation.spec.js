@@ -31,6 +31,7 @@ describe('navegacion', () => {
       'projects',
       'people',
       'departments',
+      'activity',
       'configuration',
     ])
   })
@@ -53,6 +54,7 @@ describe('navegacion', () => {
       'kanban',
       'members',
       'project-settings',
+      'activity',
     ])
   })
 
@@ -67,7 +69,15 @@ describe('navegacion', () => {
     const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items)
     const filtradas = enElMenu.filter((view) => view.projectIn === 'query').map((view) => view.name)
 
-    expect(filtradas).toEqual(['capacity', 'gantt', 'calendar'])
+    expect(filtradas).toEqual(['capacity', 'gantt', 'calendar', 'activity'])
+  })
+
+  it('la actividad esta en los dos menus', () => {
+    const global = GLOBAL_SECTIONS.flatMap((section) => section.items).map((view) => view.name)
+    const proyecto = PROJECT_SECTIONS.flatMap((section) => section.items).map((view) => view.name)
+
+    expect(global).toContain('activity')
+    expect(proyecto).toContain('activity')
   })
 
   it('las vistas del proyecto no estan en el menu global', () => {
@@ -86,7 +96,7 @@ describe('navegacion', () => {
   })
 
   it('las vistas de planificacion son las que aceptan el filtro de proyecto', () => {
-    expect(FILTERED_VIEWS).toEqual(['capacity', 'gantt', 'calendar'])
+    expect(FILTERED_VIEWS).toEqual(['capacity', 'gantt', 'calendar', 'activity'])
   })
 
   it('da la etiqueta legible de la vista', () => {
@@ -98,6 +108,7 @@ describe('navegacion', () => {
     expect(viewLabel('kanban')).toBe('Tablero')
     expect(viewLabel('members')).toBe('Miembros')
     expect(viewLabel('project-settings')).toBe('Ajustes')
+    expect(viewLabel('activity')).toBe('Actividad')
     expect(viewLabel('inventada')).toBe('')
   })
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import date, timedelta
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -15,8 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import ProjectMember, Task, TaskStatus, User
 from ..schemas import TaskCreate, TaskUpdate
+from ..services.activity import log_activity
 from ..services.capacity import business_days, iso_week_key
 from ..services.schedule import week_start_from_key
+from ..services.units import hours_to_json
 
 
 async def get_task_or_404(session: AsyncSession, task_id: int) -> Task:
@@ -74,6 +77,7 @@ async def create_task(
     session: AsyncSession,
     project_id: int,
     payload: TaskCreate,
+    actor: User,
 ) -> Task:
     """Crea una tarea en el proyecto."""
     _validate_dates(payload.start_date, payload.end_date)
@@ -91,18 +95,68 @@ async def create_task(
         status=TaskStatus.BACKLOG.value,
     )
     session.add(task)
+    await session.flush()
+    await log_activity(
+        session,
+        actor,
+        "task.created",
+        "task",
+        task.id,
+        project_id,
+        {
+            "title": payload.title,
+            "assigned_to": payload.assigned_to,
+            "estimated_hours": hours_to_json(payload.estimated_hours),
+        },
+    )
     await session.commit()
     await session.refresh(task)
     return task
+
+
+def _json_valor(valor):
+    """Un valor de cambio, en JSON.
+
+    Las horas van como numero, como en el resto de la API, y las fechas como
+    texto ISO.
+    """
+    if isinstance(valor, Decimal):
+        return hours_to_json(valor)
+    if isinstance(valor, date):
+        return valor.isoformat()
+    return valor
+
+
+def _cambios(antes: dict, task: Task, changed: set[str]) -> dict:
+    """Campos que han cambiado de verdad, con su valor anterior y el nuevo."""
+    cambios = {}
+    for campo in changed:
+        if campo not in antes:
+            continue
+        valor = antes[campo]
+        nuevo = getattr(task, campo)
+        if valor == nuevo:
+            continue
+        cambios[campo] = {"from": _json_valor(valor), "to": _json_valor(nuevo)}
+    return cambios
 
 
 async def update_task(
     session: AsyncSession,
     task: Task,
     payload: TaskUpdate,
+    actor: User,
 ) -> Task:
     """Aplica los campos presentes de la peticion sobre la tarea."""
     changed = payload.changed_fields()
+    antes = {
+        "title": task.title,
+        "status": task.status,
+        "start_date": task.start_date,
+        "end_date": task.end_date,
+        "estimated_hours": task.estimated_hours,
+        "assigned_to": task.assigned_to,
+    }
 
     start_date = payload.start_date if "start_date" in changed else task.start_date
     end_date = payload.end_date if "end_date" in changed else task.end_date
@@ -125,12 +179,51 @@ async def update_task(
             await _require_member(session, task.project_id, payload.assigned_to)
         task.assigned_to = payload.assigned_to
 
+    cambios = _cambios(antes, task, changed)
+    if "status" in cambios:
+        # Un cambio de estado es un movimiento: es lo que arrastra la persona
+        # en el tablero y lo que se lee como movimiento en la bitacora.
+        otros = {campo: valor for campo, valor in cambios.items() if campo != "status"}
+        await log_activity(
+            session,
+            actor,
+            "task.moved",
+            "task",
+            task.id,
+            task.project_id,
+            {
+                "title": task.title,
+                "from": antes["status"],
+                "to": task.status,
+                "changes": otros,
+            },
+        )
+    elif cambios:
+        await log_activity(
+            session,
+            actor,
+            "task.updated",
+            "task",
+            task.id,
+            task.project_id,
+            {"title": task.title, "changes": cambios},
+        )
+
     await session.commit()
     await session.refresh(task)
     return task
 
 
-async def delete_task(session: AsyncSession, task: Task) -> None:
+async def delete_task(session: AsyncSession, task: Task, actor: User) -> None:
+    await log_activity(
+        session,
+        actor,
+        "task.deleted",
+        "task",
+        task.id,
+        task.project_id,
+        {"title": task.title},
+    )
     await session.delete(task)
     await session.commit()
 

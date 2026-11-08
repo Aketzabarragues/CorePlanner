@@ -505,3 +505,34 @@ class PersonSkill(Base):
 
     user: Mapped[User] = relationship(back_populates="skills")
     skill: Mapped[Skill] = relationship()
+
+
+class ActivityLog(Base):
+    """Bitacora de cambios: una fila por accion registrada.
+
+    Solo se anaden filas: la bitacora dice lo que fue, no lo que es. Cada
+    entrada cuelga de un proyecto, de modo que el filtro por proyecto es el
+    mismo que el de las vistas de planificacion.
+    """
+
+    __tablename__ = "activity_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
+    )
+
+    __table_args__ = (Index("ix_activity_log_project_created", "project_id", "created_at"),)
+
+    actor: Mapped[User] = relationship()
+    project: Mapped[Project] = relationship()

@@ -225,6 +225,14 @@ export const panelApi = {
   list: (token) => apiFetch('/panel', { token }),
 }
 
+/** Bitacora de cambios: lo que ha pasado en los proyectos visibles. */
+export const activityApi = {
+  list: (token, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return apiFetch(`/activity${query ? `?${query}` : ''}`, { token })
+  },
+}
+
 /** Mi trabajo: tareas propias y carga por semana del periodo de planificacion. */
 export const myWorkApi = {
   list: (token) => apiFetch('/my-work', { token }),

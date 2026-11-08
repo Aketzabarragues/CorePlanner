@@ -100,6 +100,7 @@ function buildRouter() {
       { path: '/capacity', name: 'capacity', component: Tracked },
       { path: '/gantt', name: 'gantt', component: Empty },
       { path: '/calendar', name: 'calendar', component: Empty },
+      { path: '/activity', name: 'activity', component: Empty },
       { path: '/departments', name: 'departments', component: Empty },
       { path: '/people', name: 'people', component: Empty },
       { path: '/configuration', name: 'configuration', component: Empty },
@@ -217,6 +218,24 @@ describe('AppShell', () => {
 
     expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt?project=1')
     expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=1')
+  })
+
+  it('la actividad del menu global no lleva filtro', async () => {
+    const { wrapper } = await mountShell('/panel')
+
+    expect(linkTo(wrapper, 'Actividad').attributes('href')).toBe('/activity')
+  })
+
+  it('la actividad del menu de proyecto lleva el filtro', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(linkTo(wrapper, 'Actividad').attributes('href')).toBe('/activity?project=1')
+  })
+
+  it('la actividad acepta el filtro de proyecto en la cabecera', async () => {
+    const { wrapper } = await mountShell('/activity')
+
+    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
   })
 
   it('las vistas propias del proyecto llevan el id en la ruta', async () => {

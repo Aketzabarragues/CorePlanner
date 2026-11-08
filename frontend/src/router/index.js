@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
+import ActivityView from '../views/ActivityView.vue'
 import CalendarView from '../views/CalendarView.vue'
 import DepartmentsView from '../views/DepartmentsView.vue'
 import GanttView from '../views/GanttView.vue'
@@ -35,6 +36,7 @@ const routes = [
   { path: '/capacity', name: 'capacity', component: CapacityMatrix },
   { path: '/gantt', name: 'gantt', component: GanttView },
   { path: '/calendar', name: 'calendar', component: CalendarView },
+  { path: '/activity', name: 'activity', component: ActivityView },
   { path: '/departments', name: 'departments', component: DepartmentsView },
   { path: '/people', name: 'people', component: PeopleView },
   { path: '/configuration', name: 'configuration', component: SettingsView },

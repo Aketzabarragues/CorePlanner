@@ -106,6 +106,7 @@ datos.
 coreplanner/
 ├── backend/
 │   ├── api/
+│   │   ├── activity.py       # bitacora de actividad
 │   │   ├── auth.py           # login
 │   │   ├── departments.py    # listado y edicion de departamentos
 │   │   ├── gantt.py          # feed JSON del Gantt
@@ -132,6 +133,7 @@ coreplanner/
 │   ├── security.py       # dependencias de autorizacion por proyecto
 │   ├── seed.py           # datos de demostracion
 │   ├── services/
+│   │   ├── activity.py           # escritura y lectura de la bitacora
 │   │   ├── capacity.py           # motor de calculo (puro)
 │   │   ├── capacity_repository.py # lectura de datos de capacidad
 │   │   ├── calendar_report.py    # impacto de los dias no laborables en la capacidad
@@ -171,8 +173,8 @@ coreplanner/
 │       │   │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
-│       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas)
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Actividad, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -199,6 +201,7 @@ coreplanner/
 | `non_working_days` | `date`, `name`, `scope` (global o de departamento), `department_id`, `half_day` |
 | `skills` | `id`, `name` (unico) |
 | `person_skills` | `user_id`, `skill_id`, `level` (de 1 a 3) |
+| `activity_log` | `id`, `actor_id`, `action`, `entity_type`, `entity_id`, `project_id`, `payload` (JSON), `created_at` |
 
 Un usuario puede tener un rol distinto en cada proyecto. El token JWT lleva la
 lista de permisos por `project_id`, de forma que la autorizacion se resuelve
@@ -369,6 +372,7 @@ token en `localStorage`.
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtros opcionales `department_id` y `project_id` |
 | `GET` | `/api/gantt` | token valido, filtro opcional `project_id` |
+| `GET` | `/api/activity` | token valido, filtro opcional `project_id`; bitacora de actividad |
 | `GET` | `/api/panel` | token valido; resumen de la organizacion |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to`, `week`, `from` y `to` |
@@ -711,6 +715,52 @@ gestiona el proyecto y su responsable. La vista `/projects/{id}/settings` se
 abre desde el resumen del proyecto y muestra los mismos campos deshabilitados
 cuando quien entra no es gerente.
 
+## Bitacora de actividad
+
+La tabla `activity_log` guarda **que ha pasado y quien lo ha hecho** en los
+proyectos. Es un registro **append-only**: las entradas se anaden y no se
+borran ni se editan.
+
+| Campo | Que guarda |
+| --- | --- |
+| `id` | identificador de la entrada |
+| `actor_id` | quien lo hizo (usuarios) |
+| `action` | que paso: `task.created`, `task.moved`, `member.added`, `project.updated`... |
+| `entity_type` | sobre que tipo de cosa: `task`, `member`, `project` |
+| `entity_id` | el identificador de esa cosa |
+| `project_id` | el proyecto al que pertenece (no puede ser nulo) |
+| `payload` | JSON con el detalle de lo que cambio |
+| `created_at` | cuando |
+
+**Lo que se registra**
+
+- `task.created`, `task.updated`, `task.moved` y `task.deleted`, al dar de
+  alta, editar, mover de estado o borrar una tarea.
+- `member.added`, `member.removed` y `member.role_changed`, al montar el
+  equipo del proyecto.
+- `project.updated`, al cambiar los ajustes del proyecto.
+
+**Lo que no se registra**: las lecturas (abrir una pantalla no deja rastro) ni
+el alta de proyecto.
+
+El registro se escribe en el mismo commit que el cambio que lo provoca, de modo
+que la accion y su efecto se guardan o se pierden juntos. Cada entrada guarda
+una **foto del momento** en el `payload`: el titulo de la tarea, el nombre de
+la persona y los estados de origen y destino. Si luego se renombra la tarea, la
+bitacora sigue diciendo como se llamaba entonces.
+
+`GET /api/activity` devuelve las entradas **de mas reciente a mas antigua**, con
+`items`, `total`, `limit` (50 por defecto, 200 como maximo) y `offset`. Admite
+el filtro `?project_id=`: sin el, sale lo de todos los proyectos visibles; con
+el, solo ese, y si no esta entre los que se ven el backend responde 404, igual
+que en la matriz de capacidad.
+
+La vista `/activity` es una sola pantalla con las dos lecturas: sin filtro
+muestra lo de toda la organizacion y el nombre del proyecto de cada entrada; con
+`?project=` muestra solo ese proyecto. Cada entrada dice **quien**, **que hizo**,
+**sobre que** y **cuando**, con el tiempo en relativo ("hace 10 min") y la fecha
+completa en el `title`.
+
 ## Panel
 
 `GET /api/panel` devuelve el estado de la organizacion de un vistazo. La vista
@@ -811,10 +861,10 @@ primera opcion es **Todos los proyectos**, que deja el filtro sin poner, y a
 continuacion vienen los proyectos agrupados por su departamento gestor.
 
 El filtro viaja en la URL (`?project=<id>`), de modo que el enlace se puede
-compartir y recargar la pagina no lo pierde. Solo aparece en Capacidad, Gantt y
-Calendario, que son las vistas donde hay un proyecto que filtrar. Al pasar de
-una vista de planificacion a otra el filtro viaja con ella: quien esta mirando
-un proyecto no lo pierde al pasar de la capacidad al Gantt.
+compartir y recargar la pagina no lo pierde. Solo aparece en Capacidad, Gantt,
+Calendario y Actividad, que son las vistas donde hay un proyecto que filtrar. Al
+pasar de una vista de planificacion a otra el filtro viaja con ella: quien esta
+mirando un proyecto no lo pierde al pasar de la capacidad al Gantt.
 
 ### Menu lateral
 
@@ -828,7 +878,7 @@ URL: el parametro de la ruta (`/projects/{id}/...`) o el filtro de la query
 | --- | --- |
 | Mi espacio | Panel, Mi trabajo |
 | Planificacion | Capacidad, Gantt, Calendario |
-| Organizacion | Proyectos, Personas y Competencias, Departamentos |
+| Organizacion | Proyectos, Personas y Competencias, Departamentos, Actividad |
 | Administracion (solo gerente) | Configuracion |
 
 **Menu de proyecto**, con dos grupos:
@@ -836,12 +886,12 @@ URL: el parametro de la ruta (`/projects/{id}/...`) o el filtro de la query
 | Grupo | Vistas |
 | --- | --- |
 | Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero |
-| Gestion y equipo | Miembros, Ajustes |
+| Gestion y equipo | Miembros, Ajustes, Actividad |
 
 Los enlaces del menu de proyecto llevan el proyecto: en la ruta para Resumen,
-Tablero, Miembros y Ajustes, y en el filtro `?project=` para Capacidad, Gantt y
-Calendario. Los del menu global nunca lo llevan, porque sin proyecto no hay
-filtro que llevar.
+Tablero, Miembros y Ajustes, y en el filtro `?project=` para Capacidad, Gantt,
+Calendario y Actividad. Los del menu global nunca lo llevan, porque sin proyecto
+no hay filtro que llevar.
 
 El menu no decide quien ve que: lo decide el rol de empresa, igual que hasta
 ahora. El grupo de Administracion es el unico que se esconde.
@@ -883,6 +933,7 @@ trabajo y del Panel se apilan en una sola columna.
 | `/capacity` | matriz de ocupacion, con filtro `?project=` |
 | `/gantt` | cronograma, con filtro `?project=` |
 | `/calendar` | calendario de la planificacion, con filtro `?project=` |
+| `/activity` | bitacora de actividad, con filtro `?project=` |
 | `/work-calendar` | redirige a la configuracion, pestana **Calendario laboral** |
 | `/departments` | departamentos y sus responsables |
 | `/people` | directorio y competencias |
@@ -1006,6 +1057,9 @@ Las pantallas personales ya no son listas de tablas:
   mas carga y la planificacion incompleta.
 - **El resumen del proyecto** (`/projects/{id}`) es la portada del proyecto:
   estado, equipo, horas por semana y accesos a las demas vistas.
+- **La bitacora de actividad** (`/activity`) deja constancia de quien creo,
+  edito o movio una tarea, de quien entro o salio del equipo y de que ajustes
+  cambio el proyecto. Se lee en global o filtrada por proyecto.
 - **El calendario laboral** vive en la primera pestana de la configuracion, con
   el mes navegable, el detalle del dia y el impacto en la capacidad.
 - **En movil** el menu lateral sale como un cajon y las tarjetas se apilan.

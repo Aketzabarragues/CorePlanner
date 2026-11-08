@@ -91,10 +91,11 @@ async def add_task(
     project_id: int,
     payload: TaskCreate,
     session: SessionDep,
+    user: CurrentUser,
     _project=Depends(require_project_permission("task.write")),
 ) -> Task:
     """Crea una tarea en el proyecto."""
-    return await create_task(session, project_id, payload)
+    return await create_task(session, project_id, payload, user)
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskOut)
@@ -102,17 +103,19 @@ async def edit_task(
     task_id: int,
     payload: TaskUpdate,
     session: SessionDep,
+    user: CurrentUser,
     task: Task = Depends(require_task_permission("task.write")),
 ) -> Task:
     """Modifica los campos indicados de una tarea."""
-    return await update_task(session, task, payload)
+    return await update_task(session, task, payload, user)
 
 
 @router.delete("/tasks/{task_id}", status_code=204)
 async def remove_task(
     task_id: int,
     session: SessionDep,
+    user: CurrentUser,
     task: Task = Depends(require_task_permission("task.write")),
 ) -> None:
     """Elimina una tarea."""
-    await delete_task(session, task)
+    await delete_task(session, task, user)

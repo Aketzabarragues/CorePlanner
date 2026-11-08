@@ -34,6 +34,7 @@ from ..schemas import (
     ProjectCreate,
     ProjectUpdate,
 )
+from ..services.activity import log_activity
 
 
 async def _unique_email(
@@ -252,7 +253,7 @@ async def create_project(session: AsyncSession, payload: ProjectCreate) -> Proje
 
 
 async def update_project(
-    session: AsyncSession, project_id: int, payload: ProjectUpdate
+    session: AsyncSession, project_id: int, payload: ProjectUpdate, actor: User
 ) -> Project:
     """Aplica los campos presentes de la peticion sobre el proyecto."""
     project = await session.get(Project, project_id)
@@ -262,6 +263,13 @@ async def update_project(
         )
 
     changed = payload.changed_fields()
+    antes = {
+        "name": project.name,
+        "status": project.status,
+        "department_id": project.department_id,
+        "owner_id": project.owner_id,
+    }
+
     if "name" in changed and payload.name is not None:
         project.name = payload.name
     if "status" in changed and payload.status is not None:
@@ -275,6 +283,22 @@ async def update_project(
             await _person_or_404(session, payload.owner_id)
         project.owner_id = payload.owner_id
 
+    cambios = {
+        campo: {"from": antes[campo], "to": getattr(project, campo)}
+        for campo in changed
+        if campo in antes and antes[campo] != getattr(project, campo)
+    }
+    if cambios:
+        await log_activity(
+            session,
+            actor,
+            "project.updated",
+            "project",
+            project.id,
+            project.id,
+            {"changes": cambios},
+        )
+
     await session.commit()
     await session.refresh(project)
     return project
@@ -287,7 +311,7 @@ async def list_roles(session: AsyncSession) -> list[Role]:
 
 
 async def add_project_member(
-    session: AsyncSession, project_id: int, user_id: int, role_id: int
+    session: AsyncSession, project_id: int, user_id: int, role_id: int, actor: User
 ) -> ProjectMember:
     """Mete a una persona en un proyecto con el rol indicado."""
     project = await session.get(Project, project_id)
@@ -295,7 +319,7 @@ async def add_project_member(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado"
         )
-    await _person_or_404(session, user_id)
+    persona = await _person_or_404(session, user_id)
 
     role = await session.get(Role, role_id)
     if role is None:
@@ -317,13 +341,23 @@ async def add_project_member(
 
     member = ProjectMember(project_id=project_id, user_id=user_id, role_id=role_id)
     session.add(member)
+    await session.flush()
+    await log_activity(
+        session,
+        actor,
+        "member.added",
+        "member",
+        user_id,
+        project_id,
+        {"name": persona.name, "role_id": role_id, "role_name": role.name},
+    )
     await session.commit()
     await session.refresh(member)
     return member
 
 
 async def remove_project_member(
-    session: AsyncSession, project_id: int, user_id: int
+    session: AsyncSession, project_id: int, user_id: int, actor: User
 ) -> None:
     """Saca a una persona del proyecto."""
     result = await session.execute(
@@ -338,12 +372,22 @@ async def remove_project_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="La persona no es miembro del proyecto",
         )
+    persona = await _person_or_404(session, user_id)
+    await log_activity(
+        session,
+        actor,
+        "member.removed",
+        "member",
+        user_id,
+        project_id,
+        {"name": persona.name, "role_id": member.role_id},
+    )
     await session.delete(member)
     await session.commit()
 
 
 async def update_project_member_role(
-    session: AsyncSession, project_id: int, user_id: int, role_id: int
+    session: AsyncSession, project_id: int, user_id: int, role_id: int, actor: User
 ) -> ProjectMember:
     """Cambia el rol que una persona ejerce en un proyecto."""
     member = (
@@ -364,7 +408,19 @@ async def update_project_member_role(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado"
         )
+    persona = await _person_or_404(session, user_id)
+    rol_anterior = member.role_id
     member.role_id = role_id
+    if rol_anterior != role_id:
+        await log_activity(
+            session,
+            actor,
+            "member.role_changed",
+            "member",
+            user_id,
+            project_id,
+            {"name": persona.name, "from": rol_anterior, "to": role_id},
+        )
     await session.commit()
     await session.refresh(member)
     return member

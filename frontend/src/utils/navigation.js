@@ -37,6 +37,12 @@ const CALENDAR_VIEW = {
   icon: 'grid',
   hint: 'La planificación día a día',
 }
+const ACTIVITY_VIEW = {
+  name: 'activity',
+  label: 'Actividad',
+  icon: 'clock',
+  hint: 'Bitácora de cambios',
+}
 const PROJECTS_VIEW = {
   name: 'projects',
   label: 'Proyectos',
@@ -79,7 +85,7 @@ export const GLOBAL_SECTIONS = [
   },
   {
     title: 'Organización',
-    items: [PROJECTS_VIEW, PEOPLE_VIEW, DEPARTMENTS_VIEW],
+    items: [PROJECTS_VIEW, PEOPLE_VIEW, DEPARTMENTS_VIEW, ACTIVITY_VIEW],
   },
   {
     title: 'Administración',
@@ -112,12 +118,18 @@ export const PROJECT_SECTIONS = [
     items: [
       { name: 'members', label: 'Miembros', icon: 'users', projectIn: 'params' },
       { name: 'project-settings', label: 'Ajustes', icon: 'sliders', projectIn: 'params' },
+      { name: 'activity', label: 'Actividad', icon: 'clock', projectIn: 'query' },
     ],
   },
 ]
 
 /** Vistas de planificacion que aceptan el filtro de proyecto. */
-export const FILTERED_VIEWS = [CAPACITY_VIEW.name, GANTT_VIEW.name, CALENDAR_VIEW.name]
+export const FILTERED_VIEWS = [
+  CAPACITY_VIEW.name,
+  GANTT_VIEW.name,
+  CALENDAR_VIEW.name,
+  ACTIVITY_VIEW.name,
+]
 
 /** Todas las vistas, las del menu global y las del menu de proyecto. */
 const VIEWS = [

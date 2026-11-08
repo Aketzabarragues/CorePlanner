@@ -71,10 +71,11 @@ async def edit_project(
     project_id: int,
     payload: ProjectUpdate,
     session: SessionDep,
+    user: CurrentUser,
     _manager=Depends(require_manager()),
 ) -> ProjectOut:
     """Modifica los campos indicados de un proyecto."""
-    project = await update_project(session, project_id, payload)
+    project = await update_project(session, project_id, payload, user)
     return ProjectOut.model_validate(project)
 
 

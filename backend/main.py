@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import (
+    activity,
     auth,
     departments,
     gantt,
@@ -71,6 +72,7 @@ app.include_router(people.router, prefix=settings.api_prefix)
 app.include_router(skills.router, prefix=settings.api_prefix)
 app.include_router(non_working_days.router, prefix=settings.api_prefix)
 app.include_router(work_calendar.router, prefix=settings.api_prefix)
+app.include_router(activity.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["sistema"])

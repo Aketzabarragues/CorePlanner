@@ -1152,3 +1152,111 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 El nombre del parametro en la URL es `project` y en la API `project_id`. Es el
 mismo filtro con dos nombres: el que ve quien navega y el que usa la llamada.
 
+## 25. Bitacora de actividad
+
+La aplicacion deja constancia de **que ha pasado y quien lo ha hecho**. Es el
+patron N4 del analisis competitivo (`docs/analisis-competitivo.md`, "bitacora de
+cambios append-only") y la vista "Actividad" de la maqueta
+(`demo/coreplanner-demo.html`), que la tiene en las dos formas: global y de
+proyecto.
+
+La bitacora es un registro **append-only**: las entradas se anaden y no se
+borran ni se editan. No hay ni deshacer ni rehacer: se registra lo que paso, no
+se controla.
+
+### Que entra
+
+**La tabla `activity_log`**
+
+| Campo | Que guarda |
+| --- | --- |
+| `id` | identificador de la entrada |
+| `actor_id` | quien lo hizo (usuarios) |
+| `action` | que paso: `task.created`, `task.moved`, `member.added`, `project.updated`... |
+| `entity_type` | sobre que tipo de cosa: `task`, `member`, `project` |
+| `entity_id` | el identificador de esa cosa |
+| `project_id` | el proyecto al que pertenece, **no nulo** |
+| `payload` | JSON con el detalle de lo que cambio |
+| `created_at` | cuando |
+
+Todo lo que se registra cuelga de un proyecto, asi que `project_id` no puede ser
+nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
+
+**Lo que se registra**
+
+- **Tareas**: `task.created`, `task.updated`, `task.moved` y `task.deleted`.
+- **Equipo**: `member.added`, `member.removed` y `member.role_changed`.
+- **Ajustes del proyecto**: `project.updated`.
+
+**Lo que no se registra**: las lecturas y el alta de proyecto.
+
+**Como se registra**
+
+- **No hay middleware ni interceptor**: el registro se escribe desde los
+  servicios que ya mutan datos, con una funcion explicita
+  `log_activity(session, actor, action, entity_type, entity_id, project_id,
+  payload)`. Los servicios de tareas y de configuracion reciben ahora el actor.
+- **El registro va en el mismo commit que el cambio**, de modo que la accion y su
+  efecto se guardan o se pierden juntos.
+- **El `payload` guarda una foto del momento**: el titulo de la tarea, el nombre
+  de la persona y los estados de origen y destino. Si la tarea se renombra
+  depois, la bitacora sigue diciendo como se llamaba entonces. El nombre de
+  quien actua y el del proyecto si se resuelven en vivo, al leer.
+
+**El endpoint**
+
+- `GET /api/activity` devuelve `items`, `total`, `limit` y `offset`, ordenado de
+  mas reciente a mas antigua.
+- Admite `?project_id=`: sin el, sale lo de **todos los proyectos visibles**;
+  con el, solo ese, y si no esta entre los que se ven responde **404**, igual
+  que `/api/capacity`.
+- `limit` es 50 por defecto y 200 como maximo; la paginacion va por `offset`.
+
+**La vista**
+
+- **Una sola pantalla**, `/activity`, que lee `?project=` de la URL igual que
+  `CapacityMatrix.vue`, `GanttView.vue` y `CalendarView.vue`.
+- Cada entrada dice **quien**, **que hizo**, **sobre que** y **cuando**. El
+  tiempo va en relativo ("hace 10 min", "hace 2 h", "hace 3 d") y la fecha
+  completa va en el `title`.
+- En la vista global cada entrada lleva el nombre de su proyecto; con filtro no
+  lo lleva, porque es redundante.
+- El menu tiene la entrada en los dos arboles: en el **global**, en el grupo
+  *Organizacion*; en el **de proyecto**, en el grupo *Gestion y equipo*, con
+  `projectIn: 'query'`, como Capacidad, Gantt y Calendario: es una vista
+  unificada con filtro, no una ruta propia del proyecto.
+
+### Que no entra
+
+- **Revertir o deshacer** una accion desde la bitacora.
+- **Filtros adicionales**: por persona o por tipo de accion.
+- **La exportacion** de la bitacora.
+- **Instrumentar las lecturas**: abrir una pantalla no deja rastro.
+- **El alta de proyecto**, que no estaba en la lista de puntos de registro.
+- **La edicion de una tarea** como pantalla: la bitacora registra los cambios,
+  pero el alta y el cambio de estado siguen siendo lo unico que se puede cambiar
+  de una tarea (§24).
+
+### Decisiones tomadas
+
+1. **El registro es explicito, no automatico**. Se escribe desde los servicios
+   que ya mutan datos, no desde un middleware: asi se ve exactamente que puntos
+   de la aplicacion dejan rastro, y leer no deja ninguno.
+2. **El actor viaja hasta el servicio**. `create_task`, `update_task`,
+   `delete_task`, `update_project`, `add_project_member`,
+   `remove_project_member` y `update_project_member_role` reciben el actor, y el
+   endpoint se lo pasa.
+3. **Un cambio de estado es `task.moved`**, no `task.updated`: el payload lleva
+   `from` y `to`. El resto de ediciones son `task.updated`, con los campos que
+   cambiaron.
+4. **El `payload` es una foto del momento**, con el nombre de la entidad. El
+   nombre de quien actua y el del proyecto se resuelven al leer, porque son los
+   que-interesta tener al dia.
+5. **Los permisos son los de `capacity.read` por proyecto**, replicando el
+   criterio de `/api/capacity`: los proyectos visibles y 404 con `project_id`,
+   no 403.
+6. **La paginacion va por `limit` y `offset`**, que es lo que ya usaba la API, y
+   el total sale en la misma respuesta.
+7. **Una sola vista** para las dos lecturas: la diferencia entre global y de
+   proyecto es el filtro de la URL y el nombre del proyecto en cada entrada.
+

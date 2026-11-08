@@ -40,7 +40,8 @@ que el rol del usuario en ese proyecto incluye el permiso.
 | Sin token o token invalido | 401 |
 | Administrador global | Acceso a cualquier proyecto |
 | Miembro con el permiso | Acceso |
-| No miembro, o miembro sin el permiso | 403 |
+| No miembro, pero con tareas asignadas en el proyecto | Lectura (`capacity.read`, `gantt.read`); escritura 403 |
+| Miembro sin el permiso, o sin vinculo con el proyecto | 403 |
 | Proyecto inexistente | 404 |
 
 El token lleva la identidad de la persona (su identificador y su rol de
@@ -400,7 +401,8 @@ El alcance se aplica en `list_accessible_projects`, que es el punto por el que
 pasan el listado de proyectos, la matriz global, el Gantt global y el listado
 global de tareas. En `check_project_permission`, los permisos que concede el
 rol de empresa se suman a los del rol de proyecto: el jefe de un area puede
-trabajar en los proyectos de su area aunque no sea miembro.
+trabajar en los proyectos de su area aunque no sea miembro, y un tecnico con
+una tarea asignada puede consultar el proyecto, aunque tampoco sea miembro.
 
 El detalle completo esta en `docs/especificaciones.md`.
 

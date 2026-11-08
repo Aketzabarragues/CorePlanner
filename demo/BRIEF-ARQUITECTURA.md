@@ -338,7 +338,7 @@ La regla: **las ideas, los algoritmos, los modelos de datos y las arquitecturas 
 
 - Sidebar `slate-900` oscuro, texto claro; superficie de contenido `slate-50`; cabecera blanca.
 - Acento Siemens: `900: rgb(0 52 102)` · `700: rgb(0 74 137)` · `500: rgb(0 100 180)`. **Solo esos tres tonos**: `bg-siemens-800` o `bg-siemens-50` no existen y el guard del CSS lo detecta.
-- Tailwind v4 compilado offline. **Sin daisyUI, sin CDN**.
+- Tailwind v3 compilado offline, con `tailwind.config.js` y PostCSS. **Sin daisyUI, sin CDN**.
 - Iconos SVG propios (Heroicons) en un componente central.
 - `frappe-gantt` en el Gantt real.
 - **Las páginas van a ancho completo**: el contenido ocupa todo el espacio útil, sin `max-width` centrado. Los límites de ancho se quedan solo en los elementos flotantes (modales, cajón lateral, pantalla de acceso).

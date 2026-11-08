@@ -2,13 +2,10 @@
 /**
  * Armazon de la aplicacion.
  *
- * La navegacion tiene un solo arbol: el proyecto no es un espacio con su
- * propio menu, es un filtro (`?project=`) de las vistas de planificacion. El
- * menu lateral agrupa las vistas por lo que son y el selector de la cabecera
- * elige el proyecto que filtra.
- *
- * El proyecto sale siempre de la URL: el de la pagina del proyecto, en la
- * ruta, o el del filtro, en la consulta. Al recargar se vuelve al mismo.
+ * Hay dos menus. El global agrupa las vistas de toda la organizacion; el del
+ * proyecto, las suyas. El proyecto sale siempre de la URL: el de la pagina
+ * del proyecto, en la ruta, o el del filtro, en la consulta. Al recargar se
+ * vuelve al mismo, y con el el menu que le corresponde.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -22,7 +19,8 @@ import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
   FILTERED_VIEWS,
-  SECTIONS,
+  GLOBAL_SECTIONS,
+  PROJECT_SECTIONS,
   projectStatus,
   viewLabel,
 } from '../utils/navigation'
@@ -48,6 +46,14 @@ let noticeTimer = null
 
 /** Identificador del proyecto abierto: el de la ruta o el del filtro. */
 const projectId = computed(() => route.params.id ?? route.query.project ?? null)
+
+/**
+ * Hay un proyecto abierto.
+ *
+ * Es la unica fuente de verdad de en que espacio se esta: el menu lateral y
+ * las migas de pan dependen de ella.
+ */
+const enProyecto = computed(() => projectId.value !== null)
 
 /** Proyecto que filtra la vista, cuando la vista admite filtro. */
 const filtroProyecto = computed(() => route.query.project ?? null)
@@ -101,13 +107,35 @@ const activeView = computed(() => route.name)
 /** Etiqueta de la vista abierta, para las migas de pan. */
 const currentViewLabel = computed(() => viewLabel(currentView.value))
 
+/** Nombre del proyecto abierto, para las migas de pan. */
+const currentProjectName = computed(
+  () => currentProject.value?.name ?? `Proyecto ${projectId.value}`,
+)
+
 /** Las vistas de planificacion son las que aceptan el filtro de proyecto. */
 const muestraFiltro = computed(() => FILTERED_VIEWS.includes(route.name))
 
-/** Secciones del menu. La de administracion es solo del gerente. */
+/**
+ * Secciones del menu lateral.
+ *
+ * Con un proyecto abierto se ve el menu del proyecto; sin el, el global. La
+ * seccion de administracion es solo del gerente.
+ */
 const sections = computed(() => {
-  if (isManager.value) return SECTIONS
-  return SECTIONS.filter((section) => !section.managerOnly)
+  const lista = enProyecto.value ? PROJECT_SECTIONS : GLOBAL_SECTIONS
+  if (isManager.value) return lista
+  return lista.filter((section) => !section.managerOnly)
+})
+
+/**
+ * Destino del boton que devuelve al espacio global.
+ *
+ * Desde una vista de planificacion se vuelve a la misma vista sin filtro;
+ * desde las demas, al panel.
+ */
+const globalTarget = computed(() => {
+  if (FILTERED_VIEWS.includes(route.name)) return { name: route.name }
+  return { name: 'panel' }
 })
 
 /** Iniciales de la persona con la sesion iniciada. */
@@ -147,17 +175,22 @@ const menuCompacto = computed(() => collapsed.value && !menuAbierto.value)
 /**
  * Destino de un enlace del menu.
  *
- * El filtro de proyecto acompaña a las vistas de planificacion: quien esta
- * mirando un proyecto no lo pierde al pasar de la capacidad al Gantt. En la
- * vista que ya esta abierta se conserva su estado entero, para que el rango,
- * el modo o la celda abierta no se pierdan.
+ * El menu del proyecto lleva su identificador en cada enlace: en los
+ * parametros de la ruta para sus vistas propias y en el filtro para las de
+ * planificacion. En la vista que ya esta abierta se conserva su estado
+ * entero, para que el rango, el modo o la celda abierta no se pierdan.
  */
 function linkFor(item) {
-  if (item.name === route.name) return { name: item.name, query: { ...route.query } }
-  if (FILTERED_VIEWS.includes(item.name) && filtroProyecto.value) {
-    return { name: item.name, query: { project: filtroProyecto.value } }
+  const destino = { name: item.name }
+  if (item.projectIn === 'params') destino.params = { id: String(projectId.value) }
+  if (item.projectIn === 'query') destino.query = { project: String(projectId.value) }
+  if (item.name === route.name) {
+    destino.query = { ...route.query }
+    if (item.projectIn === 'params') {
+      destino.params = { ...route.params, id: String(projectId.value) }
+    }
   }
-  return { name: item.name }
+  return destino
 }
 
 /**
@@ -277,15 +310,19 @@ watch(() => route.fullPath, () => {
         </button>
       </div>
 
-      <div class="border-b border-slate-800 px-3 pb-3">
+      <div class="border-b border-slate-800 px-3 pb-3" data-testid="sidebar-context">
         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {{ currentProject ? 'Proyecto' : 'Organización' }}
+          {{ enProyecto ? 'Proyecto' : 'Espacio Global' }}
         </p>
         <p class="truncate text-sm text-white">
           {{ currentProject?.name ?? 'Toda la organización' }}
         </p>
-        <p v-if="currentProject" class="truncate text-xs text-slate-400">
-          {{ department?.name ?? 'Sin departamento' }}
+        <p class="truncate text-xs text-slate-400">
+          {{
+            enProyecto
+              ? (department?.name ?? 'Sin departamento')
+              : 'Consolidado de todos los proyectos'
+          }}
         </p>
       </div>
 
@@ -315,6 +352,18 @@ watch(() => route.fullPath, () => {
             <span v-if="!menuCompacto" class="flex-1 truncate">{{ item.label }}</span>
           </RouterLink>
         </template>
+
+        <RouterLink
+          v-if="enProyecto"
+          :to="globalTarget"
+          class="flex min-h-11 items-center gap-3 rounded-r-md border-l-4 border-transparent px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          data-testid="volver-global"
+        >
+          <span class="inline-flex h-5 w-5 shrink-0">
+            <AppIcon name="arrowLeft" />
+          </span>
+          <span v-if="!menuCompacto" class="flex-1 truncate">Volver a vista global</span>
+        </RouterLink>
       </nav>
 
       <div class="flex items-center gap-2 border-t border-slate-800 p-3">
@@ -360,11 +409,14 @@ watch(() => route.fullPath, () => {
           </span>
         </button>
         <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Migas de pan">
-          <span class="truncate text-slate-500">{{ currentViewLabel }}</span>
-          <template v-if="currentProject">
+          <template v-if="enProyecto">
+            <span class="truncate text-slate-500">{{ department?.name ?? 'Sin departamento' }}</span>
             <span class="text-slate-300">/</span>
-            <span class="truncate font-medium text-slate-900">{{ currentProject.name }}</span>
+            <span class="truncate text-slate-500">{{ currentProjectName }}</span>
+            <span class="text-slate-300">/</span>
+            <span class="truncate font-medium text-slate-900">{{ currentViewLabel }}</span>
           </template>
+          <span v-else class="truncate text-slate-500">{{ currentViewLabel }}</span>
         </nav>
 
         <div class="flex shrink-0 items-center gap-3">

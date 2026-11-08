@@ -141,8 +141,8 @@ describe('AppShell', () => {
     expect(wrapper.text()).toContain('v0.1')
   })
 
-  it('el menu agrupa las vistas en cuatro grupos', async () => {
-    const { wrapper } = await mountShell()
+  it('el menu global agrupa las vistas en cuatro grupos', async () => {
+    const { wrapper } = await mountShell('/panel')
 
     const menu = wrapper.find('aside').text()
     expect(menu).toContain('Mi espacio')
@@ -151,8 +151,8 @@ describe('AppShell', () => {
     expect(menu).toContain('Administración')
   })
 
-  it('el menu tiene las vistas de planificacion y de organizacion', async () => {
-    const { wrapper } = await mountShell()
+  it('el menu global tiene las vistas de planificacion y de organizacion', async () => {
+    const { wrapper } = await mountShell('/panel')
 
     const menu = wrapper.find('aside').text()
     expect(menu).toContain('Panel')
@@ -166,12 +166,100 @@ describe('AppShell', () => {
     expect(menu).toContain('Configuración')
   })
 
-  it('el menu no tiene las pestanas del proyecto', async () => {
-    const { wrapper } = await mountShell()
+  it('el menu global no tiene las vistas del proyecto', async () => {
+    const { wrapper } = await mountShell('/panel')
 
     const menu = wrapper.find('aside').text()
-    expect(menu).not.toContain('Tablero Kanban')
-    expect(menu).not.toContain('Miembros y Asignaciones')
+    expect(menu).not.toContain('Resumen')
+    expect(menu).not.toContain('Tablero')
+    expect(menu).not.toContain('Miembros')
+    expect(menu).not.toContain('Ajustes')
+  })
+
+  it('con un proyecto en la ruta se ve el menu del proyecto', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Resumen')
+    expect(menu).toContain('Capacidad')
+    expect(menu).toContain('Gantt')
+    expect(menu).toContain('Calendario')
+    expect(menu).toContain('Tablero')
+    expect(menu).toContain('Miembros')
+    expect(menu).toContain('Ajustes')
+  })
+
+  it('con el filtro de la url se ve el menu del proyecto', async () => {
+    const { wrapper } = await mountShell('/capacity?project=1')
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Tablero')
+    expect(menu).not.toContain('Personas y Competencias')
+  })
+
+  it('el menu del proyecto no tiene las vistas de la organizacion', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const menu = wrapper.find('aside').text()
+    expect(menu).not.toContain('Mi trabajo')
+    expect(menu).not.toContain('Proyectos')
+    expect(menu).not.toContain('Configuración')
+  })
+
+  it('desde el tablero la capacidad lleva el filtro del proyecto', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe('/capacity?project=1')
+  })
+
+  it('las vistas de planificacion del menu de proyecto llevan el filtro', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt?project=1')
+    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=1')
+  })
+
+  it('las vistas propias del proyecto llevan el id en la ruta', async () => {
+    const { wrapper } = await mountShell('/projects/1')
+
+    expect(linkTo(wrapper, 'Tablero').attributes('href')).toBe('/projects/1/kanban')
+    expect(linkTo(wrapper, 'Miembros').attributes('href')).toBe('/projects/1/members')
+    expect(linkTo(wrapper, 'Ajustes').attributes('href')).toBe('/projects/1/settings')
+  })
+
+  it('el boton de volver a vista global lleva al panel', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/panel')
+  })
+
+  it('volver a vista global quita el filtro de las vistas de planificacion', async () => {
+    const { wrapper } = await mountShell('/capacity?project=1')
+
+    expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/capacity')
+  })
+
+  it('sin proyecto no hay boton de volver a vista global', async () => {
+    const { wrapper } = await mountShell('/panel')
+
+    expect(wrapper.find('[data-testid="volver-global"]').exists()).toBe(false)
+  })
+
+  it('la cabecera del menu dice el espacio global', async () => {
+    const { wrapper } = await mountShell('/panel')
+
+    const contexto = wrapper.find('[data-testid="sidebar-context"]').text()
+    expect(contexto).toContain('Espacio Global')
+    expect(contexto).toContain('Toda la organización')
+  })
+
+  it('la cabecera del menu dice el proyecto y su departamento', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const contexto = wrapper.find('[data-testid="sidebar-context"]').text()
+    expect(contexto).toContain('Proyecto')
+    expect(contexto).toContain('Linea Pasteurizadora SIVE')
+    expect(contexto).toContain('Automatización & SCADA')
   })
 
   it('cada entrada del menu lleva a su vista', async () => {
@@ -236,12 +324,20 @@ describe('AppShell', () => {
     expect(inactivo.classes()).toContain('border-transparent')
   })
 
-  it('en la pagina del proyecto no se marca ninguna entrada del menu', async () => {
+  it('en el tablero se marca la entrada Tablero del menu', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    // Las pestanas del proyecto son de la pagina del proyecto, no del menu.
     const marcados = wrapper.findAll('aside a.border-indigo-500')
-    expect(marcados).toHaveLength(0)
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0].text()).toContain('Tablero')
+  })
+
+  it('en el resumen se marca la entrada Resumen del menu', async () => {
+    const { wrapper } = await mountShell('/projects/1')
+
+    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0].text()).toContain('Resumen')
   })
 
   it('con la pestana del calendario abierta se marca la configuracion', async () => {
@@ -253,12 +349,17 @@ describe('AppShell', () => {
     expect(configuracion.classes()).toContain('border-indigo-500')
   })
 
-  it('las migas de pan muestran la vista y el proyecto', async () => {
+  it('las migas de pan muestran el departamento, el proyecto y la vista', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
     const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Tablero')
+    expect(migas).toContain('Automatización & SCADA')
     expect(migas).toContain('Linea Pasteurizadora SIVE')
+    expect(migas).toContain('Tablero')
+    expect(migas.indexOf('Automatización & SCADA')).toBeLessThan(
+      migas.indexOf('Linea Pasteurizadora SIVE'),
+    )
+    expect(migas.indexOf('Linea Pasteurizadora SIVE')).toBeLessThan(migas.indexOf('Tablero'))
   })
 
   it('sin proyecto las migas de pan muestran solo la vista', async () => {
@@ -344,10 +445,10 @@ describe('AppShell', () => {
     expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=2')
   })
 
-  it('las demas vistas no llevan el filtro', async () => {
-    const { wrapper } = await mountShell('/capacity?project=2')
+  it('el menu global no lleva filtro de proyecto', async () => {
+    const { wrapper } = await mountShell('/panel')
 
-    expect(linkTo(wrapper, 'Panel').attributes('href')).toBe('/panel')
+    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe('/capacity')
     expect(linkTo(wrapper, 'Proyectos').attributes('href')).toBe('/projects')
   })
 

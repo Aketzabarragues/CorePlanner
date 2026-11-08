@@ -1,9 +1,10 @@
 /**
- * Vistas de la aplicacion y menu lateral.
+ * Vistas de la aplicacion y menus laterales.
  *
- * Hay un solo arbol de rutas: el proyecto ya no es un espacio con su propio
- * menu, es un filtro (`?project=`) de las vistas de planificacion. El menu
- * agrupa las vistas por lo que son, no por donde se esta.
+ * Hay dos espacios. El global agrupa las vistas de toda la organizacion; el
+ * del proyecto, las suyas. El proyecto sale siempre de la URL: el de la
+ * pagina del proyecto, en la ruta, o el del filtro, en la consulta. Quien
+ * mira un proyecto ve su menu; quien no, ve el global.
  */
 
 const PANEL_VIEW = {
@@ -62,12 +63,12 @@ const CONFIGURATION_VIEW = {
 }
 
 /**
- * Menu lateral, en cuatro grupos.
+ * Menu global, en cuatro grupos.
  *
  * El grupo de Administracion es el unico que se esconde: lo ve solo el
  * gerente.
  */
-export const SECTIONS = [
+export const GLOBAL_SECTIONS = [
   {
     title: 'Mi espacio',
     items: [PANEL_VIEW, MY_WORK_VIEW],
@@ -88,23 +89,41 @@ export const SECTIONS = [
 ]
 
 /**
- * Vistas del proyecto.
+ * Menu del proyecto, en dos grupos.
  *
- * No estan en el menu: son las pestanas de la pagina del proyecto
- * (`/projects/{id}`), que es donde tiene sentido abrirlas.
+ * `projectIn` dice donde lleva el identificador del proyecto cada entrada:
+ * en los parametros de la ruta (`/projects/{id}/kanban`) para las vistas
+ * propias del proyecto, o en el filtro de las vistas de planificacion
+ * (`/capacity?project={id}`), que son las unificadas.
  */
-export const PROJECT_VIEWS = [
-  { name: 'project', label: 'Resumen' },
-  { name: 'kanban', label: 'Tablero' },
-  { name: 'members', label: 'Miembros' },
-  { name: 'project-settings', label: 'Ajustes' },
+export const PROJECT_SECTIONS = [
+  {
+    title: 'Planificación y ejecución',
+    items: [
+      { name: 'project', label: 'Resumen', icon: 'gauge', projectIn: 'params' },
+      { name: 'capacity', label: 'Capacidad', icon: 'chart', projectIn: 'query' },
+      { name: 'gantt', label: 'Gantt', icon: 'calendar', projectIn: 'query' },
+      { name: 'calendar', label: 'Calendario', icon: 'grid', projectIn: 'query' },
+      { name: 'kanban', label: 'Tablero', icon: 'board', projectIn: 'params' },
+    ],
+  },
+  {
+    title: 'Gestión y equipo',
+    items: [
+      { name: 'members', label: 'Miembros', icon: 'users', projectIn: 'params' },
+      { name: 'project-settings', label: 'Ajustes', icon: 'sliders', projectIn: 'params' },
+    ],
+  },
 ]
 
 /** Vistas de planificacion que aceptan el filtro de proyecto. */
 export const FILTERED_VIEWS = [CAPACITY_VIEW.name, GANTT_VIEW.name, CALENDAR_VIEW.name]
 
-/** Todas las vistas, las del menu y las del proyecto. */
-const VIEWS = [...SECTIONS.flatMap((section) => section.items), ...PROJECT_VIEWS]
+/** Todas las vistas, las del menu global y las del menu de proyecto. */
+const VIEWS = [
+  ...GLOBAL_SECTIONS.flatMap((section) => section.items),
+  ...PROJECT_SECTIONS.flatMap((section) => section.items),
+]
 
 /** Etiqueta legible de una vista. */
 export function viewLabel(name) {

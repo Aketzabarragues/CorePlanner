@@ -788,10 +788,11 @@ indicadores; ahora es el resumen completo:
 `frontend/src/components/AppShell.vue` envuelve a las vistas en un menu lateral
 y una cabecera, al estilo de OpenProject o Linear.
 
-La navegacion tiene un solo arbol de rutas: el proyecto ya no es un espacio con
-su propio menu, es un filtro (`?project=`) de las vistas de planificacion. El
-menu lateral agrupa las vistas por lo que son y el selector de la cabecera elige
-el proyecto que filtra.
+La navegacion tiene dos menus. El global agrupa las vistas de toda la
+organizacion; el del proyecto, las suyas. Que menu se ve lo decide el proyecto
+activo, que sale siempre de la URL: el de la pagina del proyecto, en el
+parametro de la ruta, o el del filtro, en la query. Es el criterio de la
+maqueta (`demo/coreplanner-demo.html`) y de OpenProject.
 
 El menu lateral lleva el isotipo con su version, un bloque que dice que se esta
 viendo, al pie la tarjeta de quien esta dentro con su avatar, su rol de empresa
@@ -817,7 +818,11 @@ un proyecto no lo pierde al pasar de la capacidad al Gantt.
 
 ### Menu lateral
 
-Un solo menu, con cuatro grupos:
+Dos menus, segun haya proyecto delante o no. El proyecto activo sale de la
+URL: el parametro de la ruta (`/projects/{id}/...`) o el filtro de la query
+(`?project=`). Con proyecto se ve el menu del proyecto; sin el, el global.
+
+**Menu global**, con cuatro grupos:
 
 | Grupo | Vistas |
 | --- | --- |
@@ -826,13 +831,36 @@ Un solo menu, con cuatro grupos:
 | Organizacion | Proyectos, Personas y Competencias, Departamentos |
 | Administracion (solo gerente) | Configuracion |
 
+**Menu de proyecto**, con dos grupos:
+
+| Grupo | Vistas |
+| --- | --- |
+| Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero |
+| Gestion y equipo | Miembros, Ajustes |
+
+Los enlaces del menu de proyecto llevan el proyecto: en la ruta para Resumen,
+Tablero, Miembros y Ajustes, y en el filtro `?project=` para Capacidad, Gantt y
+Calendario. Los del menu global nunca lo llevan, porque sin proyecto no hay
+filtro que llevar.
+
 El menu no decide quien ve que: lo decide el rol de empresa, igual que hasta
 ahora. El grupo de Administracion es el unico que se esconde.
 
-Las pestanas del proyecto (Tablero, Miembros y Ajustes) no estan en el menu:
-son de la pagina del proyecto, que es donde tiene sentido abrirlas y la que
-tiene las cuatro. El calendario laboral tampoco esta: es una pestana de la
+El calendario laboral no esta en ningun menu: es una pestana de la
 configuracion.
+
+### Contexto del menu y vuelta al espacio global
+
+La cabecera del menu dice en que espacio se esta: **Proyecto**, con el nombre
+del proyecto y su departamento, o **Espacio Global**, con *Toda la
+organizacion* y *Consolidado de todos los proyectos*.
+
+Al final del menu de proyecto hay un boton **Volver a vista global** que quita
+el filtro y vuelve al espacio global: a la misma vista de planificacion sin
+`?project=`, o al Panel cuando la vista no era de planificacion.
+
+Las migas de pan distinguen los dos espacios: **departamento / proyecto /
+vista** en el proyecto, y solo la **vista** en el global.
 
 ### Menu en cajon
 
@@ -946,9 +974,9 @@ parcial que pierda estilos sin avisar.
 ## Estado actual
 
 Base del proyecto: esquema de datos con departamentos, autenticacion JWT,
-frontend con login, listado de proyectos, armazon de aplicacion con menu
-lateral unico en cuatro grupos, cabecera con migas, selector de proyecto como
-filtro y alta de tarea, navegacion con un solo arbol de rutas, matriz de
+frontend con login, listado de proyectos, armazon de aplicacion con dos menus
+laterales (global y de proyecto), cabecera con migas, selector de proyecto como
+filtro y alta de tarea, navegacion con dos arboles de rutas, matriz de
 ocupacion con reparto semanal, CRUD de tareas, feed JSON del Gantt, tablero
 Kanban, vista de departamentos, ambito
 por rol de empresa (gerente, jefe de departamento y tecnico), pantalla de
@@ -962,9 +990,10 @@ por dia. La capacidad esta en una sola pantalla: la matriz, con el detalle
 en un panel lateral, los modos de celda y el arrastre con previsualizacion para
 reasignar una tarea.
 
-La navegacion ya no tiene dos contextos: el proyecto es un filtro
-(`?project=`) de las vistas de planificacion, la pagina del proyecto conserva
-sus cuatro pestanas y la raiz lleva a cada rol a su vista de entrada.
+La navegacion tiene dos contextos: el proyecto es un espacio con su propio
+menu y el filtro `?project=` de las vistas de planificacion. La pagina del
+proyecto conserva sus cuatro pestanas, el menu de proyecto lleva el proyecto en
+cada enlace y la raiz lleva a cada rol a su vista de entrada.
 
 Las pantallas personales ya no son listas de tablas:
 

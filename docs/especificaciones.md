@@ -511,3 +511,79 @@ esfuerzo.
   operacion que hace: el resto se cambia desde la tarea.
 - Al soltar una tarea, la **matriz se recarga**: las horas se recalculan en el
   backend, no en el cliente.
+
+## 19. Componentes comunes y textos visibles
+
+Las pantallas repiten lo mismo: un texto "Cargando...", un bloque de error
+copiado, una cabecera con titulo y subtitulo, un aviso de que algo ha ido
+bien. Cada copia es una ocasion de que se queden desincronizadas. Este bloque
+sustituye esas copias por cuatro componentes que usan todas las vistas.
+
+De paso se revisan las cadenas visibles: hay una decena de sitios donde falta
+la tilde ("Matriz de ocupacion", "Todavia", "Titulo"), en una interfaz que por
+lo demas si la lleva.
+
+### Que entra
+
+- **`AsyncState`**: los tres estados de una vista que carga datos.
+  - Cargando: un esqueleto con la forma de la pantalla, no un texto suelto.
+    Se anuncia con `role="status"` y `aria-live="polite"`, y respeta la
+    preferencia de "reducir movimiento".
+  - Error: `role="alert"`, el mensaje y un boton **Reintentar**.
+  - Vacio: un texto y una accion.
+- **`AlertBanner`**: el aviso en linea, con icono y accion opcional, en cuatro
+  variantes (exito, aviso, info, error). Es el unico patron de aviso: el aviso
+  flotante del shell desaparece.
+- **`PageHeader`**: migas, titulo, subtitulo y acciones, siempre en el mismo
+  orden y con el mismo aspecto en todas las pantallas.
+- **`SidePanel`**: el panel lateral de detalle, con `role="dialog"`,
+  `aria-modal`, cierre con `Esc` y trampa de foco. El modal de desglose de la
+  matriz de capacidad deja de estar hecho a mano y pasa a usar este componente.
+- **`useDialog`**: el comportamiento de los dialogos (escucha de `Esc`, bloqueo
+  del desplazamiento, trampa de foco y devolucion del foco) en un solo sitio.
+  `ModalDialog` lo usa tambien, y de paso gana la trampa de foco que le
+  faltaba.
+- La **tilde en las cadenas visibles** del frontend y de los mensajes de error
+  que ve el operario.
+
+### Que no entra
+
+- **El aviso flotante**: no hay dos patrones de aviso a la vez. El mensaje de
+  "tarea creada" pasa a un banner en linea.
+- **Los estados vacios propios de cada pantalla**: cada vista decide que
+  escribe en su estado vacio; el componente solo aporta el hueco y la accion.
+- **El panel lateral de la pantalla unificada de capacidad**: es de la fase 4.
+  Aqui solo se prepara el componente.
+- **La unificacion de rutas y el menu**: son de la fase 5, la de mayor riesgo.
+- **Un sistema de diseno nuevo**: se mantienen el azul de Siemens y la paleta
+  actual.
+- **Los atajos de teclado** del prototipo: son de otra fase y se resuelven con
+  el panel lateral.
+
+### Decisiones de este bloque
+
+1. **Un solo patron de aviso.** El prototipo lo dice: "Un solo patron de
+   aviso, en linea, con icono y accion. El toast flotante desaparece." El
+   banner va en la propia vista, donde se puede leer y donde puede llevar su
+   accion; un flotante se traga el mensaje a los seis segundos.
+2. **El azul de Siemens se mantiene.** El prototipo usa teal (`#0f766e`) en el
+   boton principal. Aqui manda el azul de la casa: `bg-siemens-900`. Los avisos
+   usan la paleta estandar de Tailwind (verde, ambar, azul y rojo) para no
+   mezclarse con el azul de marca.
+3. **El esqueleto tiene la forma de la pantalla**, no una barra generica: una
+   cabecera y las filas de la tabla o de la rejilla. Se puede cambiar entero
+   con el slot `loading`.
+4. **Cada componente se aplica en su propio commit**, con la suite en verde, y
+   se puede revertir por separado.
+5. **Los mensajes del backend tambien se acentuan.** El operario los ve igual
+   que los de la interfaz, asi que la convencion es la misma: lo que se ve,
+   lleva tilde. Lo que no se ve (comentarios, nombres de archivo, documentacion
+   tecnica) sigue en ASCII.
+6. **Los componentes viven en `frontend/src/components/common/`**, con sus
+   pruebas en `frontend/src/tests/`.
+7. **Un fallo de operacion es un banner; un fallo de validacion no.** Cuando
+   la accion falla ("no se ha podido guardar"), el mensaje va en un
+   `AlertBanner` con icono, este donde este el formulario. Cuando el propio
+   formulario avisa de que un campo no vale ("el titulo es obligatorio"), el
+   mensaje se queda pegado al campo, en rojo y sin caja: son dos cosas
+   distintas y el operario las distingue de un vistazo.

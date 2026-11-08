@@ -204,6 +204,33 @@ describe('KanbanView', () => {
     expect(wrapper.findAll('article')[0].classes()).toContain('select-none')
   })
 
+  it('mientras se arrastra, una copia de la tarjeta sigue al cursor', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+    stubColumns(wrapper)
+
+    expect(wrapper.find('[data-testid="kanban-drag-ghost"]').exists()).toBe(false)
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.trigger('mousedown', { clientX: 0, clientY: 0 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 120 }))
+    await flushPromises()
+
+    const copia = wrapper.find('[data-testid="kanban-drag-ghost"]')
+    expect(copia.exists()).toBe(true)
+    expect(copia.text()).toContain('Esquemas EPLAN')
+    expect(copia.text()).toContain('Ana')
+    expect(copia.text()).toContain('10 h')
+    expect(copia.attributes('style')).toContain('left: 250px')
+    expect(copia.attributes('style')).toContain('top: 120px')
+
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 120 }))
+    await flushPromises()
+
+    // Al soltar, la copia se va: solo existe mientras dura el gesto.
+    expect(wrapper.find('[data-testid="kanban-drag-ghost"]').exists()).toBe(false)
+  })
+
   it('soltar la tarjeta en su propia columna no guarda nada', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()
@@ -225,6 +252,14 @@ describe('KanbanView', () => {
     const select = wrapper.findAll('select')[0]
     expect(select.attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('Solo lectura')
+  })
+
+  it('con permiso de escritura el subtitulo ofrece el arrastre', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    expect(wrapper.text()).toContain('Arrastra una tarjeta a otra columna')
+    expect(wrapper.text()).not.toContain('Solo lectura')
   })
 
   it('sin permiso de escritura la tarjeta no se puede arrastrar', async () => {

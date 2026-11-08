@@ -36,6 +36,10 @@ const saving = ref(false)
 const draggingId = ref(null)
 const hoverColumn = ref(null)
 const columnElements = ref([])
+/** Posicion del raton durante el arrastre: la copia de la tarjeta va ahi. */
+const dragPosition = ref({ x: 0, y: 0 })
+/** Punto de la tarjeta donde se agarra: la copia sale desde ahi. */
+const dragOffset = ref({ x: 0, y: 0 })
 /** Ambito de quien entra: rol y proyectos en los que puede escribir. */
 const scope = ref(null)
 
@@ -55,12 +59,20 @@ const canEdit = computed(() => {
   return editable.includes(Number(props.id))
 })
 
-/** Lo que se lee encima del tablero: cambia con el permiso. */
+/**
+ * Lo que se lee encima del tablero: cambia con el permiso.
+ *
+ * Hasta que llega el ambito no se afirma nada: el texto generico es el de
+ * siempre y solo se avisa de la solo lectura cuando ya se sabe.
+ */
 const subtitle = computed(() =>
-  canEdit.value
-    ? 'Arrastra una tarjeta a otra columna o cambia su estado en el desplegable.'
-    : 'Solo lectura: no puedes mover las tarjetas de este proyecto.',
+  scope.value && !canEdit.value
+    ? 'Solo lectura: no puedes mover las tarjetas de este proyecto.'
+    : 'Arrastra una tarjeta a otra columna o cambia su estado en el desplegable.',
 )
+
+/** La tarjeta que se esta arrastrando: la copia que sigue al cursor. */
+const draggedTask = computed(() => tasks.value.find((task) => task.id === draggingId.value) ?? null)
 
 const board = computed(() =>
   KANBAN_COLUMNS.map((column) => ({
@@ -82,6 +94,10 @@ function startDrag(task, event) {
   // Sin esto el navegador sigue con su seleccion de texto mientras se arrastra
   // y el resaltado azul compite con el gesto.
   event.preventDefault()
+  // La copia sale desde el punto donde se ha agarrado la tarjeta, para que no
+  // salte de golpe al empezar el arrastre.
+  const caja = event.currentTarget.getBoundingClientRect()
+  dragOffset.value = { x: event.clientX - caja.left, y: event.clientY - caja.top }
   dragging = { task }
   draggingId.value = task.id
   window.addEventListener('mousemove', onDragMove)
@@ -90,6 +106,7 @@ function startDrag(task, event) {
 
 function onDragMove(event) {
   if (!dragging) return
+  dragPosition.value = { x: event.clientX, y: event.clientY }
   hoverColumn.value = columnAtPoint(event.clientX, event.clientY)?.status ?? null
 }
 
@@ -100,6 +117,7 @@ function onDragEnd(event) {
   dragging = null
   draggingId.value = null
   hoverColumn.value = null
+  dragPosition.value = { x: 0, y: 0 }
   if (!pending) return
 
   const target = columnAtPoint(event.clientX, event.clientY)
@@ -253,5 +271,33 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </AsyncState>
+
+    <!--
+      Copia de la tarjeta que se arrastra: sigue al cursor mientras dura el
+      gesto y deja ver a que columna va a caer. No intercepta el raton, para que
+      la columna de destino se siga calculando por debajo.
+    -->
+    <div
+      v-if="draggedTask"
+      data-testid="kanban-drag-ghost"
+      class="pointer-events-none fixed z-50 w-64 select-none rounded border border-siemens-500 bg-white p-3 shadow-lg"
+      :style="{
+        left: `${dragPosition.x - dragOffset.x}px`,
+        top: `${dragPosition.y - dragOffset.y}px`,
+      }"
+    >
+      <p class="text-sm font-medium text-slate-900">{{ draggedTask.title }}</p>
+      <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
+          {{ draggedTask.assigned_name ?? 'Sin asignar' }}
+        </span>
+        <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-white">
+          {{ formatHours(draggedTask.estimated_hours) }}
+        </span>
+      </div>
+      <p v-if="draggedTask.start_date" class="mt-1 text-xs text-slate-500">
+        {{ draggedTask.start_date }} &rarr; {{ draggedTask.end_date }}
+      </p>
+    </div>
   </div>
 </template>

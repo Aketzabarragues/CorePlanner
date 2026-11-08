@@ -52,6 +52,7 @@ describe('navegacion', () => {
       'gantt',
       'calendar',
       'kanban',
+      'task-list',
       'members',
       'project-settings',
       'activity',
@@ -62,7 +63,7 @@ describe('navegacion', () => {
     const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items)
     const propias = enElMenu.filter((view) => view.projectIn === 'params').map((view) => view.name)
 
-    expect(propias).toEqual(['project', 'kanban', 'members', 'project-settings'])
+    expect(propias).toEqual(['project', 'kanban', 'task-list', 'members', 'project-settings'])
   })
 
   it('las vistas de planificacion del proyecto llevan el filtro', () => {
@@ -80,10 +81,27 @@ describe('navegacion', () => {
     expect(proyecto).toContain('activity')
   })
 
+  it('la lista esta en el grupo de planificacion del proyecto', () => {
+    const planificacion = PROJECT_SECTIONS.find(
+      (section) => section.title === 'Planificación y ejecución',
+    )
+
+    expect(planificacion.items.map((view) => view.name)).toContain('task-list')
+  })
+
+  it('la lista es una vista propia del proyecto, no una vista con filtro', () => {
+    const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items)
+    const lista = enElMenu.find((view) => view.name === 'task-list')
+
+    expect(lista.projectIn).toBe('params')
+    expect(FILTERED_VIEWS).not.toContain('task-list')
+  })
+
   it('las vistas del proyecto no estan en el menu global', () => {
     const enElMenu = GLOBAL_SECTIONS.flatMap((section) => section.items).map((view) => view.name)
 
     expect(enElMenu).not.toContain('kanban')
+    expect(enElMenu).not.toContain('task-list')
     expect(enElMenu).not.toContain('members')
     expect(enElMenu).not.toContain('project-settings')
   })
@@ -106,6 +124,7 @@ describe('navegacion', () => {
     expect(viewLabel('departments')).toBe('Departamentos')
     expect(viewLabel('project')).toBe('Resumen')
     expect(viewLabel('kanban')).toBe('Tablero')
+    expect(viewLabel('task-list')).toBe('Lista')
     expect(viewLabel('members')).toBe('Miembros')
     expect(viewLabel('project-settings')).toBe('Ajustes')
     expect(viewLabel('activity')).toBe('Actividad')

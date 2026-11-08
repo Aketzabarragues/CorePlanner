@@ -111,6 +111,7 @@ export const PROJECT_SECTIONS = [
       { name: 'gantt', label: 'Gantt', icon: 'calendar', projectIn: 'query' },
       { name: 'calendar', label: 'Calendario', icon: 'grid', projectIn: 'query' },
       { name: 'kanban', label: 'Tablero', icon: 'board', projectIn: 'params' },
+      { name: 'task-list', label: 'Lista', icon: 'list', projectIn: 'params' },
     ],
   },
   {

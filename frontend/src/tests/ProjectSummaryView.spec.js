@@ -104,6 +104,7 @@ async function mountView() {
     routes: [
       { path: '/projects/:id', name: 'project', component: { render: () => null } },
       { path: '/projects/:id/kanban', name: 'kanban', component: { render: () => null } },
+      { path: '/projects/:id/tasks', name: 'task-list', component: { render: () => null } },
       { path: '/projects/:id/members', name: 'members', component: { render: () => null } },
       { path: '/projects/:id/settings', name: 'project-settings', component: { render: () => null } },
       { path: '/capacity', name: 'capacity', component: { render: () => null } },
@@ -137,7 +138,7 @@ describe('ProjectSummaryView', () => {
     expect(wrapper.text()).toContain('Ana Beltrán')
   })
 
-  it('ofrece las cuatro secciones del proyecto', async () => {
+  it('ofrece las secciones del proyecto', async () => {
     const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="project-tab-resumen"]').attributes('href')).toBe(
@@ -145,6 +146,9 @@ describe('ProjectSummaryView', () => {
     )
     expect(wrapper.find('[data-testid="project-tab-tablero"]').attributes('href')).toBe(
       '/projects/1/kanban',
+    )
+    expect(wrapper.find('[data-testid="project-tab-lista"]').attributes('href')).toBe(
+      '/projects/1/tasks',
     )
     expect(wrapper.find('[data-testid="project-tab-miembros"]').attributes('href')).toBe(
       '/projects/1/members',

@@ -294,6 +294,8 @@ class TaskOut(BaseModel):
     id: int
     project_id: int
     assigned_to: int | None = None
+    assigned_name: str | None = None
+    """Nombre de quien lleva la tarea."""
     title: str
     status: str
     description: str | None = None
@@ -306,6 +308,10 @@ class TaskOut(BaseModel):
     Una tarea puede cruzar varias semanas, de modo que sus horas estimadas no
     son las horas de esa semana. Es None si la peticion no filtraba por semana.
     """
+    checklist_total: int = 0
+    """Puntos que tiene la lista de comprobacion de la tarea."""
+    checklist_done: int = 0
+    """Puntos de esa lista que estan hechos."""
 
 
 class TaskCommentOut(BaseModel):

@@ -6,7 +6,7 @@
  * menu ve quien lo gestiona, en que estado esta, como se reparten las tareas,
  * cuanto carga el equipo cada semana y quienes lo forman.
  *
- * Las cuatro secciones del proyecto (Resumen, Tablero, Miembros y Ajustes) son
+ * Las secciones del proyecto (Resumen, Tablero, Lista, Miembros y Ajustes) son
  * vistas propias: aqui solo estan los enlaces.
  */
 import { computed, onMounted, ref, watch } from 'vue'
@@ -40,6 +40,7 @@ const RANGE_SIZE = 9
 const TABS = [
   { name: 'Resumen', to: () => `/projects/${props.id}` },
   { name: 'Tablero', to: () => `/projects/${props.id}/kanban` },
+  { name: 'Lista', to: () => `/projects/${props.id}/tasks` },
   { name: 'Miembros', to: () => `/projects/${props.id}/members` },
   { name: 'Ajustes', to: () => `/projects/${props.id}/settings` },
 ]

@@ -177,7 +177,7 @@ coreplanner/
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Actividad, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Actividad, Kanban, Lista, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -723,6 +723,34 @@ componente aparte, `TaskDetailPanel.vue`, que se apoya en `SidePanel`.
 El permiso es el de `PATCH /api/tasks/{id}`: quien puede editar la tarea puede
 comentar y tocar su lista. Quien solo puede leer, los lee.
 
+## Lista de tareas
+
+La vista `/projects/{id}/tasks` muestra las tareas del proyecto en fila. Es una
+vista del proyecto, como el Tablero: el id va en la ruta y la entrada "Lista"
+esta en el menu del proyecto, en el grupo "Planificacion y ejecucion".
+
+- **Columnas**: Titulo, Asignado, Estado, Inicio → Fin, Horas y Checklist. El
+  checklist sale como "x/y hechos" solo si la tarea tiene puntos.
+- **Orden**: por defecto, por fecha de inicio. Un clic en la cabecera de una
+  columna ordena por ella de forma ascendente y un segundo clic la invierte. Lo que
+  no tiene valor (una tarea sin fecha) se queda al final en los dos sentidos.
+- **Filtros**: dos selects encima de la tabla, al estilo de los de la matriz de
+  capacidad, uno por estado (los cuatro del Tablero) y otro por persona. Se
+  combinan, y el encabezado dice cuanto se esta enseñando.
+- **Un clic en la fila abre el detalle**: es el mismo `TaskDetailPanel.vue` del
+  Tablero, con sus campos, su descripcion, su checklist, sus comentarios y su
+  actividad.
+- El boton **+ Nueva Tarea** no se repite aqui: lo pone el armazon.
+
+El responsable y el progreso del checklist los trae el backend en `TaskOut`
+(`assigned_name`, `checklist_total` y `checklist_done`). El progreso se calcula
+con una consulta agrupada para todas las tareas de la respuesta, no una por tarea.
+Quien solo puede ver el proyecto ve la tabla y abre el panel, pero dentro no puede
+tocarlo.
+
+No entra: paginacion, exportacion a CSV o Excel, columnas configurables ni vista
+guardada.
+
 ## Departamentos
 
 `GET /api/departments` devuelve los departamentos con su responsable. Un
@@ -863,8 +891,8 @@ indicadores; ahora es el resumen completo:
 
 - **Cabecera** con el nombre, el estado, el departamento gestor y el
   responsable.
-- **Cuatro secciones**: Resumen, Tablero, Miembros y Ajustes, que enlazan con las
-  vistas que ya existen.
+- **Cinco secciones**: Resumen, Tablero, Lista, Miembros y Ajustes, que enlazan con
+  las vistas que ya existen.
 - **Accesos** a *Ver su capacidad* (la matriz global filtrada por proyecto) y a
   *Ver su Gantt*.
 - **Estado de las tareas**: barra segmentada y contador por estado.
@@ -923,11 +951,11 @@ URL: el parametro de la ruta (`/projects/{id}/...`) o el filtro de la query
 
 | Grupo | Vistas |
 | --- | --- |
-| Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero |
+| Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero, Lista |
 | Gestion y equipo | Miembros, Ajustes, Actividad |
 
 Los enlaces del menu de proyecto llevan el proyecto: en la ruta para Resumen,
-Tablero, Miembros y Ajustes, y en el filtro `?project=` para Capacidad, Gantt,
+Tablero, Lista, Miembros y Ajustes, y en el filtro `?project=` para Capacidad, Gantt,
 Calendario y Actividad. Los del menu global nunca lo llevan, porque sin proyecto
 no hay filtro que llevar.
 
@@ -978,6 +1006,7 @@ trabajo y del Panel se apilan en una sola columna.
 | `/configuration` | configuracion de la organizacion; su primera pestana es el calendario laboral |
 | `/projects/{id}` | resumen del proyecto |
 | `/projects/{id}/kanban` | tablero Kanban |
+| `/projects/{id}/tasks` | lista de tareas del proyecto |
 | `/projects/{id}/members` | miembros y asignaciones |
 | `/projects/{id}/settings` | configuracion del proyecto |
 
@@ -1101,6 +1130,9 @@ Las pantallas personales ya no son listas de tablas:
 - **El detalle de una tarea** se abre desde la tarjeta del Tablero: sus
   campos, la descripcion, la lista de comprobacion, los comentarios y su
   historico, con el boton de eliminar la tarea.
+- **La lista de tareas** (`/projects/{id}/tasks`) enseña las tareas del proyecto en
+  fila, ordenables por columna y con filtros rapidos de estado y de persona. Un
+  clic en una fila abre el mismo detalle de tarea.
 - **El calendario laboral** vive en la primera pestana de la configuracion, con
   el mes navegable, el detalle del dia y el impacto en la capacidad.
 - **En movil** el menu lateral sale como un cajon y las tarjetas se apilan.

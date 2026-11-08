@@ -11,7 +11,9 @@ tarea.
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from collections.abc import Sequence
+
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Task, TaskChecklistItem, TaskComment, User
@@ -106,6 +108,43 @@ async def list_checklist(session: AsyncSession, task_id: int) -> list[dict]:
         }
         for item in result.scalars().all()
     ]
+
+
+async def checklist_progress(
+    session: AsyncSession, task_ids: Sequence[int]
+) -> dict[int, dict]:
+    """Cuantos puntos tiene la lista de cada tarea y cuantos estan hechos.
+
+    Se resuelve en una consulta para todas las tareas, no una por tarea: un
+    listado puede traer muchas.
+    """
+    if not task_ids:
+        return {}
+    result = await session.execute(
+        select(
+            TaskChecklistItem.task_id,
+            func.count(TaskChecklistItem.id),
+            func.sum(case((TaskChecklistItem.done.is_(True), 1), else_=0)),
+        )
+        .where(TaskChecklistItem.task_id.in_(set(task_ids)))
+        .group_by(TaskChecklistItem.task_id)
+    )
+    return {
+        task_id: {"checklist_total": total, "checklist_done": done or 0}
+        for task_id, total, done in result.all()
+    }
+
+
+async def assignee_names(
+    session: AsyncSession, user_ids: Sequence[int]
+) -> dict[int, str]:
+    """Nombre de las personas que llevan las tareas."""
+    if not user_ids:
+        return {}
+    result = await session.execute(
+        select(User).where(User.id.in_(set(user_ids)))
+    )
+    return {row.id: row.name for row in result.scalars().all()}
 
 
 async def add_checklist_item(

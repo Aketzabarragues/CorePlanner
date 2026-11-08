@@ -33,7 +33,9 @@ from ..services.capacity_repository import load_task_week_hours
 from ..services.dates import as_utc
 from ..services.task_details import (
     add_checklist_item,
+    assignee_names,
     add_comment,
+    checklist_progress,
     list_checklist,
     list_comments,
     remove_checklist_item,
@@ -73,22 +75,43 @@ async def _checklist_item_or_404(
     return item
 
 
-async def _with_week_hours(
+async def _with_details(
     session: SessionDep,
     tasks: list[Task],
     week: str | None,
 ) -> list[TaskOut]:
-    """Enriquece las tareas con las horas que aportan en la semana filtrada.
+    """Enriquece las tareas con lo que necesita un listado.
 
-    Sin filtro por semana no hay nada que anadir: las horas estimadas siguen
-    siendo las de la tarea entera.
+    Aporta las horas que aportan en la semana filtrada, el nombre de quien las
+    lleva y el progreso de su lista de comprobacion. Sin filtro por semana no
+    hay horas que anadir: las estimadas siguen siendo las de la tarea entera.
     """
-    if week is None or not tasks:
-        return [TaskOut.model_validate(task) for task in tasks]
-    hours = await load_task_week_hours(session, tasks, week)
+    if not tasks:
+        return []
+
+    outs = [TaskOut.model_validate(task) for task in tasks]
+
+    if week is not None:
+        hours = await load_task_week_hours(session, tasks, week)
+        outs = [
+            out.model_copy(update={"week_hours": hours.get(task.id)})
+            for out, task in zip(outs, tasks)
+        ]
+
+    names = await assignee_names(
+        session, [task.assigned_to for task in tasks if task.assigned_to is not None]
+    )
+    progress = await checklist_progress(session, [task.id for task in tasks])
+
     return [
-        TaskOut.model_validate(task).model_copy(update={"week_hours": hours.get(task.id)})
-        for task in tasks
+        out.model_copy(
+            update={
+                "assigned_name": names.get(task.assigned_to) if task.assigned_to else None,
+                "checklist_total": progress.get(task.id, {}).get("checklist_total", 0),
+                "checklist_done": progress.get(task.id, {}).get("checklist_done", 0),
+            }
+        )
+        for out, task in zip(outs, tasks)
     ]
 
 
@@ -100,7 +123,7 @@ async def list_visible_tasks(
     week: str | None = Query(default=None, description="Semana ISO, por ejemplo 2026-W46"),
     from_date: date | None = Query(default=None, alias="from"),
     to_date: date | None = Query(default=None, alias="to"),
-) -> list[Task]:
+) -> list[TaskOut]:
     """Tareas de todos los proyectos visibles, con filtro opcional.
 
     Es el listado que usa el desglose de una celda de la matriz global, donde
@@ -116,7 +139,7 @@ async def list_visible_tasks(
         from_date,
         to_date,
     )
-    return await _with_week_hours(session, tasks, week)
+    return await _with_details(session, tasks, week)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskOut])
@@ -129,7 +152,7 @@ async def list_tasks(
 ) -> list[TaskOut]:
     """Tareas del proyecto, con filtro opcional por persona y por semana."""
     tasks = await list_project_tasks(session, project_id, assigned_to, week)
-    return await _with_week_hours(session, tasks, week)
+    return await _with_details(session, tasks, week)
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskOut, status_code=201)

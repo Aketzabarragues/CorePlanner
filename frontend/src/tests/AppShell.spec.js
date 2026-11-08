@@ -106,6 +106,7 @@ function buildRouter() {
       { path: '/configuration', name: 'configuration', component: Empty },
       { path: '/projects/:id', name: 'project', component: Empty },
       { path: '/projects/:id/kanban', name: 'kanban', component: Empty },
+      { path: '/projects/:id/tasks', name: 'task-list', component: Empty },
       { path: '/projects/:id/members', name: 'members', component: Empty },
       { path: '/projects/:id/settings', name: 'project-settings', component: Empty },
     ],
@@ -242,6 +243,7 @@ describe('AppShell', () => {
     const { wrapper } = await mountShell('/projects/1')
 
     expect(linkTo(wrapper, 'Tablero').attributes('href')).toBe('/projects/1/kanban')
+    expect(linkTo(wrapper, 'Lista').attributes('href')).toBe('/projects/1/tasks')
     expect(linkTo(wrapper, 'Miembros').attributes('href')).toBe('/projects/1/members')
     expect(linkTo(wrapper, 'Ajustes').attributes('href')).toBe('/projects/1/settings')
   })
@@ -349,6 +351,14 @@ describe('AppShell', () => {
     const marcados = wrapper.findAll('aside a.border-indigo-500')
     expect(marcados).toHaveLength(1)
     expect(marcados[0].text()).toContain('Tablero')
+  })
+
+  it('en la lista se marca la entrada Lista del menu', async () => {
+    const { wrapper } = await mountShell('/projects/1/tasks')
+
+    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0].text()).toContain('Lista')
   })
 
   it('en el resumen se marca la entrada Resumen del menu', async () => {

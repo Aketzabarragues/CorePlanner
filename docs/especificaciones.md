@@ -1354,3 +1354,99 @@ Capacidad, haciendo clic en una celda y luego en la tarea.
 9. **El boton de eliminar pide confirmacion**: borrar una tarea no tiene
    vuelta atras, porque se van con ella sus comentarios y su lista.
 
+## 27. Vista de lista de tareas del proyecto
+
+El Tablero enseña el reparto por estado y el Gantt enseña el calendario. Faltaba la
+tercera forma de mirar las tareas del proyecto: en fila, con su responsable, su
+estado, sus fechas, sus horas y el progreso de su lista de comprobacion.
+
+Es una **vista del proyecto**, como el Tablero: el proyecto va en la ruta. No es una
+vista global con filtro, asi que no entra en el menu global.
+
+### Que entra
+
+**La ruta y el menu**
+
+- `frontend/src/views/TaskListView.vue`, ruta `/projects/:id/tasks`, nombre `task-list`.
+- Entrada "Lista" en `PROJECT_SECTIONS`, grupo "Planificacion y ejecucion", junto a
+  Tablero, con `projectIn: 'params'`.
+- Tambien es una pestaña del resumen del proyecto, para que el camino sea el mismo
+  desde los dos sitios.
+- Icono `list` propio en `AppIcon.vue`.
+
+**La tabla**
+
+- Columnas: Titulo, Asignado, Estado, Inicio → Fin, Horas y Checklist.
+- El checklist sale como "x/y hechos" solo si la tarea tiene puntos. Si no tiene, la
+  celda se queda vacia.
+- El responsable lo trae el backend (`assigned_name`), no la lista de miembros del
+  proyecto: una tarea puede quedar asignada a alguien que ya no es miembro.
+
+**El orden**
+
+- Clic en la cabecera de una columna: ordena por ella de forma ascendente. Un
+  segundo clic invierte el sentido. Al cambiar de columna, el orden empieza de
+  nuevo en ascendente.
+- Por defecto se ordena por **fecha de inicio ascendente**.
+- Lo que no tiene valor (una tarea sin fecha) se queda al final en los dos sentidos.
+
+**Los filtros**
+
+- Dos selects encima de la tabla, al estilo de los de la matriz de capacidad:
+  **Estado** (los cuatro estados del Tablero) y **Persona**.
+- Se combinan, y el encabezado dice cuanto se esta enseñando ("3 de 6 tareas").
+
+**El detalle**
+
+- Un clic en la fila abre `TaskDetailPanel.vue`: **el mismo panel del §26**, con sus
+  campos, su descripcion, su checklist, sus comentarios y su actividad. Mismas props
+  (`task-id`, `can-edit`).
+- El boton "Nueva Tarea" no se repite: lo pone el armazon.
+
+**El backend**
+
+- `GET /api/projects/{id}/tasks` ya existia. Se ha enriquecido `TaskOut` con
+  `assigned_name`, `checklist_total` y `checklist_done`.
+- El progreso del checklist se calcula con **una consulta agrupada** para todas las
+  tareas de la respuesta, no una por tarea. Lo mismo con los nombres de los
+  responsables.
+- Sirve para el listado del proyecto y para el global (`GET /api/tasks`).
+
+**Solo lectura**
+
+- `canEdit` sale del mismo sitio que en el Tablero: el proyecto tiene que estar
+  entre los editables de quien entra. Quien solo puede ver ve la tabla y abre el
+  panel, pero dentro no puede tocar nada.
+
+### Que no entra
+
+- **Paginacion**: hoy ningun proyecto llega a necesitarla (el mayor tiene 6 tareas).
+- **Exportar a CSV o Excel**.
+- **Columnas configurables**.
+- **Vista guardada** (recordar como se ordenaba y que filtros me llevo).
+- **Editar desde la tabla**: los cambios se hacen desde el panel.
+
+### Decisiones tomadas
+
+1. **Es una vista del proyecto, no una vista global con filtro**: por eso la ruta
+   lleva el id del proyecto y la entrada va en el menu del proyecto
+   (`projectIn: 'params'`), no en el global.
+2. **El icono `list` es nuevo**: en Heroicons las rutas `list` y `board` son
+   identicas, y `board` ya lo usa el Tablero.
+3. **El orden por defecto es por fecha de inicio**: es la columna por la que se
+   planifica. Titulo y responsable se ordenan de forma alfabetica.
+4. **Clic en la cabecera ordena ascendente y otro clic invierte**: al cambiar de
+   columna se empieza de nuevo en ascendente, para no dejar una columna al reves sin
+   querer.
+5. **Lo que no tiene valor se queda siempre al final**: una tarea sin fecha no
+   desaparece ni sube al principio al invertir el orden.
+6. **El progreso del checklist lo calcula el backend**: el frontend solo pinta
+   "x/y hechos". Una consulta agrupada, no una por tarea.
+7. **El responsable tambien viene del backend**: una tarea puede estar asignada a
+   alguien que ya no es miembro del proyecto, y ese nombre tiene que seguir vieto.
+8. **El filtro de personas se arma con los miembros y con las tareas**: si una
+   tarea esta asignada a alguien que no es miembro, ese nombre tambien sale.
+9. **El panel es el del §26, sin tocar**: la lista no duplica la logica de edicion.
+10. **Los filtros son de la vista, no de la URL**: no se guardan ni se comparten.
+    Eso queda para una vista guardada, que no entra.
+

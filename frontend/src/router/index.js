@@ -15,6 +15,7 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import TaskListView from '../views/TaskListView.vue'
 import { conFiltroDeProyecto, redirectByRole, requireSession } from './guards'
 
 /** Pantalla de espera mientras la raiz decide a que vista llevar. */
@@ -55,6 +56,12 @@ const routes = [
     props: true,
   },
   { path: '/projects/:id/kanban', name: 'kanban', component: KanbanView, props: true },
+  {
+    path: '/projects/:id/tasks',
+    name: 'task-list',
+    component: TaskListView,
+    props: true,
+  },
   { path: '/projects/:id/members', name: 'members', component: MembersView, props: true },
   {
     path: '/projects/:id/settings',

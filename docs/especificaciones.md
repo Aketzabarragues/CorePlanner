@@ -1260,3 +1260,97 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
 7. **Una sola vista** para las dos lecturas: la diferencia entre global y de
    proyecto es el filtro de la URL y el nombre del proyecto en cada entrada.
 
+## 26. Detalle de una tarea: descripcion, comentarios y checklist
+
+Una tarea no es solo una fila con un titulo. Tiene una descripcion, una lista de
+comprobacion, comentarios y su propio historico. Todo eso vive en un panel de
+detalle que se abre desde la tarjeta del Tablero, que es donde se gestionan las
+tareas de verdad: hasta ahora, editar una tarea solo era posible desde
+Capacidad, haciendo clic en una celda y luego en la tarea.
+
+### Que entra
+
+**La descripcion**
+
+- Columna `tasks.description`: texto largo y opcional. La mayoria de las tareas
+  no la lleva.
+- Se edita en el panel y se guarda con el `PATCH /api/tasks/{id}` de siempre.
+- Entra en la bitacora como `task.updated`, con el valor anterior y el nuevo.
+
+**Los comentarios**
+
+- Tabla `task_comments`: id, task_id, author_id, body, created_at.
+- **Solo se anaden y se leen**: un comentario no se edita ni se borra. Es lo que
+  se dijo en su momento, y la bitacora ya guarda el historial.
+- `POST /api/tasks/{id}/comments` y `GET /api/tasks/{id}/comments`.
+
+**La lista de comprobacion**
+
+- Tabla `task_checklist_items`: id, task_id, label, done, position, created_at.
+- Es **plana**: cada punto es una linea de la tarea, no una tarea con sus
+  propias dependencias.
+- `GET`, `POST`, `PATCH` y `DELETE` en `/api/tasks/{id}/checklist`.
+
+**El permiso**
+
+- **Es el de `PATCH /api/tasks/{id}`**: quien puede editar la tarea puede
+  comentar y tocar su checklist.
+- **Leer** (los comentarios, el checklist y el historico) es `capacity.read` del
+  proyecto de la tarea. Quien solo puede ver, ve.
+
+**La bitacora**
+
+- Acciones nuevas: `task.commented`, `task.checklist_item_added`,
+  `task.checklist_item_done`, `task.checklist_item_updated` y
+  `task.checklist_item_removed`.
+- **`GET /api/activity` admite `entity_type` y `entity_id`**: el historico de una
+  tarea sale filtrado. El permiso sigue siendo el del proyecto de esa entidad:
+  una tarea de un proyecto que no se ve responde 404, como el resto.
+
+**El panel**
+
+- `TaskDetailPanel.vue`, sobre `SidePanel`.
+- **Se abre desde la tarjeta del Tablero con un clic fuera del desplegable de
+  estado**. El desplegable se queda donde esta, para el cambio rapido sin
+  abrir nada. Un arrastre no abre el panel.
+- Secciones: los campos de la tarea, la descripcion, la lista de comprobacion,
+  los comentarios, la actividad y el boton de eliminar.
+- **La actividad se refresca sola con cada accion**: lo que se hace desde el
+  panel se ve en su propio historico, sin recargar la pagina.
+- El boton de eliminar pide confirmacion antes de borrar, y al borrar se van
+  tambien los comentarios y la lista de la tarea.
+
+### Que no entra
+
+- **Editar o borrar un comentario ya puesto**.
+- **Adjuntos, menciones y notificaciones**.
+- **Subtareas de verdad**: el checklist es una lista plana, no tareas
+  independientes con fecha, responsable ni horas.
+- **Prioridad y etiquetas**.
+- **Un historial de la tarea que se mantenga aparte**: el historico sale de la
+  bitacora filtrada por la tarea, que ya existe.
+- **El panel desde Capacidad**: el componente es el mismo y alli ya esta el
+  formulario de edicion, asi que el desglose de una celda no cambia.
+
+### Decisiones tomadas
+
+1. **El panel se abre desde la tarjeta del Tablero**, no desde el desplegable
+   de estado. El desplegable se queda para el cambio rapido y el panel para
+   todo lo demas.
+2. **Un arrastre no abre el panel**: si el puntero se ha movido, el gesto es un
+   arrastre y no un clic, por mucho que la tarjeta vuelva a su columna.
+3. **El panel es un componente aparte** (`TaskDetailPanel.vue`), no un trozo
+   del Tablero: asi el mismo detalle puede abrirse desde donde haga falta.
+4. **Los comentarios y el checklist se escriben con `task.write`**, el mismo
+   permiso que protege `PATCH /api/tasks/{id}`. Leerlos es `capacity.read`.
+5. **Un comentario no se edita ni se borra**: es una foto del momento, como las
+   entradas de la bitacora.
+6. **Marcar y desmarcar un punto son la misma accion** (`task.checklist_item_done`),
+   con el estado al que se deja en el payload.
+7. **La lista es plana y lleva su orden** (`position`): no hay subtareas, solo
+   lineas de la tarea en el orden en que se han puesto.
+8. **El historico de la tarea sale de la bitacora**, filtrada por
+   `entity_type=task` y `entity_id`. No hay un segundo historial que mantener.
+9. **El boton de eliminar pide confirmacion**: borrar una tarea no tiene
+   vuelta atras, porque se van con ella sus comentarios y su lista.
+

@@ -8,12 +8,12 @@ ocurrio en el proyecto.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import ActivityLog, Project, User
+from .dates import as_utc
 
 PAGE_SIZE = 50
 """Entradas que trae una pagina de la bitacora."""
@@ -49,16 +49,39 @@ async def log_activity(
     return entry
 
 
-async def count_activity(session: AsyncSession, project_ids: Sequence[int]) -> int:
+async def count_activity(
+    session: AsyncSession,
+    project_ids: Sequence[int],
+    entity_type: str | None = None,
+    entity_id: int | None = None,
+) -> int:
     """Cuantas entradas tienen los proyectos indicados."""
     if not project_ids:
         return 0
+    conditions = [ActivityLog.project_id.in_(set(project_ids))]
+    conditions.extend(_entity_conditions(entity_type, entity_id))
     total = await session.scalar(
-        select(func.count())
-        .select_from(ActivityLog)
-        .where(ActivityLog.project_id.in_(set(project_ids)))
+        select(func.count()).select_from(ActivityLog).where(*conditions)
     )
     return int(total or 0)
+
+
+def _entity_conditions(
+    entity_type: str | None, entity_id: int | None
+) -> list:
+    """Filtro por entidad, si lo hay.
+
+    El tipo solo acota; el identificador es el que distingue una entidad de
+    otra. Sin tipo no hay filtro, porque no se sabe de que tabla se habla.
+    """
+    if not entity_type:
+        return []
+    if entity_id is None:
+        return [ActivityLog.entity_type == entity_type]
+    return [
+        ActivityLog.entity_type == entity_type,
+        ActivityLog.entity_id == entity_id,
+    ]
 
 
 async def list_activity(
@@ -66,6 +89,8 @@ async def list_activity(
     project_ids: Sequence[int],
     limit: int = PAGE_SIZE,
     offset: int = 0,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
 ) -> list[ActivityLog]:
     """Entradas de la bitacora de los proyectos indicados, de la mas nueva a la mas vieja.
 
@@ -75,9 +100,11 @@ async def list_activity(
     """
     if not project_ids:
         return []
+    conditions = [ActivityLog.project_id.in_(set(project_ids))]
+    conditions.extend(_entity_conditions(entity_type, entity_id))
     result = await session.execute(
         select(ActivityLog)
-        .where(ActivityLog.project_id.in_(set(project_ids)))
+        .where(*conditions)
         .order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc())
         .limit(limit)
         .offset(offset)
@@ -121,19 +148,7 @@ async def activity_items(
             "project_id": entry.project_id,
             "project_name": projects.get(entry.project_id, ""),
             "payload": entry.payload or {},
-            "created_at": _as_utc(entry.created_at),
+            "created_at": as_utc(entry.created_at),
         }
         for entry in entries
     ]
-
-
-def _as_utc(value: datetime) -> datetime:
-    """La fecha con zona, en UTC.
-
-    SQLite guarda las fechas sin zona y las devuelve naive. Anadirla aqui
-    evita que el navegador las lea como hora local y calculates mal el tiempo
-    transcurrido.
-    """
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)

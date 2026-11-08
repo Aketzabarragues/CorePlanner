@@ -138,6 +138,7 @@ coreplanner/
 │   │   ├── capacity_repository.py # lectura de datos de capacidad
 │   │   ├── calendar_report.py    # impacto de los dias no laborables en la capacidad
 │   │   ├── configuration.py       # reglas de personas, departamentos y proyectos
+│   │   ├── dates.py              # fechas de la base de datos con zona (puro)
 │   │   ├── gantt.py               # tareas y miembros del Gantt (puro)
 │   │   ├── gantt_repository.py    # lectura del feed del Gantt
 │   │   ├── kanban.py              # agrupacion por estado (puro)
@@ -147,6 +148,7 @@ coreplanner/
 │   │   ├── people.py              # directorio, horarios y competencias
 │   │   ├── schedule.py            # horario versionado y capacidad (puro)
 │   │   ├── scope.py               # ambito por rol de empresa
+│   │   ├── task_details.py        # comentarios y checklist de una tarea
 │   │   ├── tasks.py               # reglas de alta, edicion y borrado
 │   │   ├── units.py               # centimas de hora (puro)
 │   │   └── work_calendar.py       # dias no laborables
@@ -165,6 +167,7 @@ coreplanner/
 │       │   ├── LoadBars.vue        # grafico de barras de carga por semana
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
 │       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
+│       │   ├── TaskDetailPanel.vue  # detalle de una tarea: campos, lista, comentarios y actividad
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
@@ -196,7 +199,9 @@ coreplanner/
 | `departments` | `id`, `name` (unico), `manager_id` |
 | `projects` | `id`, `parent_id` (subproyectos), `name`, `status`, `department_id`, `owner_id` |
 | `project_members` | `user_id`, `project_id`, `role_id` (clave primaria compuesta) |
-| `tasks` | `id`, `project_id`, `assigned_to`, `title`, `status`, `start_date`, `end_date`, `estimated_hours` |
+| `tasks` | `id`, `project_id`, `assigned_to`, `title`, `status`, `description`, `start_date`, `end_date`, `estimated_hours` |
+| `task_comments` | `id`, `task_id`, `author_id`, `body`, `created_at` |
+| `task_checklist_items` | `id`, `task_id`, `label`, `done`, `position`, `created_at` |
 | `working_schedules` | `user_id`, `valid_from`, `monday`..`sunday` (centimas), `availability_factor`, `note` |
 | `non_working_days` | `date`, `name`, `scope` (global o de departamento), `department_id`, `half_day` |
 | `skills` | `id`, `name` (unico) |
@@ -372,13 +377,20 @@ token en `localStorage`.
 | `DELETE` | `/api/non-working-days/{id}` | gerente |
 | `GET` | `/api/capacity` | token valido, filtros opcionales `department_id` y `project_id` |
 | `GET` | `/api/gantt` | token valido, filtro opcional `project_id` |
-| `GET` | `/api/activity` | token valido, filtro opcional `project_id`; bitacora de actividad |
+| `GET` | `/api/activity` | token valido, filtros opcionales `project_id`, `entity_type` y `entity_id`; bitacora de actividad |
 | `GET` | `/api/panel` | token valido; resumen de la organizacion |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to`, `week`, `from` y `to` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
 | `PATCH` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
 | `DELETE` | `/api/tasks/{task_id}` | `task.write` en el proyecto de la tarea |
+| `GET` | `/api/tasks/{task_id}` | `capacity.read` en el proyecto de la tarea |
+| `GET` | `/api/tasks/{task_id}/comments` | `capacity.read` en el proyecto de la tarea |
+| `POST` | `/api/tasks/{task_id}/comments` | `task.write` en el proyecto de la tarea |
+| `GET` | `/api/tasks/{task_id}/checklist` | `capacity.read` en el proyecto de la tarea |
+| `POST` | `/api/tasks/{task_id}/checklist` | `task.write` en el proyecto de la tarea |
+| `PATCH` | `/api/tasks/{task_id}/checklist/{item_id}` | `task.write` en el proyecto de la tarea |
+| `DELETE` | `/api/tasks/{task_id}/checklist/{item_id}` | `task.write` en el proyecto de la tarea |
 
 El listado de tareas admite los filtros `assigned_to` y `week` (semana ISO,
 por ejemplo `2026-W46`), y tambien el rango `from` y `to`. Si vienen la semana y
@@ -681,9 +693,35 @@ datos y el `PATCH` de una tarea.
   fechas.
 - Se mueve de columna arrastrandola con el raton o cambiando el estado en su
   desplegable. En los dos casos se guarda con un `PATCH /api/tasks/{id}`.
+- **Un clic en la tarjeta, fuera del desplegable, abre su detalle** (campos,
+  descripcion, lista de comprobacion, comentarios y actividad). El desplegable
+  se queda donde esta para el cambio rapido, y un arrastre no abre nada.
 
 Las cuatro columnas estan siempre presentes en la respuesta, aunque esten
 vacias, para que el tablero no cambie de forma al guardar.
+
+## Detalle de la tarea
+
+La tarjeta del Tablero abre un panel lateral con todo lo de la tarea. Es un
+componente aparte, `TaskDetailPanel.vue`, que se apoya en `SidePanel`.
+
+- **Los campos**: titulo, responsable, estado, fechas, horas estimadas y
+  descripcion. Se guardan con el `PATCH /api/tasks/{id}` de siempre y solo se
+  mandan los que han cambiado.
+- **La descripcion**: `tasks.description`, un texto largo y opcional que se
+  edita en el panel.
+- **La lista de comprobacion**: `task_checklist_items`, una lista plana de
+  puntos con su orden. Se anade, se marca, se renombra y se quita.
+- **Los comentarios**: `task_comments`, lo que se dice de la tarea. Se anaden y
+  se leen; no se editan ni se borran.
+- **La actividad**: el historico de la tarea, que sale de
+  `GET /api/activity?entity_type=task&entity_id={id}`. Cada accion hecha desde
+  el panel se ve aqui al momento, sin recargar.
+- **Eliminar la tarea**, con confirmacion. Al borrarla se van sus comentarios y
+  su lista.
+
+El permiso es el de `PATCH /api/tasks/{id}`: quien puede editar la tarea puede
+comentar y tocar su lista. Quien solo puede leer, los lee.
 
 ## Departamentos
 
@@ -1060,6 +1098,9 @@ Las pantallas personales ya no son listas de tablas:
 - **La bitacora de actividad** (`/activity`) deja constancia de quien creo,
   edito o movio una tarea, de quien entro o salio del equipo y de que ajustes
   cambio el proyecto. Se lee en global o filtrada por proyecto.
+- **El detalle de una tarea** se abre desde la tarjeta del Tablero: sus
+  campos, la descripcion, la lista de comprobacion, los comentarios y su
+  historico, con el boton de eliminar la tarea.
 - **El calendario laboral** vive en la primera pestana de la configuracion, con
   el mes navegable, el detalle del dia y el impacto en la capacidad.
 - **En movil** el menu lateral sale como un cajon y las tarjetas se apilan.

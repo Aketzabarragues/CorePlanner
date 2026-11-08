@@ -52,6 +52,7 @@ export function fullDate(fecha) {
 export function actionLabel(entrada) {
   const payload = entrada?.payload ?? {}
   const titulo = payload.title ?? ''
+  const etiqueta = payload.label ?? ''
   switch (entrada?.action) {
     case 'task.created':
       return `creó la tarea «${titulo}»`
@@ -61,6 +62,18 @@ export function actionLabel(entrada) {
       return `movió «${titulo}» de ${columnLabel(payload.from)} a ${columnLabel(payload.to)}`
     case 'task.deleted':
       return `eliminó la tarea «${titulo}»`
+    case 'task.commented':
+      return `comentó la tarea «${titulo}»`
+    case 'task.checklist_item_added':
+      return `añadió «${etiqueta}» al checklist de «${titulo}»`
+    case 'task.checklist_item_done':
+      return payload.done
+        ? `marcó «${etiqueta}» como hecho en «${titulo}»`
+        : `desmarcó «${etiqueta}» en «${titulo}»`
+    case 'task.checklist_item_updated':
+      return `cambió el texto de «${etiqueta}» en «${titulo}»`
+    case 'task.checklist_item_removed':
+      return `quitó «${etiqueta}» del checklist de «${titulo}»`
     case 'member.added':
       return `añadió a ${payload.name ?? 'alguien'} al proyecto`
     case 'member.removed':

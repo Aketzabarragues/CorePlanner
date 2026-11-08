@@ -21,6 +21,7 @@ import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import TaskDetailPanel from '../components/TaskDetailPanel.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -42,10 +43,16 @@ const dragPosition = ref({ x: 0, y: 0 })
 const dragOffset = ref({ x: 0, y: 0 })
 /** Ambito de quien entra: rol y proyectos en los que puede escribir. */
 const scope = ref(null)
+/** Tarea abierta en el panel de detalle. */
+const selectedTaskId = ref(null)
 
 const auth = useAuthStore()
 
 let dragging = null
+/** Punto donde se agarro la tarjeta: el arrastre se cuenta a partir de ahi. */
+let dragStart = { x: 0, y: 0 }
+/** Si el puntero se ha movido lo bastante, el gesto es un arrastre. */
+let dragMoved = false
 
 /**
  * Si la persona puede escribir en el proyecto abierto.
@@ -89,6 +96,9 @@ function columnAtPoint(x, y) {
 }
 
 function startDrag(task, event) {
+  // Cada pulsacion empieza de cero: si el gesto anterior fue un arrastre, el
+  // clic siguiente no debe confundirse con el final de aquel.
+  dragMoved = false
   if (!canEdit.value) return
   if (event.target.closest('select, button, input, a')) return
   // Sin esto el navegador sigue con su seleccion de texto mientras se arrastra
@@ -98,6 +108,7 @@ function startDrag(task, event) {
   // salte de golpe al empezar el arrastre.
   const caja = event.currentTarget.getBoundingClientRect()
   dragOffset.value = { x: event.clientX - caja.left, y: event.clientY - caja.top }
+  dragStart = { x: event.clientX, y: event.clientY }
   dragging = { task }
   draggingId.value = task.id
   window.addEventListener('mousemove', onDragMove)
@@ -106,6 +117,9 @@ function startDrag(task, event) {
 
 function onDragMove(event) {
   if (!dragging) return
+  const movido =
+    Math.abs(event.clientX - dragStart.x) > 5 || Math.abs(event.clientY - dragStart.y) > 5
+  if (movido) dragMoved = true
   dragPosition.value = { x: event.clientX, y: event.clientY }
   hoverColumn.value = columnAtPoint(event.clientX, event.clientY)?.status ?? null
 }
@@ -157,6 +171,28 @@ async function moveTask(task, status) {
 
 async function moveFromSelect(task, event) {
   await moveTask(task, event.target.value)
+}
+
+/**
+ * Un clic en la tarjeta abre su detalle.
+ *
+ * El desplegable de estado se queda donde esta para el cambio rapido, asi que
+ * el clic que llega desde dentro de el no cuenta. Un arrastre tampoco cuenta:
+ * soltar la tarjeta en su propia columna no debe abrir nada.
+ */
+function onCardClick(task, event) {
+  if (event.target.closest('select, button, input, a')) return
+  if (dragMoved) {
+    dragMoved = false
+    return
+  }
+  selectedTaskId.value = task.id
+}
+
+/** Cierra el panel de detalle y vuelve a pintar el tablero. */
+function onTaskDeleted() {
+  selectedTaskId.value = null
+  load()
 }
 
 async function load() {
@@ -243,6 +279,7 @@ onBeforeUnmount(() => {
               draggingId === task.id ? 'opacity-60' : '',
             ]"
             @mousedown="startDrag(task, $event)"
+            @click="onCardClick(task, $event)"
           >
             <p class="text-sm font-medium text-slate-900">{{ task.title }}</p>
             <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
@@ -271,6 +308,19 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </AsyncState>
+
+    <!--
+      Detalle de la tarea: sus campos, su descripcion, su lista de comprobacion,
+      sus comentarios y su historico.
+    -->
+    <TaskDetailPanel
+      :open="selectedTaskId !== null"
+      :task-id="selectedTaskId"
+      :can-edit="canEdit"
+      @close="selectedTaskId = null"
+      @saved="load"
+      @deleted="onTaskDeleted"
+    />
 
     <!--
       Copia de la tarjeta que se arrastra: sigue al cursor mientras dura el

@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import TaskDetailPanel from '../components/TaskDetailPanel.vue'
 import KanbanView from '../views/KanbanView.vue'
 
 const board = {
@@ -75,6 +76,26 @@ function setupFetch({ editable = [1], failPatch = false } = {}) {
       // Copia nueva en cada llamada: la vista mueve las tarjetas al instante
       // y no debe tocar los datos del test.
       return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(board)) }
+    }
+    if (url.endsWith('/api/tasks/1') && (options.method ?? 'GET') === 'GET') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 1,
+          project_id: 1,
+          title: 'Esquemas EPLAN',
+          status: 'backlog',
+          assigned_to: 1,
+          start_date: '2026-11-02',
+          end_date: '2026-11-04',
+          estimated_hours: 10,
+          description: '',
+        }),
+      }
+    }
+    if (url.endsWith('/members')) {
+      return { ok: true, status: 200, json: async () => [{ user_id: 1, name: 'Ana' }] }
     }
     if (options.method === 'PATCH' && failPatch) {
       return {
@@ -303,5 +324,54 @@ describe('KanbanView', () => {
     expect(aviso.exists()).toBe(true)
     expect(aviso.text()).toContain('No se ha podido mover la tarea')
     expect(aviso.text()).toContain('No se pudo guardar')
+  })
+
+  it('un clic en la tarjeta abre su detalle', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    await wrapper.findAll('article')[0].trigger('click')
+    await flushPromises()
+
+    const panel = wrapper.findComponent(TaskDetailPanel)
+    expect(panel.props('open')).toBe(true)
+    expect(panel.props('taskId')).toBe(1)
+  })
+
+  it('un clic en el desplegable de estado no abre el detalle', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    await wrapper.findAll('select')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+  })
+
+  it('un arrastre no abre el detalle', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+    stubColumns(wrapper)
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.trigger('mousedown', { clientX: 10, clientY: 10 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 10 }))
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 10 }))
+    await tarjeta.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+  })
+
+  it('el detalle se abre tambien sin permiso de escritura', async () => {
+    setupFetch({ editable: [] })
+    const wrapper = await mountKanban()
+
+    await wrapper.findAll('article')[0].trigger('click')
+    await flushPromises()
+
+    const panel = wrapper.findComponent(TaskDetailPanel)
+    expect(panel.props('open')).toBe(true)
+    expect(panel.props('canEdit')).toBe(false)
   })
 })

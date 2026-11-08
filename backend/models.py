@@ -23,6 +23,7 @@ from sqlalchemy import (
     MetaData,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -355,6 +356,8 @@ class Task(Base):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default=TaskStatus.BACKLOG.value
     )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """Texto largo de la tarea. Es opcional: la mayoria no lo lleva."""
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     estimated_hours: Mapped[Decimal] = mapped_column(
@@ -385,6 +388,68 @@ class Task(Base):
 
     project: Mapped[Project] = relationship(back_populates="tasks")
     assignee: Mapped[User | None] = relationship(back_populates="assigned_tasks")
+    comments: Mapped[list[TaskComment]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
+    checklist_items: Mapped[list[TaskChecklistItem]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan",
+        order_by="TaskChecklistItem.position",
+    )
+
+
+class TaskComment(Base):
+    """Comentario puesto en una tarea.
+
+    No se edita ni se borra: un comentario es lo que se dijo en su momento, y
+    la bitacora ya guarda el historial de lo que fue.
+    """
+
+    __tablename__ = "task_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    author_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    task: Mapped[Task] = relationship(back_populates="comments")
+    author: Mapped[User] = relationship()
+
+
+class TaskChecklistItem(Base):
+    """Punto de una lista de comprobacion de una tarea.
+
+    La lista es plana: cada punto es una linea de la tarea, no una tarea con sus
+    propias dependencias.
+    """
+
+    __tablename__ = "task_checklist_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    done: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    position: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    task: Mapped[Task] = relationship(back_populates="checklist_items")
+
+    __table_args__ = (Index("ix_task_checklist_items_task_position", "task_id", "position"),)
 
 
 class WorkingSchedule(Base):

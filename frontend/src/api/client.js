@@ -243,6 +243,7 @@ export const tasksApi = {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/tasks${query ? `?${query}` : ''}`, { token })
   },
+  detail: (token, taskId) => apiFetch(`/tasks/${taskId}`, { token }),
   create: (token, projectId, task) =>
     apiFetch(`/projects/${projectId}/tasks`, {
       method: 'POST',
@@ -257,4 +258,30 @@ export const tasksApi = {
     }),
   remove: (token, taskId) =>
     apiFetch(`/tasks/${taskId}`, { method: 'DELETE', token }),
+  comments: {
+    list: (token, taskId) => apiFetch(`/tasks/${taskId}/comments`, { token }),
+    add: (token, taskId, body) =>
+      apiFetch(`/tasks/${taskId}/comments`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ body }),
+      }),
+  },
+  checklist: {
+    list: (token, taskId) => apiFetch(`/tasks/${taskId}/checklist`, { token }),
+    add: (token, taskId, label) =>
+      apiFetch(`/tasks/${taskId}/checklist`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ label }),
+      }),
+    update: (token, taskId, itemId, changes) =>
+      apiFetch(`/tasks/${taskId}/checklist/${itemId}`, {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify(changes),
+      }),
+    remove: (token, taskId, itemId) =>
+      apiFetch(`/tasks/${taskId}/checklist/${itemId}`, { method: 'DELETE', token }),
+  },
 }

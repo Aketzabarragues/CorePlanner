@@ -89,6 +89,7 @@ async def create_task(
         project_id=project_id,
         title=payload.title,
         assigned_to=payload.assigned_to,
+        description=payload.description,
         start_date=payload.start_date,
         end_date=payload.end_date,
         estimated_hours=payload.estimated_hours,
@@ -152,6 +153,7 @@ async def update_task(
     antes = {
         "title": task.title,
         "status": task.status,
+        "description": task.description,
         "start_date": task.start_date,
         "end_date": task.end_date,
         "estimated_hours": task.estimated_hours,
@@ -168,6 +170,9 @@ async def update_task(
         task.title = payload.title
     if "status" in changed and payload.status is not None:
         task.status = payload.status.value
+    if "description" in changed:
+        # La descripcion se puede vaciar: enviarla con null la borra.
+        task.description = payload.description
     if "start_date" in changed and payload.start_date is not None:
         task.start_date = payload.start_date
     if "end_date" in changed and payload.end_date is not None:

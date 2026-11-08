@@ -296,6 +296,7 @@ class TaskOut(BaseModel):
     assigned_to: int | None = None
     title: str
     status: str
+    description: str | None = None
     start_date: date | None = None
     end_date: date | None = None
     estimated_hours: Hours
@@ -305,6 +306,81 @@ class TaskOut(BaseModel):
     Una tarea puede cruzar varias semanas, de modo que sus horas estimadas no
     son las horas de esa semana. Es None si la peticion no filtraba por semana.
     """
+
+
+class TaskCommentOut(BaseModel):
+    """Comentario de una tarea, con quien lo puso."""
+
+    id: int
+    task_id: int
+    author_id: int
+    author_name: str
+    body: str
+    created_at: datetime
+    """Momento del comentario, en UTC y con zona."""
+
+
+class TaskCommentCreate(BaseModel):
+    """Comentario nuevo. El texto es obligatorio."""
+
+    body: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("body")
+    @classmethod
+    def _no_vacio(cls, value: str) -> str:
+        limpio = value.strip()
+        if not limpio:
+            raise ValueError("El comentario no puede estar vacio")
+        return limpio
+
+
+class ChecklistItemOut(BaseModel):
+    """Punto de la lista de comprobacion de una tarea."""
+
+    id: int
+    task_id: int
+    label: str
+    done: bool = False
+    position: int = 0
+    created_at: datetime
+
+
+class ChecklistItemCreate(BaseModel):
+    """Punto nuevo de la lista. El texto es obligatorio."""
+
+    label: str = Field(min_length=1, max_length=255)
+
+    @field_validator("label")
+    @classmethod
+    def _no_vacio(cls, value: str) -> str:
+        limpio = value.strip()
+        if not limpio:
+            raise ValueError("El punto no puede estar vacio")
+        return limpio
+
+
+class ChecklistItemUpdate(BaseModel):
+    """Cambio de un punto: marcarlo, desmarcarlo o cambiar su texto.
+
+    Solo se aplican los campos presentes.
+    """
+
+    label: str | None = Field(default=None, min_length=1, max_length=255)
+    done: bool | None = None
+
+    @field_validator("label")
+    @classmethod
+    def _no_vacio(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        limpio = value.strip()
+        if not limpio:
+            raise ValueError("El punto no puede estar vacio")
+        return limpio
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
 
 
 class ActivityOut(BaseModel):
@@ -506,6 +582,7 @@ class TaskCreate(BaseModel):
 
     title: str = Field(min_length=1, max_length=255)
     assigned_to: int | None = None
+    description: str | None = None
     start_date: date
     end_date: date
     estimated_hours: Decimal = Field(ge=0, max_digits=8, decimal_places=2)
@@ -527,6 +604,7 @@ class TaskUpdate(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=255)
     assigned_to: int | None = None
+    description: str | None = None
     start_date: date | None = None
     end_date: date | None = None
     estimated_hours: Decimal | None = Field(

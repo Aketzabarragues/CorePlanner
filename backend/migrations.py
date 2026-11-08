@@ -21,6 +21,7 @@ COLUMN_ADDITIONS = (
     ("users", "seniority", "VARCHAR(32) NULL"),
     ("users", "employment_type", "VARCHAR(32) NOT NULL DEFAULT 'objetivo'"),
     ("projects", "owner_id", "INTEGER NULL"),
+    ("tasks", "description", "TEXT NULL"),
 )
 
 NON_WORKING_DAYS_COLUMNS = ("id", "date", "name", "scope", "department_id", "user_id", "half_day")

@@ -297,6 +297,12 @@ class TaskOut(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     estimated_hours: Hours
+    week_hours: Hours | None = None
+    """Horas que aporta la tarea en la semana por la que se ha filtrado.
+
+    Una tarea puede cruzar varias semanas, de modo que sus horas estimadas no
+    son las horas de esa semana. Es None si la peticion no filtraba por semana.
+    """
 
 
 class MyWorkTaskOut(BaseModel):

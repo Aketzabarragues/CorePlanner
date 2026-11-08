@@ -25,6 +25,7 @@ from .units import from_units, hours_to_json, to_units
 __all__ = [
     "CapacityError",
     "CapacityReport",
+    "CellProject",
     "Holiday",
     "InvalidEstimatedHoursError",
     "InvalidTaskRangeError",
@@ -93,6 +94,23 @@ class TaskLike(Protocol):
     start_date: date | None
     end_date: date | None
     estimated_hours: Decimal
+    project_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class CellProject:
+    """Proyecto del que salen las horas de una celda.
+
+    El desglose sale del mismo reparto que da las horas de la celda, de modo
+    que los proyectos siempre suman las horas de la celda.
+    """
+
+    project_id: int
+    units: int
+
+    @property
+    def hours(self) -> Decimal:
+        return from_units(self.units)
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,12 +139,14 @@ class WeekLoad:
     Las horas se guardan en centimas enteras y se exponen como Decimal, de
     modo que la aritmetica no pasa por coma flotante. La capacidad es None
     cuando la persona no tiene ninguna definida.
+    Los proyectos son el desglose de esas horas por proyecto.
     """
 
     week: str
     units: int
     capacity_units: int | None
     is_overloaded: bool
+    projects: tuple[CellProject, ...] = ()
 
     @property
     def hours(self) -> Decimal:
@@ -217,6 +237,13 @@ class CapacityReport:
                                 else None
                             ),
                             "is_overloaded": cell.is_overloaded,
+                            "projects": [
+                                {
+                                    "project_id": project.project_id,
+                                    "hours": hours_to_json(project.hours),
+                                }
+                                for project in cell.projects
+                            ],
                         }
                         for cell in row.cells
                     ],
@@ -424,6 +451,7 @@ def build_capacity_report(
     """
     by_id = {person.user_id: person for person in people}
     loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
+    project_loads: dict[tuple[int, str], dict[int, int]] = {}
     weeks_seen: set[str] = set()
     fixed_weeks = tuple(weeks) if weeks is not None else None
     unassigned: list[int] = []
@@ -456,8 +484,13 @@ def build_capacity_report(
                 continue
         weeks_seen.update(week_units)
         target = loads.setdefault(task.assigned_to, {})
+        project_id = getattr(task, "project_id", None)
         for key, units in week_units.items():
             target[key] = target.get(key, 0) + units
+            if project_id is None:
+                continue
+            by_project = project_loads.setdefault((task.assigned_to, key), {})
+            by_project[project_id] = by_project.get(project_id, 0) + units
 
     ordered_weeks = fixed_weeks if fixed_weeks is not None else tuple(sorted(weeks_seen))
     rows: list[UserLoad] = []
@@ -472,12 +505,17 @@ def build_capacity_report(
                 week,
                 person.holidays,
             )
+            by_project = project_loads.get((person.user_id, week), {})
             cells.append(
                 WeekLoad(
                     week=week,
                     units=units,
                     capacity_units=capacity,
                     is_overloaded=capacity is not None and units > capacity,
+                    projects=tuple(
+                        CellProject(project_id=project_id, units=project_units)
+                        for project_id, project_units in sorted(by_project.items())
+                    ),
                 )
             )
         rows.append(

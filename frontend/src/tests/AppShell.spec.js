@@ -101,7 +101,6 @@ function buildRouter() {
       { path: '/gantt', name: 'global-gantt', component: Empty },
       { path: '/calendar', name: 'global-calendar', component: Empty },
       { path: '/work-calendar', name: 'work-calendar', component: Empty },
-      { path: '/planner', name: 'planner', component: Empty },
       { path: '/departments', name: 'departments', component: Empty },
       { path: '/people', name: 'people', component: Empty },
       { path: '/configuration', name: 'configuration', component: Empty },

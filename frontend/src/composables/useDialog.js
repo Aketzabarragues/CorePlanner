@@ -17,11 +17,17 @@ const FOCUSABLE = [
  * cierre, la tecla Tab queda atrapada dentro del panel y el foco entra en el
  * primer campo. Al cerrarse, el foco vuelve al elemento que lo abrio.
  *
+ * Un panel que no es modal (modal: false) deja el fondo usable: no ata el
+ * Tab ni bloquea el desplazamiento. Lo usa la matriz de capacidad, donde el
+ * panel esta al lado de la matriz y las celdas tienen que seguir vivas.
+ *
  * @param {import('vue').Ref<boolean>|(() => boolean)} open Si el dialogo esta abierto.
  * @param {import('vue').Ref<HTMLElement|null>} panel Elemento que atrapa el foco.
  * @param {() => void} onClose Se llama cuando se pide cerrar el dialogo.
+ * @param {{modal?: boolean}} options Si el dialogo es modal (por defecto, si).
  */
-export function useDialog(open, panel, onClose) {
+export function useDialog(open, panel, onClose, options = {}) {
+  const modal = options.modal ?? true
   let previousFocus = null
   let previousOverflow = ''
   let listening = false
@@ -42,6 +48,7 @@ export function useDialog(open, panel, onClose) {
       onClose()
       return
     }
+    if (!modal) return
     if (event.key !== 'Tab') return
 
     const elements = focusableElements()
@@ -90,8 +97,10 @@ export function useDialog(open, panel, onClose) {
     (opened) => {
       if (opened) {
         previousFocus = document.activeElement
-        previousOverflow = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
+        if (modal) {
+          previousOverflow = document.body.style.overflow
+          document.body.style.overflow = 'hidden'
+        }
         listen()
         focusInside()
         return

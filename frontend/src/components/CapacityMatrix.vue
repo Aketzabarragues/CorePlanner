@@ -53,6 +53,13 @@ const router = useRouter()
 /** Numero de semanas del rango por defecto: la actual y las ocho siguientes. */
 const RANGE_SIZE = 9
 
+/** Modos de la celda. */
+const MODE = {
+  HOURS: 'horas',
+  PERCENT: 'porcentaje',
+  PROJECTS: 'proyectos',
+}
+
 const props = defineProps({
   id: { type: [String, Number], default: null },
 })
@@ -61,6 +68,8 @@ const report = ref(null)
 const project = ref(null)
 const error = ref(null)
 const notice = ref(null)
+/** Aviso que no tapa la matriz: un destino que no vale, un rechazo del servidor. */
+const aviso = ref(null)
 const empty = ref(false)
 const loading = ref(true)
 const saving = ref(false)
@@ -88,8 +97,23 @@ const people = computed(() =>
   rows.value.map((row) => ({
     user_id: row.user_id,
     name: row.name,
+    role_name: row.job_title ?? '',
     project_ids: row.project_ids ?? [],
   })),
+)
+
+/** Dias no laborables de la semana abierta, para las notas del panel. */
+const breakdownHolidays = computed(() => {
+  const semana = weeks.value.find((item) => item.week === breakdown.value?.week)
+  return semana?.holidays ?? []
+})
+
+/** El alta de tareas solo tiene sentido con un proyecto delante. */
+const canCreate = computed(() => !isGlobal.value && project.value !== null)
+
+/** Enlace al Gantt: el del proyecto o el global. */
+const ganttLink = computed(() =>
+  isGlobal.value ? '/gantt' : `/projects/${project.value?.id}/gantt`,
 )
 
 /** Titulo del panel de detalle: quien y en que semana. */
@@ -109,6 +133,43 @@ const LEGEND = [
   { state: LOAD_STATE.HIGH_OVERLOAD, label: 'Sobrecarga alta ▲ (más del 110 %)' },
 ]
 
+/** Modos de la celda, con su etiqueta. */
+const MODES = [
+  { value: MODE.HOURS, label: 'Horas' },
+  { value: MODE.PERCENT, label: '% de uso' },
+  { value: MODE.PROJECTS, label: 'Proyectos' },
+]
+
+/** Aspecto del boton de modo: activo o inactivo. */
+const MODE_ACTIVE = 'bg-siemens-900 text-white'
+const MODE_INACTIVE = 'border border-slate-300 bg-white text-slate-700'
+
+/** Aspecto de una celda mientras se arrastra una tarea. */
+const PREVIEW_BORDER = 'border-2 border-dashed border-slate-500'
+const PREVIEW_BLOCKED =
+  'border-2 border-dashed border-slate-400 cp-striped text-slate-500 cursor-not-allowed'
+
+/** Tarea que se esta arrastrando, con su semana y su persona de origen. */
+const dragging = ref(null)
+
+/** Si se esta enseñando la previsualizacion del arrastre. */
+const previsualizando = ref(false)
+
+/** Celda sobre la que se puede soltar, para resaltarla mientras se arrastra. */
+const dropTarget = ref(null)
+
+/** Celda por la que ha pasado el arrastre, para resolver el destino al soltar. */
+const celdaHover = ref(null)
+
+/** Marca que el arrastre acaba de terminar, para que el clic no abra la celda. */
+let arrastreTerminado = false
+
+/** Temporizador que olvida el arrastre cuando no llega el evento de soltar. */
+let limpiezaArrastre = null
+
+/** Si el soltar ya se ha resuelto, para no hacerlo dos veces. */
+let dropResuelto = false
+
 /**
  * El estado de la pantalla vive en la URL.
  *
@@ -124,9 +185,10 @@ let escribiendo = false
  * Escribe el estado en la URL.
  *
  * Los valores vacios se quitan: una URL con los filtros puestos se parece a
- * la que se copia para compartirla.
+ * la que se copia para compartirla. Con recargarAhora false el cambio no
+ * cambia lo que se ve: es el modo o la celda abierta, que no piden datos.
  */
-async function updateQuery(patch) {
+async function updateQuery(patch, recargarAhora = true) {
   const next = { ...query.value }
   for (const [key, value] of Object.entries(patch)) {
     if (value === '' || value === null || value === undefined) delete next[key]
@@ -138,8 +200,14 @@ async function updateQuery(patch) {
   } finally {
     escribiendo = false
   }
-  await recargar()
+  if (recargarAhora) await recargar()
 }
+
+/** Modo de la celda: horas, porcentaje o proyectos. */
+const mode = computed({
+  get: () => query.value.mode ?? MODE.HOURS,
+  set: (value) => updateQuery({ mode: value === MODE.HOURS ? undefined : value }, false),
+})
 
 /** Filtro de proyecto: solo en el espacio global. */
 const projectFilter = computed({
@@ -230,6 +298,71 @@ function cellOf(row, week) {
 }
 
 /**
+ * Si una persona es miembro del proyecto de una tarea.
+ *
+ * El backend rechaza con un 422 a quien no es miembro del proyecto, asi que el
+ * arrastre no lo ofrece como destino.
+ */
+function esMiembro(row, projectId) {
+  if (projectId === null || projectId === undefined) return false
+  return (row.project_ids ?? []).some((id) => Number(id) === Number(projectId))
+}
+
+/**
+ * Lo que se previsualiza en una celda mientras se arrastra una tarea.
+ *
+ * Solo se previsualiza la semana de la tarea: es la unica en la que cambia el
+ * reparto. Las horas que se suman son las que la tarea aporta en esa semana,
+ * que es lo que da el backend, y no las estimadas enteras.
+ *
+ * La celda de origen enseña lo que quedaria sin la tarea, los destinos que no
+ * valen se marcan como bloqueados, y los demas enseñan la carga resultante
+ * con la escala de colores.
+ */
+function previewOf(row, week) {
+  const arrastre = dragging.value
+  if (!previsualizando.value || !arrastre || arrastre.week !== week) return null
+
+  const celda = cellOf(row, week)
+  const horas = arrastre.hours
+
+  if (row.user_id === arrastre.fromUserId) {
+    return {
+      principal: `${centimas(Number(celda.hours ?? 0) - horas)} h`,
+      sub: `origen · −${horas} h`,
+      clases: `${PREVIEW_BORDER} bg-white text-slate-700`,
+      permitido: true,
+      origen: true,
+    }
+  }
+
+  if (!esMiembro(row, arrastre.task.project_id)) {
+    const nombre = projectNames.value.get(arrastre.task.project_id) ?? 'del proyecto'
+    return {
+      principal: 'No es miembro',
+      sub: `del proyecto ${nombre}`,
+      clases: PREVIEW_BLOCKED,
+      permitido: false,
+      origen: false,
+    }
+  }
+
+  const nuevas = centimas(Number(celda.hours ?? 0) + horas)
+  const state = loadState(nuevas, celda.capacity)
+  const aspect = loadAspect(state)
+  const ratio = loadRatio(nuevas, celda.capacity)
+  return {
+    principal: `${nuevas} h`,
+    sub: ratio === null ? `+${horas} h` : `${ratio} % · +${horas} h`,
+    clases: [aspect.cell, aspect.text, 'border-2', 'border-dashed', aspect.border]
+      .filter(Boolean)
+      .join(' '),
+    permitido: true,
+    origen: false,
+  }
+}
+
+/**
  * Como se ve una celda: cifras, estado de carga y clases.
  *
  * El estado lo decide la escala de carga, con la capacidad que da el backend.
@@ -242,6 +375,7 @@ function cellView(row, week) {
   const aspect = loadAspect(state)
   const ratio = loadRatio(cell.hours, cell.capacity)
   const vacia = !(cell.hours > 0)
+  const preview = previewOf(row, week)
 
   return {
     week,
@@ -251,12 +385,55 @@ function cellView(row, week) {
     principal: vacia ? '·' : cell.hours,
     capacidad: vacia ? '' : ratio === null ? 'sin capacidad' : `/${cell.capacity}`,
     porcentaje: vacia || ratio === null ? '' : `${ratio} %`,
+    horasCapacidad:
+      vacia || ratio === null ? '' : `${cell.hours}/${cell.capacity} h`,
     anchoBarra: loadBarWidth(cell.hours, cell.capacity),
-    clases: [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
+    preview,
+    clases: preview
+      ? preview.clases
+      : [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
     claseBarra: aspect.bar,
     muestraBarra: !vacia && ratio !== null,
+    proyectos: (cell.projects ?? []).map((item) => ({
+      id: item.project_id,
+      nombre: projectNames.value.get(item.project_id) ?? `Proyecto ${item.project_id}`,
+      horas: item.hours,
+    })),
   }
 }
+
+/** Nombre de cada proyecto visible, para las etiquetas del modo Proyectos. */
+const projectNames = computed(
+  () => new Map(store.projects.map((item) => [item.id, item.name])),
+)
+
+/**
+ * Resumen del equipo: celdas sobrecargadas, huecos libres y uso medio.
+ *
+ * Solo cuenta lo que el backend ya dice: las horas, las capacidades y la
+ * marca de sobrecarga de cada celda.
+ */
+const summary = computed(() => {
+  let sobrecargadas = 0
+  let huecos = 0
+  let horas = 0
+  let capacidad = 0
+  for (const row of rows.value) {
+    for (const cell of row.cells) {
+      if (cell.is_overloaded) sobrecargadas += 1
+      const limite = cell.capacity
+      if (limite === null || limite === undefined) continue
+      if (limite - cell.hours >= 20) huecos += 1
+      horas += Number(cell.hours ?? 0)
+      capacidad += Number(limite)
+    }
+  }
+  return {
+    sobrecargadas,
+    huecos,
+    medio: capacidad > 0 ? Math.round((horas / capacidad) * 100) : null,
+  }
+})
 
 /** La matriz con cada celda ya resuelta. */
 const matrix = computed(() =>
@@ -296,6 +473,11 @@ function legendSwatch(state) {
 
 /** Lo que se lee en voz alta al saltar a una celda. */
 function cellAria(row, week) {
+  const preview = previewOf(row, week)
+  if (preview) {
+    return `${row.name}, semana ${weekTitle(week)}: ${preview.principal}. ${preview.sub}`
+  }
+
   const cell = cellOf(row, week)
   const partes = [`${row.name}, semana ${weekTitle(week)}`]
   if (!(cell.hours > 0)) {
@@ -393,11 +575,18 @@ function syncBreakdownCell() {
   breakdown.value = {
     ...breakdown.value,
     hours: cell.hours,
+    capacity: cell.capacity,
     weekly_base_hours: row.weekly_base_hours,
     is_overloaded: cell.is_overloaded,
   }
 }
 
+/**
+ * Abre el detalle de una celda.
+ *
+ * La celda abierta vive en la URL: al recargar la pagina el panel sigue
+ * abierto en la misma celda.
+ */
 async function openCell(row, week) {
   const cell = cellOf(row, week)
   breakdown.value = {
@@ -405,6 +594,36 @@ async function openCell(row, week) {
     name: row.name,
     week,
     hours: cell.hours,
+    capacity: cell.capacity,
+    weekly_base_hours: row.weekly_base_hours,
+    is_overloaded: cell.is_overloaded,
+  }
+  await loadBreakdownTasks()
+  await updateQuery({ cell: `${row.user_id}-${week}` }, false)
+}
+
+/** Cierra el detalle de la celda. */
+async function closeCell() {
+  breakdown.value = null
+  await updateQuery({ cell: undefined }, false)
+}
+
+/** Abre la celda que dice la URL, si sigue existiendo en el informe. */
+async function openCellFromUrl() {
+  const valor = query.value.cell
+  if (!valor) return
+  // La clave de la semana tambien lleva un guion: "2-2026-W46".
+  const [userId, ...resto] = String(valor).split('-')
+  const week = resto.join('-')
+  const row = rows.value.find((item) => String(item.user_id) === userId)
+  if (!row || !week) return
+  const cell = cellOf(row, week)
+  breakdown.value = {
+    user_id: row.user_id,
+    name: row.name,
+    week,
+    hours: cell.hours,
+    capacity: cell.capacity,
     weekly_base_hours: row.weekly_base_hours,
     is_overloaded: cell.is_overloaded,
   }
@@ -458,10 +677,301 @@ async function deleteTask(task) {
 /** Reasigna una tarea a otra persona del proyecto. */
 async function reassignTask(task, targetUserId) {
   if (targetUserId === null || targetUserId === undefined) {
-    error.value = 'No hay personas a las que reasignar la tarea.'
+    aviso.value = 'No hay personas a las que reasignar la tarea.'
     return
   }
-  await saveTask(task.id, { assigned_to: targetUserId })
+  await reasignarTarea(task, targetUserId, breakdown.value?.week)
+}
+
+/**
+ * Reasigna una tarea y mueve las horas de la celda al momento.
+ *
+ * El cambio se pinta antes de que conteste el servidor y, si el servidor lo
+ * rechaza, se vuelve atras. Las horas que se mueven son las de la tarea en esa
+ * semana, que es lo que dice el backend; despues, el informe manda.
+ */
+async function reasignarTarea(task, targetUserId, semana) {
+  const origen = rows.value.find((row) => row.user_id === task.assigned_to)
+  const destino = rows.value.find((row) => row.user_id === targetUserId)
+  if (!destino || !semana) return
+
+  const copia = JSON.parse(JSON.stringify(report.value))
+  const horas = Number(task.week_hours ?? task.estimated_hours ?? 0)
+  moverHoras(origen, destino, semana, horas, task.project_id)
+
+  saving.value = true
+  try {
+    await tasksApi.update(auth.token, task.id, { assigned_to: targetUserId })
+  } catch (err) {
+    report.value = copia
+    syncBreakdownCell()
+    aviso.value = `No se ha podido reasignar la tarea: ${err.message}`
+    saving.value = false
+    return
+  }
+  saving.value = false
+  notice.value = `Tarea "${task.title}" reasignada a ${destino.name}.`
+  aviso.value = null
+  await reload()
+}
+
+/**
+ * Redondea a centimas de hora, que es como cuenta el motor.
+ *
+ * Sin redondear, una resta deja decimales de ruido: 32 - 16.4 sale
+ * 15.600000000000001.
+ */
+function centimas(value) {
+  return Math.round(Number(value ?? 0) * 100) / 100
+}
+
+/**
+ * Pasa las horas de una celda a otra, sin tocar el servidor.
+ *
+ * Aplica el mismo reparto que el backend: la celda de origen pierde las horas
+ * de la tarea en su proyecto, y la de destino las gana.
+ */
+function moverHoras(origen, destino, semana, horas, projectId) {
+  if (!origen) return
+  const celdaOrigen = origen.cells.find((cell) => cell.week === semana)
+  const celdaDestino = destino.cells.find((cell) => cell.week === semana)
+  if (!celdaOrigen || !celdaDestino) return
+
+  celdaOrigen.hours = centimas(Number(celdaOrigen.hours ?? 0) - horas)
+  celdaDestino.hours = centimas(Number(celdaDestino.hours ?? 0) + horas)
+
+  if (projectId !== null && projectId !== undefined) {
+    restarProyecto(celdaOrigen, projectId, horas)
+    sumarProyecto(celdaDestino, projectId, horas)
+  }
+
+  marcarSobrecarga(celdaOrigen)
+  marcarSobrecarga(celdaDestino)
+  recalcularTotales(origen)
+  recalcularTotales(destino)
+}
+
+/** Quita las horas de un proyecto de una celda. */
+function restarProyecto(celda, projectId, horas) {
+  celda.projects = (celda.projects ?? [])
+    .map((item) =>
+      Number(item.project_id) === Number(projectId)
+        ? { project_id: item.project_id, hours: centimas(Number(item.hours ?? 0) - horas) }
+        : item,
+    )
+    .filter((item) => Number(item.hours ?? 0) > 0)
+}
+
+/** Suma las horas de un proyecto a una celda. */
+function sumarProyecto(celda, projectId, horas) {
+  const lista = celda.projects ?? []
+  const existente = lista.find((item) => Number(item.project_id) === Number(projectId))
+  if (existente) {
+    existente.hours = centimas(Number(existente.hours ?? 0) + horas)
+    return
+  }
+  celda.projects = [...lista, { project_id: projectId, hours: centimas(horas) }]
+}
+
+/** Marca la celda como sobrecargada si sus horas pasan de la capacidad. */
+function marcarSobrecarga(celda) {
+  const capacidad = celda.capacity
+  celda.is_overloaded =
+    capacidad !== null &&
+    capacidad !== undefined &&
+    Number(celda.hours) > Number(capacidad)
+}
+
+/** El total de la fila es la suma de sus celdas, como en el informe. */
+function recalcularTotales(row) {
+  const suma = row.cells.reduce((total, cell) => total + Number(cell.hours ?? 0), 0)
+  row.total_hours = centimas(suma)
+  row.has_overload = row.cells.some((cell) => cell.is_overloaded)
+}
+
+/** Comienza el arrastre de una tarea desde el panel de detalle. */
+function startDrag(task, event) {
+  const semana = breakdown.value?.week
+  if (!semana) return
+  dragging.value = {
+    task,
+    week: semana,
+    hours: Number(task.week_hours ?? task.estimated_hours ?? 0),
+    fromUserId: task.assigned_to,
+  }
+  previsualizando.value = true
+  dropResuelto = false
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(task.id))
+  }
+  document.addEventListener('dragover', onDragOverDocumento)
+  document.addEventListener('drop', onDropDocumento)
+}
+
+/**
+ * Termina el arrastre: se apaga la previsualizacion.
+ *
+ * Los datos del arrastre se quedan un momento: el evento de soltar puede
+ * llegar despues del de fin de arrastre, y sin ellos la tarea se perderia. Si
+ * al terminar el puntero estaba sobre una celda y nadie ha soltado todavia,
+ * esa celda es el destino.
+ */
+function endDrag() {
+  previsualizando.value = false
+  arrastreTerminado = true
+  if (!dropResuelto && dragging.value && celdaHover.value) {
+    const arrastre = dragging.value
+    const sitio = filaDeCelda(celdaHover.value)
+    dropResuelto = true
+    if (sitio) soltarTarea(arrastre, sitio.row, sitio.week)
+  }
+  clearTimeout(limpiezaArrastre)
+  limpiezaArrastre = setTimeout(limpiarArrastre, 500)
+  setTimeout(() => {
+    arrastreTerminado = false
+  }, 0)
+}
+
+/** Olvida el arrastre y deja de escuchar el documento. */
+function limpiarArrastre() {
+  dragging.value = null
+  dropTarget.value = null
+  celdaHover.value = null
+  clearTimeout(limpiezaArrastre)
+  document.removeEventListener('dragover', onDragOverDocumento)
+  document.removeEventListener('drop', onDropDocumento)
+}
+
+/**
+ * La celda que hay bajo el puntero.
+ *
+ * El panel lateral tapa la matriz, asi que el evento de soltar puede llegar al
+ * fondo del panel en vez de a la celda. Cuando pasa eso, la celda se busca por
+ * geometria: `elementsFromPoint` devuelve tambien lo que queda por debajo.
+ */
+function celdaDelDestino(event) {
+  const directa = event.target?.closest?.('[data-testid^="cell-"]')
+  if (directa) return directa
+  if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return null
+  const elementos = document.elementsFromPoint(event.clientX, event.clientY)
+  for (const elemento of elementos) {
+    const testid = elemento.getAttribute?.('data-testid')
+    if (testid && testid.startsWith('cell-')) return elemento
+  }
+  return null
+}
+
+/** La persona y la semana de una celda de la matriz. */
+function filaDeCelda(celda) {
+  const valor = (celda.getAttribute('data-testid') ?? '').replace('cell-', '')
+  const [userId, ...resto] = valor.split('-')
+  const week = resto.join('-')
+  const row = rows.value.find((item) => String(item.user_id) === userId)
+  return row ? { row, week } : null
+}
+
+/** El arrastre se resuelve en el documento, no en la celda. */
+function onDragOverDocumento(event) {
+  if (!dragging.value) return
+  event.preventDefault()
+  const celda = celdaDelDestino(event)
+  celdaHover.value = celda
+  const sitio = celda ? filaDeCelda(celda) : null
+  const preview = sitio ? previewOf(sitio.row, sitio.week) : null
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = preview?.permitido ? 'move' : 'none'
+  }
+  dropTarget.value = sitio ? { user_id: sitio.row.user_id, week: sitio.week } : null
+}
+
+/** Suelta la tarea: la persona de la celda se la queda. */
+async function onDropDocumento(event) {
+  if (!dragging.value) return
+  event.preventDefault()
+  const arrastre = dragging.value
+  const celda = celdaDelDestino(event) ?? celdaHover.value
+  dropResuelto = true
+  limpiarArrastre()
+  if (!celda) return
+  const sitio = filaDeCelda(celda)
+  if (!sitio) return
+  await soltarTarea(arrastre, sitio.row, sitio.week)
+}
+
+/** Suelta la tarea en una celda: comprueba el destino antes de mover nada. */
+async function soltarTarea(arrastre, row, week) {
+  if (arrastre.week !== week) {
+    aviso.value = 'La tarea solo se mueve dentro de la semana abierta.'
+    return
+  }
+  if (row.user_id === arrastre.fromUserId) return
+  if (!esMiembro(row, arrastre.task.project_id)) {
+    const nombre = projectNames.value.get(arrastre.task.project_id) ?? 'del proyecto'
+    aviso.value = `${row.name} no es miembro del proyecto ${nombre}.`
+    return
+  }
+  await reasignarTarea(arrastre.task, row.user_id, arrastre.week)
+}
+
+/**
+ * Suelta la tarea sobre la celda.
+ *
+ * El evento se detiene aqui: si llega al documento, se suelta dos veces.
+ */
+async function dropOn(row, week, event) {
+  event.stopPropagation()
+  const arrastre = dragging.value
+  if (!arrastre) return
+  dropResuelto = true
+  endDrag()
+  await soltarTarea(arrastre, row, week)
+}
+
+/**
+ * Mueve una tarea a la persona de al lado con el teclado.
+ *
+ * Mayus con las flechas hace lo mismo que arrastrar la tarea a la fila de al
+ * lado: el destino tiene que ser miembro del proyecto de la tarea.
+ */
+async function moverConTeclado(task, delta) {
+  const semana = breakdown.value?.week
+  if (!semana) return
+  const indice = rows.value.findIndex((row) => row.user_id === task.assigned_to)
+  if (indice < 0) return
+  const destino = rows.value[indice + delta]
+  if (!destino) {
+    aviso.value = 'No hay nadie más en esa dirección.'
+    return
+  }
+  if (!esMiembro(destino, task.project_id)) {
+    const nombre = projectNames.value.get(task.project_id) ?? 'del proyecto'
+    aviso.value = `${destino.name} no es miembro del proyecto ${nombre}.`
+    return
+  }
+  await reasignarTarea(task, destino.user_id, semana)
+}
+
+/** Crea una tarea en el proyecto abierto y recarga la matriz. */
+async function createTask(payload) {
+  if (!project.value) return
+  saving.value = true
+  try {
+    await tasksApi.create(auth.token, project.value.id, payload)
+    notice.value = `Tarea "${payload.title}" creada.`
+    aviso.value = null
+    await reload()
+  } catch (err) {
+    aviso.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/** Un clic en la celda abre su detalle, salvo si viene de un arrastre. */
+function onCellClick(row, week) {
+  if (arrastreTerminado) return
+  openCell(row, week)
 }
 
 /** Catalogo de competencias, para el filtro. */
@@ -491,6 +1001,7 @@ async function loadReport() {
   if (isGlobal.value) {
     project.value = null
     await reload()
+    await openCellFromUrl()
     return
   }
 
@@ -500,6 +1011,7 @@ async function loadReport() {
 
   project.value = projects.find((p) => String(p.id) === String(props.id)) ?? projects[0]
   await reload()
+  await openCellFromUrl()
 }
 
 /** Vuelve a pedir la matriz y enseña el esqueleto mientras llega. */
@@ -540,7 +1052,14 @@ watch(
 )
 
 watch(
-  () => route.query,
+  () => [
+    query.value.from,
+    query.value.to,
+    query.value.project,
+    query.value.department,
+    query.value.skill,
+    query.value.level,
+  ],
   () => {
     if (escribiendo) return
     recargar()
@@ -551,14 +1070,31 @@ watch(
 
 <template>
   <div>
-    <header class="mb-3">
-      <h1 class="text-xl font-semibold text-siemens-900">
-        {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
-      </h1>
-      <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
-      <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
-        Reparto de horas de todos los proyectos visibles.
-      </p>
+    <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-siemens-900">
+          {{ isGlobal ? 'Capacidad Global' : 'Matriz de ocupación' }}
+        </h1>
+        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
+        <p v-else-if="isGlobal" class="mt-1 text-sm text-slate-500">
+          Reparto de horas de todos los proyectos visibles.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-1" role="group" aria-label="Modo de la celda">
+        <button
+          v-for="item in MODES"
+          :key="item.value"
+          type="button"
+          class="rounded px-3 py-1.5 text-sm font-medium"
+          :class="mode === item.value ? MODE_ACTIVE : MODE_INACTIVE"
+          :aria-pressed="mode === item.value"
+          :data-testid="`mode-${item.value}`"
+          @click="mode = item.value"
+        >
+          {{ item.label }}
+        </button>
+      </div>
     </header>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
@@ -667,6 +1203,41 @@ watch(
         {{ notice }}
       </AlertBanner>
 
+      <AlertBanner
+        v-if="aviso"
+        variant="warning"
+        class="mb-3"
+        data-testid="capacity-warning"
+        dismissible
+        @dismiss="aviso = null"
+      >
+        {{ aviso }}
+      </AlertBanner>
+
+      <div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <span
+          class="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 font-medium text-red-800"
+          data-testid="summary-overload"
+        >
+          <span class="h-3.5 w-3.5"><AppIcon name="warning" /></span>
+          {{ summary.sobrecargadas }}
+          {{ summary.sobrecargadas === 1 ? 'celda sobrecargada' : 'celdas sobrecargadas' }}
+        </span>
+        <span
+          class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 font-medium text-blue-900"
+          data-testid="summary-free"
+        >
+          {{ summary.huecos }}
+          {{ summary.huecos === 1 ? 'hueco' : 'huecos' }} de 20 h o más libres
+        </span>
+        <span
+          class="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700"
+          data-testid="summary-average"
+        >
+          Uso medio del equipo: {{ summary.medio ?? '—' }} %
+        </span>
+      </div>
+
       <div class="max-h-[70vh] overflow-auto rounded border border-slate-200 bg-white">
         <table class="w-full border-collapse text-sm">
           <thead class="sticky top-0 z-10 bg-slate-100">
@@ -726,31 +1297,67 @@ watch(
                   :class="celda.clases"
                   :title="`Ver tareas de ${entrada.fila.name} en ${celda.week}`"
                   :aria-label="cellAria(entrada.fila, celda.week)"
+                  :aria-pressed="breakdown?.user_id === entrada.fila.user_id && breakdown?.week === celda.week"
                   :data-testid="`cell-${entrada.fila.user_id}-${celda.week}`"
-                  @click="openCell(entrada.fila, celda.week)"
+                  :data-preview="celda.preview ? 'si' : 'no'"
+                  @click="onCellClick(entrada.fila, celda.week)"
+                  @drop.prevent="dropOn(entrada.fila, celda.week, $event)"
                 >
-                  <span class="flex items-center gap-1">
-                    <span v-if="celda.sobrecargada" class="h-3 w-3 shrink-0">
-                      <AppIcon name="warning" />
+                  <template v-if="celda.preview">
+                    <span class="text-sm font-semibold tabular-nums">
+                      {{ celda.preview.principal }}
                     </span>
-                    <span class="text-sm font-semibold tabular-nums">{{ celda.principal }}</span>
-                    <span class="text-[11px] tabular-nums opacity-80">
-                      {{ celda.capacidad }}
+                    <span class="text-[10px] tabular-nums opacity-80">
+                      {{ celda.preview.sub }}
                     </span>
-                  </span>
-                  <span v-if="celda.porcentaje" class="text-[10px] tabular-nums opacity-80">
-                    {{ celda.porcentaje }}
-                  </span>
-                  <span
-                    v-if="celda.muestraBarra"
-                    class="block h-1 w-3/4 rounded bg-slate-900/10"
-                  >
+                  </template>
+
+                  <template v-else-if="mode === MODE.HOURS">
+                    <span class="flex items-center gap-1">
+                      <span v-if="celda.sobrecargada" class="h-3 w-3 shrink-0">
+                        <AppIcon name="warning" />
+                      </span>
+                      <span class="text-sm font-semibold tabular-nums">{{ celda.principal }}</span>
+                      <span class="text-[11px] tabular-nums opacity-80">
+                        {{ celda.capacidad }}
+                      </span>
+                    </span>
+                    <span v-if="celda.porcentaje" class="text-[10px] tabular-nums opacity-80">
+                      {{ celda.porcentaje }}
+                    </span>
                     <span
-                      class="block h-1 rounded"
-                      :class="celda.claseBarra"
-                      :style="{ width: `${celda.anchoBarra}%` }"
-                    ></span>
-                  </span>
+                      v-if="celda.muestraBarra"
+                      class="block h-1 w-3/4 rounded bg-slate-900/10"
+                    >
+                      <span
+                        class="block h-1 rounded"
+                        :class="celda.claseBarra"
+                        :style="{ width: `${celda.anchoBarra}%` }"
+                      ></span>
+                    </span>
+                  </template>
+
+                  <template v-else-if="mode === MODE.PERCENT">
+                    <span class="text-sm font-semibold tabular-nums">
+                      {{ celda.porcentaje || '·' }}
+                    </span>
+                    <span class="text-[10px] tabular-nums opacity-80">
+                      {{ celda.horasCapacidad }}
+                    </span>
+                  </template>
+
+                  <template v-else>
+                    <span v-if="!celda.proyectos.length" class="text-sm font-semibold">·</span>
+                    <span
+                      v-for="proyecto in celda.proyectos"
+                      :key="proyecto.id"
+                      class="block max-w-full truncate rounded bg-slate-900/10 px-1 text-[10px] font-medium"
+                      :title="`${proyecto.nombre}: ${proyecto.horas} h`"
+                      data-testid="cell-project"
+                    >
+                      {{ proyecto.nombre }} · {{ proyecto.horas }} h
+                    </span>
+                  </template>
                 </button>
               </td>
               <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
@@ -820,13 +1427,15 @@ watch(
     </p>
 
     <!-- Panel de detalle de la celda -->
-    <SidePanel :open="Boolean(breakdown)" :title="breakdownTitle" @close="breakdown = null">
+    <SidePanel
+      :open="Boolean(breakdown)"
+      :title="breakdownTitle"
+      :modal="false"
+      @close="closeCell"
+    >
       <template #subtitle>
         <p v-if="breakdown" class="mt-1 text-sm text-slate-500">
-          {{ breakdown.hours }} h de {{ breakdown.weekly_base_hours }} h base
-          <span v-if="breakdown.is_overloaded" class="ml-1 font-semibold text-red-700">
-            (sobrecargado)
-          </span>
+          Semana {{ weekTitle(breakdown.week) }} · {{ weekRangeLabel(breakdown.week) }}
         </p>
       </template>
 
@@ -835,10 +1444,17 @@ watch(
         :tasks="breakdownTasks"
         :members="people"
         :projects="isGlobal ? store.projects : []"
+        :holidays="breakdownHolidays"
         :saving="saving"
+        :can-create="canCreate"
+        :gantt-link="ganttLink"
         @save="saveTask"
         @delete="deleteTask"
         @reassign="reassignTask"
+        @create="createTask"
+        @move="moverConTeclado"
+        @dragstart="startDrag"
+        @dragend="endDrag"
       />
     </SidePanel>
   </div>

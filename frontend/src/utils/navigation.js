@@ -79,12 +79,6 @@ const WORK_CALENDAR_VIEW = {
   icon: 'calendar',
   hint: 'Días no laborables y su impacto',
 }
-const PLANNER_VIEW = {
-  name: 'planner',
-  label: 'Planificador de Recursos',
-  icon: 'columns',
-  hint: 'Carga, tareas y reparto por proyecto',
-}
 
 export const GLOBAL_SECTIONS = [
   {
@@ -112,7 +106,6 @@ export const GLOBAL_SECTIONS = [
       },
       GLOBAL_CALENDAR_VIEW,
       WORK_CALENDAR_VIEW,
-      PLANNER_VIEW,
       {
         name: 'departments',
         label: 'Departamentos',

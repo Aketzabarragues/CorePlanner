@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,7 @@ from .capacity import (
     PersonCapacity,
     build_capacity_report,
     compute_task_week_units,
+    from_units,
 )
 from .schedule import (
     ScheduleVersion,
@@ -210,6 +212,40 @@ async def load_users_with_skill(
         )
     ).scalars().all()
     return set(rows)
+
+
+async def load_task_week_hours(
+    session: AsyncSession,
+    tasks: Sequence[Task],
+    week: str,
+) -> dict[int, Decimal]:
+    """Horas que aporta cada tarea en la semana indicada.
+
+    Una tarea puede cruzar varias semanas, de modo que sus horas estimadas no
+    son las horas de esa semana: el reparto lo hace el motor, con los dias no
+    laborables de cada persona. Es lo que permite prever la carga que queda si
+    se mueve una tarea.
+    """
+    if not tasks:
+        return {}
+
+    user_ids = {task.assigned_to for task in tasks if task.assigned_to is not None}
+    users = (
+        await session.execute(select(User).where(User.id.in_(user_ids)))
+    ).scalars().all()
+    people = await load_person_capacities(session, users)
+    holidays_by_user = {person.user_id: person.holidays for person in people}
+
+    hours: dict[int, Decimal] = {}
+    for task in tasks:
+        if task.assigned_to is None or task.start_date is None or task.end_date is None:
+            continue
+        holidays = holidays_by_user.get(task.assigned_to, {})
+        week_units = compute_task_week_units(
+            task.start_date, task.end_date, task.estimated_hours, holidays
+        )
+        hours[task.id] = from_units(week_units.get(week, 0))
+    return hours
 
 
 async def load_capacity_for_projects(

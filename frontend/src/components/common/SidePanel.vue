@@ -15,6 +15,15 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
+  /**
+   * Si el panel es modal.
+   *
+   * Un panel modal tapa el fondo con un velo y lo deja inactivo. Uno que no lo
+   * es se pone al lado: el fondo se sigue viendo y se puede seguir usando, que
+   * es lo que necesita la matriz de capacidad para que las celdas de al lado
+   * reciban el arrastre de una tarea.
+   */
+  modal: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['close'])
@@ -25,22 +34,24 @@ useDialog(
   () => props.open,
   panel,
   () => emit('close'),
+  { modal: props.modal },
 )
 </script>
 
 <template>
   <div
     v-if="open"
-    class="fixed inset-0 z-50 flex justify-end bg-slate-900/40"
+    class="fixed inset-0 z-50 flex justify-end"
+    :class="modal ? 'bg-slate-900/40' : 'pointer-events-none bg-transparent'"
     @click.self="emit('close')"
   >
     <div
       ref="panel"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="modal ? 'true' : 'false'"
       :aria-label="title"
       tabindex="-1"
-      class="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl"
+      class="pointer-events-auto flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl"
     >
       <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-4">
         <div class="min-w-0">

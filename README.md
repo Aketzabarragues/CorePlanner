@@ -163,13 +163,12 @@ coreplanner/
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── LaborMonthGrid.vue  # rejilla del mes del calendario laboral
-│       │   ├── PlannerMatrix.vue   # matriz persona por semana del planificador
 │       │   ├── people/             # directorio, ficha, competencias y calendario
 │       │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
 │       ├── utils/        # helpers puros (gantt, kanban, navegacion, semanas)
-│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Planificador, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
+│       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Calendario laboral, Kanban, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
@@ -491,10 +490,13 @@ se pueden corregir o quitar, y el historial conserva lo que habia antes.
 El alta de tareas vive en la cabecera, con el boton **+ Nueva Tarea**, que
 funciona en cualquier vista del proyecto abierto. La matriz es interactiva:
 
-- **Pulsa una celda** para ver el desglose de las tareas que componen esas horas.
+- **Pulsa una celda** para ver el desglose de las tareas que componen esas horas,
+  en el panel lateral.
 - Desde el desglose se puede **editar** una tarea (cambiar titulo, persona,
   fechas u horas), **reasignarla** a otra persona del proyecto o
-  **eliminarla**.
+  **eliminarla**, y **crear** una tarea de esa semana.
+- Una tarea tambien se puede **arrastrar** a la celda de otra persona, con
+  previsualizacion: lo cuenta la seccion de la matriz de capacidad.
 - Cualquier cambio recarga la matriz, de modo que se ve al instante como una
   celda pasa de rojo a neutro al alivar la carga de alguien.
 
@@ -591,32 +593,54 @@ El backend tiene un endpoint propio, `GET /api/work-calendar`, con el rango de
 fechas en `from` y `to`. El alta de dias no laborables sigue en la pestana
 "Dias no laborables" de **Personas y Competencias**.
 
-## Planificador de recursos
+## Matriz de capacidad
 
-La vista `/planner` dice lo mismo que la matriz de capacidad y ademas **en que se
-ocupa cada persona**. Son tres vistas sobre el mismo rango de semanas, con un
-conmutador para pasar de una a otra.
+La capacidad esta en **una sola pantalla**: la matriz. Vive en los dos espacios,
+igual que el resto: `/capacity` con los proyectos visibles y
+`/projects/{id}/capacity` con uno solo.
 
-- **Carga por tarea**: la matriz de persona y semana con las horas planificadas y
-  el porcentaje sobre las horas base. En rojo, las semanas que superan las horas
-  base, con el mismo criterio que la matriz de capacidad. Debajo, la **tabla de
-  asignaciones**: persona, semana, tareas y horas.
-- **Linea de tiempo por persona**: cada bloque es una tarea. **Arrastralo a la
-  celda de otra persona** para cambiarle el responsable; las horas se recalculan
-  al momento y la matriz se vuelve a pintar.
-- **Tabla de planificacion**: cada celda reparte las horas de la persona entre los
-  proyectos en los que esta trabajando, con cuantas tareas lleva en cada uno.
+- El eje de semanas es **continuo**: sale el rango pedido, tenga actividad o no.
+  El rango por defecto son nueve semanas, la en curso y las ocho siguientes, y
+  las flechas lo mueven una semana. "Hoy" lo devuelve a la semana en curso.
+- La celda se lee de tres maneras, con el conmutador de la cabecera: **Horas**
+  ("36/40" con la barra de uso), **% de uso** ("90 %" y debajo "36/40 h") y
+  **Proyectos** (una etiqueta por proyecto, con sus horas). El reparto por
+  proyecto lo trae el informe, con el mismo criterio con el que el motor
+  reparte las horas.
+- Encima de la matriz, tres **chips de resumen**: las celdas sobrecargadas, los
+  huecos de 20 h o mas libres y el uso medio del equipo.
+- **Pulsa una celda** para abrir su detalle en un **panel lateral**: la cifra
+  grande, la pila de estado con su porcentaje, la barra, las notas de la semana
+  (jornada reducida y festivos) y la lista de tareas. Desde ahi se edita, se
+  reasigna, se elimina o se crea una tarea de esa semana. La celda abierta vive
+  en la URL (`?cell=2-2026-W46`), asi que recargar la pagina no cierra el panel.
+  El panel es una columna al lado, no un modal: la matriz se sigue viendo y se
+  puede seguir usando, que es lo que deja que las celdas reciban el arrastre.
+- Los **filtros** (proyecto, departamento, competencia y nivel) y el rango viven
+  en la URL: el enlace se puede compartir. El modo y la celda abierta tambien,
+  pero no recargan el informe.
+
+El arrastre con previsualizacion es la otra forma de reasignar:
+
+- **Arrastra una tarea del panel** a la celda de otra persona: todas las celdas
+  de esa semana enseñan lo que pasaria al soltar. La celda de origen muestra lo
+  que quedaria sin la tarea, los destinos validos muestran la carga
+  resultante con la escala de colores, y quien **no es miembro del proyecto** se
+  marca con rayado y no acepta el destino.
+- Las horas que se previsualizan son las de la tarea **en esa semana**, que son
+  las que cuenta la celda.
+- Al soltar, la matriz **se actualiza al momento** y vuelve atras si la API
+  rechaza el cambio.
+- Con el teclado: **Mayus** y las flechas **arriba** o **abajo** sobre una
+  tarea del panel la mueven a la persona de al lado.
 
 La reasignacion se guarda con el `PATCH /api/tasks/{id}` de siempre, asi que
 sigue exigiendo que el nuevo responsable sea miembro del proyecto al que
-pertenece la tarea. Si no lo es, la pantalla avisa del error y no cambia nada.
+pertenece la tarea. La pantalla lo avisa **antes** de soltar, no despues.
 
-El backend no tiene un endpoint propio: el planificador se compone de
-`/api/capacity` (la matriz), `/api/tasks` (las tareas, acotadas al rango con
-`from` y `to`) y `/api/projects` (los nombres de los proyectos).
-
-Lo que **no** entra: las tarjetas por persona del prototipo y los veredictos
-discretos de disponibilidad, que van aparte con sus umbrales.
+Lo que **no** entra: las tarjetas por persona del prototipo, los veredictos
+discretos de disponibilidad (van aparte con sus umbrales) y el menu agrupado
+con rutas unificadas, que es la fase siguiente de la propuesta de interfaz.
 
 ## Tablero Kanban
 
@@ -740,7 +764,7 @@ En el espacio global:
 
 | Grupo | Vistas |
 | --- | --- |
-| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Planificador de Recursos, Departamentos, Personas y Competencias |
+| Espacio Global | Panel, Mi trabajo, Proyectos, Capacidad Global, Gantt Global, Calendario Global, Calendario Laboral, Departamentos, Personas y Competencias |
 
 En el espacio de proyecto:
 
@@ -766,7 +790,6 @@ editarla; el resto la ve en modo de solo lectura.
 | `/gantt` | global | cronograma de todos los proyectos |
 | `/calendar` | global | calendario de la planificacion de todos los proyectos |
 | `/work-calendar` | global | dias no laborables y su impacto en la capacidad |
-| `/planner` | global | planificador de recursos: carga, linea de tiempo y reparto por proyecto |
 | `/departments` | global | departamentos y sus responsables |
 | `/people` | global | directorio, competencias y dias no laborables |
 | `/configuration` | global | configuracion de la organizacion (solo gerente) |
@@ -870,8 +893,9 @@ pantalla global de Mi trabajo muestra las tareas propias y la carga por semana,
 y el panel global resume la organizacion de un vistazo. La planificacion se ve
 como diagrama de Gantt o como calendario mensual, semanal y por dia. El
 calendario laboral dice cuando no se trabaja y cuanto se pierde, con el alcance
-por persona, y el planificador de recursos dice en que se ocupa cada persona y
-permite reasignar una tarea arrastrándola.
+por persona. La capacidad esta en una sola pantalla: la matriz, con el detalle
+en un panel lateral, los modos de celda y el arrastre con previsualizacion para
+reasignar una tarea.
 Pendiente de implementar: la exportacion `.ics`.
 
 ### Especificaciones

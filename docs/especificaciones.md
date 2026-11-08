@@ -114,8 +114,9 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 - Informes y exportacion a Excel.
 - Integraciones con Jira, GitHub, LDAP, SAML u OIDC.
 - El **planificador de recursos con tarjetas por persona**: las tarjetas
-  repiten lo que ya dice la ficha de la persona. El planificador de lectura, con
-  sus tres vistas y el arrastre para reasignar, si entra, en el §18.
+  repiten lo que ya dice la ficha de la persona. La capacidad esta en una sola
+  pantalla desde el §22: la matriz con el detalle en un panel lateral y el
+  arrastre con previsualizacion.
 - Aplicacion movil.
 - Permisos por tarea concreta (compartir una tarea suelta).
 - Veredictos discretos de capacidad (critical, tight, balanced, buffer): son la
@@ -150,7 +151,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Cronograma y tablero | Hecho |
 | Calendario de la planificacion | Hecho |
 | Calendario laboral con impacto en la capacidad | Hecho |
-| Planificador de recursos: tres vistas y arrastre | Hecho |
+| Pantalla unica de capacidad: modos, panel lateral y arrastre | Hecho |
 | Ambito global (todo lo que puede ver quien entra) | Hecho |
 | Rol de empresa (gerente / jefe / tecnico) | Hecho |
 | Responsable de proyecto | Hecho |
@@ -473,6 +474,11 @@ se quitan.
 
 ## 18. Planificador de recursos
 
+**Retirado.** La capacidad esta en una sola pantalla desde el §22: la matriz
+con el detalle en un panel lateral y el arrastre con previsualizacion. Esta
+seccion se conserva como registro de lo que se decidio entonces; lo que manda
+es el §22.
+
 La matriz de capacidad dice cuanto se ocupa cada persona. El planificador dice
 lo mismo y, ademas, en que se ocupa: que tarea, en que proyecto y con cuanto
 esfuerzo.
@@ -539,6 +545,9 @@ lo demas si la lleva.
 - **`SidePanel`**: el panel lateral de detalle, con `role="dialog"`,
   `aria-modal`, cierre con `Esc` y trampa de foco. El modal de desglose de la
   matriz de capacidad deja de estar hecho a mano y pasa a usar este componente.
+  Admite un modo **no modal**, en el que el fondo se sigue viendo y se puede
+  seguir usando: lo necesita la matriz de capacidad, donde las celdas tienen
+  que recibir el arrastre de una tarea.
 - **`useDialog`**: el comportamiento de los dialogos (escucha de `Esc`, bloqueo
   del desplazamiento, trampa de foco y devolucion del foco) en un solo sitio.
   `ModalDialog` lo usa tambien, y de paso gana la trampa de foco que le
@@ -602,7 +611,9 @@ lo demas si la lleva.
     desglose de una celda de la matriz deja de tapar la matriz: el panel entra
     desde la derecha y el operario sigue viendo la pantalla que lo ha
     producido. El panel es un dialogo (`role="dialog"`, `aria-modal`), asi que
-    se cierra con Esc y el foco no se sale de el.
+    se cierra con Esc y el foco no se sale de el. En la matriz de capacidad el
+    panel **no es modal**: la matriz se queda viva al lado, porque las celdas
+    tienen que poder recibir el arrastre de una tarea.
 12. **El comportamiento de los dialogos vive en un solo sitio.** `useDialog`
     se encarga de Esc, del bloqueo del desplazamiento, de la trampa de foco y
     de devolver el foco al elemento que abrio el dialogo. `ModalDialog` lo usa
@@ -665,8 +676,8 @@ fase 2 de la propuesta de interfaz, con el cierre de la correccion 6.5.
 
 1. **La escala vive en un helper, no en las plantillas.** `load.js` decide el
    estado y devuelve las clases y las etiquetas. Las vistas pintan; no
-   calculan. Asi la escala es la misma en la matriz, en el panel y en el
-   planificador, y se puede probar sola.
+   calculan. Asi la escala es la misma en la matriz y en el panel, y se puede
+   probar sola.
 2. **La capacidad desconocida no se inventa.** Si el backend no sabe la
    capacidad de una persona, la celda no la pinta de ninguna manera: se ve
    la cifra, pero sin barra y sin estado. Pinta "libre" cuando no se sabe si
@@ -790,3 +801,73 @@ en la URL. Es la fase 3 de la propuesta de interfaz.
    documenta en la ayuda del filtro.
 2. **Cuantas semanas se ven por defecto.** Nueve: la semana en curso y las
    ocho siguientes, como en el prototipo.
+
+## 22. Una sola pantalla de capacidad, con arrastre y previsualizacion
+
+Hoy la capacidad esta partida en dos: la matriz (`CapacityMatrix.vue`) y el
+planificador de recursos (`PlannerView.vue` con su `PlannerMatrix.vue`). Cada
+una enseña una parte y el operario va y viene entre las dos. Ademas, reasignar
+una tarea a otra persona se hace escribiendo en un desplegable, y si la persona
+no es miembro del proyecto, el backend responde con un 422 despues de soltar.
+
+Este bloque deja una sola pantalla de capacidad, con el detalle en un panel
+lateral y el arrastre con previsualizacion. Es la fase 4 de la propuesta de
+interfaz.
+
+### Que entra
+
+- **Una sola pantalla de capacidad.** La matriz actual es el sitio unico para
+  ver la carga. Se borran `PlannerView.vue` y `PlannerMatrix.vue`, y su entrada
+  del menu.
+- **El selector de modo**, en la cabecera: Horas, % de uso y Proyectos. El modo
+  cambia lo que se ve en la celda, no lo que se guarda.
+- **La celda segun el modo**:
+  - Horas: "36/40", barra de uso e icono si hay sobrecarga.
+  - % de uso: "90 %" y debajo "36/40 h".
+  - Proyectos: una etiqueta por proyecto, con sus horas.
+- **El resumen en chips**, encima de la matriz: celdas sobrecargadas, huecos
+  libres de 20 h o mas, y uso medio del equipo.
+- **El panel lateral definitivo**, como en el prototipo: la cifra grande de
+  horas, la pila de estado con su porcentaje, la barra, la nota, la lista de
+  tareas con su selector de reasignacion, y el pie con "Nueva tarea esta
+  semana" y "Ver en el Gantt".
+- **El panel no tapa la matriz**: es una columna al lado, no un modal. Las
+  celdas se pueden seguir pulsando y, sobre todo, reciben el arrastre.
+- **El arrastre con previsualizacion**: al arrastrar una tarea del panel, todas
+  las celdas de esa semana enseñan lo que pasaria al soltar:
+  - La celda de origen enseña lo que quedaria sin esa tarea.
+  - Los destinos no permitidos (quien no es miembro del proyecto de la tarea)
+    se marcan antes de soltar, con rayado y sin aceptar el destino.
+  - Los demas enseñan la carga resultante con la escala de colores.
+- **La actualizacion optimista**: la matriz se actualiza al soltar y vuelve
+  atras si la API falla, en vez de recargarlo todo.
+- **La alternativa de teclado**: "Mayus + flecha arriba" y "Mayus + flecha
+  abajo" sobre una tarea del panel la mueven a la persona anterior o a la
+  siguiente. La reasignacion se puede hacer entera con teclado.
+- **La celda abierta en la URL** (`?cell=persona-semana`): al recargar la
+  pagina, el panel sigue abierto en la misma celda.
+
+### Que no entra
+
+- **El menu agrupado y las rutas unificadas**: son de la fase 5, la de mayor
+  riesgo.
+- **La pantalla de proyecto** (Resumen, Tablero, Miembros, Ajustes): es de la
+  fase 6.
+- **El movil y el menu en cajon**: son de la fase 6.
+- **Los atajos de teclado globales** del prototipo: aqui solo entra el de mover
+  una tarea.
+- **La edicion de una tarea**: ya existe dentro del panel de detalle.
+- **Los filtros y el rango**: son de la fase 3 y no cambian.
+
+### Decisiones tomadas
+
+1. **El reparto por proyecto de cada celda lo trae el informe.** El motor
+   acumula el reparto por proyecto de cada persona y semana con el mismo
+   criterio con el que reparte las horas, asi que los proyectos siempre suman
+   las horas de la celda. El modo Proyectos no hace una peticion por celda.
+2. **La linea de tiempo por persona se va con el planificador.** El detalle de
+   una celda vive en el panel lateral, y el Gantt global ya cubre el reparto
+   por proyecto.
+3. **La previsualizacion usa las horas de la tarea en esa semana**, no las
+   estimadas enteras: es lo que cuenta la celda, asi que lo que se previsualiza
+   es exactamente lo que va a pasar.

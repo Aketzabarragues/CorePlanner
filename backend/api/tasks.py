@@ -15,6 +15,7 @@ from ..security import (
     require_project_permission,
     require_task_permission,
 )
+from ..services.capacity_repository import load_task_week_hours
 from ..services.tasks import (
     create_task,
     delete_task,
@@ -24,6 +25,25 @@ from ..services.tasks import (
 )
 
 router = APIRouter(tags=["tasks"])
+
+
+async def _with_week_hours(
+    session: SessionDep,
+    tasks: list[Task],
+    week: str | None,
+) -> list[TaskOut]:
+    """Enriquece las tareas con las horas que aportan en la semana filtrada.
+
+    Sin filtro por semana no hay nada que anadir: las horas estimadas siguen
+    siendo las de la tarea entera.
+    """
+    if week is None or not tasks:
+        return [TaskOut.model_validate(task) for task in tasks]
+    hours = await load_task_week_hours(session, tasks, week)
+    return [
+        TaskOut.model_validate(task).model_copy(update={"week_hours": hours.get(task.id)})
+        for task in tasks
+    ]
 
 
 @router.get("/tasks", response_model=list[TaskOut])
@@ -42,7 +62,7 @@ async def list_visible_tasks(
     periodo: la semana manda si vienen las dos cosas.
     """
     projects = await list_accessible_projects(session, user)
-    return await list_tasks_for_projects(
+    tasks = await list_tasks_for_projects(
         session,
         [project.id for project in projects],
         assigned_to,
@@ -50,6 +70,7 @@ async def list_visible_tasks(
         from_date,
         to_date,
     )
+    return await _with_week_hours(session, tasks, week)
 
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskOut])
@@ -59,9 +80,10 @@ async def list_tasks(
     assigned_to: int | None = Query(default=None),
     week: str | None = Query(default=None, description="Semana ISO, por ejemplo 2026-W46"),
     _project=Depends(require_project_permission("capacity.read")),
-) -> list[Task]:
+) -> list[TaskOut]:
     """Tareas del proyecto, con filtro opcional por persona y por semana."""
-    return await list_project_tasks(session, project_id, assigned_to, week)
+    tasks = await list_project_tasks(session, project_id, assigned_to, week)
+    return await _with_week_hours(session, tasks, week)
 
 
 @router.post("/projects/{project_id}/tasks", response_model=TaskOut, status_code=201)

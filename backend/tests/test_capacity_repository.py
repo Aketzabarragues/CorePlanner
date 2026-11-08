@@ -28,7 +28,7 @@ from backend.models import (
     TaskStatus,
     User,
 )
-from backend.services.capacity_repository import load_project_capacity
+from backend.services.capacity_repository import load_project_capacity, load_task_week_hours
 
 
 @pytest.fixture
@@ -312,3 +312,32 @@ async def test_el_rango_llega_al_informe_desde_la_base_de_datos(session):
         "2026-W11",
         "2026-W12",
     ]
+
+
+async def test_la_celda_desglosa_las_horas_por_proyecto(session):
+    ana, _luis, project = await _seed(session)
+
+    report = await load_project_capacity(session, project.id)
+
+    row = next(r for r in report.rows if r.user_id == ana.id)
+    celda = next(c for c in row.cells if c.week == "2026-W10")
+    # Las dos tareas son del mismo proyecto: 50 h + 16 h.
+    assert [(p.project_id, p.hours) for p in celda.projects] == [
+        (project.id, Decimal("66.00"))
+    ]
+
+
+async def test_las_horas_de_una_tarea_son_las_de_su_semana(session):
+    """Una tarea que cruza semanas aporta horas distintas en cada una."""
+    _ana, _luis, project = await _seed(session)
+    tareas = (
+        (await session.execute(select(Task).where(Task.project_id == project.id)))
+        .scalars()
+        .all()
+    )
+    montaje = next(t for t in tareas if t.title == "Montaje")
+
+    horas = await load_task_week_hours(session, tareas, "2026-W10")
+
+    # 40 h repartidas en cinco dias laborables: 16 h en W10 y 24 h en W11.
+    assert horas[montaje.id] == Decimal("16.00")

@@ -27,8 +27,8 @@ const capacityReport = {
       total_hours: 10,
       has_overload: false,
       cells: [
-        { week: '2026-W45', hours: 10, capacity: 40, is_overloaded: false },
-        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false },
+        { week: '2026-W45', hours: 10, capacity: 40, is_overloaded: false, projects: [{ project_id: 1, hours: 10 }] },
+        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false, projects: [] },
       ],
     },
     {
@@ -41,8 +41,8 @@ const capacityReport = {
       total_hours: 72,
       has_overload: true,
       cells: [
-        { week: '2026-W45', hours: 24, capacity: 40, is_overloaded: false },
-        { week: '2026-W46', hours: 48, capacity: 40, is_overloaded: true },
+        { week: '2026-W45', hours: 24, capacity: 40, is_overloaded: false, projects: [{ project_id: 1, hours: 24 }] },
+        { week: '2026-W46', hours: 48, capacity: 40, is_overloaded: true, projects: [{ project_id: 1, hours: 48 }] },
       ],
     },
   ],
@@ -54,6 +54,28 @@ const projectTasks = [
   { id: 11, project_id: 1, assigned_to: 1, title: 'Esquemas EPLAN', status: 'todo', start_date: '2026-11-02', end_date: '2026-11-04', estimated_hours: 10 },
 ]
 
+/** Informe con una persona que no es miembro del proyecto de las tareas. */
+const reportConAjeno = {
+  ...capacityReport,
+  rows: [
+    ...capacityReport.rows,
+    {
+      user_id: 3,
+      name: 'Jorge',
+      weekly_base_hours: 40,
+      department_id: 2,
+      job_title: 'Ingeniero',
+      project_ids: [2],
+      total_hours: 0,
+      has_overload: false,
+      cells: [
+        { week: '2026-W45', hours: 0, capacity: 40, is_overloaded: false, projects: [] },
+        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false, projects: [] },
+      ],
+    },
+  ],
+}
+
 const departments = [
   { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
   { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
@@ -64,8 +86,14 @@ const skills = [
   { id: 2, name: 'HMI WinCC' },
 ]
 
+/** Copia profunda: cada respuesta trae sus propios datos, como el servidor. */
+function clone(value) {
+  if (value === undefined) return value
+  return JSON.parse(JSON.stringify(value))
+}
+
 function jsonResponse(payload, ok = true, status = 200) {
-  return { ok, status, json: async () => payload }
+  return { ok, status, json: async () => clone(payload) }
 }
 
 function setupFetch(overrides = {}) {
@@ -97,7 +125,7 @@ function setupFetch(overrides = {}) {
 
 let router
 
-async function mountMatrix(props = {}) {
+async function mountMatrix(props = {}, query = {}) {
   router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -106,7 +134,10 @@ async function mountMatrix(props = {}) {
       { path: '/projects/:id/capacity', component: { template: '<div />' } },
     ],
   })
-  await router.push(props.id === null ? '/capacity' : `/projects/${props.id}/capacity`)
+  await router.push({
+    path: props.id === null ? '/capacity' : `/projects/${props.id}/capacity`,
+    query,
+  })
   await router.isReady()
 
   const wrapper = mount(CapacityMatrix, {
@@ -550,5 +581,332 @@ describe('CapacityMatrix', () => {
     const url = calls.find((call) => call.url.includes('/api/projects/2/tasks')).url
     expect(url).toContain('assigned_to=2')
     expect(url).toContain('week=2026-W46')
+  })
+
+  it('el modo de porcentaje enseña el porcentaje de uso', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="mode-porcentaje"]').trigger('click')
+    await flushPromises()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.text()).toContain('120 %')
+    expect(celda.text()).toContain('48/40 h')
+    // El modo queda en la URL, para poder compartirlo.
+    expect(router.currentRoute.value.query.mode).toBe('porcentaje')
+  })
+
+  it('el modo de proyectos enseña de que proyectos sale cada celda', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await flushPromises()
+
+    const etiqueta = wrapper.get('[data-testid="cell-2-2026-W46"] [data-testid="cell-project"]')
+    expect(etiqueta.text()).toContain('Linea Pasteurizadora SIVE')
+    expect(etiqueta.text()).toContain('48 h')
+  })
+
+  it('una celda sin proyectos muestra un punto', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await flushPromises()
+
+    const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    expect(celda.text()).toContain('·')
+    expect(celda.find('[data-testid="cell-project"]').exists()).toBe(false)
+  })
+
+  it('los chips de resumen cuentan las celdas sobrecargadas y los huecos', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.get('[data-testid="summary-overload"]').text()).toContain(
+      '1 celda sobrecargada',
+    )
+    // Ana tiene 30 h y 40 h libres: dos huecos de 20 h o más.
+    expect(wrapper.get('[data-testid="summary-free"]').text()).toContain('2 huecos')
+    // 82 h sobre 160 h de capacidad.
+    expect(wrapper.get('[data-testid="summary-average"]').text()).toContain('51 %')
+  })
+
+  it('la celda abierta queda en la URL', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.cell).toBe('2-2026-W46')
+  })
+
+  it('al entrar con una celda en la URL se abre su detalle', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ id: null }, { cell: '2-2026-W46' })
+
+    expect(wrapper.text()).toContain('Sebastian en 2026-W46')
+  })
+
+  it('cerrar el detalle quita la celda de la URL', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="side-panel-close"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.cell).toBeUndefined()
+  })
+
+  it('el panel enseña la carga de la celda con su estado', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    // 48 h de 40 h: sobrecarga alta al 120 %.
+    expect(wrapper.text()).toContain('48 h')
+    expect(wrapper.get('[data-testid="cell-state"]').text()).toContain('Sobrecarga alta')
+    expect(wrapper.get('[data-testid="cell-state"]').text()).toContain('120 %')
+  })
+
+  it('el panel avisa de los dias no laborables de la semana', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          weeks: [
+            { week: '2026-W45', holidays: [] },
+            {
+              week: '2026-W46',
+              holidays: [
+                { date: '2026-11-11', name: 'Fiesta local', scope: 'global', half_day: false },
+              ],
+            },
+          ],
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="cell-notes"]').text()).toContain('Fiesta local')
+  })
+
+  it('una celda sin tareas dice que la semana esta libre', async () => {
+    setupFetch({
+      '/api/projects/1/tasks': () => jsonResponse([]),
+    })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Semana libre')
+  })
+
+  it('arrastrar una tarea enseña en el origen lo que quedaria sin ella', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    // La tarea aporta 12 h de las 48 de la celda: quedarian 36 h.
+    const origen = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(origen.attributes('data-preview')).toBe('si')
+    expect(origen.text()).toContain('36 h')
+    expect(origen.text()).toContain('origen')
+  })
+
+  it('arrastrar una tarea enseña en los destinos validos la carga resultante', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    // Ana tiene 0 h y 40 h de capacidad: con 12 h de la tarea pasa al 30 %.
+    const destino = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    expect(destino.text()).toContain('12 h')
+    expect(destino.text()).toContain('30 %')
+  })
+
+  it('arrastrar una tarea marca a quien no es miembro del proyecto', async () => {
+    setupFetch({
+      '/api/projects/1/capacity': () => jsonResponse(reportConAjeno),
+    })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    const ajeno = wrapper.get('[data-testid="cell-3-2026-W46"]')
+    expect(ajeno.text()).toContain('No es miembro')
+    expect(ajeno.classes()).toContain('cp-striped')
+  })
+
+  it('soltar una tarea en otra celda reasigna la tarea', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="cell-1-2026-W46"]').trigger('drop')
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body).assigned_to).toBe(1)
+  })
+
+  it('soltar una tarea mueve las horas de la celda antes de que conteste el servidor', async () => {
+    let responder
+    const pendiente = new Promise((resolve) => {
+      responder = resolve
+    })
+    setupFetch({
+      '/api/tasks/10': () => pendiente.then(() => jsonResponse({ id: 10 })),
+    })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="cell-1-2026-W46"]').trigger('drop')
+    await flushPromises()
+
+    // Ana pasa de 0 h a 12 h sin esperar al servidor.
+    expect(wrapper.get('[data-testid="cell-1-2026-W46"]').text()).toContain('12/40')
+    expect(wrapper.get('[data-testid="cell-2-2026-W46"]').text()).toContain('36/40')
+
+    responder()
+    await flushPromises()
+  })
+
+  it('si el servidor rechaza la reasignacion, la matriz vuelve atras', async () => {
+    setupFetch({
+      '/api/tasks/10': () => jsonResponse({ detail: 'No se pudo guardar' }, false, 500),
+    })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('dragstart', { dataTransfer: { setData: vi.fn() } })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="cell-1-2026-W46"]').trigger('drop')
+    await flushPromises()
+
+    // Ana se queda como estaba y el operario ve el motivo.
+    expect(wrapper.get('[data-testid="cell-1-2026-W46"]').text()).toContain('·')
+    expect(wrapper.get('[data-testid="capacity-warning"]').text()).toContain(
+      'No se ha podido reasignar',
+    )
+  })
+
+  it('mayus y la flecha mueven la tarea a la persona de al lado', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('keydown', { key: 'ArrowUp', shiftKey: true })
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body).assigned_to).toBe(1)
+  })
+
+  it('mayus y la flecha avisan cuando no hay nadie en esa direccion', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .get('[data-testid="breakdown-task"]')
+      .trigger('keydown', { key: 'ArrowDown', shiftKey: true })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="capacity-warning"]').text()).toContain(
+      'No hay nadie más',
+    )
+  })
+
+  it('el alta de una tarea nueva solo esta en la vista de proyecto', async () => {
+    setupFetch()
+    const global = await mountMatrix({ id: null })
+    expect(global.find('[data-testid="cell-new-task"]').exists()).toBe(false)
+    global.unmount()
+
+    const proyecto = await mountMatrix({ id: 1 })
+    await proyecto.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    expect(proyecto.find('[data-testid="cell-new-task"]').exists()).toBe(true)
+  })
+
+  it('crea una tarea en la semana abierta', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix({ id: 1 })
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="cell-new-task"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('input[type="text"]').setValue('Tarea nueva')
+    await wrapper.find('input[type="number"]').setValue('8')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/tasks'))
+    expect(post).toBeDefined()
+    expect(post.url).toContain('/api/projects/1/tasks')
+    expect(JSON.parse(post.body).title).toBe('Tarea nueva')
   })
 })

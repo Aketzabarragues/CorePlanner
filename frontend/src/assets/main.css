@@ -5,3 +5,16 @@
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
+
+/** Destino de arrastre que no vale: rayado, para que se note sin leer el texto. */
+@layer components {
+  .cp-striped {
+    background-image: repeating-linear-gradient(
+      45deg,
+      #f1f5f9,
+      #f1f5f9 6px,
+      #e2e8f0 6px,
+      #e2e8f0 12px
+    );
+  }
+}

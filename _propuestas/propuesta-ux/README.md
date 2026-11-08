@@ -395,3 +395,42 @@ Los datos de ejemplo (personas, proyectos, horas) sirven solo para ilustrar las 
     enseñar las tareas de ese mismo proyecto.
 24. **Las dos semanas del rango van juntas**: si llega una sola, es un 422. Un
     rango a medias no significa nada.
+
+### Fase 4 — Una sola pantalla de capacidad, con arrastre y previsualización
+
+25. **El reparto por proyecto de cada celda lo trae el informe.** El motor
+    acumula el reparto por proyecto de cada persona y semana con el mismo
+    criterio con el que reparte las horas, así que los proyectos siempre suman
+    las horas de la celda. El modo Proyectos no hace una petición por celda.
+26. **La línea de tiempo por persona se va con el planificador.** El detalle de
+    una celda (qué tareas componen esas horas) vive en el panel lateral, y el
+    Gantt global ya cubre el reparto por proyecto.
+27. **La previsualización usa las horas de la tarea en esa semana**
+    (`week_hours`), no las estimadas enteras: es lo que cuenta la celda, así
+    que lo que se previsualiza es exactamente lo que va a pasar.
+28. **La previsualización solo afecta a la semana de la tarea.** El arrastre
+    mueve el responsable, no las fechas: la tarea no cambia de columna.
+29. **El destino que no es miembro del proyecto se marca antes de soltar**, con
+    rayado y sin aceptar el destino. El backend ya lo rechazaba con un 422;
+    ahora el operario lo ve antes de soltar.
+30. **La actualización optimista mueve las horas de la semana abierta y vuelve
+    atrás si la API falla.** El reparto por proyecto de la celda se ajusta con
+    el mismo criterio que el backend; al recargar, el informe manda.
+31. **Mayús + ↑/↓ hace lo mismo que arrastrar**: mueve la tarea a la persona de
+    al lado, con la misma condición de miembro del proyecto.
+32. **El alta de una tarea nueva solo aparece en la vista de proyecto.** En la
+    global no hay un proyecto delante: el alta vive en el shell, con selector
+    de proyecto.
+33. **El modo y la celda abierta viven en la URL** (`?mode=`, `?cell=`), pero no
+    recargan el informe: solo lo hacen los seis filtros.
+34. **El panel de detalle de la capacidad no es modal.** Es una columna al
+    lado, como en el prototipo: la matriz se sigue viendo y se puede seguir
+    usando, porque las celdas tienen que recibir el arrastre de una tarea. En
+    el resto de pantallas el panel sigue siendo modal.
+
+**Lo que el código real hace distinto del prototipo.** El prototipo simula el
+arrastre con un botón y un conjunto de datos de ejemplo; aquí el arrastre es
+el nativo del navegador y sale de la lista de tareas del panel lateral. La
+previsualización enseña las horas con el formato de la celda ("36 h", "48 h")
+en vez de una simulación fija, y el destino bloqueado se marca con rayado
+como en el prototipo, pero con el texto del proyecto real en vez de "RET".

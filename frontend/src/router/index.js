@@ -10,7 +10,6 @@ import MembersView from '../views/MembersView.vue'
 import MyWorkView from '../views/MyWorkView.vue'
 import PanelView from '../views/PanelView.vue'
 import PeopleView from '../views/PeopleView.vue'
-import PlannerView from '../views/PlannerView.vue'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
@@ -38,7 +37,6 @@ const routes = [
   { path: '/gantt', name: 'global-gantt', component: GanttView },
   { path: '/calendar', name: 'global-calendar', component: CalendarView },
   { path: '/work-calendar', name: 'work-calendar', component: WorkCalendarView },
-  { path: '/planner', name: 'planner', component: PlannerView },
   { path: '/departments', name: 'departments', component: DepartmentsView },
   { path: '/people', name: 'people', component: PeopleView },
   { path: '/configuration', name: 'configuration', component: SettingsView },

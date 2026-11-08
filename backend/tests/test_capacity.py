@@ -41,6 +41,7 @@ class FakeTask:
     start_date: date | None
     end_date: date | None
     estimated_hours: Decimal = Decimal("0.00")
+    project_id: int | None = None
 
 
 def person(
@@ -481,3 +482,50 @@ def test_una_semana_sin_festivos_lleva_la_lista_vacia():
     data = build_capacity_report([user], [task]).to_dict()
 
     assert data["weeks"][0]["holidays"] == []
+
+
+def test_la_celda_desglosa_las_horas_por_proyecto():
+    """El desglose sale del mismo reparto que las horas de la celda."""
+    user = person(1, "Ana")
+    tarea_a = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+    tarea_b = FakeTask(2, 1, date(2026, 3, 2), date(2026, 3, 6), 20, project_id=9)
+
+    report = build_capacity_report([user], [tarea_a, tarea_b])
+
+    celda = report.rows[0].cells[0]
+    assert celda.hours == H("50.00")
+    assert [(p.project_id, p.hours) for p in celda.projects] == [
+        (7, H("30.00")),
+        (9, H("20.00")),
+    ]
+
+
+def test_las_horas_de_los_proyectos_suman_las_de_la_celda():
+    user = person(1, "Ana")
+    tarea_a = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+    tarea_b = FakeTask(2, 1, date(2026, 3, 2), date(2026, 3, 6), 20, project_id=9)
+
+    report = build_capacity_report([user], [tarea_a, tarea_b])
+
+    celda = report.rows[0].cells[0]
+    assert sum(p.units for p in celda.projects) == celda.units
+
+
+def test_el_informe_serializa_el_desglose_por_proyecto():
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+
+    data = build_capacity_report([user], [tarea]).to_dict()
+
+    assert data["rows"][0]["cells"][0]["projects"] == [
+        {"project_id": 7, "hours": 30.0}
+    ]
+
+
+def test_una_tarea_sin_proyecto_no_ensucia_el_desglose():
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30)
+
+    report = build_capacity_report([user], [tarea])
+
+    assert report.rows[0].cells[0].projects == ()

@@ -395,6 +395,42 @@ async def test_listar_tareas_filtradas_por_semana(client: AsyncClient):
     assert fuera.json() == []
 
 
+async def test_las_tareas_dicen_las_horas_de_su_semana(client: AsyncClient):
+    """Una tarea que cruza semanas aporta horas distintas en cada una."""
+    headers = await _auth(client, "manager@example.com")
+
+    response = await client.get(
+        "/api/projects/1/tasks", params={"week": "2026-W10"}, headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # 40 h repartidas en cinco dias laborables: 16 h en W10 y 24 h en W11.
+    assert data[0]["week_hours"] == 16.0
+    assert data[0]["estimated_hours"] == 40.0
+
+
+async def test_sin_filtro_de_semana_no_hay_horas_de_semana(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+
+    response = await client.get("/api/projects/1/tasks", headers=headers)
+
+    assert response.status_code == 200, response.text
+    assert response.json()[0]["week_hours"] is None
+
+
+async def test_la_capacidad_desglosa_las_horas_por_proyecto(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+
+    response = await client.get("/api/projects/1/capacity", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    fila = next(row for row in data["rows"] if row["name"] == "Engineer")
+    celda = next(cell for cell in fila["cells"] if cell["week"] == "2026-W10")
+    assert celda["projects"] == [{"project_id": 1, "hours": 16.0}]
+
+
 async def test_listar_tareas_filtradas_por_persona(client: AsyncClient):
     headers = await _auth(client, "manager@example.com")
 

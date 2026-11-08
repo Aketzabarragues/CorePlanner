@@ -3,7 +3,8 @@
  * Desglose de las horas de una celda: que tareas componen ese total.
  *
  * Desde aqui se puede reasignar una tarea a otra persona o cambiarle las
- * fechas y las horas. Cada cambio se guarda y la matriz se recalcula.
+ * fechas y las horas. Cada cambio se guarda y la matriz se recalcula. La
+ * cabecera con el nombre y las horas la pone el panel que lo contiene.
  */
 import { computed, ref } from 'vue'
 
@@ -17,7 +18,7 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['save', 'delete', 'close', 'reassign'])
+const emit = defineEmits(['save', 'delete', 'reassign'])
 
 const editing = ref(null)
 const reassigning = ref(null)
@@ -53,27 +54,6 @@ function taskRange(task) {
 
 <template>
   <div class="space-y-3">
-    <div class="flex items-start justify-between">
-      <div>
-        <h3 class="text-base font-semibold text-siemens-900">
-          {{ cell.name }} en {{ cell.week }}
-        </h3>
-        <p class="text-sm text-slate-500">
-          {{ cell.hours }} h de {{ cell.weekly_base_hours }} h base
-          <span v-if="cell.is_overloaded" class="ml-1 font-semibold text-red-700">
-            (sobrecargado)
-          </span>
-        </p>
-      </div>
-      <button
-        type="button"
-        class="rounded border border-slate-300 px-2 py-1 text-xs"
-        @click="emit('close')"
-      >
-        Cerrar
-      </button>
-    </div>
-
     <div v-if="editing" class="rounded border border-slate-200 bg-slate-50 p-3">
       <TaskForm
         :task="editing"

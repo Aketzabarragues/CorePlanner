@@ -597,3 +597,12 @@ lo demas si la lleva.
 10. **El esqueleto sale al cargar y al reintentar, no en cada refresco.** Un
     refresco por cambio de tarea no debe parpadear: cada vista decide cuando
     recargar de verdad y avisa con su propio boton de reintentar.
+11. **El detalle se abre en un panel lateral, no en un modal centrado.** El
+    desglose de una celda de la matriz deja de tapar la matriz: el panel entra
+    desde la derecha y el operario sigue viendo la pantalla que lo ha
+    producido. El panel es un dialogo (`role="dialog"`, `aria-modal`), asi que
+    se cierra con Esc y el foco no se sale de el.
+12. **El comportamiento de los dialogos vive en un solo sitio.** `useDialog`
+    se encarga de Esc, del bloqueo del desplazamiento, de la trampa de foco y
+    de devolver el foco al elemento que abrio el dialogo. `ModalDialog` lo usa
+    tambien, y de paso gana la trampa de foco que le faltaba.

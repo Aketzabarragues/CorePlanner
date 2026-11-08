@@ -23,6 +23,7 @@ import { useProjectsStore } from '../stores/projects'
 import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
+import SidePanel from './common/SidePanel.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -52,6 +53,11 @@ const weeks = computed(() => report.value?.weeks ?? [])
 const rows = computed(() => report.value?.rows ?? [])
 /** Tareas que caen enteramente en dias no laborables: valen cero horas. */
 const holidayTaskIds = computed(() => report.value?.holiday_task_ids ?? [])
+
+/** Titulo del panel de detalle: quien y en que semana. */
+const breakdownTitle = computed(() =>
+  breakdown.value ? `${breakdown.value.name} en ${breakdown.value.week}` : '',
+)
 
 function cellOf(row, week) {
   return (
@@ -385,25 +391,27 @@ watch(departmentFilter, () => {
       para ver y editar las tareas que la componen.
     </p>
 
-    <!-- Modal de desglose de celda -->
-    <div
-      v-if="breakdown"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      @click.self="breakdown = null"
-    >
-      <div class="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
-        <CellBreakdown
-          :cell="breakdown"
-          :tasks="breakdownTasks"
-          :members="members"
-          :projects="isGlobal ? store.projects : []"
-          :saving="saving"
-          @save="saveTask"
-          @delete="deleteTask"
-          @reassign="reassignTask"
-          @close="breakdown = null"
-        />
-      </div>
-    </div>
+    <!-- Panel de detalle de la celda -->
+    <SidePanel :open="Boolean(breakdown)" :title="breakdownTitle" @close="breakdown = null">
+      <template #subtitle>
+        <p v-if="breakdown" class="mt-1 text-sm text-slate-500">
+          {{ breakdown.hours }} h de {{ breakdown.weekly_base_hours }} h base
+          <span v-if="breakdown.is_overloaded" class="ml-1 font-semibold text-red-700">
+            (sobrecargado)
+          </span>
+        </p>
+      </template>
+
+      <CellBreakdown
+        :cell="breakdown"
+        :tasks="breakdownTasks"
+        :members="members"
+        :projects="isGlobal ? store.projects : []"
+        :saving="saving"
+        @save="saveTask"
+        @delete="deleteTask"
+        @reassign="reassignTask"
+      />
+    </SidePanel>
   </div>
 </template>

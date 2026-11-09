@@ -3,12 +3,13 @@
 Uso:
     python backend/seed.py
 
-Borra la base de datos de desarrollo si existe y la vuelve a crear con un
-proyecto de automatizacion industrial y las tareas que fuerzan los casos
-limite del motor de capacidad.
+Borra la base de datos de desarrollo si existe y la vuelve a crear con la
+organizacion de la demo: un gerente, tres departamentos (Alimentacion, Energia
+y Medio Ambiente), las personas de cada uno, sus proyectos y las tareas que
+reparten la carga entre las semanas de noviembre de 2026.
 
-El equipo, sus horarios versionados, sus competencias y los dias no laborables
-son los de la demo visual, para que las dos sirvan de contraste.
+Los horarios van versionados, las competencias se catalogan y los dias no
+laborables tienen su alcance: global, de departamento o de persona.
 """
 
 from __future__ import annotations
@@ -59,29 +60,24 @@ ROLES = {
     "Lector": ["capacity.read", "gantt.read"],
 }
 
-PROJECT_NAME = "Línea Pasteurizadora SIVE"
-PROJECT_NAME_OFFICE = "Red de tuberías línea 2"
-
-DEPARTMENT_AUTOMATION = "Automatización & SCADA"
-DEPARTMENT_OFFICE = "Oficina Técnica / EPLAN"
-DEPARTMENT_MAINTENANCE = "Mantenimiento"
-DEPARTMENT_QUALITY = "Control de Calidad"
-
 JORNADA_COMPLETA = (800, 800, 800, 800, 800, 0, 0)
 """Lunes a viernes de 8 h, en centimas de hora."""
 
 JORNADA_REDUCIDA = (750, 750, 750, 750, 750, 0, 0)
 """Lunes a viernes de 7,5 h."""
 
-JORNADA_CORTA = (600, 600, 600, 0, 0, 0, 0)
-"""Lunes a miercoles de 6 h."""
-
 SIN_HORARIO = ()
+
+DEPARTAMENTOS = (
+    {"name": "Alimentación", "manager": "ana@example.com"},
+    {"name": "Energía", "manager": "jorge@example.com"},
+    {"name": "Medio Ambiente", "manager": "sebastian@example.com"},
+)
 
 EQUIPO = (
     {
-        "name": "Admin",
-        "email": "admin@example.com",
+        "name": "Iván",
+        "email": "ivan@example.com",
         "company_role": CompanyRole.GERENTE.value,
         "department": None,
         "job_title": "Gerente",
@@ -96,20 +92,20 @@ EQUIPO = (
         "name": "Ana",
         "email": "ana@example.com",
         "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
-        "department": DEPARTMENT_AUTOMATION,
-        "job_title": "Project Manager",
+        "department": "Alimentación",
+        "job_title": "Responsable de Proyectos",
         "seniority": Seniority.SENIOR.value,
         "employment_type": EmploymentType.OBJETIVO.value,
         "weekly_base_hours": 40,
         "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
-        "skills": {"TIA Portal": 3, "SCADA": 3, "Gestión de proyectos": 3, "PLC": 2},
+        "skills": {"Gestión de proyectos": 3, "TIA Portal": 2, "SCADA": 2},
     },
     {
-        "name": "Sebastián",
-        "email": "sebastian@example.com",
+        "name": "Aketza",
+        "email": "aketza@example.com",
         "company_role": CompanyRole.TECNICO.value,
-        "department": DEPARTMENT_AUTOMATION,
-        "job_title": "Ingeniero PLC",
+        "department": "Alimentación",
+        "job_title": "Ingeniero de Automatización",
         "seniority": Seniority.SENIOR.value,
         "employment_type": EmploymentType.OBJETIVO.value,
         "weekly_base_hours": 40,
@@ -117,117 +113,383 @@ EQUIPO = (
             (date(2025, 9, 1), JORNADA_REDUCIDA, 100, "Jornada reducida"),
             (date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),
         ),
-        "skills": {"TIA Portal": 3, "PLC": 3, "Redes industriales": 2, "SCADA": 2},
-    },
-    {
-        "name": "Marta",
-        "email": "marta@example.com",
-        "company_role": CompanyRole.TECNICO.value,
-        "department": DEPARTMENT_AUTOMATION,
-        "job_title": "Ingeniero SCADA",
-        "seniority": Seniority.MEDIO.value,
-        "employment_type": EmploymentType.TECHO.value,
-        "weekly_base_hours": 40,
-        "schedules": (
-            (date(2025, 1, 6), JORNADA_COMPLETA, 100, "Tiempo completo"),
-            (date(2026, 1, 5), JORNADA_COMPLETA, 80, "Jornada parcial al 80 %"),
-        ),
-        "skills": {"SCADA": 3, "HMI": 3, "TIA Portal": 2},
-    },
-    {
-        "name": "Diego",
-        "email": "diego@example.com",
-        "company_role": CompanyRole.TECNICO.value,
-        "department": DEPARTMENT_AUTOMATION,
-        "job_title": "Ingeniero PLC",
-        "seniority": Seniority.MEDIO.value,
-        "employment_type": EmploymentType.OBJETIVO.value,
-        "weekly_base_hours": 40,
-        "schedules": ((date(2026, 3, 2), JORNADA_COMPLETA, 100, "Jornada completa"),),
-        "skills": {"PLC": 3, "SCADA": 2, "TIA Portal": 2},
+        "skills": {"TIA Portal": 3, "PLC": 3, "SCADA": 3},
     },
     {
         "name": "Héctor",
         "email": "hector@example.com",
         "company_role": CompanyRole.TECNICO.value,
-        "department": DEPARTMENT_AUTOMATION,
+        "department": "Alimentación",
         "job_title": "Ingeniero PLC",
         "seniority": Seniority.JUNIOR.value,
         "employment_type": EmploymentType.OBJETIVO.value,
-        # Sin horario y sin horas base: su capacidad se desconoce, de modo que
-        # no se le marca como sobrecargado. El motor no inventa un limite que
-        # nadie ha definido.
-        "weekly_base_hours": 0,
-        "schedules": (),
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
         "skills": {"PLC": 2, "Redes industriales": 1},
+    },
+    {
+        "name": "Carlos",
+        "email": "carlos@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": "Alimentación",
+        "job_title": "Ingeniero de Procesos",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.TECHO.value,
+        "weekly_base_hours": 40,
+        # Jornada al 80 %: su capacidad son 32 h semanales.
+        "schedules": (
+            (date(2026, 1, 5), JORNADA_COMPLETA, 80, "Jornada parcial al 80 %"),
+        ),
+        "skills": {"PLC": 2, "Instrumentación": 3},
     },
     {
         "name": "Jorge",
         "email": "jorge@example.com",
         "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
-        "department": DEPARTMENT_OFFICE,
-        "job_title": "Diseñador Eléctrico",
+        "department": "Energía",
+        "job_title": "Ingeniero Eléctrico",
         "seniority": Seniority.SENIOR.value,
         "employment_type": EmploymentType.OBJETIVO.value,
         "weekly_base_hours": 40,
         "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
-        "skills": {"EPLAN": 3, "Mecánica": 2, "Cableado": 2},
+        "skills": {"EPLAN": 3, "Cableado": 2, "Normativa": 2},
     },
     {
-        "name": "Lucía",
-        "email": "lucia@example.com",
+        "name": "Juan",
+        "email": "juan@example.com",
         "company_role": CompanyRole.TECNICO.value,
-        "department": DEPARTMENT_OFFICE,
+        "department": "Energía",
         "job_title": "Ingeniero Eléctrico",
-        "seniority": Seniority.JUNIOR.value,
-        "employment_type": EmploymentType.TECHO.value,
-        "weekly_base_hours": 18,
-        "schedules": (
-            (date(2025, 1, 6), JORNADA_COMPLETA, 100, "Tiempo completo"),
-            (date(2026, 4, 1), JORNADA_CORTA, 100, "Reducción de jornada a 3 días"),
-        ),
-        "skills": {"EPLAN": 2, "Cableado": 3},
-    },
-    {
-        "name": "Iván",
-        "email": "ivan@example.com",
-        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
-        "department": DEPARTMENT_MAINTENANCE,
-        "job_title": "Técnico Mecánico",
         "seniority": Seniority.MEDIO.value,
-        "employment_type": EmploymentType.TECHO.value,
-        "weekly_base_hours": 40,
-        "schedules": (
-            (date(2024, 1, 8), JORNADA_COMPLETA, 80, "Jornada parcial al 80 %"),
-            (
-                date(2026, 7, 1),
-                JORNADA_COMPLETA,
-                100,
-                "Jornada completa tras reincorporación",
-            ),
-        ),
-        "skills": {"Mecánica": 3, "Soldadura": 3, "Mantenimiento": 2},
-    },
-    {
-        "name": "Nuria",
-        "email": "nuria@example.com",
-        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
-        "department": DEPARTMENT_QUALITY,
-        "job_title": "Técnico QC",
-        "seniority": Seniority.MEDIO.value,
-        "employment_type": EmploymentType.MEJOR_ESFUERZO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
         "weekly_base_hours": 40,
         "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
-        "skills": {"Análisis": 3, "Metrología": 2, "Soldadura": 1},
+        "skills": {"EPLAN": 3, "Cableado": 3},
+    },
+    {
+        "name": "Nerea",
+        "email": "nerea@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": "Energía",
+        "job_title": "Ingeniero de Instrumentación",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        # Sin horario y sin horas base: su capacidad se desconoce, de modo que
+        # no se le marca como sobrecargado. El motor no inventa un limite que
+        # nadie ha definido.
+        "weekly_base_hours": 0,
+        "schedules": SIN_HORARIO,
+        "skills": {"Instrumentación": 3, "Medición": 2},
+    },
+    {
+        "name": "Natalia",
+        "email": "natalia@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": "Energía",
+        "job_title": "Ingeniero de Control",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"PLC": 3, "SCADA": 3},
+    },
+    {
+        "name": "Sebastián",
+        "email": "sebastian@example.com",
+        "company_role": CompanyRole.JEFE_DEPARTAMENTO.value,
+        "department": "Medio Ambiente",
+        "job_title": "Ingeniero de Automatización",
+        "seniority": Seniority.SENIOR.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"TIA Portal": 3, "PLC": 3, "SCADA": 2},
+    },
+    {
+        "name": "Emilio",
+        "email": "emilio@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": "Medio Ambiente",
+        "job_title": "Ingeniero de Automatización",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"TIA Portal": 3, "PLC": 2},
+    },
+    {
+        "name": "Alejandro",
+        "email": "alejandro@example.com",
+        "company_role": CompanyRole.TECNICO.value,
+        "department": "Medio Ambiente",
+        "job_title": "Ingeniero PLC",
+        "seniority": Seniority.MEDIO.value,
+        "employment_type": EmploymentType.OBJETIVO.value,
+        "weekly_base_hours": 40,
+        "schedules": ((date(2026, 1, 5), JORNADA_COMPLETA, 100, "Jornada completa"),),
+        "skills": {"PLC": 3, "Redes industriales": 2},
+    },
+)
+
+PROYECTOS = (
+    {
+        "name": "26009 - FLUID SYSTEM - Pasteurizador",
+        "department": "Alimentación",
+        "tasks": (
+            {
+                "title": "Programación PLC del pasteurizador",
+                "assignee": "aketza@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 13),
+                "hours": 40,
+            },
+            {
+                "title": "Pruebas FAT de la línea",
+                "assignee": "hector@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 16),
+                "end": date(2026, 11, 20),
+                "hours": 24,
+            },
+        ),
+    },
+    {
+        "name": "26010 - FLUID SYSTEM - Planta quesos",
+        "department": "Alimentación",
+        "tasks": (
+            {
+                "title": "Diseño SCADA planta de quesos",
+                "assignee": "carlos@example.com",
+                "status": TaskStatus.DONE.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 6),
+                "hours": 32,
+            },
+            {
+                "title": "Puesta en marcha planta de quesos",
+                "assignee": "ana@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 11, 27),
+                "hours": 16,
+            },
+        ),
+    },
+    {
+        "name": "26025 - HORGAS - Levaduras",
+        "department": "Alimentación",
+        "tasks": (
+            {
+                "title": "Automatización de fermentadores",
+                "assignee": "aketza@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 9),
+                "end": date(2026, 11, 20),
+                "hours": 48,
+            },
+            {
+                "title": "Documentación técnica de levaduras",
+                "assignee": "carlos@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 11, 25),
+                "hours": 12,
+            },
+        ),
+    },
+    {
+        "name": "26035 - FLUID SYSTEM - Ultrafiltración",
+        "department": "Alimentación",
+        "tasks": (
+            {
+                "title": "Ingeniería básica de ultrafiltración",
+                "assignee": "hector@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 11),
+                "hours": 32,
+            },
+            {
+                "title": "Pruebas SAT de ultrafiltración",
+                "assignee": "aketza@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 30),
+                "end": date(2026, 12, 4),
+                "hours": 20,
+            },
+        ),
+    },
+    {
+        "name": "26037 - FLUID SYSTEM - Planta leche",
+        "department": "Alimentación",
+        "tasks": (
+            {
+                "title": "Revisión de instrumentación",
+                "assignee": "ana@example.com",
+                "status": TaskStatus.DONE.value,
+                "start": date(2026, 11, 4),
+                "end": date(2026, 11, 6),
+                "hours": 12,
+            },
+            {
+                "title": "Programación HMI planta leche",
+                "assignee": "hector@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 12, 4),
+                "hours": 40,
+            },
+        ),
+    },
+    {
+        "name": "26012 - CMEX - Planta noruega",
+        "department": "Energía",
+        "tasks": (
+            {
+                "title": "Esquemas eléctricos planta Noruega",
+                "assignee": "juan@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 13),
+                "hours": 40,
+            },
+            {
+                "title": "Revisión normativa IEC",
+                "assignee": "jorge@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 9),
+                "end": date(2026, 11, 11),
+                "hours": 12,
+            },
+        ),
+    },
+    {
+        "name": "26014 - CMEX - Planta México",
+        "department": "Energía",
+        "tasks": (
+            {
+                "title": "Cableado de cuadros eléctricos",
+                "assignee": "nerea@example.com",
+                "status": TaskStatus.DONE.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 6),
+                "hours": 32,
+            },
+            {
+                "title": "Puesta en marcha planta México",
+                "assignee": "natalia@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 11, 27),
+                "hours": 24,
+            },
+        ),
+    },
+    {
+        "name": "26075 - TOTT - RTO",
+        "department": "Energía",
+        "tasks": (
+            {
+                "title": "Programación de control del RTO",
+                "assignee": "natalia@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 9),
+                "end": date(2026, 11, 20),
+                "hours": 44,
+            },
+            {
+                "title": "Pruebas FAT del RTO",
+                "assignee": "juan@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 11, 25),
+                "hours": 16,
+            },
+            {
+                "title": "Documentación as-built",
+                "assignee": "nerea@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 30),
+                "end": date(2026, 12, 2),
+                "hours": 8,
+            },
+        ),
+    },
+    {
+        "name": "26012 - TEC - Parking automático",
+        "department": "Medio Ambiente",
+        "tasks": (
+            {
+                "title": "Programación PLC parking automático",
+                "assignee": "emilio@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 13),
+                "hours": 40,
+            },
+            {
+                "title": "Pruebas de maniobras",
+                "assignee": "alejandro@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 16),
+                "end": date(2026, 11, 20),
+                "hours": 20,
+            },
+        ),
+    },
+    {
+        "name": "26014 - TEC - Disoluciones",
+        "department": "Medio Ambiente",
+        "tasks": (
+            {
+                "title": "Automatización de dosificación",
+                "assignee": "alejandro@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 2),
+                "end": date(2026, 11, 11),
+                "hours": 32,
+            },
+            {
+                "title": "Revisión de seguridad",
+                "assignee": "sebastian@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 13),
+                "end": date(2026, 11, 13),
+                "hours": 8,
+            },
+        ),
+    },
+    {
+        "name": "26075 - LICON - Almacén automatizado",
+        "department": "Medio Ambiente",
+        "tasks": (
+            {
+                "title": "Programación del transelevador",
+                "assignee": "emilio@example.com",
+                "status": TaskStatus.IN_PROGRESS.value,
+                "start": date(2026, 11, 9),
+                "end": date(2026, 11, 20),
+                "hours": 48,
+            },
+            {
+                "title": "Puesta en marcha",
+                "assignee": "alejandro@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": date(2026, 11, 23),
+                "end": date(2026, 12, 4),
+                "hours": 40,
+            },
+        ),
     },
 )
 
 DIAS_NO_LABORABLES = (
     (date(2026, 10, 12), "Fiesta Nacional", None, None, False),
-    (date(2026, 11, 2), "Todos los Santos", None, None, False),
-    (date(2026, 11, 9), "Día de la Comunidad", DEPARTMENT_OFFICE, None, False),
-    (date(2026, 11, 16), "Formación interna", DEPARTMENT_AUTOMATION, None, True),
-    (date(2026, 11, 23), "Permiso individual", None, "marta@example.com", False),
+    (date(2026, 11, 1), "Todos los Santos", None, None, False),
+    (date(2026, 11, 9), "Día de la Comunidad", "Energía", None, False),
+    (date(2026, 11, 16), "Formación interna", "Alimentación", None, True),
+    (date(2026, 11, 23), "Permiso individual", None, "carlos@example.com", False),
     (date(2026, 12, 7), "Día de la Constitución", None, None, False),
     (date(2026, 12, 24), "Nochebuena", None, None, True),
     (date(2026, 12, 31), "Nochevieja", None, None, True),
@@ -237,11 +499,6 @@ DIAS_NO_LABORABLES = (
 El alcance sale de los dos campos de destino: con los dos a None es un festivo
 global, con departamento es de ese departamento y con persona es de esa persona.
 """
-
-# Jueves 2026-11-05 a miercoles 2026-11-11: cruza el fin de semana y reparte
-# las horas entre 2026-W45 y 2026-W46.
-JUEVES = date(2026, 11, 5)
-MIERCOLES = date(2026, 11, 11)
 
 
 async def _create_team(session) -> dict[str, User]:
@@ -265,8 +522,24 @@ async def _create_team(session) -> dict[str, User]:
     return users
 
 
+def _members_of(tasks: tuple[dict, ...], manager_email: str) -> dict[str, str]:
+    """Rol de proyecto de cada persona: el que dirige y los que tienen trabajo.
+
+    El responsable del departamento dirige el proyecto. Cada persona con tareas
+    en el entra como Ingeniero, para no depender solo del permiso implicito que
+    da tener una tarea suelta.
+    """
+    roles = {manager_email: "Project Manager"}
+    for task in tasks:
+        roles.setdefault(task["assignee"], "Ingeniero")
+    return roles
+
+
 async def populate(session) -> int:
-    """Inserta el conjunto de datos de demostracion. Devuelve el id del proyecto."""
+    """Inserta el conjunto de datos de demostracion.
+
+    Devuelve el id del primer proyecto.
+    """
     roles: dict[str, Role] = {}
     for name, permissions in ROLES.items():
         role = Role(name=name, permissions_json=permissions)
@@ -276,21 +549,18 @@ async def populate(session) -> int:
     users = await _create_team(session)
 
     departments: dict[str, Department] = {}
-    for name, manager_email in (
-        (DEPARTMENT_AUTOMATION, "ana@example.com"),
-        (DEPARTMENT_OFFICE, "jorge@example.com"),
-        (DEPARTMENT_MAINTENANCE, "ivan@example.com"),
-        (DEPARTMENT_QUALITY, "nuria@example.com"),
-    ):
-        department = Department(name=name, manager_id=users[manager_email].id)
+    for entry in DEPARTAMENTOS:
+        department = Department(name=entry["name"], manager_id=users[entry["manager"]].id)
         session.add(department)
-        departments[name] = department
+        departments[entry["name"]] = department
     await session.flush()
 
     skills: dict[str, Skill] = {}
     for entry in EQUIPO:
         user = users[entry["email"]]
-        user.department_id = departments[entry["department"]].id if entry["department"] else None
+        user.department_id = (
+            departments[entry["department"]].id if entry["department"] else None
+        )
         for name, level in entry["skills"].items():
             if name not in skills:
                 skill = Skill(name=name)
@@ -354,167 +624,47 @@ async def populate(session) -> int:
                 )
             )
 
-    ana = users["ana@example.com"]
-    sebastian = users["sebastian@example.com"]
-    jorge = users["jorge@example.com"]
+    managers = {entry["name"]: entry["manager"] for entry in DEPARTAMENTOS}
+    first_project_id = 0
+    for entry in PROYECTOS:
+        department = departments[entry["department"]]
+        manager_email = managers[entry["department"]]
+        project = Project(
+            name=entry["name"],
+            status="active",
+            department_id=department.id,
+            owner_id=users[manager_email].id,
+        )
+        session.add(project)
+        await session.flush()
 
-    automatizacion = departments[DEPARTMENT_AUTOMATION]
-    oficina = departments[DEPARTMENT_OFFICE]
+        if not first_project_id:
+            first_project_id = project.id
 
-    project = Project(
-        name=PROJECT_NAME,
-        status="active",
-        department_id=automatizacion.id,
-        owner_id=ana.id,
-    )
-    session.add(project)
-    await session.flush()
+        for email, role_name in _members_of(entry["tasks"], manager_email).items():
+            session.add(
+                ProjectMember(
+                    user_id=users[email].id,
+                    project_id=project.id,
+                    role_id=roles[role_name].id,
+                )
+            )
 
-    session.add_all(
-        [
-            ProjectMember(
-                user_id=ana.id,
-                project_id=project.id,
-                role_id=roles["Project Manager"].id,
-            ),
-            ProjectMember(
-                user_id=sebastian.id,
-                project_id=project.id,
-                role_id=roles["Ingeniero"].id,
-            ),
-            ProjectMember(
-                user_id=jorge.id,
-                project_id=project.id,
-                role_id=roles["Lector"].id,
-            ),
-        ]
-    )
-
-    session.add_all(
-        [
-            Task(
-                project_id=project.id,
-                assigned_to=sebastian.id,
-                title="Programación SCADA WinCC",
-                status=TaskStatus.IN_PROGRESS.value,
-                start_date=JUEVES,
-                end_date=MIERCOLES,
-                estimated_hours=40,
-            ),
-            Task(
-                project_id=project.id,
-                assigned_to=sebastian.id,
-                title="Desarrollo de Bloques SCL",
-                status=TaskStatus.TESTING.value,
-                start_date=JUEVES,
-                end_date=MIERCOLES,
-                estimated_hours=20,
-            ),
-            Task(
-                project_id=project.id,
-                assigned_to=ana.id,
-                title="Esquemas EPLAN",
-                status=TaskStatus.BACKLOG.value,
-                start_date=date(2026, 11, 2),
-                end_date=date(2026, 11, 4),
-                estimated_hours=10,
-            ),
-            # Concentra 12 h mas en la segunda semana: 48 h frente a las 40 h
-            # base de Sebastián, que es lo que activa la sobrecarga.
-            Task(
-                project_id=project.id,
-                assigned_to=sebastian.id,
-                title="Puesta en marcha de válvulas",
-                status=TaskStatus.DONE.value,
-                start_date=date(2026, 11, 9),
-                end_date=date(2026, 11, 11),
-                estimated_hours=12,
-            ),
-            Task(
-                project_id=project.id,
-                assigned_to=jorge.id,
-                title="Revisión de documentación técnica",
-                status=TaskStatus.BACKLOG.value,
-                start_date=date(2026, 11, 9),
-                end_date=date(2026, 11, 12),
-                estimated_hours=16,
-            ),
-        ]
-    )
-
-    # Segundo proyecto, para que el selector de la cabecera tenga entre donde
-    # elegir. Lo gestiona la oficina tecnica y en el hay gente de
-    # automatizacion, que es el reparto transversal entre departamentos.
-    # Sebastián no es miembro de este proyecto, pero tiene una tarea en el.
-    # Eso es el caso del tecnico que participa en un proyecto sin estar dado de
-    # alta: lo ve, pero no lo puede editar.
-    project_office = Project(
-        name=PROJECT_NAME_OFFICE,
-        status="active",
-        department_id=oficina.id,
-        owner_id=jorge.id,
-    )
-    session.add(project_office)
-    await session.flush()
-
-    session.add_all(
-        [
-            ProjectMember(
-                user_id=jorge.id,
-                project_id=project_office.id,
-                role_id=roles["Project Manager"].id,
-            ),
-            ProjectMember(
-                user_id=ana.id,
-                project_id=project_office.id,
-                role_id=roles["Ingeniero"].id,
-            ),
-        ]
-    )
-
-    session.add_all(
-        [
-            Task(
-                project_id=project_office.id,
-                assigned_to=jorge.id,
-                title="Planos de tuberías",
-                status=TaskStatus.BACKLOG.value,
-                start_date=date(2026, 11, 2),
-                end_date=date(2026, 11, 4),
-                estimated_hours=12,
-            ),
-            Task(
-                project_id=project_office.id,
-                assigned_to=ana.id,
-                title="Definición de tags PLC",
-                status=TaskStatus.IN_PROGRESS.value,
-                start_date=JUEVES,
-                end_date=MIERCOLES,
-                estimated_hours=16,
-            ),
-            Task(
-                project_id=project_office.id,
-                assigned_to=sebastian.id,
-                title="Cableado de campo",
-                status=TaskStatus.TESTING.value,
-                start_date=JUEVES,
-                end_date=MIERCOLES,
-                estimated_hours=24,
-            ),
-            Task(
-                project_id=project_office.id,
-                assigned_to=jorge.id,
-                title="Revisión de parcelario",
-                status=TaskStatus.DONE.value,
-                start_date=date(2026, 11, 9),
-                end_date=date(2026, 11, 11),
-                estimated_hours=8,
-            ),
-        ]
-    )
+        for task in entry["tasks"]:
+            session.add(
+                Task(
+                    project_id=project.id,
+                    assigned_to=users[task["assignee"]].id,
+                    title=task["title"],
+                    status=task["status"],
+                    start_date=task["start"],
+                    end_date=task["end"],
+                    estimated_hours=task["hours"],
+                )
+            )
 
     await session.commit()
-    return project.id
+    return first_project_id
 
 
 async def reset_database() -> None:
@@ -550,15 +700,14 @@ async def main() -> None:
         await dispose_engine()
 
     print("Base de datos preparada.")
-    print(f"  Proyecto: {PROJECT_NAME} (id={project_id})")
-    print(f"    departamento: {DEPARTMENT_AUTOMATION}")
-    print(f"  Proyecto: {PROJECT_NAME_OFFICE}")
-    print(f"    departamento: {DEPARTMENT_OFFICE}")
     print("  Departamentos:")
-    print(f"    {DEPARTMENT_AUTOMATION} (responsable: Ana)")
-    print(f"    {DEPARTMENT_OFFICE} (responsable: Jorge)")
-    print(f"    {DEPARTMENT_MAINTENANCE} (responsable: Iván)")
-    print(f"    {DEPARTMENT_QUALITY} (responsable: Nuria)")
+    for entry in DEPARTAMENTOS:
+        proyectos = [p for p in PROYECTOS if p["department"] == entry["name"]]
+        print(f"    {entry['name']} (responsable: {entry['manager']}) - {len(proyectos)} proyectos")
+    print("  Proyectos:")
+    for entry in PROYECTOS:
+        print(f"    {entry['name']} ({entry['department']})")
+    print(f"    primer proyecto: id={project_id}")
     print("  Usuarios:")
     for entry in EQUIPO:
         print(f"    {entry['email']:<26} ({entry['company_role']})")

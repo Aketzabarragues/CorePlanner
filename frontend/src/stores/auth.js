@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { authApi } from '../api/client'
 
 const DEMO_CREDENTIALS = {
-  email: 'admin@example.com',
+  email: 'ivan@example.com',
   password: 'coreplanner',
 }
 
@@ -16,7 +16,7 @@ const SIGNED_OUT_KEY = 'coreplanner_signed_out'
  * La bandera `VITE_DEMO_AUTO_LOGIN` manda si esta puesta: `true` lo activa y
  * `false` lo desactiva. Sin bandera, solo se activa en desarrollo, de modo
  * que en una compilacion de produccion queda apagado: ahi cada persona entra
- * con sus credenciales y nadie hereda la sesion del administrador.
+ * con sus credenciales y nadie hereda la sesion del gerente.
  */
 export function demoAutoLoginEnabled() {
   const flag = import.meta.env.VITE_DEMO_AUTO_LOGIN
@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Devuelve el token de sesion, iniciando una si no la hay.
    *
-   * En desarrollo, si no hay token, se entra con el administrador de
+   * En desarrollo, si no hay token, se entra con el gerente de
    * demostracion, de modo que al abrir cualquiera de sus vistas haya datos
    * que ver. Si el usuario ha cerrado la sesion, no se entra automaticamente.
    */
@@ -70,7 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Renueva la sesion con el administrador de demostracion.
+   * Renueva la sesion con el gerente de demostracion.
    *
    * Se usa cuando el servidor responde 401, por ejemplo si el token
    * guardado en el navegador ya no vale. Si el acceso automatico esta

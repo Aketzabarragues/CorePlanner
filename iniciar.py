@@ -166,7 +166,7 @@ def main() -> int:
     print()
     print(f"CorePlanner en {WEB_URL}")
     print(f"  API:      http://{API_HOST}:{API_PORT}/docs")
-    print("  Acceso:   admin@example.com / coreplanner")
+    print("  Acceso:   ivan@example.com / coreplanner")
     if not (RAIZ / "coreplanner.db").exists():
         print("  La base de datos esta vacia: ejecuta backend\\seed.py para sembrarla.")
     print()

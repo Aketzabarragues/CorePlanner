@@ -178,7 +178,7 @@ Tareas sin persona o sin fechas no se imputan a ninguna fila, pero se listan en 
 - **El alto de la celda del mes va en el contenido, no en el `<td>`**: una tabla no resuelve alturas en porcentaje, así que las filas medían distinto unas de otras. El alto fijo y el desplazamiento interno van en el `<div>` de dentro de la celda.
 - **Las páginas no llevan `max-width`**: el contenido ocupa todo el ancho útil. Los límites de ancho se quedan solo en los elementos flotantes (modales, cajón lateral, acceso).
 - **La migración de los días no laborables no consulta el catálogo de SQLite**: decide con el inspector de SQLAlchemy y el resto es SQL estándar, de modo que no rompe al arrancar contra otro motor.
-- **El frontend entra solo con el administrador de demostración** (`admin@example.com` / `coreplanner`) y renueva la sesión con esas credenciales cuando la API responde 401. Es una ayuda para la demo, **no** un mecanismo de despliegue.
+- **El frontend entra solo con el gerente de demostración** (`ivan@example.com` / `coreplanner`) y renueva la sesión con esas credenciales cuando la API responde 401. Es una ayuda para la demo, **no** un mecanismo de despliegue.
 - **El secreto JWT tiene un valor por defecto** en `config.py` y nada comprueba al arrancar que se haya cambiado. Fuera de la máquina del desarrollador hay que cambiarlo sí o sí.
 
 ### 2.10 Qué pantallas hay

@@ -276,7 +276,7 @@ cambiarse en cualquier despliegue real.
 Dos avisos, porque los dos son defaults de demostracion:
 
 - **El secreto JWT tiene un valor por defecto** en `backend/config.py` y nada comprueba al arrancar que se haya cambiado. Fuera de la maquina del desarrollador hay que cambiarlo.
-- **El frontend entra solo con el administrador de demostracion** (`admin@example.com` / `coreplanner`). Solo lo hace en desarrollo, o con la bandera `VITE_DEMO_AUTO_LOGIN` puesta a `true` (vease `frontend/.env.example`). En una compilacion de produccion queda apagado y cada persona entra con sus credenciales.
+- **El frontend entra solo con el gerente de demostracion** (`ivan@example.com` / `coreplanner`). Solo lo hace en desarrollo, o con la bandera `VITE_DEMO_AUTO_LOGIN` puesta a `true` (vease `frontend/.env.example`). En una compilacion de produccion queda apagado y cada persona entra con sus credenciales.
 
 Ademas, **un error del servidor ya no cierra la sesion**: solo lo hace un 401.
 Con un 500 la sesion sigue viva y recargar la vista puede resolverlo.
@@ -316,26 +316,33 @@ Todos con la contrasena `coreplanner`:
 
 | Email | Rol de empresa | Departamento |
 | --- | --- | --- |
-| `admin@example.com` | Gerente | sin departamento |
-| `ana@example.com` | Jefe de departamento | Automatización & SCADA |
-| `sebastian@example.com` | Tecnico | Automatización & SCADA |
-| `marta@example.com` | Tecnico | Automatización & SCADA |
-| `diego@example.com` | Tecnico | Automatización & SCADA |
-| `hector@example.com` | Tecnico | Automatización & SCADA |
-| `jorge@example.com` | Jefe de departamento | Oficina Técnica / EPLAN |
-| `lucia@example.com` | Tecnico | Oficina Técnica / EPLAN |
-| `ivan@example.com` | Jefe de departamento | Mantenimiento |
-| `nuria@example.com` | Jefe de departamento | Control de Calidad |
+| `ivan@example.com` | Gerente | sin departamento |
+| `ana@example.com` | Jefe de departamento | Alimentación |
+| `aketza@example.com` | Tecnico | Alimentación |
+| `hector@example.com` | Tecnico | Alimentación |
+| `carlos@example.com` | Tecnico | Alimentación |
+| `jorge@example.com` | Jefe de departamento | Energía |
+| `juan@example.com` | Tecnico | Energía |
+| `nerea@example.com` | Tecnico | Energía |
+| `natalia@example.com` | Tecnico | Energía |
+| `sebastian@example.com` | Jefe de departamento | Medio Ambiente |
+| `emilio@example.com` | Tecnico | Medio Ambiente |
+| `alejandro@example.com` | Tecnico | Medio Ambiente |
 
-El frontend hace login automatico con `admin@example.com` al abrir y guarda el
+El frontend hace login automatico con `ivan@example.com` al abrir y guarda el
 token en `localStorage`.
 
 ### Proyectos de demostracion
 
 | Proyecto | Departamento | Contenido |
 | --- | --- | --- |
-| Linea Pasteurizadora SIVE | Automatización & SCADA | Sebastián acumula 48 h en 2026-W46, por encima de su base de 40 h, y la celda aparece en rojo |
-| Red de tuberias linea 2 | Oficina Técnica / EPLAN | Ana, de Automatización, trabaja en un proyecto que gestiona la oficina técnica |
+| 26009 - FLUID SYSTEM - Pasteurizador | Alimentación | Aketza acumula 45,28 h en 2026-W46, por encima de su base de 40 h, y la celda aparece en rojo |
+| 26012 - TEC - Parking automático | Medio Ambiente | Emilio acumula 44 h en 2026-W46 y tambien sale en rojo |
+| 26075 - TOTT - RTO | Energía | Natalia lleva el control del RTO y Juan las pruebas FAT: cada quien con su parte |
+| 26014 - CMEX - Planta México | Energía | Nerea cablea los cuadros y Natalia hace la puesta en marcha |
+
+Los numeros de proyecto (26012, 26014, 26075) se repiten entre departamentos:
+cada uno numera los suyos.
 
 ### Endpoints
 
@@ -760,9 +767,8 @@ declaran su `department_id`.
 La vista global `/departments` los muestra con su responsable y los proyectos
 que gestiona cada uno, con los proyectos sin departamento aparte.
 
-La asignacion de tareas es transversal: una tarea de un proyecto de
-Automatización puede llevarla alguien de Oficina Técnica, siempre que sea
-miembro del proyecto.
+La asignacion de tareas es transversal: una tarea de un proyecto puede
+llevarla alguien de otro departamento, siempre que sea miembro del proyecto.
 
 ## Miembros y configuracion del proyecto
 
@@ -1216,7 +1222,7 @@ Tres conclusiones que condicionan el trabajo:
   componente, que no se vuelve a montar. Por eso las vistas que dependen del
   filtro vigilan la consulta y recargan.
 - **Cierre de sesion frente a acceso automatico.** El acceso automatico con
-  `admin@example.com` no repone una sesion que el usuario cerro: el store de
+  `ivan@example.com` no repone una sesion que el usuario cerro: el store de
   sesion guarda esa marca en `localStorage` y el guard lleva al formulario de
   acceso.
 - **El filtro de periodo de las tareas va en SQL.** `list_tasks_for_projects`

@@ -1514,3 +1514,160 @@ panel global tampoco descentraba los departamentos: daba un numero agregado y pu
 6. **El calculo es el mismo**: se extrajo `week_usage()` para que el agregado global
    y el desglose usen exactamente la misma aritmetica.
 
+
+## 29. Filtros del feed global de Gantt
+
+El feed global de Gantt (`GET /api/gantt`) lo usan el diagrama de Gantt y el calendario, y no tenia ningun filtro: devolvia todo lo visible para quien entra. El selector de proyecto ya existia, pero solo aceptaba un `project_id` suelto, y no habia forma de filtrar por departamento ni por persona.
+
+### Que entra
+
+**El filtro por departamento**
+
+- `GET /api/gantt` acepta `department_id`. Filtra por el departamento gestor del proyecto, el mismo criterio que ya usa `_by_department` en el resto del panel.
+- Se aplica dentro de `list_accessible_projects()`: el filtro acota, nunca amplia. Un departamento que no se ve no se puede pedir ni a mano.
+- Si el `project_id` pedido no esta entre los proyectos visibles, la peticion responde 404. Un feed vacio no distingue "no hay trabajo" de "no tienes permiso".
+
+**El filtro por persona**
+
+- `GET /api/gantt` acepta `assigned_to`: acota las tareas a las de esa persona y deja la lista de miembros del feed reducida a ella.
+- Los dos filtros se combinan con AND: departamento Y persona.
+- El recorte se hace en `load_gantt_for_projects()`, no en la vista: el feed sale ya filtrado.
+
+**El nombre del departamento en la capacidad**
+
+- El informe de capacidad (`GET /api/capacity`) gana `department_name` en cada fila de persona.
+- Se resuelve con `department_names()` de `services/work_calendar.py`. `store.departments` esta acotado al ambito de quien entra, asi que no garantiza el nombre de todos los departamentos de las personas de la matriz.
+
+### Que no entra
+
+- **Ampliar el ambito**: ningun filtro da acceso a algo que ya no estuviera visible.
+- **Varios proyectos a la vez**: `project_id` sigue siendo uno solo.
+- **Filtros por competencia, por estado o por fecha**: no entran en esta tanda.
+- **Guardar el filtro en el backend**: los filtros viajan en la URL.
+
+### Decisiones tomadas
+
+1. **El departamento es el gestor del proyecto**, no el de la persona asignada: es el mismo criterio que usa el filtro de capacidad del §28, de modo que un mismo numero de departamento significa lo mismo en las tres pantallas.
+2. **El filtro va en el backend y no solo en la vista**: el feed global alimenta tres pantallas, y filtrar en el servidor evita tres copias de la misma regla.
+3. **404 y no feed vacio** cuando se pide un proyecto que no se ve.
+4. **`department_name` lo da el backend**: la capacidad es la unica de las tres que tiene que pintar el departamento de una persona, y el listado de departamentos no cubre a los que no son tuyos.
+
+## 30. Capacidad: filtro de proyecto, franja de departamento y panel de visibilidad
+
+La matriz de capacidad tenia filtro de departamento, de competencia y de nivel, pero **no de proyecto**: el `projectFilter` ya estaba cableado en el script y no habia ningun select que lo moviera. Ademas, con mas de un departamento, la matriz no decia de quien era cada fila: solo se veia el nombre de la persona.
+
+### Que entra
+
+**El filtro de proyecto**
+
+- Se anade el `<select>` de proyecto, con las opciones de `store.projects` y "Todos los proyectos".
+- El filtro ya estaba cableado; lo que faltaba era el control. No se toca lo que ya funcionaba.
+- Vive en la misma fila que los demas filtros, y en la URL, como el resto de la matriz.
+
+**Los cuatro filtros en pastilla**
+
+- Departamento, proyecto, competencia y nivel pasan al mismo marcado de pastilla que el Gantt: etiqueta pequena encima, `<select>` nativo debajo.
+- Siguen siendo `<select>` nativos: no se sustituyen por un componente propio.
+
+**La franja de departamento**
+
+- Cada fila de persona lleva una franja de color vertical pegada a la celda, con el nombre del departamento debajo.
+- La franja **no agrupa**: las personas mantienen su orden y el departamento es un dato de la fila, no un separador.
+- Sin departamento asignado, la franja es gris y no se pinta el nombre.
+
+**El panel de mostrar/ocultar**
+
+- Un boton "Mostrar/ocultar" abre un panel con casillas por departamento y por persona.
+- Contador de cuantos hay ocultos y un "Mostrar todos" para deshacerlo de golpe.
+- Ocultar un departamento oculta a sus miembros. Si desactivas a una persona de un departamento que esta oculto, se muestra ella y se ocultan sus compañeros, para no cambiar el conjunto visible sin avisar.
+- El panel se cierra al pulsar fuera.
+
+### Que no entra
+
+- **Modo (Horas / % / Proyectos), rango de semanas y desglose de celda**: no se tocan.
+- **Arrastrar tareas en la matriz**: sigue igual.
+- **Persistir lo que se oculta**: es estado local del componente. No va a la URL, ni al backend, ni se recuerda al recargar.
+- **Agrupar por departamento**: la franja informa, no agrupa.
+
+### Decisiones tomadas
+
+1. **El color sale de `department_id`, no del orden de las personas**: el color que ya usaba el feed de Gantt depende de la posicion alfabetica de la persona, asi que con el filtro de competencia un departamento podia cambiar de color entre dos usuarios. Con `id % 6` el color es estable para todos.
+2. **Seis colores fijos y ciclicos**: `bg-blue-900`, `bg-teal-700`, `bg-amber-700`, `bg-violet-700`, `bg-rose-800` y `bg-slate-600`. Con mas de seis departamentos el color se repite, pero el nombre al lado del color resuelve la ambiguedad.
+3. **La paleta son clases de Tailwind, no CSS a mano**: el guard de CSS del repo no admite clases inventadas.
+4. **"Mostrar/ocultar" es local y no un filtro**: es una vista de la matriz. Los filtros van en la URL; esto no.
+5. **Desmarcar a una persona de un departamento oculto muestra a sus compañeros**: la alternativa (no hacer nada) dejaba la casilla en un estado que no correspondia con lo que se veia.
+
+## 31. Gantt: filtros, agrupacion y franja divisoria
+
+El diagrama de Gantt era una sola lista de barras en orden de fecha. No habia forma de filtrar por persona ni de agrupar el trabajo por proyecto, departamento o persona: con la organizacion real, las barras de un mismo equipo salian dispersas.
+
+### Que entra
+
+**Los tres filtros**
+
+- Departamento, proyecto y persona, en pastilla, con la misma forma que en la capacidad.
+- Los tres viajan en la URL (`?department=`, `?project=`, `?assigned_to=`), asi que una vista filtrada se puede compartir.
+- Los tres se pasan al feed: `department_id`, `project_id` y `assigned_to`.
+- El selector de personas usa el directorio visible (`peopleApi.list`) y no los miembros del feed: con el filtro de persona puesto el feed se reduce a una sola persona, y el selector quedaria sin opciones.
+
+**El selector de agrupacion**
+
+- "Agrupar por" con Proyecto, Departamento, Persona y Sin agrupar. Por defecto, Proyecto.
+- Tambien viaja en la URL (`?group=`).
+- Al cambiar de agrupacion se reordena el diagrama, no se vuelve a pedir el feed.
+
+**La franja divisoria**
+
+- Cada bloque de grupo lleva una franja horizontal en el borde superior de su primera fila, dibujada por encima del SVG de la libreria.
+- El nombre del grupo encabeza su bloque: solo lo lleva la primera barra del grupo, de modo que se lee como cabecera y no se repite en cada barra.
+- El proyecto y la persona se siguen viendo en cada barra: son datos distintos del grupo, salvo que ya sean el grupo, en cuyo caso no se repiten.
+- Sin agrupar no hay franja: no hay bloques que separar.
+
+### Que no entra
+
+- **Dia / Semana / Mes y el guardado de fechas al arrastrar**: no se tocan.
+- **Una fila de cabecera dentro de la libreria**: frappe-gantt no las tiene.
+- **Agrupar por cliente, por fase o por semana**: no entran.
+- **Colores por grupo**: la unica marca visual del grupo es la franja.
+
+### Decisiones tomadas
+
+1. **La franja es una linea real inyectada en el SVG**, no una tarea fantasma: la libreria solo dibuja barras, una barra de duracion 0 es invisible y una tarea fantasma anadiria filas reales al diagrama. La franja va en una capa propia (`g.grupos`) sobre el SVG, y se repinta despues de cada `render()` y tras `change_view_mode`, que borra el SVG.
+2. **El ancho de la franja se lee del DOM** (`.grid .grid-row`), no se calcula: el ancho de columna cambia con la escala de la vista.
+3. **El nombre del grupo va en el texto de la primera barra**, no en una fila nueva: no habria forma de reservar una fila de cabecera en la libreria.
+4. **El orden dentro del grupo es por fecha de inicio**, como antes. Cambiar el criterio de orden no era parte del encargo.
+5. **Agrupar por departamento usa el departamento gestor del proyecto**, el mismo criterio que el filtro de departamento del §29.
+
+## 32. Calendario: detalle de tarea y filtros
+
+El calendario global no tenia forma de abrir una tarea: en las tres vistas (mes, semana y dia) las tareas eran texto. El detalle de tarea ya existia (el del §26) y lo usaba el Tablero, pero aqui no estaba conectado.
+
+### Que entra
+
+**Abrir el detalle de una tarea**
+
+- Mes, semana y dia enganchan el clic de una tarea y abren el `TaskDetailPanel`, el mismo componente que el Tablero.
+- La vista de dia y la de semana emiten `open-task`; el mes engancha el clic sobre la tarea de la celda.
+- El permiso se calcula con `scope.editable_project_ids` de `GET /api/me`: el panel abre en solo lectura si la persona no puede editar el proyecto de la tarea.
+- Al guardar o al borrar, el calendario recarga el feed.
+
+**Los tres filtros**
+
+- Departamento, proyecto y persona, en pastilla, con los mismos parametros de URL que el Gantt (`?department=`, `?project=`, `?assigned_to=`).
+- Se combinan con AND.
+- El filtro de departamento se aplica tambien en el cliente, cruzando el `project_id` de cada tarea con `store.projects`: el feed no trae el departamento de la tarea. Si la lista de proyectos no se puede leer, el filtro se deja al servidor en vez de dejar el calendario vacio.
+- Si no queda ninguna tarea, se avisa con "Ninguna tarea coincide con los filtros".
+
+### Que no entra
+
+- **Editar tareas de un proyecto que no es editable**: se muestran en solo lectura, no se ocultan.
+- **Filtro por competencia o por estado**: no entran.
+- **Mover tareas arrastrandolas en el calendario**: el calendario no edita fechas.
+- **Recordar el filtro entre sesiones**: vive en la URL.
+
+### Decisiones tomadas
+
+1. **Se reutiliza el `TaskDetailPanel` del §26** en vez de crear uno especifico del calendario: asi el checklist, los comentarios y la bitacora se comportan igual en las tres pantallas.
+2. **El permiso se lee una vez con `GET /api/me`** y se resuelve por tarea: es lo que ya devuelve el panel de las otras pantallas.
+3. **El filtro de departamento se aplica en cliente y en servidor**: en cliente por lo inmediato, en servidor porque el feed ya lo soporta. El filtro del cliente solo puede quitar mas, nunca devolver algo que el servidor no dio.
+4. **Los filtros del calendario son los mismos que los del Gantt**, con los mismos nombres de parametro: una URL de calendario y una de Gantt se leen igual.

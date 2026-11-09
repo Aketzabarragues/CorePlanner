@@ -3,8 +3,13 @@
  * Listado global de proyectos.
  *
  * Los proyectos van agrupados por el departamento que los gestiona. Dentro de
- * cada grupo, cada proyecto es una fila con su nombre, su responsable y su
- * estado. La fila entera es clicable y lleva al resumen del proyecto.
+ * cada grupo, cada proyecto es una fila con su nombre, su responsable, su
+ * equipo, el avance de sus tareas, la carga de la semana y su estado. La fila
+ * entera es clicable y lleva al resumen del proyecto.
+ *
+ * Todas las secciones se dibujan en una sola tabla: asi el limite de cada
+ * columna cae en el mismo pixel en todos los grupos, cosa que con una tabla
+ * por seccion no se puede garantizar.
  *
  * Los filtros son de presentacion: acotan lo que ya esta cargado, no lo que
  * la persona puede ver. El ambito de proyectos y de departamentos lo decide el
@@ -13,11 +18,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { projectsApi } from '../api/client'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
+
+/** Cuantos avatares se apilan antes de resumir el resto con un "+N". */
+const MAX_AVATARES = 4
 
 const error = ref(null)
 const loading = ref(true)
@@ -26,6 +35,9 @@ const loading = ref(true)
 const buscador = ref('')
 const filtroDepartamento = ref('')
 const filtroEstado = ref('')
+
+/** Resumen de cada proyecto: equipo, avance de tareas y carga de la semana. */
+const resumenes = ref([])
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -96,6 +108,46 @@ const hayFiltros = computed(
   () => Boolean(buscador.value.trim() || filtroDepartamento.value || filtroEstado.value),
 )
 
+/** Resumen de un proyecto, o null si no llego. */
+function resumenDe(project) {
+  return resumenes.value.find((item) => item.id === project.id) ?? null
+}
+
+/** Avatares que se apilan: como mucho cuatro. */
+function avataresDe(project) {
+  const resumen = resumenDe(project)
+  return (resumen?.members ?? []).slice(0, MAX_AVATARES)
+}
+
+/** Cuantas personas del equipo se quedan fuera de los avatares. */
+function restoDe(project) {
+  const resumen = resumenDe(project)
+  return Math.max(0, (resumen?.members ?? []).length - MAX_AVATARES)
+}
+
+/** Porcentaje de tareas completadas del proyecto. */
+function avanceDe(project) {
+  const resumen = resumenDe(project)
+  if (!resumen || !resumen.tasks_total) return 0
+  return Math.round((resumen.tasks_done / resumen.tasks_total) * 100)
+}
+
+/**
+ * Lo que se pinta en la columna de carga: el aviso de sobrecarga, el
+ * porcentaje de uso, la falta de capacidad o nada, segun lo que diga el
+ * resumen de la semana.
+ */
+function cargaDe(project) {
+  const resumen = resumenDe(project)
+  if (!resumen || !resumen.load) return { tipo: 'sin-datos', texto: '—' }
+  if (resumen.load.overloaded) return { tipo: 'sobrecarga', texto: 'Sobrecargado' }
+  const utilization = resumen.load.utilization
+  if (utilization === null || utilization === undefined) {
+    return { tipo: 'sin-capacidad', texto: 'Sin capacidad' }
+  }
+  return { tipo: 'porcentaje', texto: `${utilization} %` }
+}
+
 /** Color de la pastilla del estado del proyecto. */
 function projectStatusPill(tone) {
   if (tone === 'active') return 'bg-emerald-100 text-emerald-700'
@@ -115,11 +167,14 @@ function limpiarFiltros() {
   filtroEstado.value = ''
 }
 
-/** Carga los proyectos visibles, agrupados por su departamento. */
+/** Carga los proyectos visibles y su resumen. */
 async function load() {
   try {
     const token = await auth.ensureSession()
     await store.ensureProjects(token)
+    // El resumen es una capa encima del listado: si no llega, el listado
+    // sigue en pie y las columnas nuevas se quedan a "—".
+    resumenes.value = await projectsApi.summary(token).catch(() => [])
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -223,68 +278,127 @@ onMounted(load)
         Ningún proyecto coincide con los filtros.
       </p>
 
-      <div v-else class="space-y-6">
-        <section
-          v-for="group in groups"
-          :key="group.key"
-          :aria-label="group.name"
-          data-testid="projects-group"
-        >
-          <header class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="text-sm font-semibold text-siemens-900">{{ group.name }}</h2>
-            <p class="text-xs text-slate-500" data-testid="projects-group-summary">
-              {{ group.items.length }}
-              {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
-              {{ group.manager ?? 'sin responsable' }}
-            </p>
-          </header>
+      <div v-else class="overflow-x-auto rounded border border-slate-200 bg-white">
+        <table class="w-full text-left text-sm" data-testid="projects-table">
+          <thead>
+            <tr
+              class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
+            >
+              <th scope="col" class="px-3 py-2 font-medium">Proyecto</th>
+              <th scope="col" class="px-3 py-2 font-medium">Responsable</th>
+              <th scope="col" class="px-3 py-2 font-medium">Equipo</th>
+              <th scope="col" class="px-3 py-2 font-medium">Tareas</th>
+              <th scope="col" class="px-3 py-2 font-medium">Carga esta semana</th>
+              <th scope="col" class="px-3 py-2 font-medium">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="group in groups" :key="group.key">
+              <tr class="border-b border-slate-200 bg-slate-50" data-testid="projects-group">
+                <th colspan="6" scope="colgroup" class="px-3 py-2 text-left">
+                  <span class="text-sm font-semibold text-siemens-900">{{ group.name }}</span>
+                  <span class="ml-2 text-xs text-slate-500" data-testid="projects-group-summary">
+                    {{ group.items.length }}
+                    {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
+                    {{ group.manager ?? 'sin responsable' }}
+                  </span>
+                </th>
+              </tr>
 
-          <div class="overflow-x-auto rounded border border-slate-200 bg-white">
-            <table class="w-full text-left text-sm">
-              <thead>
-                <tr
-                  class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
-                >
-                  <th scope="col" class="px-3 py-2 font-medium">Proyecto</th>
-                  <th scope="col" class="px-3 py-2 font-medium">Responsable</th>
-                  <th scope="col" class="px-3 py-2 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="project in group.items"
-                  :key="project.id"
-                  role="button"
-                  tabindex="0"
-                  class="cursor-pointer border-t border-slate-100 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
-                  data-testid="project-row"
-                  @click="irAlProyecto(project)"
-                  @keydown.enter.prevent="irAlProyecto(project)"
-                  @keydown.space.prevent="irAlProyecto(project)"
-                >
-                  <td class="px-3 py-2">
-                    <RouterLink
-                      :to="{ name: 'project', params: { id: String(project.id) } }"
-                      class="font-medium text-siemens-900 hover:underline"
-                      @click.stop
-                    >
-                      {{ project.name }}
-                    </RouterLink>
-                  </td>
-                  <td class="px-3 py-2 text-slate-600">{{ project.owner_name ?? '—' }}</td>
-                  <td class="px-3 py-2">
+              <tr
+                v-for="project in group.items"
+                :key="project.id"
+                role="button"
+                tabindex="0"
+                class="cursor-pointer border-t border-slate-100 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
+                data-testid="project-row"
+                @click="irAlProyecto(project)"
+                @keydown.enter.prevent="irAlProyecto(project)"
+                @keydown.space.prevent="irAlProyecto(project)"
+              >
+                <td class="px-3 py-2">
+                  <RouterLink
+                    :to="{ name: 'project', params: { id: String(project.id) } }"
+                    class="font-medium text-siemens-900 hover:underline"
+                    @click.stop
+                  >
+                    {{ project.name }}
+                  </RouterLink>
+                </td>
+                <td class="px-3 py-2 text-slate-600">{{ project.owner_name ?? '—' }}</td>
+                <td class="px-3 py-2">
+                  <div v-if="avataresDe(project).length" class="flex items-center">
                     <span
-                      class="rounded-full px-2 py-0.5 text-xs font-medium"
-                      :class="projectStatusPill(projectStatus(project.status).tone)"
+                      v-for="(member, index) in avataresDe(project)"
+                      :key="member.user_id"
+                      class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 ring-2 ring-white"
+                      :class="index > 0 ? '-ml-1.5' : ''"
+                      :title="member.name"
+                      data-testid="project-member"
                     >
-                      {{ projectStatus(project.status).label }}
+                      {{ member.name.slice(0, 1) }}
                     </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+                    <span
+                      v-if="restoDe(project)"
+                      class="ml-1 text-xs text-slate-500"
+                      data-testid="project-members-rest"
+                    >
+                      +{{ restoDe(project) }}
+                    </span>
+                  </div>
+                  <span v-else class="text-xs text-slate-400">—</span>
+                </td>
+                <td class="px-3 py-2">
+                  <template v-if="resumenDe(project) && resumenDe(project).tasks_total">
+                    <span class="text-xs text-slate-600" data-testid="project-tasks">
+                      {{ resumenDe(project).tasks_done }}/{{ resumenDe(project).tasks_total }}
+                    </span>
+                    <div class="mt-1 h-1.5 w-24 rounded-full bg-slate-100">
+                      <div
+                        class="h-1.5 rounded-full bg-siemens-900"
+                        :style="{ width: `${avanceDe(project)}%` }"
+                        data-testid="project-tasks-bar"
+                      ></div>
+                    </div>
+                  </template>
+                  <span v-else class="text-xs text-slate-400">—</span>
+                </td>
+                <td class="px-3 py-2">
+                  <span
+                    v-if="cargaDe(project).tipo === 'sobrecarga'"
+                    class="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700"
+                    data-testid="project-overloaded"
+                  >
+                    Sobrecargado
+                  </span>
+                  <span
+                    v-else-if="cargaDe(project).tipo === 'porcentaje'"
+                    class="text-xs text-slate-600"
+                    data-testid="project-load"
+                  >
+                    {{ cargaDe(project).texto }}
+                  </span>
+                  <span
+                    v-else-if="cargaDe(project).tipo === 'sin-capacidad'"
+                    class="text-xs text-slate-400"
+                    data-testid="project-load-unknown"
+                  >
+                    Sin capacidad
+                  </span>
+                  <span v-else class="text-xs text-slate-400">—</span>
+                </td>
+                <td class="px-3 py-2">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="projectStatusPill(projectStatus(project.status).tone)"
+                  >
+                    {{ projectStatus(project.status).label }}
+                  </span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
     </AsyncState>
   </div>

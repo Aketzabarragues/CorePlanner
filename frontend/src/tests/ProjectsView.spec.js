@@ -34,11 +34,56 @@ const departments = [
   { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
 ]
 
+const summaries = [
+  {
+    id: 1,
+    members: [
+      { user_id: 3, name: 'Aketza' },
+      { user_id: 2, name: 'Ana' },
+    ],
+    tasks_total: 4,
+    tasks_done: 1,
+    load: {
+      week: '2026-W46',
+      planned_hours: 30,
+      capacity_hours: 40,
+      utilization: 75,
+      overloaded: false,
+    },
+  },
+  {
+    id: 2,
+    members: [{ user_id: 6, name: 'Jorge' }],
+    tasks_total: 2,
+    tasks_done: 2,
+    load: {
+      week: '2026-W46',
+      planned_hours: 50,
+      capacity_hours: 40,
+      utilization: 125,
+      overloaded: true,
+    },
+  },
+  {
+    id: 3,
+    members: [],
+    tasks_total: 0,
+    tasks_done: 0,
+    load: {
+      week: '2026-W46',
+      planned_hours: 0,
+      capacity_hours: 0,
+      utilization: null,
+      overloaded: false,
+    },
+  },
+]
+
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch() {
+function setupFetch(overrides = {}) {
   global.fetch = vi.fn(async (url) => {
     if (url.endsWith('/auth/login')) {
       return jsonResponse({
@@ -46,6 +91,10 @@ function setupFetch() {
         token_type: 'bearer',
         user: { id: 9, name: 'Admin' },
       })
+    }
+    if (url.endsWith('/projects/summary')) {
+      if (overrides.summaryError) return jsonResponse({ detail: 'fallo' }, false, 500)
+      return jsonResponse(overrides.summaries ?? summaries)
     }
     if (url.endsWith('/projects')) return jsonResponse(projects)
     if (url.endsWith('/departments')) return jsonResponse(departments)
@@ -226,5 +275,85 @@ describe('ProjectsView', () => {
     await flushPromises()
 
     expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(3)
+  })
+
+  it('todas las secciones se dibujan en la misma tabla', async () => {
+    const wrapper = await mountView()
+
+    // Una sola tabla: asi el limite de cada columna cae en el mismo pixel
+    // en todos los grupos de departamento.
+    expect(wrapper.findAll('table')).toHaveLength(1)
+    const tabla = wrapper.find('[data-testid="projects-table"]')
+    expect(tabla.exists()).toBe(true)
+    const filas = tabla.findAll('[data-testid="project-row"]')
+    expect(filas).toHaveLength(3)
+    // La cabecera de departamento es una fila de la tabla, no una tabla aparte.
+    expect(tabla.findAll('[data-testid="projects-group"]')).toHaveLength(2)
+  })
+
+  it('las columnas de equipo, tareas y carga salen del resumen', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    const avatares = fila.findAll('[data-testid="project-member"]')
+    expect(avatares).toHaveLength(2)
+    expect(avatares[0].text()).toBe('A')
+    expect(avatares[0].attributes('title')).toBe('Aketza')
+    expect(fila.find('[data-testid="project-tasks"]').text()).toBe('1/4')
+    expect(fila.find('[data-testid="project-load"]').text()).toBe('75 %')
+    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(false)
+  })
+
+  it('un proyecto cuya carga supera la capacidad avisa', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[1]
+
+    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(true)
+    expect(fila.find('[data-testid="project-overloaded"]').text()).toBe('Sobrecargado')
+  })
+
+  it('un proyecto sin equipo ni tareas muestra guiones', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[2]
+
+    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-tasks"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-load-unknown"]').text()).toBe('Sin capacidad')
+  })
+
+  it('si el resumen no llega, el listado sigue en pie', async () => {
+    setupFetch({ summaryError: true })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(3)
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-tasks"]').exists()).toBe(false)
+  })
+
+  it('los avatares del equipo se apilan y resumen los que sobran', async () => {
+    setupFetch({
+      summaries: [
+        {
+          ...summaries[0],
+          members: [
+            { user_id: 2, name: 'Ana' },
+            { user_id: 3, name: 'Aketza' },
+            { user_id: 4, name: 'Héctor' },
+            { user_id: 5, name: 'Carlos' },
+            { user_id: 7, name: 'Juan' },
+          ],
+        },
+      ],
+    })
+
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    expect(fila.findAll('[data-testid="project-member"]')).toHaveLength(4)
+    expect(fila.find('[data-testid="project-members-rest"]').text()).toBe('+1')
   })
 })

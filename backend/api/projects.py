@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 
 from ..models import Project, User
-from ..schemas import ProjectCreate, ProjectOut, ProjectUpdate
+from ..schemas import (
+    ProjectCreate,
+    ProjectLoadOut,
+    ProjectOut,
+    ProjectSummaryMemberOut,
+    ProjectSummaryOut,
+    ProjectUpdate,
+)
 from ..security import (
     CurrentUser,
     SessionDep,
@@ -16,6 +23,9 @@ from ..security import (
 )
 from ..services.capacity_repository import load_project_capacity
 from ..services.configuration import create_project, update_project
+from ..services.project_summary import load_project_summaries
+from ..services.schedule import current_week_key
+from ..services.units import from_units
 from .params import week_range_or_422
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -53,6 +63,45 @@ async def list_projects(user: CurrentUser, session: SessionDep) -> list[ProjectO
     """Proyectos a los que tiene acceso el usuario."""
     projects = await list_accessible_projects(session, user)
     return await _project_out(session, projects)
+
+
+@router.get("/summary", response_model=list[ProjectSummaryOut])
+async def project_summaries(
+    user: CurrentUser,
+    session: SessionDep,
+    week: str | None = Query(
+        default=None, description="Semana ISO de la carga; por defecto, la actual"
+    ),
+) -> list[ProjectSummaryOut]:
+    """Resumen de los proyectos visibles, para el listado global.
+
+    Cada proyecto lleva su equipo, el avance de sus tareas y la carga de la
+    semana frente a la capacidad de quien trabaja en el. El ambito es el de
+    siempre: solo los proyectos que ya son visibles para quien entra.
+    """
+    projects = await list_accessible_projects(session, user)
+    weeks = week_range_or_422(week, week)
+    target_week = weeks[0] if weeks else current_week_key()
+    summaries = await load_project_summaries(session, projects, week=target_week)
+    return [
+        ProjectSummaryOut(
+            id=item.id,
+            members=[
+                ProjectSummaryMemberOut(user_id=member.user_id, name=member.name)
+                for member in item.members
+            ],
+            tasks_total=item.tasks_total,
+            tasks_done=item.tasks_done,
+            load=ProjectLoadOut(
+                week=item.load.week,
+                planned_hours=from_units(item.load.planned_units),
+                capacity_hours=from_units(item.load.capacity_units),
+                utilization=item.load.utilization,
+                overloaded=item.load.overloaded,
+            ),
+        )
+        for item in summaries
+    ]
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)

@@ -76,6 +76,34 @@ class ProjectOut(BaseModel):
     """Nombre del responsable del proyecto."""
 
 
+class ProjectSummaryMemberOut(BaseModel):
+    """Persona del equipo de un proyecto."""
+
+    user_id: int
+    name: str
+
+
+class ProjectLoadOut(BaseModel):
+    """Carga de un proyecto en una semana, frente a la capacidad de su equipo."""
+
+    week: str
+    planned_hours: Hours = 0
+    capacity_hours: Hours = 0
+    utilization: int | None = None
+    overloaded: bool = False
+    """La carga del proyecto supera la capacidad de su equipo esa semana."""
+
+
+class ProjectSummaryOut(BaseModel):
+    """Resumen de un proyecto para el listado global."""
+
+    id: int
+    members: list[ProjectSummaryMemberOut] = Field(default_factory=list)
+    tasks_total: int = 0
+    tasks_done: int = 0
+    load: ProjectLoadOut
+
+
 class ScopeOut(BaseModel):
     """Ambito de la persona que entra."""
 

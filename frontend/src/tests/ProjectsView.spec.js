@@ -6,8 +6,27 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import ProjectsView from '../views/ProjectsView.vue'
 
 const projects = [
-  { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
-  { id: 2, name: 'Red de tuberias linea 2', status: 'on_hold', department_id: 2 },
+  {
+    id: 1,
+    name: 'Línea Pasteurizadora SIVE',
+    status: 'active',
+    department_id: 1,
+    owner_name: 'Ana',
+  },
+  {
+    id: 2,
+    name: 'Ampliación linea 2',
+    status: 'planning',
+    department_id: 1,
+    owner_name: 'Jorge',
+  },
+  {
+    id: 3,
+    name: 'Red de tuberias',
+    status: 'active',
+    department_id: 2,
+    owner_name: 'Jorge',
+  },
 ]
 
 const departments = [
@@ -34,8 +53,10 @@ function setupFetch() {
   })
 }
 
+let router
+
 async function mountView() {
-  const router = createRouter({
+  router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/projects', name: 'projects', component: { template: '<div />' } },
@@ -56,6 +77,11 @@ async function mountView() {
   return wrapper
 }
 
+/** Nombres de los proyectos que se ven ahora mismo. */
+function nombres(wrapper) {
+  return wrapper.findAll('[data-testid="project-row"] a').map((link) => link.text())
+}
+
 describe('ProjectsView', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -66,35 +92,139 @@ describe('ProjectsView', () => {
   it('lista los proyectos agrupados por su departamento', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Linea Pasteurizadora SIVE')
-    expect(wrapper.text()).toContain('Red de tuberias linea 2')
-    expect(wrapper.text()).toContain('Automatización & SCADA')
-    expect(wrapper.text()).toContain('Oficina Técnica / EPLAN')
+    const grupos = wrapper.findAll('[data-testid="projects-group"]')
+    expect(grupos).toHaveLength(2)
+    expect(grupos[0].text()).toContain('Automatización & SCADA')
+    expect(grupos[1].text()).toContain('Oficina Técnica / EPLAN')
+    expect(wrapper.text()).toContain('Línea Pasteurizadora SIVE')
+    expect(wrapper.text()).toContain('Red de tuberias')
   })
 
-  it('el nombre del proyecto lleva a su pagina', async () => {
+  it('la cabecera del grupo dice cuantos proyectos tiene y quien los lleva', async () => {
     const wrapper = await mountView()
 
-    const enlace = wrapper.findAll('a').find((link) => link.text() === 'Linea Pasteurizadora SIVE')
+    const cabeceras = wrapper.findAll('[data-testid="projects-group-summary"]')
+    expect(cabeceras[0].text()).toContain('2 proyectos')
+    expect(cabeceras[0].text()).toContain('responsable Ana')
+    expect(cabeceras[1].text()).toContain('1 proyecto')
+    expect(cabeceras[1].text()).toContain('responsable Jorge')
+  })
+
+  it('cada fila es una tabla con proyecto, responsable y estado', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    expect(fila.element.tagName).toBe('TR')
+    expect(fila.text()).toContain('Línea Pasteurizadora SIVE')
+    expect(fila.text()).toContain('Ana')
+    expect(fila.text()).toContain('Activo')
+  })
+
+  it('las filas no tienen botones de capacidad, Gantt ni Kanban', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).not.toContain('Capacidad')
+    expect(wrapper.text()).not.toContain('Gantt')
+    expect(wrapper.text()).not.toContain('Kanban')
+    const enlaces = wrapper.findAll('a').map((link) => link.attributes('href'))
+    expect(enlaces).toHaveLength(3)
+    expect(enlaces.every((href) => href.startsWith('/projects/'))).toBe(true)
+  })
+
+  it('el nombre del proyecto sigue siendo un enlace a su pagina', async () => {
+    const wrapper = await mountView()
+
+    const enlace = wrapper.findAll('a').find((link) => link.text() === 'Línea Pasteurizadora SIVE')
     expect(enlace.attributes('href')).toBe('/projects/1')
   })
 
-  it('los enlaces de capacidad y Gantt llevan el filtro del proyecto', async () => {
+  it('pinchar en cualquier parte de la fila lleva al proyecto', async () => {
     const wrapper = await mountView()
 
-    const capacidad = wrapper.findAll('a').find((link) => link.text() === 'Capacidad')
-    const gantt = wrapper.findAll('a').find((link) => link.text() === 'Gantt')
+    const fila = wrapper.findAll('[data-testid="project-row"]')[1]
+    await fila.trigger('click')
+    await flushPromises()
 
-    // El filtro viaja en la query: el parametro de la ruta no vale, porque
-    // estas vistas ya no son del proyecto.
-    expect(capacidad.attributes('href')).toBe('/capacity?project=1')
-    expect(gantt.attributes('href')).toBe('/gantt?project=1')
+    expect(router.currentRoute.value.name).toBe('project')
+    expect(router.currentRoute.value.params.id).toBe('2')
   })
 
-  it('el enlace del tablero lleva a la pestana del proyecto', async () => {
+  it('la fila se activa con el teclado', async () => {
     const wrapper = await mountView()
 
-    const kanban = wrapper.findAll('a').find((link) => link.text() === 'Kanban')
-    expect(kanban.attributes('href')).toBe('/projects/1/kanban')
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    expect(fila.attributes('tabindex')).toBe('0')
+    expect(fila.attributes('role')).toBe('button')
+
+    await fila.trigger('keydown.enter')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('project')
+    expect(router.currentRoute.value.params.id).toBe('1')
+  })
+
+  it('el buscador deja solo los proyectos que coinciden por nombre', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('tuberias')
+    await flushPromises()
+
+    expect(nombres(wrapper)).toEqual(['Red de tuberias'])
+  })
+
+  it('el buscador encuentra los nombres con tilde sin escribirlos', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('linea')
+    await flushPromises()
+
+    expect(nombres(wrapper)).toEqual(['Línea Pasteurizadora SIVE', 'Ampliación linea 2'])
+  })
+
+  it('elegir un departamento deja solo esa seccion', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-department"]').setValue('2')
+    await flushPromises()
+
+    const grupos = wrapper.findAll('[data-testid="projects-group"]')
+    expect(grupos).toHaveLength(1)
+    expect(grupos[0].text()).toContain('Oficina Técnica / EPLAN')
+    expect(nombres(wrapper)).toEqual(['Red de tuberias'])
+  })
+
+  it('elegir un estado deja solo los proyectos con ese estado', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-status"]').setValue('planning')
+    await flushPromises()
+
+    expect(nombres(wrapper)).toEqual(['Ampliación linea 2'])
+  })
+
+  it('los tres filtros se combinan', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('linea')
+    await wrapper.find('[data-testid="filter-department"]').setValue('1')
+    await wrapper.find('[data-testid="filter-status"]').setValue('active')
+    await flushPromises()
+
+    expect(nombres(wrapper)).toEqual(['Línea Pasteurizadora SIVE'])
+  })
+
+  it('un filtro que no casa con nada avisa y deja quitar los filtros', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('zzz')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="projects-no-match"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(0)
+
+    await wrapper.find('[data-testid="clear-filters"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(3)
   })
 })

@@ -2,8 +2,13 @@
 /**
  * Listado global de proyectos.
  *
- * Cada proyecto muestra su departamento y su estado. Desde aqui se entra al
- * resumen del proyecto y a sus vistas.
+ * Los proyectos van agrupados por el departamento que los gestiona. Dentro de
+ * cada grupo, cada proyecto es una fila con su nombre, su responsable y su
+ * estado. La fila entera es clicable y lleva al resumen del proyecto.
+ *
+ * Los filtros son de presentacion: acotan lo que ya esta cargado, no lo que
+ * la persona puede ver. El ambito de proyectos y de departamentos lo decide el
+ * backend, y aqui no se toca.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -12,24 +17,59 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
-import { projectStatus } from '../utils/navigation'
+import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
 
 const error = ref(null)
 const loading = ref(true)
+
+/** Filtros de presentacion sobre la lista ya cargada. */
+const buscador = ref('')
+const filtroDepartamento = ref('')
+const filtroEstado = ref('')
 
 const auth = useAuthStore()
 const store = useProjectsStore()
 const router = useRouter()
 
+/** Texto en minusculas y sin acentos, para buscar sin tildes. */
+function sinAcentos(texto) {
+  return String(texto ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+/** Un proyecto se queda si cumple los tres filtros. */
+function coincide(project) {
+  if (filtroEstado.value && project.status !== filtroEstado.value) return false
+  if (filtroDepartamento.value) {
+    const id =
+      project.department_id === null || project.department_id === undefined
+        ? ''
+        : String(project.department_id)
+    if (id !== filtroDepartamento.value) return false
+  }
+  const texto = sinAcentos(buscador.value.trim())
+  if (texto && !sinAcentos(project.name).includes(texto)) return false
+  return true
+}
+
 /** Proyectos agrupados por el departamento que los gestiona. */
 const groups = computed(() => {
+  const visibles = store.projects.filter(coincide)
+
   const byDepartment = new Map()
   for (const department of store.departments) {
-    byDepartment.set(String(department.id), { name: department.name, items: [] })
+    byDepartment.set(String(department.id), {
+      key: String(department.id),
+      name: department.name,
+      manager: department.manager_name ?? null,
+      items: [],
+    })
   }
 
   const loose = []
-  for (const project of store.projects) {
+  for (const project of visibles) {
     const key =
       project.department_id === null || project.department_id === undefined
         ? null
@@ -40,15 +80,39 @@ const groups = computed(() => {
   }
 
   const result = [...byDepartment.values()].filter((group) => group.items.length)
-  if (loose.length) result.push({ name: 'Sin departamento', items: loose })
+  if (loose.length) {
+    result.push({
+      key: 'sin-departamento',
+      name: 'Sin departamento',
+      manager: null,
+      items: loose,
+    })
+  }
   return result
 })
 
-function departmentName(departmentId) {
-  return (
-    store.departments.find((department) => String(department.id) === String(departmentId))
-      ?.name ?? 'Sin departamento'
-  )
+/** Si hay filtros puestos: distingue "no hay nada" de "no coincide nada". */
+const hayFiltros = computed(
+  () => Boolean(buscador.value.trim() || filtroDepartamento.value || filtroEstado.value),
+)
+
+/** Color de la pastilla del estado del proyecto. */
+function projectStatusPill(tone) {
+  if (tone === 'active') return 'bg-emerald-100 text-emerald-700'
+  if (tone === 'paused') return 'bg-amber-100 text-amber-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+/** Lleva al resumen del proyecto. Toda la fila es clicable. */
+function irAlProyecto(project) {
+  router.push({ name: 'project', params: { id: String(project.id) } })
+}
+
+/** Quita los filtros y deja la lista entera a la vista. */
+function limpiarFiltros() {
+  buscador.value = ''
+  filtroDepartamento.value = ''
+  filtroEstado.value = ''
 }
 
 /** Carga los proyectos visibles, agrupados por su departamento. */
@@ -96,51 +160,130 @@ onMounted(load)
       @retry="reintentar"
       @empty-action="irAConfiguracion"
     >
-      <div class="space-y-6">
-        <section v-for="group in groups" :key="group.name">
-          <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {{ group.name }}
-          </h2>
-          <ul class="space-y-2">
-            <li
-              v-for="project in group.items"
-              :key="project.id"
-              class="flex items-center justify-between gap-3 rounded border border-slate-200 bg-white p-4"
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Buscar</span>
+          <input
+            v-model="buscador"
+            type="search"
+            placeholder="Nombre del proyecto"
+            class="w-64 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            data-testid="filter-search"
+          />
+        </label>
+
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Departamento</span>
+          <select
+            v-model="filtroDepartamento"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            data-testid="filter-department"
+          >
+            <option value="">Todos los departamentos</option>
+            <option
+              v-for="department in store.departments"
+              :key="department.id"
+              :value="String(department.id)"
             >
-              <div class="min-w-0">
-                <RouterLink
-                  :to="{ name: 'project', params: { id: String(project.id) } }"
-                  class="block truncate font-medium text-siemens-900 hover:underline"
+              {{ department.name }}
+            </option>
+          </select>
+        </label>
+
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Estado</span>
+          <select
+            v-model="filtroEstado"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            data-testid="filter-status"
+          >
+            <option value="">Cualquier estado</option>
+            <option v-for="estado in PROJECT_STATUSES" :key="estado.value" :value="estado.value">
+              {{ estado.label }}
+            </option>
+          </select>
+        </label>
+
+        <button
+          v-if="hayFiltros"
+          type="button"
+          class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-siemens-900"
+          data-testid="clear-filters"
+          @click="limpiarFiltros"
+        >
+          Quitar filtros
+        </button>
+      </div>
+
+      <p
+        v-if="!groups.length"
+        class="rounded border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500"
+        data-testid="projects-no-match"
+      >
+        Ningún proyecto coincide con los filtros.
+      </p>
+
+      <div v-else class="space-y-6">
+        <section
+          v-for="group in groups"
+          :key="group.key"
+          :aria-label="group.name"
+          data-testid="projects-group"
+        >
+          <header class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-sm font-semibold text-siemens-900">{{ group.name }}</h2>
+            <p class="text-xs text-slate-500" data-testid="projects-group-summary">
+              {{ group.items.length }}
+              {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
+              {{ group.manager ?? 'sin responsable' }}
+            </p>
+          </header>
+
+          <div class="overflow-x-auto rounded border border-slate-200 bg-white">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr
+                  class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
                 >
-                  {{ project.name }}
-                </RouterLink>
-                <p class="text-xs text-slate-500">
-                  {{ departmentName(project.department_id) }} ·
-                  {{ projectStatus(project.status).label }}
-                </p>
-              </div>
-              <div class="flex shrink-0 gap-2 text-sm">
-                <RouterLink
-                  :to="{ name: 'capacity', query: { project: String(project.id) } }"
-                  class="rounded border border-slate-300 px-3 py-1.5"
+                  <th scope="col" class="px-3 py-2 font-medium">Proyecto</th>
+                  <th scope="col" class="px-3 py-2 font-medium">Responsable</th>
+                  <th scope="col" class="px-3 py-2 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="project in group.items"
+                  :key="project.id"
+                  role="button"
+                  tabindex="0"
+                  class="cursor-pointer border-t border-slate-100 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
+                  data-testid="project-row"
+                  @click="irAlProyecto(project)"
+                  @keydown.enter.prevent="irAlProyecto(project)"
+                  @keydown.space.prevent="irAlProyecto(project)"
                 >
-                  Capacidad
-                </RouterLink>
-                <RouterLink
-                  :to="{ name: 'gantt', query: { project: String(project.id) } }"
-                  class="rounded bg-siemens-900 px-3 py-1.5 text-white"
-                >
-                  Gantt
-                </RouterLink>
-                <RouterLink
-                  :to="{ name: 'kanban', params: { id: String(project.id) } }"
-                  class="rounded border border-siemens-900 px-3 py-1.5 text-siemens-900"
-                >
-                  Kanban
-                </RouterLink>
-              </div>
-            </li>
-          </ul>
+                  <td class="px-3 py-2">
+                    <RouterLink
+                      :to="{ name: 'project', params: { id: String(project.id) } }"
+                      class="font-medium text-siemens-900 hover:underline"
+                      @click.stop
+                    >
+                      {{ project.name }}
+                    </RouterLink>
+                  </td>
+                  <td class="px-3 py-2 text-slate-600">{{ project.owner_name ?? '—' }}</td>
+                  <td class="px-3 py-2">
+                    <span
+                      class="rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="projectStatusPill(projectStatus(project.status).tone)"
+                    >
+                      {{ projectStatus(project.status).label }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
     </AsyncState>

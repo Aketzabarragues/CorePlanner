@@ -24,9 +24,11 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { overviewApi, peopleApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
@@ -68,6 +70,43 @@ const proyectos = computed(() => (Array.isArray(store.projects) ? store.projects
 const departamentos = computed(() =>
   Array.isArray(store.departments) ? store.departments : [],
 )
+
+/**
+ * Personas que se pueden esconder del diagrama.
+ *
+ * Son las que tienen barra, sacadas del feed, con el departamento que tienen
+ * en el directorio. La lista sale del feed y no del ref local de miembros:
+ * ese ref se reescribe en cada repintado y el panel se repintaria solo.
+ */
+const personasVisibilidad = computed(() => {
+  const miembros = feed.value?.members ?? []
+  return miembros.map((member) => {
+    const persona = personas.value.find((item) => String(item.id) === String(member.user_id))
+    return {
+      id: member.user_id,
+      name: member.name,
+      department_id: persona?.department_id ?? null,
+      department_name: persona?.department_name ?? null,
+    }
+  })
+})
+
+/**
+ * Mostrar y ocultar personas y departamentos del diagrama.
+ *
+ * Vive en la vista: no va a la URL, no se pide al servidor y no se guarda. Es
+ * una vista de lo que ya esta cargado, no un filtro de los datos.
+ */
+const {
+  personasOcultas,
+  departamentosOcultos,
+  idsOcultos,
+  ocultosCount,
+  ocultoPara,
+  alternarPersona,
+  alternarDepartamento,
+  mostrarTodos,
+} = useVisibilidad(personasVisibilidad)
 
 /** Lo que se lee encima del diagrama: con filtros, solo sale lo filtrado. */
 const subtitle = computed(() => {
@@ -122,9 +161,18 @@ function claveDe(task) {
   return task.project_name ?? 'Sin proyecto'
 }
 
-/** Barras ordenadas por grupo y, dentro del grupo, por fecha de inicio. */
+/**
+ * Barras ordenadas por grupo y, dentro del grupo, por fecha de inicio.
+ *
+ * Las barras de las personas escondidas no salen. Las tareas sin asignar se
+ * quedan: no son de nadie que se pueda esconder.
+ */
 const barras = computed(() => {
-  const tareas = feed.value?.tasks ?? []
+  const tareas = (feed.value?.tasks ?? []).filter((task) => {
+    const persona = task.assigned_to
+    if (persona === null || persona === undefined) return true
+    return !ocultoPara(persona)
+  })
   const ordenadas = [...tareas].sort((a, b) => {
     const grupoA = claveDe(a)
     const grupoB = claveDe(b)
@@ -136,6 +184,11 @@ const barras = computed(() => {
   })
   return ordenadas.map((task) => ({ task, grupo: claveDe(task) }))
 })
+
+/** Miembros de la leyenda que no estan escondidos. */
+const miembrosVisibles = computed(() =>
+  members.value.filter((member) => !ocultoPara(member.user_id)),
+)
 
 /** Filas donde empieza un grupo, para pintar la franja divisoria. */
 const iniciosDeGrupo = computed(() => {
@@ -323,6 +376,12 @@ watch(
 watch(groupBy, () => {
   if (feed.value) render(feed.value)
 })
+// Al cambiar lo que se ve hay que redibujar el diagrama. El watcher mira solo
+// el estado de visibilidad: si mirara las barras, el render se dispararia a
+// si mismo sin parar.
+watch([personasOcultas, departamentosOcultos], () => {
+  if (feed.value) render(feed.value)
+})
 useTaskReload(load)
 onBeforeUnmount(() => {
   gantt = null
@@ -414,6 +473,16 @@ onBeforeUnmount(() => {
           </option>
         </select>
       </label>
+
+      <VisibilityPanel
+        :personas="personasVisibilidad"
+        :ids-ocultos="idsOcultos"
+        :departamentos-ocultos="departamentosOcultos"
+        :ocultos-count="ocultosCount"
+        @alternar-persona="alternarPersona"
+        @alternar-departamento="alternarDepartamento"
+        @mostrar-todos="mostrarTodos"
+      />
     </div>
 
     <AsyncState
@@ -424,8 +493,16 @@ onBeforeUnmount(() => {
     >
       <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
 
-      <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
-        <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
+      <ul
+        v-if="miembrosVisibles.length"
+        class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"
+        data-testid="gantt-legend"
+      >
+        <li
+          v-for="member in miembrosVisibles"
+          :key="member.user_id"
+          class="flex items-center gap-1.5"
+        >
           <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
           {{ member.name }}
         </li>

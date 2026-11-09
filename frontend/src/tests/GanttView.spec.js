@@ -98,9 +98,82 @@ const departamentos = [
 ]
 
 const directorio = [
-  { id: 1, name: 'Ana', department_id: 1 },
-  { id: 2, name: 'Jorge', department_id: 2 },
+  { id: 1, name: 'Ana', department_id: 1, department_name: 'Alimentacion' },
+  { id: 2, name: 'Jorge', department_id: 2, department_name: 'Energia' },
 ]
+
+/**
+ * Diagrama con dos personas y una tarea sin asignar.
+ *
+ * Es el que usa el panel de visibilidad: hacen falta personas de dos
+ * departamentos y una tarea sin asignar, que no se esconde con nadie.
+ */
+const feedVisibilidad = {
+  tasks: [
+    {
+      id: 10,
+      name: 'Programacion SCADA WinCC · Ana',
+      start: '2026-11-05',
+      end: '2026-11-11',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      title: 'Programacion SCADA WinCC',
+      assigned_to: 1,
+      assigned_name: 'Ana',
+    },
+    {
+      id: 11,
+      name: 'Montajes · Ana',
+      start: '2026-11-09',
+      end: '2026-11-12',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      title: 'Montajes',
+      assigned_to: 1,
+      assigned_name: 'Ana',
+    },
+    {
+      id: 12,
+      name: 'Planos de tuberias · Jorge',
+      start: '2026-11-03',
+      end: '2026-11-06',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-1',
+      project_id: 2,
+      project_name: 'Red de tuberias',
+      title: 'Planos de tuberias',
+      assigned_to: 2,
+      assigned_name: 'Jorge',
+    },
+    {
+      id: 13,
+      name: 'Puesta en marcha',
+      start: '2026-11-04',
+      end: '2026-11-07',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-2',
+      project_id: 2,
+      project_name: 'Red de tuberias',
+      title: 'Puesta en marcha',
+      assigned_to: null,
+      assigned_name: null,
+    },
+  ],
+  members: [
+    { user_id: 1, name: 'Ana', css_class: 'persona-0' },
+    { user_id: 2, name: 'Jorge', css_class: 'persona-1' },
+  ],
+  undated_task_ids: [],
+  unassigned_task_ids: [13],
+}
 
 function setupFetch(respuesta = feed) {
   const calls = []
@@ -431,5 +504,103 @@ describe('GanttView', () => {
 
     const svg = wrapper.find('svg.gantt')
     expect(svg.element.querySelectorAll('g.grupos line.grupo-linea').length).toBe(0)
+  })
+
+  it('el panel de visibilidad abre con las personas del diagrama', async () => {
+    setupFetch(feedVisibilidad)
+
+    const { wrapper } = await mountGantt()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="visibility-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="hide-person-1"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="hide-person-2"]').exists()).toBe(true)
+    // Ana es de Alimentacion y Jorge de Energia.
+    expect(wrapper.get('[data-testid="hide-department-1"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="hide-department-2"]').exists()).toBe(true)
+  })
+
+  it('esconder una persona quita sus barras y la quita de la leyenda', async () => {
+    setupFetch(feedVisibilidad)
+
+    const { wrapper } = await mountGantt()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await flushPromises()
+    await flushPromises()
+
+    // Se quedan las barras de Jorge y la tarea sin asignar.
+    const barras = ganttInstances[ganttInstances.length - 1].tasks
+    expect(barras.map((barra) => barra.id)).toEqual(['12', '13'])
+
+    const leyenda = wrapper.get('[data-testid="gantt-legend"]').text()
+    expect(leyenda).not.toContain('Ana')
+    expect(leyenda).toContain('Jorge')
+
+    expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('1 oculto')
+  })
+
+  it('esconder un departamento quita las barras y la leyenda de sus personas', async () => {
+    setupFetch(feedVisibilidad)
+
+    const { wrapper } = await mountGantt()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await flushPromises()
+    await flushPromises()
+
+    // Ana es del departamento 1: sus dos barras se van y las de Jorge se quedan.
+    const barras = ganttInstances[ganttInstances.length - 1].tasks
+    expect(barras.map((barra) => barra.id)).toEqual(['12', '13'])
+
+    const leyenda = wrapper.get('[data-testid="gantt-legend"]').text()
+    expect(leyenda).not.toContain('Ana')
+    expect(leyenda).toContain('Jorge')
+
+    expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('1 oculto')
+  })
+
+  it('mostrar todos devuelve las barras y la leyenda', async () => {
+    setupFetch(feedVisibilidad)
+
+    const { wrapper } = await mountGantt()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('1 oculto')
+
+    await wrapper.get('[data-testid="show-all"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const barras = ganttInstances[ganttInstances.length - 1].tasks
+    expect(barras).toHaveLength(4)
+
+    const leyenda = wrapper.get('[data-testid="gantt-legend"]').text()
+    expect(leyenda).toContain('Ana')
+    expect(leyenda).toContain('Jorge')
+
+    expect(wrapper.find('[data-testid="hidden-count"]').exists()).toBe(false)
+  })
+
+  it('esconder personas no toca la url ni vuelve a pedir el diagrama', async () => {
+    const calls = setupFetch(feedVisibilidad)
+
+    const { wrapper, router } = await mountGantt()
+
+    const peticiones = calls.filter((c) => c.url.includes('/gantt')).length
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await flushPromises()
+    await flushPromises()
+
+    expect(Object.keys(router.currentRoute.value.query)).toEqual([])
+    expect(calls.filter((c) => c.url.includes('/gantt')).length).toBe(peticiones)
   })
 })

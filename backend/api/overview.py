@@ -113,11 +113,20 @@ async def global_gantt(
     project_id: int | None = Query(
         default=None, description="Limita el diagrama a un proyecto visible"
     ),
+    department_id: int | None = Query(
+        default=None, description="Filtra por el departamento gestor del proyecto"
+    ),
+    assigned_to: int | None = Query(
+        default=None, description="Limita las barras a las tareas de esa persona"
+    ),
 ) -> GanttOut:
     """Diagrama de Gantt con las barras de todos los proyectos visibles.
 
     Cada barra lleva el proyecto al que pertenece, de modo que el frontend
-    puede agruparlas. Con project_id el diagrama se limita a un proyecto.
+    puede agruparlas. Con project_id el diagrama se limita a un proyecto, con
+    department_id a los proyectos de un departamento y con assigned_to a las
+    tareas de una persona. Los tres acotan el diagrama: nunca muestran tareas
+    de un proyecto que no tiene delante.
     """
     projects = await list_accessible_projects(session, user)
     if project_id is not None:
@@ -127,5 +136,6 @@ async def global_gantt(
                 status_code=404,
                 detail="Ese proyecto no esta entre los que puedes ver",
             )
-    feed = await load_gantt_for_projects(session, projects)
+    selected = _by_department(projects, department_id)
+    feed = await load_gantt_for_projects(session, selected, assigned_to=assigned_to)
     return GanttOut.model_validate(feed.to_dict())

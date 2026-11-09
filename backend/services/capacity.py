@@ -128,6 +128,7 @@ class PersonCapacity:
     schedules: tuple[ScheduleVersion, ...] = ()
     holidays: Mapping[date, int] = field(default_factory=dict)
     department_id: int | None = None
+    department_name: str | None = None
     job_title: str | None = None
     project_ids: tuple[int, ...] = ()
 
@@ -168,6 +169,7 @@ class UserLoad:
     weekly_base_hours: Decimal | None
     cells: tuple[WeekLoad, ...]
     department_id: int | None = None
+    department_name: str | None = None
     job_title: str | None = None
     project_ids: tuple[int, ...] = ()
 
@@ -225,6 +227,7 @@ class CapacityReport:
                     "total_hours": hours_to_json(row.total_hours),
                     "has_overload": row.has_overload,
                     "department_id": row.department_id,
+                    "department_name": row.department_name,
                     "job_title": row.job_title,
                     "project_ids": list(row.project_ids),
                     "cells": [
@@ -525,6 +528,7 @@ def build_capacity_report(
                 weekly_base_hours=person.weekly_base_hours,
                 cells=tuple(cells),
                 department_id=person.department_id,
+                department_name=person.department_name,
                 job_title=person.job_title,
                 project_ids=person.project_ids,
             )

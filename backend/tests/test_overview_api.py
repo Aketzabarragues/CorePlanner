@@ -91,6 +91,10 @@ async def _seed(session) -> dict[str, int]:
     session.add_all([automatizacion, oficina])
     await session.flush()
 
+    ana.department_id = automatizacion.id
+    jorge.department_id = oficina.id
+    await session.flush()
+
     linea = Project(
         name="Linea Pasteurizadora", status="active", department_id=automatizacion.id
     )
@@ -199,6 +203,19 @@ async def test_la_capacidad_global_suma_las_horas_de_todos_los_proyectos(client:
     data = response.json()
     assert _row(data, client.ids["ana"])["total_hours"] == 12
     assert _row(data, client.ids["jorge"])["total_hours"] == 10
+
+
+async def test_la_capacidad_global_trae_el_departamento_de_cada_persona(
+    client: AsyncClient,
+):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get("/api/capacity", headers=headers)
+
+    assert response.status_code == 200, response.text
+    filas = {fila["user_id"]: fila for fila in response.json()["rows"]}
+    assert filas[client.ids["ana"]]["department_name"] == "Automatizacion"
+    assert filas[client.ids["jorge"]]["department_name"] == "Oficina Tecnica"
 
 
 async def test_una_tarea_asignada_da_visibilidad_del_proyecto(client: AsyncClient):
@@ -373,6 +390,60 @@ async def test_el_gantt_global_oculta_un_proyecto_que_no_se_ve(client: AsyncClie
     )
 
     assert response.status_code == 404, response.text
+
+
+async def test_el_gantt_global_filtra_por_departamento(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        f"/api/gantt?department_id={client.ids['automatizacion']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    barras = response.json()["tasks"]
+    assert {barra["project_name"] for barra in barras} == {"Linea Pasteurizadora"}
+
+
+async def test_el_gantt_global_filtra_por_persona(client: AsyncClient):
+    headers = await _auth(client, "admin@example.com")
+
+    response = await client.get(
+        f"/api/gantt?assigned_to={client.ids['ana']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    barras = data["tasks"]
+    assert len(barras) == 2
+    assert {barra["assigned_name"] for barra in barras} == {"Ana"}
+    assert {miembro["name"] for miembro in data["members"]} == {"Ana"}
+
+
+async def test_el_gantt_global_con_filtros_no_amplia_el_ambito(client: AsyncClient):
+    """Filtrar no enseña trabajo de proyectos que no estan a la vista."""
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get(
+        f"/api/gantt?assigned_to={client.ids['ana']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    barras = response.json()["tasks"]
+    assert len(barras) == 1
+    assert barras[0]["title"] == "Revision de esquemas"
+
+
+async def test_el_gantt_global_no_muestra_un_departamento_que_no_se_ve(
+    client: AsyncClient,
+):
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get(
+        f"/api/gantt?department_id={client.ids['automatizacion']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["tasks"] == []
 
 
 async def test_el_listado_global_de_tareas_reune_los_proyectos_visibles(client: AsyncClient):

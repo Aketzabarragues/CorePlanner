@@ -37,6 +37,7 @@ from .schedule import (
     schedule_version,
     week_start_from_key,
 )
+from .work_calendar import department_names
 
 
 async def load_holidays(
@@ -120,6 +121,7 @@ async def load_person_capacities(
         )
 
     people: list[PersonCapacity] = []
+    names_by_department = await department_names(session)
     for user in users:
         holidays = merge_holidays(
             holidays_by_scope.get((NonWorkingDayScope.GLOBAL.value, None), {}),
@@ -143,6 +145,11 @@ async def load_person_capacities(
                 ),
                 holidays=holidays,
                 department_id=user.department_id,
+                department_name=(
+                    names_by_department.get(user.department_id)
+                    if user.department_id is not None
+                    else None
+                ),
                 job_title=user.job_title,
                 project_ids=tuple(
                     sorted(project_ids_by_user.get(user.id, ())) if project_ids_by_user else ()

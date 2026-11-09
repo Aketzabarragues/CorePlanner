@@ -20,13 +20,15 @@ from .gantt import GanttFeed, build_gantt_feed
 async def load_gantt_for_projects(
     session: AsyncSession,
     projects: Sequence[Project],
+    assigned_to: int | None = None,
 ) -> GanttFeed:
     """Diagrama de Gantt de un conjunto de proyectos.
 
     Incluye como personas a los miembros de los proyectos y a quienes tengan
     tareas en ellos, aunque no sean miembros, para que ninguna barra quede sin
     color. Las barras salen agrupadas por proyecto y, dentro de cada uno, por
-    fecha de inicio.
+    fecha de inicio. Con assigned_to solo salen las barras de esa persona y el
+    diagrama reduce su lista de personas a esa misma.
     """
     ids = {project.id for project in projects}
     names = {project.id: project.name for project in projects}
@@ -39,12 +41,16 @@ async def load_gantt_for_projects(
         )
     ).scalars().all()
 
-    tasks = (
-        await session.execute(select(Task).where(Task.project_id.in_(ids)))
-    ).scalars().all()
+    task_query = select(Task).where(Task.project_id.in_(ids))
+    if assigned_to is not None:
+        task_query = task_query.where(Task.assigned_to == assigned_to)
+    tasks = (await session.execute(task_query)).scalars().all()
 
     assignee_ids = {task.assigned_to for task in tasks if task.assigned_to is not None}
-    wanted_ids = set(member_ids) | assignee_ids
+    if assigned_to is not None:
+        wanted_ids = {assigned_to}
+    else:
+        wanted_ids = set(member_ids) | assignee_ids
 
     users = (
         await session.execute(select(User).where(User.id.in_(wanted_ids)))

@@ -288,6 +288,33 @@ describe('SettingsView', () => {
     expect(wrapper.text()).toContain('Automatización & SCADA')
   })
 
+  it('la lista de personas comparte el lenguaje visual del directorio', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-people"]').trigger('click')
+    await flushPromises()
+
+    const tabla = wrapper.find('table')
+    expect(tabla.exists()).toBe(true)
+
+    // Mismo contenedor, misma cabecera y mismos separadores que el directorio.
+    const contenedor = tabla.element.closest('div')
+    expect(contenedor.className).toContain('border-slate-200')
+    expect(contenedor.className).toContain('bg-white')
+
+    const cabecera = tabla.find('thead')
+    expect(cabecera.classes()).toContain('bg-slate-50')
+    expect(cabecera.classes()).toContain('uppercase')
+    expect(cabecera.classes()).toContain('tracking-wide')
+    expect(tabla.find('tbody').classes()).toContain('divide-y')
+
+    // El avatar de iniciales es el mismo circulo que en el directorio.
+    const avatar = wrapper.find('[data-testid="person-row"] .rounded-full')
+    expect(avatar.exists()).toBe(true)
+    expect(avatar.classes()).toContain('bg-siemens-900')
+    expect(avatar.text()).not.toBe('')
+  })
+
   it('cambia de pestana y muestra los departamentos', async () => {
     const wrapper = await mountView()
 

@@ -10,6 +10,8 @@
  */
 import { computed } from 'vue'
 
+import { initials } from '../../utils/people'
+
 const props = defineProps({
   people: { type: Array, required: true },
   skills: { type: Array, required: true },
@@ -19,17 +21,6 @@ const props = defineProps({
 function levelOf(person, skillId) {
   const found = person.skills.find((item) => item.skill_id === skillId)
   return found ? found.level : 0
-}
-
-/** Iniciales de la persona, para la cabecera de la columna. */
-function initials(name) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
 }
 
 const rows = computed(() =>

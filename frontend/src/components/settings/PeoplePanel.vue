@@ -10,6 +10,7 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import { initials } from '../../utils/people'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
 
@@ -122,59 +123,59 @@ async function save() {
       </button>
     </div>
 
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 text-left">
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Nombre
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Rol
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Puesto
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Departamento
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Contrato
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Horas
-          </th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="person in props.people" :key="person.id" class="border-b border-slate-100">
-          <td class="px-2 py-2">
-            <span class="block font-medium text-siemens-900">{{ person.name }}</span>
-            <span class="block text-xs text-slate-500">{{ person.email }}</span>
-          </td>
-          <td class="px-2 py-2 text-slate-600">{{ person.company_role_label }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ person.job_title ?? '—' }}</td>
-          <td class="px-2 py-2 text-slate-600">
-            {{ person.department_name ?? 'Sin departamento' }}
-          </td>
-          <td class="px-2 py-2 text-slate-600">{{ person.employment_type_label }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ person.weekly_base_hours }} h</td>
-          <td class="px-2 py-2 text-right">
-            <button
-              type="button"
-              class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-              @click="edit(person)"
-            >
-              Editar
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p v-if="!props.people.length" class="text-sm text-slate-500">
-      No hay personas en la organización.
-    </p>
+    <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-2 py-2 font-medium">Nombre</th>
+            <th class="px-2 py-2 font-medium">Rol</th>
+            <th class="px-2 py-2 font-medium">Puesto</th>
+            <th class="px-2 py-2 font-medium">Departamento</th>
+            <th class="px-2 py-2 font-medium">Contrato</th>
+            <th class="px-2 py-2 font-medium">Horas</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
+            <td class="px-2 py-2">
+              <div class="flex items-center gap-2">
+                <span
+                  class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-siemens-900 text-xs font-semibold text-white"
+                >
+                  {{ initials(person.name) }}
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate font-medium text-slate-900">{{ person.name }}</span>
+                  <span class="block truncate text-xs text-slate-500">{{ person.email }}</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-2 py-2 text-slate-600">{{ person.company_role_label }}</td>
+            <td class="px-2 py-2 text-slate-600">{{ person.job_title ?? '—' }}</td>
+            <td class="px-2 py-2 text-slate-600">
+              {{ person.department_name ?? 'Sin departamento' }}
+            </td>
+            <td class="px-2 py-2 text-slate-600">{{ person.employment_type_label }}</td>
+            <td class="px-2 py-2 text-slate-600">{{ person.weekly_base_hours }} h</td>
+            <td class="px-2 py-2 text-right">
+              <button
+                type="button"
+                class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
+                @click="edit(person)"
+              >
+                Editar
+              </button>
+            </td>
+          </tr>
+          <tr v-if="!props.people.length">
+            <td colspan="7" class="px-3 py-6 text-center text-sm text-slate-500">
+              No hay personas en la organización.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <ModalDialog
       :open="formOpen"

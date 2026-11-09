@@ -7,6 +7,8 @@
  */
 import { computed } from 'vue'
 
+import { initials } from '../../utils/people'
+
 const props = defineProps({
   people: { type: Array, required: true },
   week: { type: String, required: true },
@@ -24,17 +26,6 @@ function weekdayChips(schedule) {
     hours: schedule.hours[index],
     active: schedule.hours[index] > 0,
   }))
-}
-
-/** Iniciales de la persona, para el avatar. */
-function initials(name) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
 }
 
 const hasLoad = computed(() => props.people.some((person) => person.hours !== null))

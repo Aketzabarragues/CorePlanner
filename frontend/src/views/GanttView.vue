@@ -153,19 +153,23 @@ const iniciosDeGrupo = computed(() => {
 /**
  * Etiqueta de una barra.
  *
- * El nombre del grupo encabeza la barra. El proyecto y la persona se mantienen
- * porque son datos distintos del grupo, salvo que ya sean el grupo o la
- * persona, en cuyo caso no se repiten.
+ * El nombre del grupo encabeza su bloque: solo lo lleva la primera barra del
+ * grupo, de modo que se lee como una cabecera y no se repite en cada barra.
+ * El proyecto y la persona se mantienen porque son datos distintos del grupo,
+ * salvo que ya sean el grupo o la persona, en cuyo caso no se repiten.
  */
-function etiqueta(task, grupo) {
+function etiqueta(task, grupo, esCabecera) {
+  const proyecto = task.project_name
+  const persona = task.assigned_name
+  const titulo = task.title ?? task.name ?? ''
   const partes = []
-  if (grupo) partes.push(grupo)
-  if (task.project_name && groupBy.value !== 'proyecto') {
-    partes.push(task.project_name)
+  if (grupo && esCabecera) partes.push(grupo)
+  if (proyecto && !(grupo && esCabecera && grupo === proyecto)) {
+    partes.push(proyecto)
   }
-  partes.push(task.title ?? task.name ?? '')
-  if (task.assigned_name && groupBy.value !== 'persona') {
-    partes.push(task.assigned_name)
+  partes.push(titulo)
+  if (persona && !(grupo && esCabecera && grupo === persona)) {
+    partes.push(persona)
   }
   return partes.filter(Boolean).join(' · ')
 }
@@ -179,10 +183,14 @@ function etiqueta(task, grupo) {
  * cosas coinciden y el arrastre encuentra su barra.
  */
 function toBarTasks(items) {
-  return items.map(({ task, grupo }) => ({
-    ...task,
-    id: String(task.id),
-    name: etiqueta(task, grupo),
+  return items.map((item, indice) => ({
+    ...item.task,
+    id: String(item.task.id),
+    name: etiqueta(
+      item.task,
+      item.grupo,
+      indice === 0 || items[indice - 1].grupo !== item.grupo,
+    ),
   }))
 }
 

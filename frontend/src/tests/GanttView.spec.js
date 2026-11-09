@@ -67,6 +67,20 @@ const feed = {
       assigned_to: 2,
       assigned_name: 'Jorge',
     },
+    {
+      id: 11,
+      name: 'Montajes · Ana',
+      start: '2026-11-09',
+      end: '2026-11-12',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      title: 'Montajes',
+      assigned_to: 1,
+      assigned_name: 'Ana',
+    },
   ],
   members: [{ user_id: 1, name: 'Ana', css_class: 'persona-0' }],
   undated_task_ids: [11],
@@ -233,7 +247,7 @@ describe('GanttView', () => {
     await mountGantt()
 
     expect(ganttInstances).toHaveLength(1)
-    expect(ganttInstances[0].tasks).toHaveLength(2)
+    expect(ganttInstances[0].tasks).toHaveLength(3)
     expect(ganttInstances[0].tasks[0].custom_class).toBe('persona-0')
   })
 
@@ -314,7 +328,22 @@ describe('GanttView', () => {
 
     const barras = ganttInstances[0].tasks
     expect(barras[0].name).toContain('Linea Pasteurizadora SIVE')
-    expect(barras[1].name).toContain('Red de tuberias')
+    expect(barras[1].name).toContain('Montajes')
+    expect(barras[2].name).toContain('Red de tuberias')
+  })
+
+  it('el nombre del grupo solo encabeza su bloque', async () => {
+    setupFetch()
+
+    await mountGantt({ group: 'departamento' })
+
+    const barras = ganttInstances[0].tasks
+    // La primera barra del bloque lleva el nombre del grupo...
+    expect(barras[0].name).toBe(
+      'Alimentacion · Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana',
+    )
+    // ...las demas no lo repiten, aunque si mantienen su proyecto.
+    expect(barras[1].name).toBe('Linea Pasteurizadora SIVE · Montajes · Ana')
   })
 
   it('agrupar por departamento cambia el encabezado de las barras', async () => {
@@ -323,8 +352,11 @@ describe('GanttView', () => {
     await mountGantt({ group: 'departamento' })
 
     const barras = ganttInstances[0].tasks
-    expect(barras[0].name).toBe('Alimentacion · Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
-    expect(barras[1].name).toBe('Energia · Red de tuberias · Planos de tuberias · Jorge')
+    expect(barras[0].name).toBe(
+      'Alimentacion · Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana',
+    )
+    expect(barras[1].name).toBe('Linea Pasteurizadora SIVE · Montajes · Ana')
+    expect(barras[2].name).toBe('Energia · Red de tuberias · Planos de tuberias · Jorge')
   })
 
   it('agrupar por persona cambia el encabezado de las barras', async () => {
@@ -334,6 +366,7 @@ describe('GanttView', () => {
 
     const barras = ganttInstances[0].tasks
     expect(barras[0].name).toBe('Ana · Linea Pasteurizadora SIVE · Programacion SCADA WinCC')
+    expect(barras[2].name).toBe('Jorge · Red de tuberias · Planos de tuberias')
   })
 
   it('pinta una franja divisoria por grupo', async () => {

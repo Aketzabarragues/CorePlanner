@@ -12,19 +12,27 @@
  * es el detalle de un solo dia, y se abre al pulsar un dia de cualquiera de
  * las dos.
  *
- * Es de toda la organizacion y el proyecto es un filtro (`?project=`): con
- * filtro, solo salen las tareas de ese proyecto.
+ * Es de toda la organizacion y los filtros son de presentacion: acotan lo que
+ * ya esta cargado, no lo que la persona puede ver. Los tres viven en la URL
+ * (`?department=`, `?project=` y `?assigned_to=`), de modo que la vista
+ * abierta se puede compartir tal cual.
+ *
+ * Al pulsar una tarea se abre su detalle en el mismo panel que usa el Tablero.
+ * Quien no puede escribir en ese proyecto lo ve en solo lectura.
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
-import { calendarApi, overviewApi } from '../api/client'
+import { calendarApi, meApi, overviewApi, peopleApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import TaskDetailPanel from '../components/TaskDetailPanel.vue'
 import { useAuthStore } from '../stores/auth'
+import { useProjectsStore } from '../stores/projects'
 import {
   currentMonthKey,
   localDateKey,
@@ -46,6 +54,8 @@ import {
 
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
+const store = useProjectsStore()
 
 const view = ref('month')
 const month = ref(currentMonthKey())
@@ -55,11 +65,48 @@ const tasks = ref([])
 const members = ref([])
 const undatedTaskIds = ref([])
 const nonWorkingDays = ref([])
+const people = ref([])
 const error = ref(null)
 const loading = ref(true)
+/** Ambito de quien entra: rol y proyectos en los que puede escribir. */
+const scope = ref(null)
+/** Tarea abierta en el panel de detalle. */
+const selectedTaskId = ref(null)
+
+const query = computed(() => route.query ?? {})
+
+/**
+ * Escribe los filtros en la URL.
+ *
+ * Los valores vacios se quitan: una URL con los filtros puestos es la que se
+ * copia para compartir la vista.
+ */
+async function updateQuery(patch) {
+  const next = { ...query.value }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === '' || value === null || value === undefined) delete next[key]
+    else next[key] = String(value)
+  }
+  await router.replace({ query: next })
+}
 
 /** Proyecto que filtra el calendario. */
-const projectFilter = computed(() => route.query.project ?? '')
+const projectFilter = computed({
+  get: () => query.value.project ?? '',
+  set: (value) => updateQuery({ project: value }),
+})
+
+/** Departamento que filtra el calendario: el que gestiona cada proyecto. */
+const departmentFilter = computed({
+  get: () => query.value.department ?? '',
+  set: (value) => updateQuery({ department: value }),
+})
+
+/** Persona que filtra el calendario: la que tiene la tarea asignada. */
+const assignedToFilter = computed({
+  get: () => query.value.assigned_to ?? '',
+  set: (value) => updateQuery({ assigned_to: value }),
+})
 
 /** Lo que se lee encima del calendario: con filtro, solo sale ese proyecto. */
 const subtitle = computed(() =>
@@ -81,6 +128,61 @@ const dayTabClass = computed(() =>
 
 const weeks = computed(() => monthGrid(month.value))
 
+/** Departamento que gestiona cada proyecto visible. */
+const departmentByProject = computed(() => {
+  const map = new Map()
+  for (const project of store.projects) {
+    if (project.department_id === null || project.department_id === undefined) continue
+    map.set(Number(project.id), Number(project.department_id))
+  }
+  return map
+})
+
+/**
+ * Tareas que pasan los tres filtros.
+ *
+ * Los filtros se combinan: una tarea sale solo si cumple los tres. El
+ * departamento se acota con el que gestiona cada proyecto; si esa lista no se
+ * ha podido leer, el filtro se deja al servidor, que ya lo aplico.
+ */
+const visibleTasks = computed(() =>
+  tasks.value.filter((task) => {
+    if (projectFilter.value && String(task.project_id) !== String(projectFilter.value)) {
+      return false
+    }
+    if (assignedToFilter.value && String(task.assigned_to ?? '') !== String(assignedToFilter.value)) {
+      return false
+    }
+    if (departmentFilter.value && departmentByProject.value.size) {
+      const department = departmentByProject.value.get(Number(task.project_id))
+      if (String(department ?? '') !== String(departmentFilter.value)) return false
+    }
+    return true
+  }),
+)
+
+/** Si hay algun filtro puesto. */
+const hayFiltros = computed(
+  () => Boolean(projectFilter.value || departmentFilter.value || assignedToFilter.value),
+)
+
+/** Tarea abierta en el panel de detalle. */
+const selectedTask = computed(
+  () => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null,
+)
+
+/**
+ * Si se puede escribir en la tarea abierta.
+ *
+ * Es el mismo criterio que usa el Tablero: el proyecto tiene que estar entre
+ * los editables de quien entra. Sin ambito no hay permiso.
+ */
+const canEditSelected = computed(() => {
+  const editable = scope.value?.editable_project_ids
+  if (!editable || !selectedTask.value) return false
+  return editable.includes(Number(selectedTask.value.project_id))
+})
+
 /**
  * Tareas de cada dia de la rejilla.
  *
@@ -90,7 +192,7 @@ const weeks = computed(() => monthGrid(month.value))
 const tasksByDay = computed(() => {
   const map = new Map()
   for (const cell of weeks.value.flat()) {
-    map.set(cell.date, tasksOnDay(tasks.value, cell.date))
+    map.set(cell.date, tasksOnDay(visibleTasks.value, cell.date))
   }
   return map
 })
@@ -109,15 +211,27 @@ const nonWorkingByDate = computed(() => {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    const params = projectFilter.value ? { project_id: projectFilter.value } : {}
-    const [feed, days] = await Promise.all([
+    const params = {}
+    if (projectFilter.value) params.project_id = projectFilter.value
+    if (departmentFilter.value) params.department_id = departmentFilter.value
+    if (assignedToFilter.value) params.assigned_to = assignedToFilter.value
+    const [feed, days, ambito, directorio] = await Promise.all([
       overviewApi.gantt(token, params),
       calendarApi.list(token),
+      // El ambito va aparte: si no se puede leer, la tarea se abre en solo
+      // lectura, pero se abre.
+      meApi.get(token).catch(() => null),
+      peopleApi.list(token).catch(() => []),
     ])
     tasks.value = feed.tasks ?? []
     members.value = feed.members ?? []
     undatedTaskIds.value = feed.undated_task_ids ?? []
     nonWorkingDays.value = days ?? []
+    scope.value = ambito
+    people.value = directorio ?? []
+    // Los proyectos y los departamentos de los filtros son opcionales: si no
+    // se pueden leer, el calendario sigue en pie.
+    await store.ensureProjects(token).catch(() => [])
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -168,6 +282,17 @@ function openDay(date) {
   view.value = 'day'
 }
 
+/** Abre el detalle de una tarea. */
+function openTask(taskId) {
+  selectedTaskId.value = taskId
+}
+
+/** Cierra el panel de detalle y vuelve a pintar el calendario. */
+function onTaskDeleted() {
+  selectedTaskId.value = null
+  load()
+}
+
 function goToday() {
   month.value = currentMonthKey()
   week.value = currentWeekKey()
@@ -184,7 +309,7 @@ onMounted(load)
 useTaskReload(load)
 
 watch(
-  () => route.query.project,
+  () => [route.query.project, route.query.department, route.query.assigned_to],
   async () => {
     loading.value = true
     await load()
@@ -284,6 +409,69 @@ watch(
       loading-label="Cargando el calendario"
       @retry="reintentar"
     >
+      <div class="mb-4 flex flex-wrap items-end gap-2">
+        <label
+          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+        >
+          <span class="text-xs uppercase tracking-wide text-slate-500">Departamento</span>
+          <select
+            v-model="departmentFilter"
+            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            data-testid="filter-department"
+          >
+            <option value="">Todos los departamentos</option>
+            <option
+              v-for="department in store.departments"
+              :key="department.id"
+              :value="String(department.id)"
+            >
+              {{ department.name }}
+            </option>
+          </select>
+        </label>
+
+        <label
+          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+        >
+          <span class="text-xs uppercase tracking-wide text-slate-500">Proyecto</span>
+          <select
+            v-model="projectFilter"
+            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            data-testid="filter-project"
+          >
+            <option value="">Todos los proyectos</option>
+            <option v-for="project in store.projects" :key="project.id" :value="String(project.id)">
+              {{ project.name }}
+            </option>
+          </select>
+        </label>
+
+        <label
+          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+        >
+          <span class="text-xs uppercase tracking-wide text-slate-500">Persona</span>
+          <select
+            v-model="assignedToFilter"
+            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            data-testid="filter-person"
+          >
+            <option value="">Todas las personas</option>
+            <option v-for="person in people" :key="person.id" :value="String(person.id)">
+              {{ person.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <AlertBanner
+        v-if="hayFiltros && !visibleTasks.length"
+        variant="info"
+        class="mb-3"
+        data-testid="calendar-no-match"
+      >
+        Ninguna tarea coincide con los filtros.
+      </AlertBanner>
+
       <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
         <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
           <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
@@ -374,10 +562,11 @@ watch(
                     <div
                       v-for="task in tasksByDay.get(cell.date) ?? []"
                       :key="task.id"
-                      class="truncate rounded px-1.5 py-0.5 text-[11px] text-white"
+                      class="cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] text-white"
                       :class="task.custom_class || 'bg-slate-500'"
                       :title="`${task.title} · ${task.assigned_name ?? 'sin asignar'} · ${task.project_name}`"
                       data-testid="calendar-task"
+                      @click="openTask(task.id)"
                     >
                       {{ task.title }}
                     </div>
@@ -392,16 +581,18 @@ watch(
       <WeekGrid
         v-else-if="view === 'week'"
         :week-key="week"
-        :tasks="tasks"
+        :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
         @open-day="openDay"
+        @open-task="openTask"
       />
 
       <DayDetail
         v-else
         :date="day"
-        :tasks="tasks"
+        :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
+        @open-task="openTask"
       />
 
       <p class="mt-3 text-xs text-slate-500">
@@ -409,5 +600,18 @@ watch(
         horas entre días laborables. El fin de semana queda vacío.
       </p>
     </AsyncState>
+
+    <!--
+      Detalle de la tarea abierta al pulsarla en cualquiera de las tres vistas.
+      Sin permiso de escritura en su proyecto, el panel se ve en solo lectura.
+    -->
+    <TaskDetailPanel
+      :open="selectedTaskId !== null"
+      :task-id="selectedTaskId"
+      :can-edit="canEditSelected"
+      @close="selectedTaskId = null"
+      @saved="load"
+      @deleted="onTaskDeleted"
+    />
   </div>
 </template>

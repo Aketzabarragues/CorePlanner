@@ -3,6 +3,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import DayDetail from '../components/DayDetail.vue'
+import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import WeekGrid from '../components/WeekGrid.vue'
 import CalendarView from '../views/CalendarView.vue'
 
 const feed = {
@@ -68,7 +71,79 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch({ payload = feed, dias = diasNoLaborables } = {}) {
+/** Ambito de quien entra: los proyectos en los que puede escribir. */
+const AMBITO = {
+  user: { id: 9, name: 'Admin' },
+  role_label: 'Gerente',
+  is_manager: true,
+  department_name: null,
+  visible_project_ids: [1, 2],
+  editable_project_ids: [1, 2],
+}
+
+/** Directorio de personas visibles. */
+const DIRECTORIO = [
+  {
+    id: 2,
+    name: 'Ana',
+    email: 'ana@example.com',
+    company_role: 'tecnico',
+    company_role_label: 'Tecnico',
+    employment_type: 'plantilla',
+    employment_type_label: 'Plantilla',
+    department_id: 1,
+    department_name: 'Automatizacion & SCADA',
+  },
+]
+
+/** Proyectos visibles con el departamento que los gestiona. */
+const PROYECTOS = [
+  {
+    id: 1,
+    name: 'Linea Pasteurizadora SIVE',
+    status: 'active',
+    parent_id: null,
+    department_id: 1,
+    owner_id: 9,
+    owner_name: 'Admin',
+  },
+  {
+    id: 2,
+    name: 'Red de tuberias linea 2',
+    status: 'active',
+    parent_id: null,
+    department_id: 2,
+    owner_id: 9,
+    owner_name: 'Admin',
+  },
+]
+
+const DEPARTAMENTOS = [
+  { id: 1, name: 'Automatizacion & SCADA' },
+  { id: 2, name: 'Oficina Tecnica / EPLAN' },
+]
+
+/** Detalle de la tarea que pide el panel de detalle. */
+const DETALLE_TAREA = {
+  id: 1,
+  title: 'Programacion SCADA',
+  assigned_to: 2,
+  status: 'in_progress',
+  start_date: '2026-11-02',
+  end_date: '2026-11-06',
+  estimated_hours: 8,
+  description: '',
+  project_id: 1,
+}
+
+function setupFetch({
+  payload = feed,
+  dias = diasNoLaborables,
+  ambito = null,
+  directorio = null,
+  proyectos = null,
+  departamentos = null,
+} = {}) {
   const calls = []
   global.fetch = vi.fn(async (url) => {
     calls.push({ url })
@@ -81,9 +156,43 @@ function setupFetch({ payload = feed, dias = diasNoLaborables } = {}) {
     }
     if (url.includes('/gantt')) return jsonResponse(payload)
     if (url.endsWith('/non-working-days')) return jsonResponse(dias)
+    if (url.endsWith('/api/me')) {
+      return ambito ? jsonResponse(ambito) : jsonResponse({ detail: 'no encontrado' }, false, 404)
+    }
+    if (url.endsWith('/api/people')) {
+      return directorio
+        ? jsonResponse(directorio)
+        : jsonResponse({ detail: 'no encontrado' }, false, 404)
+    }
+    if (url.endsWith('/api/projects')) {
+      return proyectos ? jsonResponse(proyectos) : jsonResponse({ detail: 'no encontrado' }, false, 404)
+    }
+    if (url.endsWith('/api/departments')) {
+      return departamentos
+        ? jsonResponse(departamentos)
+        : jsonResponse({ detail: 'no encontrado' }, false, 404)
+    }
+    if (url.includes('/activity')) return jsonResponse({ items: [] })
+    if (/\/tasks\/\d+\/comments$/.test(url)) return jsonResponse([])
+    if (/\/tasks\/\d+\/checklist$/.test(url)) return jsonResponse([])
+    if (/\/tasks\/\d+$/.test(url)) return jsonResponse(DETALLE_TAREA)
+    if (/\/projects\/\d+\/members$/.test(url)) return jsonResponse([])
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
   return calls
+}
+
+/** URL de la ultima peticion del feed de Gantt. */
+function ultimaUrlGantt(calls) {
+  const urls = calls.filter((call) => call.url.includes('/gantt')).map((call) => call.url)
+  return urls[urls.length - 1]
+}
+
+/** Deja que terminen las peticiones y las recargas que encadenan. */
+async function settle() {
+  await flushPromises()
+  await flushPromises()
+  await flushPromises()
 }
 
 /**
@@ -401,5 +510,283 @@ describe('CalendarView en modo dia', () => {
     await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
 
     expect(wrapper.find('[data-testid="day-view"]').text()).toContain('Fiesta local')
+  })
+})
+
+describe('CalendarView con el detalle de la tarea', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('al pulsar una tarea de la rejilla se abre su detalle', async () => {
+    setupFetch({ ambito: AMBITO })
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+
+    const panel = wrapper.findComponent(TaskDetailPanel)
+    expect(panel.props('open')).toBe(true)
+    expect(panel.props('taskId')).toBe(1)
+    expect(wrapper.find('[data-testid="task-panel"]').exists()).toBe(true)
+  })
+
+  it('una tarea de un proyecto editable se abre con permiso de escritura', async () => {
+    setupFetch({ ambito: { ...AMBITO, editable_project_ids: [1] } })
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(true)
+  })
+
+  it('una tarea de un proyecto que no se puede editar se abre en solo lectura', async () => {
+    setupFetch({ ambito: { ...AMBITO, editable_project_ids: [2] } })
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(false)
+  })
+
+  it('sin ambito la tarea se abre igual, pero en solo lectura', async () => {
+    setupFetch()
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(false)
+  })
+
+  it('al guardar en el panel el calendario se recarga', async () => {
+    const calls = setupFetch({ ambito: AMBITO })
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+    const antes = calls.filter((call) => call.url.includes('/gantt')).length
+
+    wrapper.findComponent(TaskDetailPanel).vm.$emit('saved')
+    await settle()
+
+    expect(calls.filter((call) => call.url.includes('/gantt')).length).toBe(antes + 1)
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+  })
+
+  it('al borrar en el panel el calendario se recarga y el panel se cierra', async () => {
+    const calls = setupFetch({ ambito: AMBITO })
+    const { wrapper } = await mountView()
+
+    await wrapper
+      .find('[data-testid="calendar-cell-2026-11-02"] [data-testid="calendar-task"]')
+      .trigger('click')
+    const antes = calls.filter((call) => call.url.includes('/gantt')).length
+
+    wrapper.findComponent(TaskDetailPanel).vm.$emit('deleted')
+    await settle()
+
+    expect(calls.filter((call) => call.url.includes('/gantt')).length).toBe(antes + 1)
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+  })
+
+  it('la tarea de la vista semanal tambien abre su detalle', async () => {
+    setupFetch({ ambito: AMBITO })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await wrapper.find('[data-testid="week-task"]').trigger('click')
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailPanel).props('taskId')).toBe(1)
+  })
+
+  it('la tarea de la vista de dia tambien abre su detalle', async () => {
+    setupFetch({ ambito: AMBITO })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="calendar-day-2026-11-09"]').trigger('click')
+    await wrapper.find('[data-testid="day-task"]').trigger('click')
+
+    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailPanel).props('taskId')).toBe(2)
+  })
+})
+
+describe('CalendarView con filtros', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('los filtros ofrecen los departamentos, proyectos y personas visibles', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    const opciones = (testid) =>
+      wrapper.find(`[data-testid="${testid}"]`).findAll('option').map((option) => option.text())
+
+    expect(opciones('filter-department')).toEqual([
+      'Todos los departamentos',
+      'Automatizacion & SCADA',
+      'Oficina Tecnica / EPLAN',
+    ])
+    expect(opciones('filter-project')).toEqual([
+      'Todos los proyectos',
+      'Linea Pasteurizadora SIVE',
+      'Red de tuberias linea 2',
+    ])
+    expect(opciones('filter-person')).toEqual(['Todas las personas', 'Ana'])
+  })
+
+  it('el filtro de departamento acota las tareas que se ven', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    // Sin filtros: la primera tarea ocupa cinco dias y la segunda dos.
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(7)
+
+    await wrapper.find('[data-testid="filter-department"]').setValue('2')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="filter-department"]').setValue('')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(7)
+  })
+
+  it('el filtro de proyecto acota las tareas que se ven', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="filter-project"]').setValue('2')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="filter-project"]').setValue('')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(7)
+  })
+
+  it('el filtro de persona acota las tareas que se ven', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="filter-person"]').setValue('2')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(5)
+
+    await wrapper.find('[data-testid="filter-person"]').setValue('')
+    await settle()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(7)
+  })
+
+  it('los filtros se combinan y avisan cuando no queda ninguna tarea', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView({ department: '1', project: '2' })
+
+    // La primera tarea es del proyecto 1 y la segunda del 2: juntos no dejan
+    // ninguna.
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="calendar-no-match"]').exists()).toBe(true)
+  })
+
+  it('los filtros van al backend en la peticion del feed', async () => {
+    const calls = setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+
+    await mountView({ department: '1', assigned_to: '2' })
+
+    const url = ultimaUrlGantt(calls)
+    expect(url).toContain('department_id=1')
+    expect(url).toContain('assigned_to=2')
+  })
+
+  it('los filtros se quedan en la URL', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('[data-testid="filter-person"]').setValue('2')
+    await settle()
+
+    expect(router.currentRoute.value.query.assigned_to).toBe('2')
+  })
+})
+
+describe('WeekGrid y DayDetail', () => {
+  it('la rejilla semanal emite el id de la tarea pulsada', async () => {
+    const wrapper = mount(WeekGrid, {
+      props: { weekKey: '2026-W45', tasks: feed.tasks, nonWorkingDays: [] },
+    })
+
+    await wrapper.find('[data-testid="week-task"]').trigger('click')
+
+    expect(wrapper.emitted('open-task')[0]).toEqual([1])
+  })
+
+  it('el detalle del dia emite el id de la tarea pulsada', async () => {
+    const wrapper = mount(DayDetail, {
+      props: { date: '2026-11-02', tasks: feed.tasks, nonWorkingDays: [] },
+    })
+
+    await wrapper.find('[data-testid="day-task"]').trigger('click')
+
+    expect(wrapper.emitted('open-task')[0]).toEqual([1])
   })
 })

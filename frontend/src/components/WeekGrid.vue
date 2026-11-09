@@ -8,6 +8,9 @@
  *
  * Las tareas se muestran con mas detalle que en la vista mensual: titulo,
  * persona, estado y las fechas completas.
+ *
+ * Al pulsar una tarea se emite su identificador con `open-task` para que la
+ * vista que la contiene abra su detalle.
  */
 import { computed } from 'vue'
 
@@ -21,7 +24,7 @@ const props = defineProps({
   nonWorkingDays: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['open-day'])
+const emit = defineEmits(['open-day', 'open-task'])
 
 const days = computed(() => weekWorkdays(props.weekKey))
 const names = computed(() => weekdayNames().slice(0, 5))
@@ -110,10 +113,11 @@ const nonWorkingByDate = computed(() => {
               <div
                 v-for="task in tasksByDay.get(day.date) ?? []"
                 :key="task.id"
-                class="rounded px-2 py-1 text-[11px] text-white"
+                class="cursor-pointer rounded px-2 py-1 text-[11px] text-white"
                 :class="task.custom_class || 'bg-slate-500'"
                 :title="`${task.title} · ${task.assigned_name ?? 'sin asignar'} · ${task.project_name} · ${task.start} - ${task.end}`"
                 data-testid="week-task"
+                @click="emit('open-task', task.id)"
               >
                 <span class="block font-medium">{{ task.title }}</span>
                 <span class="block opacity-90">

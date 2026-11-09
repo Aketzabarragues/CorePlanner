@@ -5,6 +5,9 @@
  * Lo que ocupa un solo dia: que tareas hay, quien las lleva y en que estado.
  * Es la vista a la que se llega al pulsar un dia del mes o de la semana, donde
  * no cabria mostrarlo todo.
+ *
+ * Al pulsar una tarea se emite su identificador con `open-task` para que la
+ * vista que la contiene abra su detalle.
  */
 import { computed } from 'vue'
 
@@ -16,6 +19,8 @@ const props = defineProps({
   tasks: { type: Array, default: () => [] },
   nonWorkingDays: { type: Array, default: () => [] },
 })
+
+const emit = defineEmits(['open-task'])
 
 const label = computed(() => longDateLabel(props.date))
 
@@ -54,8 +59,9 @@ function nonWorkingClass(scope) {
       <li
         v-for="task in dayTasks"
         :key="task.id"
-        class="flex items-start gap-3 px-4 py-3"
+        class="cursor-pointer flex items-start gap-3 px-4 py-3"
         data-testid="day-task"
+        @click="emit('open-task', task.id)"
       >
         <span :class="['mt-1 h-3 w-3 shrink-0 rounded-sm', task.custom_class || 'bg-slate-400']" />
         <div class="min-w-0 flex-1">

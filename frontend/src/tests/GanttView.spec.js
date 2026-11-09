@@ -5,6 +5,15 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 const ganttInstances = []
 
+/**
+ * Dibuja el mismo esqueleto que la libreria: un SVG con la capa de la
+ * rejilla. Es lo que necesita la franja divisoria para colocarse.
+ */
+function pintarSvg(container) {
+  container.innerHTML =
+    '<svg class="gantt"><g class="grid"><rect class="grid-row" width="700"></rect></g></svg>'
+}
+
 vi.mock('frappe-gantt', () => {
   return {
     default: class FakeGantt {
@@ -14,10 +23,13 @@ vi.mock('frappe-gantt', () => {
         this.options = options
         this.modes = []
         ganttInstances.push(this)
+        pintarSvg(container)
       }
 
       change_view_mode(mode) {
         this.modes.push(mode)
+        // El cambio de escala redibuja el SVG y deja la capa de grupos fuera.
+        pintarSvg(this.container)
       }
     },
   }
@@ -37,6 +49,23 @@ const feed = {
       custom_class: 'persona-0',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
+      title: 'Programacion SCADA WinCC',
+      assigned_to: 1,
+      assigned_name: 'Ana',
+    },
+    {
+      id: 12,
+      name: 'Planos de tuberias · Jorge',
+      start: '2026-11-03',
+      end: '2026-11-06',
+      progress: 0,
+      dependencies: '',
+      custom_class: 'persona-1',
+      project_id: 2,
+      project_name: 'Red de tuberias',
+      title: 'Planos de tuberias',
+      assigned_to: 2,
+      assigned_name: 'Jorge',
     },
   ],
   members: [{ user_id: 1, name: 'Ana', css_class: 'persona-0' }],
@@ -44,7 +73,22 @@ const feed = {
   unassigned_task_ids: [],
 }
 
-function setupFetch() {
+const proyectos = [
+  { id: 1, name: 'Linea Pasteurizadora SIVE', department_id: 1 },
+  { id: 2, name: 'Red de tuberias', department_id: 2 },
+]
+
+const departamentos = [
+  { id: 1, name: 'Alimentacion' },
+  { id: 2, name: 'Energia' },
+]
+
+const directorio = [
+  { id: 1, name: 'Ana', department_id: 1 },
+  { id: 2, name: 'Jorge', department_id: 2 },
+]
+
+function setupFetch(respuesta = feed) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -56,7 +100,16 @@ function setupFetch() {
       }
     }
     if (url.includes('/gantt')) {
-      return { ok: true, status: 200, json: async () => feed }
+      return { ok: true, status: 200, json: async () => respuesta }
+    }
+    if (url.includes('/people')) {
+      return { ok: true, status: 200, json: async () => directorio }
+    }
+    if (url.includes('/projects')) {
+      return { ok: true, status: 200, json: async () => proyectos }
+    }
+    if (url.includes('/departments')) {
+      return { ok: true, status: 200, json: async () => departamentos }
     }
     return { ok: true, status: 200, json: async () => ({}) }
   })
@@ -80,6 +133,7 @@ async function mountGantt(query = {}) {
   const wrapper = mount(GanttView, {
     global: { plugins: [createPinia(), router] },
   })
+  await flushPromises()
   await flushPromises()
   await flushPromises()
   return { wrapper, router }
@@ -111,6 +165,15 @@ describe('GanttView', () => {
     expect(call.url).toBe('/api/gantt?project_id=2')
   })
 
+  it('con los tres filtros los pide juntos', async () => {
+    const calls = setupFetch()
+
+    await mountGantt({ department: '2', project: '3', assigned_to: '5' })
+
+    const call = calls.find((c) => c.url.includes('/gantt'))
+    expect(call.url).toBe('/api/gantt?department_id=2&project_id=3&assigned_to=5')
+  })
+
   it('al cambiar el filtro vuelve a pedir el diagrama', async () => {
     const calls = setupFetch()
     const { router } = await mountGantt()
@@ -124,13 +187,53 @@ describe('GanttView', () => {
     expect(ganttInstances).toHaveLength(2)
   })
 
+  it('el selector de departamento escribe el filtro en la url', async () => {
+    const calls = setupFetch()
+    const { wrapper, router } = await mountGantt()
+
+    await wrapper.get('[data-testid="gantt-filter-department"]').setValue('2')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.department).toBe('2')
+    const urls = calls.filter((c) => c.url.includes('/gantt')).map((c) => c.url)
+    expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
+  })
+
+  it('el selector de persona escribe el filtro en la url', async () => {
+    const calls = setupFetch()
+    const { wrapper, router } = await mountGantt()
+
+    await wrapper.get('[data-testid="gantt-filter-person"]').setValue('1')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.assigned_to).toBe('1')
+    const urls = calls.filter((c) => c.url.includes('/gantt')).map((c) => c.url)
+    expect(urls.some((url) => url.includes('assigned_to=1'))).toBe(true)
+  })
+
+  it('ofrece los filtros con las opciones visibles', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const departamentos = wrapper.get('[data-testid="gantt-filter-department"]')
+    expect(departamentos.text()).toContain('Alimentacion')
+    expect(departamentos.text()).toContain('Energia')
+    const proyectos = wrapper.get('[data-testid="gantt-filter-project"]')
+    expect(proyectos.text()).toContain('Red de tuberias')
+    const personas = wrapper.get('[data-testid="gantt-filter-person"]')
+    expect(personas.text()).toContain('Jorge')
+  })
+
   it('dibuja una barra por tarea con el color de su persona', async () => {
     setupFetch()
 
     await mountGantt()
 
     expect(ganttInstances).toHaveLength(1)
-    expect(ganttInstances[0].tasks).toHaveLength(1)
+    expect(ganttInstances[0].tasks).toHaveLength(2)
     expect(ganttInstances[0].tasks[0].custom_class).toBe('persona-0')
   })
 
@@ -200,7 +303,55 @@ describe('GanttView', () => {
 
     await mountGantt()
 
-    const barra = ganttInstances[0].tasks[0]
+    const barra = ganttInstances[0].tasks.find((item) => item.id === '10')
     expect(barra.name).toBe('Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
+  })
+
+  it('agrupar por proyecto ordena las barras por proyecto', async () => {
+    setupFetch()
+
+    await mountGantt({ group: 'proyecto' })
+
+    const barras = ganttInstances[0].tasks
+    expect(barras[0].name).toContain('Linea Pasteurizadora SIVE')
+    expect(barras[1].name).toContain('Red de tuberias')
+  })
+
+  it('agrupar por departamento cambia el encabezado de las barras', async () => {
+    setupFetch()
+
+    await mountGantt({ group: 'departamento' })
+
+    const barras = ganttInstances[0].tasks
+    expect(barras[0].name).toBe('Alimentacion · Linea Pasteurizadora SIVE · Programacion SCADA WinCC · Ana')
+    expect(barras[1].name).toBe('Energia · Red de tuberias · Planos de tuberias · Jorge')
+  })
+
+  it('agrupar por persona cambia el encabezado de las barras', async () => {
+    setupFetch()
+
+    await mountGantt({ group: 'persona' })
+
+    const barras = ganttInstances[0].tasks
+    expect(barras[0].name).toBe('Ana · Linea Pasteurizadora SIVE · Programacion SCADA WinCC')
+  })
+
+  it('pinta una franja divisoria por grupo', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ group: 'departamento' })
+
+    const svg = wrapper.find('svg.gantt')
+    expect(svg.exists()).toBe(true)
+    expect(svg.element.querySelectorAll('g.grupos line.grupo-linea').length).toBe(2)
+  })
+
+  it('sin agrupar no pinta franja divisoria', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ group: 'sin' })
+
+    const svg = wrapper.find('svg.gantt')
+    expect(svg.element.querySelectorAll('g.grupos line.grupo-linea').length).toBe(0)
   })
 })

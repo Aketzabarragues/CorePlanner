@@ -34,3 +34,16 @@
 .gantt .bar-wrapper.active .bar-progress {
   fill: rgba(0, 0, 0, 0.28);
 }
+
+/*
+ * Franja divisoria de los grupos.
+ *
+ * La libreria solo dibuja barras, asi que el separador de cada grupo es una
+ * linea horizontal sobre el SVG, en el borde superior de la primera fila del
+ * grupo.
+ */
+.gantt .grupo-linea {
+  stroke: #cbd5e1;
+  stroke-width: 2;
+}
+

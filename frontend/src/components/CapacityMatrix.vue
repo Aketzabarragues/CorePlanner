@@ -14,11 +14,12 @@
  * que componen esas horas, desde donde se pueden editar. Cualquier cambio
  * recalcula la matriz.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { overviewApi, projectsApi, skillsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import { useVisibilidad } from '../composables/useVisibilidad'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
@@ -44,6 +45,7 @@ import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
 import SidePanel from './common/SidePanel.vue'
+import VisibilityPanel from './common/VisibilityPanel.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -160,93 +162,34 @@ const celdaHover = ref(null)
  * Vive en el componente: no va a la URL, no se pide al servidor y no se
  * guarda. Es una vista de la matriz, no un filtro de los datos.
  */
-const panelVisibilidad = ref(false)
-const personasOcultas = ref([])
-const departamentosOcultos = ref([])
-const panelVisibilidadRoot = ref(null)
+const personasVisibilidad = computed(() =>
+  rows.value.map((row) => ({
+    id: row.user_id,
+    name: row.name,
+    department_id: row.department_id,
+    department_name: row.department_name ?? nombreDeCatalogo(row.department_id),
+  })),
+)
 
-/** Clave del grupo de departamento: el id, o 'sin' si la persona no tiene. */
-function claveDepartamento(row) {
-  const id = row.department_id
-  return id === null || id === undefined ? 'sin' : String(id)
-}
+const {
+  departamentosOcultos,
+  idsOcultos,
+  ocultosCount,
+  ocultoPara,
+  alternarPersona,
+  alternarDepartamento,
+  mostrarTodos,
+} = useVisibilidad(personasVisibilidad)
 
-/** Si la persona esta escondida, ya sea por ella o por su departamento. */
-function personaOculta(row) {
-  if (departamentosOcultos.value.includes(claveDepartamento(row))) return true
-  return personasOcultas.value.includes(String(row.user_id))
+/** Nombre del departamento en el catalogo, si lo hay. */
+function nombreDeCatalogo(id) {
+  if (id === null || id === undefined) return null
+  const encontrado = store.departments.find((item) => String(item.id) === String(id))
+  return encontrado?.name ?? null
 }
 
 /** Personas que se ven en la matriz. */
-const filasVisibles = computed(() => rows.value.filter((row) => !personaOculta(row)))
-
-/** Cuantas personas quedan fuera de la matriz. */
-const ocultosCount = computed(() => rows.value.length - filasVisibles.value.length)
-
-/** Nombre del departamento: el de la fila o el del catalogo. */
-function nombreDepartamento(clave, row) {
-  if (row.department_name) return row.department_name
-  if (clave === 'sin') return 'Sin departamento'
-  const encontrado = store.departments.find((item) => String(item.id) === clave)
-  return encontrado?.name ?? `Departamento ${clave}`
-}
-
-/** Departamentos de las personas del informe, con sus miembros. */
-const gruposVisibilidad = computed(() => {
-  const grupos = new Map()
-  for (const row of rows.value) {
-    const clave = claveDepartamento(row)
-    if (!grupos.has(clave)) {
-      grupos.set(clave, { id: clave, name: nombreDepartamento(clave, row), rows: [] })
-    }
-    grupos.get(clave).rows.push(row)
-  }
-  return [...grupos.values()]
-})
-
-/** Esconde o muestra una persona. */
-function alternarPersona(userId) {
-  const id = String(userId)
-  const row = rows.value.find((item) => String(item.user_id) === id)
-  if (!row) return
-  if (!personaOculta(row)) {
-    personasOcultas.value = [...personasOcultas.value, id]
-    return
-  }
-  personasOcultas.value = personasOcultas.value.filter((item) => item !== id)
-  // Si el departamento estaba escondido, se muestra y se esconden sus
-  // compañeros: las personas visibles no cambian.
-  const clave = claveDepartamento(row)
-  if (!departamentosOcultos.value.includes(clave)) return
-  departamentosOcultos.value = departamentosOcultos.value.filter((item) => item !== clave)
-  const acompanantes = rows.value
-    .filter((item) => claveDepartamento(item) === clave && String(item.user_id) !== id)
-    .map((item) => String(item.user_id))
-  personasOcultas.value = [...personasOcultas.value, ...acompanantes]
-}
-
-/** Esconde o muestra un departamento entero. */
-function alternarDepartamento(clave) {
-  if (departamentosOcultos.value.includes(clave)) {
-    departamentosOcultos.value = departamentosOcultos.value.filter((item) => item !== clave)
-    return
-  }
-  departamentosOcultos.value = [...departamentosOcultos.value, clave]
-}
-
-/** Muestra a todo el mundo otra vez. */
-function mostrarTodos() {
-  personasOcultas.value = []
-  departamentosOcultos.value = []
-}
-
-/** Cierra el panel de visibilidad cuando se pulsa fuera. */
-function onDocumentClick(event) {
-  if (!panelVisibilidadRoot.value?.contains(event.target)) panelVisibilidad.value = false
-}
-
-onMounted(() => document.addEventListener('click', onDocumentClick))
-onUnmounted(() => document.removeEventListener('click', onDocumentClick))
+const filasVisibles = computed(() => rows.value.filter((row) => !ocultoPara(row.user_id)))
 
 /** Marca que el arrastre acaba de terminar, para que el clic no abra la celda. */
 let arrastreTerminado = false
@@ -1264,73 +1207,15 @@ watch(
         </select>
       </label>
 
-      <div ref="panelVisibilidadRoot" class="relative">
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
-          :aria-expanded="panelVisibilidad"
-          data-testid="toggle-visibility"
-          @click="panelVisibilidad = !panelVisibilidad"
-        >
-          <span class="h-4 w-4 text-slate-500"><AppIcon name="users" /></span>
-          Mostrar/ocultar
-          <span
-            v-if="ocultosCount"
-            class="rounded-full bg-siemens-900 px-1.5 text-[10px] font-semibold text-white"
-            data-testid="hidden-count"
-          >
-            {{ ocultosCount }} {{ ocultosCount === 1 ? 'oculto' : 'ocultos' }}
-          </span>
-        </button>
-
-        <div
-          v-if="panelVisibilidad"
-          class="absolute left-0 z-30 mt-1 w-72 rounded-md bg-white p-3 shadow-lg ring-1 ring-slate-200"
-          data-testid="visibility-panel"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Visibilidad
-            </span>
-            <button
-              v-if="ocultosCount"
-              type="button"
-              class="text-xs font-medium text-siemens-700 underline"
-              data-testid="show-all"
-              @click="mostrarTodos"
-            >
-              Mostrar todos
-            </button>
-          </div>
-
-          <div v-for="grupo in gruposVisibilidad" :key="grupo.id" class="mt-2">
-            <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                class="h-4 w-4"
-                :checked="departamentosOcultos.includes(grupo.id)"
-                :data-testid="`hide-department-${grupo.id}`"
-                @change="alternarDepartamento(grupo.id)"
-              />
-              {{ grupo.name }}
-            </label>
-            <label
-              v-for="fila in grupo.rows"
-              :key="fila.user_id"
-              class="ml-5 mt-1 flex items-center gap-2 text-sm text-slate-600"
-            >
-              <input
-                type="checkbox"
-                class="h-4 w-4"
-                :checked="personaOculta(fila)"
-                :data-testid="`hide-person-${fila.user_id}`"
-                @change="alternarPersona(fila.user_id)"
-              />
-              {{ fila.name }}
-            </label>
-          </div>
-        </div>
-      </div>
+      <VisibilityPanel
+        :personas="personasVisibilidad"
+        :ids-ocultos="idsOcultos"
+        :departamentos-ocultos="departamentosOcultos"
+        :ocultos-count="ocultosCount"
+        @alternar-persona="alternarPersona"
+        @alternar-departamento="alternarDepartamento"
+        @mostrar-todos="mostrarTodos"
+      />
 
       <div class="flex items-center gap-1">
         <button

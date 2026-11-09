@@ -37,8 +37,19 @@ const skills = ref([])
 const departments = ref([])
 const selectedId = ref(null)
 
+/** Filtro de presentacion del directorio: acota lo ya cargado. */
+const filtroDepartamento = ref('')
+
 const currentTab = computed(() => TABS.find((item) => item.name === tab.value) ?? TABS[0])
 const selected = computed(() => people.value.find((item) => item.id === selectedId.value) ?? null)
+
+/** Personas del directorio que quedan con el filtro de departamento. */
+const personasVisibles = computed(() => {
+  if (!filtroDepartamento.value) return people.value
+  return people.value.filter(
+    (person) => String(person.department_id ?? '') === filtroDepartamento.value,
+  )
+})
 
 async function load() {
   error.value = null
@@ -129,9 +140,32 @@ onMounted(load)
         </button>
       </nav>
 
+      <div
+        v-if="currentTab.name === 'directory' && departments.length > 1"
+        class="mb-4 flex flex-wrap items-end gap-3"
+      >
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Departamento</span>
+          <select
+            v-model="filtroDepartamento"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            data-testid="filter-department"
+          >
+            <option value="">Todos los departamentos</option>
+            <option
+              v-for="department in departments"
+              :key="department.id"
+              :value="String(department.id)"
+            >
+              {{ department.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
       <PeopleDirectory
         v-if="currentTab.name === 'directory'"
-        :people="people"
+        :people="personasVisibles"
         :week="week"
         @open="selectedId = $event"
       />

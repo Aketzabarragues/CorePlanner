@@ -119,7 +119,7 @@ function setupFetch(overrides = {}) {
     if (url.includes('/api/people')) return jsonResponse(overrides.people ?? people)
     if (url.includes('/api/skills')) return jsonResponse(skills)
     if (url.includes('/api/non-working-days')) return jsonResponse(days)
-    if (url.includes('/api/departments')) return jsonResponse(departments)
+    if (url.includes('/api/departments')) return jsonResponse(overrides.departments ?? departments)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
 }
@@ -214,6 +214,70 @@ describe('PeopleView', () => {
 
     expect(wrapper.findAll('[data-testid="skill-row"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(false)
+  })
+
+  it('el directorio se puede acotar por departamento', async () => {
+    setupFetch({
+      people: [
+        ...people,
+        {
+          ...people[1],
+          id: 3,
+          name: 'Jorge',
+          department_id: 2,
+          department_name: 'Oficina Técnica / EPLAN',
+        },
+      ],
+    })
+
+    const wrapper = await mountView()
+
+    const filtro = wrapper.find('[data-testid="filter-department"]')
+    expect(filtro.exists()).toBe(true)
+    expect(filtro.findAll('option')).toHaveLength(3)
+    expect(wrapper.findAll('[data-testid="person-row"]')).toHaveLength(3)
+
+    await filtro.setValue('2')
+    await flushPromises()
+
+    const filas = wrapper.findAll('[data-testid="person-row"]')
+    expect(filas).toHaveLength(1)
+    expect(filas[0].text()).toContain('Jorge')
+  })
+
+  it('el filtro de departamento usa el formato cuadrado del resto de la app', async () => {
+    const wrapper = await mountView()
+
+    const filtro = wrapper.find('[data-testid="filter-department"]')
+    expect(filtro.classes()).toContain('rounded')
+    expect(filtro.classes()).toContain('border-slate-300')
+    expect(filtro.classes()).toContain('bg-white')
+    expect(filtro.classes()).toContain('px-2')
+    expect(filtro.classes()).toContain('py-1.5')
+    expect(filtro.classes()).not.toContain('rounded-full')
+
+    const etiqueta = filtro.element.closest('label')
+    expect(etiqueta.className).toContain('text-xs')
+    expect(etiqueta.className).toContain('text-slate-600')
+    expect(etiqueta.querySelector('span').className).toContain('mb-1')
+    expect(etiqueta.querySelector('span').textContent).toBe('Departamento')
+  })
+
+  it('con un solo departamento visible no hay filtro que elegir', async () => {
+    setupFetch({ departments: [departments[0]] })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="filter-department"]').exists()).toBe(false)
+  })
+
+  it('el directorio dibuja el avatar con las iniciales de cada persona', async () => {
+    const wrapper = await mountView()
+
+    const avatar = wrapper.find('[data-testid="person-row"] .rounded-full')
+    expect(avatar.exists()).toBe(true)
+    // "Ana" es una sola palabra: su inicial es la unica que hay.
+    expect(avatar.text()).toBe('A')
   })
 
   it('la ficha permite corregir una version de horario', async () => {

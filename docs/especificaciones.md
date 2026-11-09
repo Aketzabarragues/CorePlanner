@@ -1671,3 +1671,111 @@ El calendario global no tenia forma de abrir una tarea: en las tres vistas (mes,
 2. **El permiso se lee una vez con `GET /api/me`** y se resuelve por tarea: es lo que ya devuelve el panel de las otras pantallas.
 3. **El filtro de departamento se aplica en cliente y en servidor**: en cliente por lo inmediato, en servidor porque el feed ya lo soporta. El filtro del cliente solo puede quitar mas, nunca devolver algo que el servidor no dio.
 4. **Los filtros del calendario son los mismos que los del Gantt**, con los mismos nombres de parametro: una URL de calendario y una de Gantt se leen igual.
+
+## 33. Un solo formato de filtro en toda la app
+
+La app tenia dos formatos de filtro conviviendo: el cuadrado, de `ProjectsView.vue` y `TaskListView.vue`, y la pildora que se metio en la ronda anterior en Capacidad, Gantt y Calendario. El cuadrado es el que se queda.
+
+### Que entra
+
+- Los cuatro filtros de `CapacityMatrix.vue` (Departamento, Proyecto, Competencia, Nivel minimo), los cuatro de `GanttView.vue` (Departamento, Proyecto, Persona, Agrupar por) y los tres de `CalendarView.vue` (Departamento, Proyecto, Persona) pasan al formato cuadrado.
+- El patron es el de `ProjectsView.vue`: `<label class="text-xs font-medium text-slate-600">`, la etiqueta en un `<span class="mb-1 block">` con texto normal, y el `<select class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm">`.
+- El hueco entre filtros pasa de `gap-2` a `gap-3`, como en el resto de la app.
+
+### Que no entra
+
+- **La logica de los filtros**: la URL, el panel de mostrar/ocultar de Capacidad y la agrupacion del Gantt se quedan como estaban.
+- **Las pastillas que no son filtros**: "Activo", "Sobrecargada", "Con margen", la franja de departamento de Capacidad y los badges de estado siguen siendo `rounded-full`.
+- **Los botones**: el de "Mostrar/ocultar" de Capacidad y los de modo (Horas / % / Proyectos) no son filtros y no cambian.
+
+### Decisiones tomadas
+
+1. **El cuadrado gana porque es el mayoritario**: Proyectos y Lista de tareas ya lo usaban, y el Gantt y el Calendario tienen ademas el filtro de proyecto con el mismo nombre de parametro. La pildora solo estaba en las tres vistas de la ronda anterior.
+2. **La etiqueta baja de MAYUSCULAS a texto normal**: con el `text-xs` del `<label>` se lee igual que en el resto, y la mayuscula con `tracking-wide` era parte del envoltorio de la pildora.
+3. **Los `data-testid` no cambian**: los tests que comprueban el formato miran el `<label>`, el `<span>` y el `<select>` por separado, para que un cambio de una pieza no tape al otro.
+
+## 34. Columnas del listado de proyectos y su alineacion
+
+El listado global de proyectos agrupaba por departamento, pero cada seccion era una tabla por su cuenta. Al calcular el ancho de cada columna por separado, RESPONSABLE y ESTADO caian en una posicion X distinta en cada seccion. Ademas, el mockup aprobado tenia tres columnas que se quedaron fuera: Equipo, Tareas y Carga esta semana.
+
+### Que entra
+
+**Una sola tabla**
+
+- Los grupos de departamento se dibujan dentro de un unico `<table>`, con una fila de cabecera de departamento entre medias (`<th colspan="6">`).
+- Asi el limite de cada columna cae en el mismo pixel en todas las secciones.
+- La fila de cabecera de departamento no es clicable. La fila de proyecto sigue siendolo, con `role="button"`, `tabindex`, Enter y espacio.
+
+**El resumen de cada proyecto**
+
+- `GET /api/projects/summary` devuelve, para cada proyecto visible, su equipo, el avance de sus tareas y la carga de la semana en curso.
+- El ambito es el de siempre: solo los proyectos visibles para quien entra (`list_accessible_projects`).
+- El equipo son las personas asignadas al proyecto, con sus iniciales para el avatar.
+- El avance son las tareas completadas y el total.
+- La carga son las horas planificadas del proyecto en la semana frente a la capacidad de las personas que trabajan en el, con su porcentaje y un aviso cuando lo supera.
+
+**Las tres columnas**
+
+- **Equipo**: avatares apilados con las iniciales, hasta cuatro, y un "+N" si sobran.
+- **Tareas**: "x/y completadas" y una mini barra de progreso.
+- **Carga esta semana**: el porcentaje de uso, o el aviso de sobrecarga, o "Sin capacidad" cuando no se conoce.
+
+### Que no entra
+
+- **Columna de acciones**: la fila entera sigue siendo clicable.
+- **Elegir la semana**: la columna es de la semana en curso.
+- **Repartir la capacidad entre proyectos**: una persona aporta su capacidad completa a cada proyecto en el que trabaja esa semana, como ya hace el desglose por departamento del panel (§28).
+
+### Decisiones tomadas
+
+1. **Una sola tabla y no anchos fijos**: con una tabla por seccion, dos contenedores con scroll pueden medir distinto, y un porcentaje de ancho tampoco coincide. Una tabla no puede desalinearse consigo misma.
+2. **La carga se calcula con el motor de capacidad, no con una cuenta nueva**: el motor ya deja en cada celda el desglose por proyecto (`CellProject`), asi que las horas del proyecto salen de ahi, y la comparacion con la capacidad reutiliza `utilization_percent()` del panel. No se duplica el reparto de horas.
+3. **La capacidad es la de quien tiene horas en el proyecto esa semana**: una persona sin horas esta semana no consume capacidad, y contarla haria bajar el porcentaje sin motivo.
+4. **Sin capacidad conocida no se afirma nada**: si nadie del equipo tiene capacidad definida, el porcentaje no se publica y el aviso no sale, igual que en el panel.
+5. **El resumen es un endpoint aparte y no una ampliacion de `GET /api/projects`**: el listado de proyectos se usa en tres sitios mas como fuente de filtros, y esas pantallas no necesitan el resumen. Si el resumen no llega, el listado sigue en pie y las columnas muestran "—".
+
+## 35. Filtro de departamento en el directorio de personas
+
+`PeopleView.vue` era la unica vista global sin ningun filtro: ni busqueda ni departamento, mientras que Proyectos, Capacidad, Gantt y Calendario dejan acotar por departamento.
+
+### Que entra
+
+- Un `<select>` de departamento sobre el directorio, en formato cuadrado (el del §33), con las opciones de los departamentos visibles y "Todos los departamentos".
+- Acota el directorio: es presentacion sobre la lista ya cargada, no cambia el ambito de nadie.
+- Con un solo departamento visible el desplegable no se muestra: no hay nada que elegir.
+
+### Que no entra
+
+- **Busqueda por texto**: no entra en esta tanda.
+- **Filtro por estado o por contrato**: el minimo pedido es el departamento.
+- **Filtros en la matriz de competencias**: es otra pestana, con otra logica.
+
+### Decisiones tomadas
+
+1. **El filtro vive en `PeopleView.vue`, no dentro del `PeopleDirectory`**: la vista es la que tiene la lista de departamentos y la que decide que se pasa a cada componente.
+2. **Se esconde con un solo departamento**, como ya hace el filtro de departamento de la capacidad (§28): un desplegable con una sola opcion no aporta nada.
+3. **El filtro no acota el ambito**: solo deja de pintar filas de la lista ya cargada.
+
+## 36. Los dos listados de personas
+
+Hay dos UIs de personas: el directorio de Personas y Competencias (boton "Perfil") y la pestana "Personas" de Configuracion (boton "Editar"). Se mantienen separadas: una es para consultar, otra para administrar. Lo que se unifica es el lenguaje visual, para que se perciban como parte del mismo sistema de diseño aunque las columnas y las acciones sean distintas.
+
+### Que entra
+
+- El mismo contenedor de tabla: `overflow-x-auto rounded-lg border border-slate-200 bg-white`.
+- La misma cabecera: `thead` con `bg-slate-50`, texto `uppercase tracking-wide text-slate-500` y `th` con `font-medium`.
+- Los mismos separadores de fila: `divide-y divide-slate-100`.
+- El mismo avatar de iniciales: circulo `h-8 w-8 rounded-full bg-siemens-900` con las iniciales de la persona, tambien en la tabla de Configuracion, que no tenia ninguno.
+- Las iniciales salen de un util compartido (`frontend/src/utils/people.js`), en vez de repetidas en cada componente.
+
+### Que no entra
+
+- **Las columnas**: cada lista conserva las suyas. El directorio tiene horario, capacidad y carga; Configuracion tiene rol, puesto, horas y el boton de edicion.
+- **Las acciones**: "Perfil" y "Editar" siguen siendo distintas.
+- **Un unico componente**: son dos vistas con dos propositos.
+
+### Decisiones tomadas
+
+1. **El directorio manda en el estilo**: es la vista operativa, la que se mira todos los dias, y la que ya tenia el avatar. Configuracion se ajusta a ella.
+2. **El avatar se anade en vez de quitarse**: quitarlo de Configuracion habria hecho la tabla mas pobre sin ganar nada.
+3. **Las iniciales son dos letras, o una si el nombre es una sola palabra**: es el criterio que ya usaba el directorio.

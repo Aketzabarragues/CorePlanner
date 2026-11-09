@@ -409,14 +409,12 @@ watch(
       loading-label="Cargando el calendario"
       @retry="reintentar"
     >
-      <div class="mb-4 flex flex-wrap items-end gap-2">
-        <label
-          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-        >
-          <span class="text-xs uppercase tracking-wide text-slate-500">Departamento</span>
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Departamento</span>
           <select
             v-model="departmentFilter"
-            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
             data-testid="filter-department"
           >
             <option value="">Todos los departamentos</option>
@@ -430,13 +428,11 @@ watch(
           </select>
         </label>
 
-        <label
-          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-        >
-          <span class="text-xs uppercase tracking-wide text-slate-500">Proyecto</span>
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Proyecto</span>
           <select
             v-model="projectFilter"
-            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
             data-testid="filter-project"
           >
             <option value="">Todos los proyectos</option>
@@ -446,13 +442,11 @@ watch(
           </select>
         </label>
 
-        <label
-          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-        >
-          <span class="text-xs uppercase tracking-wide text-slate-500">Persona</span>
+        <label class="text-xs font-medium text-slate-600">
+          <span class="mb-1 block">Persona</span>
           <select
             v-model="assignedToFilter"
-            class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
             data-testid="filter-person"
           >
             <option value="">Todas las personas</option>

@@ -355,14 +355,12 @@ onBeforeUnmount(() => {
       {{ notice }}
     </AlertBanner>
 
-    <div class="mb-3 flex flex-wrap items-end gap-2" data-testid="gantt-filters">
-      <label
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Departamento</span>
+    <div class="mb-3 flex flex-wrap items-end gap-3" data-testid="gantt-filters">
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Departamento</span>
         <select
           data-testid="gantt-filter-department"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
           :value="departmentFilter"
           @change="cambiarFiltro('department', $event.target.value)"
         >
@@ -373,13 +371,11 @@ onBeforeUnmount(() => {
         </select>
       </label>
 
-      <label
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Proyecto</span>
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Proyecto</span>
         <select
           data-testid="gantt-filter-project"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
           :value="projectFilter"
           @change="cambiarFiltro('project', $event.target.value)"
         >
@@ -390,13 +386,11 @@ onBeforeUnmount(() => {
         </select>
       </label>
 
-      <label
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Persona</span>
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Persona</span>
         <select
           data-testid="gantt-filter-person"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
           :value="personFilter"
           @change="cambiarFiltro('assigned_to', $event.target.value)"
         >
@@ -407,13 +401,11 @@ onBeforeUnmount(() => {
         </select>
       </label>
 
-      <label
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Agrupar por</span>
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Agrupar por</span>
         <select
           data-testid="gantt-group-by"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
           :value="groupBy"
           @change="cambiarFiltro('group', $event.target.value)"
         >

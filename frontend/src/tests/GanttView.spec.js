@@ -241,6 +241,51 @@ describe('GanttView', () => {
     expect(personas.text()).toContain('Jorge')
   })
 
+  it('los filtros usan el formato cuadrado del resto de la app', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const filtros = [
+      ['gantt-filter-department', 'Departamento'],
+      ['gantt-filter-project', 'Proyecto'],
+      ['gantt-filter-person', 'Persona'],
+      ['gantt-group-by', 'Agrupar por'],
+    ]
+
+    for (const [testid, texto] of filtros) {
+      const select = wrapper.get(`[data-testid="${testid}"]`)
+      const label = select.element.closest('label')
+      expect(label).not.toBeNull()
+
+      // La etiqueta lleva el titulo encima y el select es un control normal.
+      const clasesLabel = label.className
+      expect(clasesLabel).toContain('text-xs font-medium text-slate-600')
+      expect(clasesLabel).not.toContain('rounded-full')
+
+      const span = label.querySelector('span')
+      expect(span.className).toContain('mb-1 block')
+      expect(span.textContent).toBe(texto)
+
+      const clasesSelect = select.classes().join(' ')
+      expect(clasesSelect).toContain(
+        'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
+      )
+      expect(clasesSelect).not.toContain('rounded-full')
+      expect(clasesSelect).not.toContain('bg-transparent')
+    }
+  })
+
+  it('los filtros se separan con el hueco del resto de la app', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const contenedor = wrapper.get('[data-testid="gantt-filters"]')
+    expect(contenedor.classes()).toContain('gap-3')
+    expect(contenedor.classes()).not.toContain('gap-2')
+  })
+
   it('dibuja una barra por tarea con el color de su persona', async () => {
     setupFetch()
 

@@ -1200,16 +1200,13 @@ watch(
       </div>
     </header>
 
-    <div class="mb-4 flex flex-wrap items-end gap-2">
-      <label
-        v-if="store.departments.length > 1"
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Departamento</span>
+    <div class="mb-4 flex flex-wrap items-end gap-3">
+      <label v-if="store.departments.length > 1" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Departamento</span>
         <select
           v-model="departmentFilter"
           data-testid="capacity-filter-department"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
         >
           <option value="">Todos los departamentos</option>
           <option
@@ -1222,15 +1219,12 @@ watch(
         </select>
       </label>
 
-      <label
-        v-if="store.projects.length"
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Proyecto</span>
+      <label v-if="store.projects.length" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Proyecto</span>
         <select
           v-model="projectFilter"
           data-testid="capacity-filter-project"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
         >
           <option value="">Todos los proyectos</option>
           <option
@@ -1243,14 +1237,12 @@ watch(
         </select>
       </label>
 
-      <label
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Competencia</span>
+      <label class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Competencia</span>
         <select
           v-model="skillFilter"
           data-testid="capacity-filter-skill"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
         >
           <option value="">Cualquiera</option>
           <option v-for="item in skills" :key="item.id" :value="String(item.id)">
@@ -1259,15 +1251,12 @@ watch(
         </select>
       </label>
 
-      <label
-        v-if="skillFilter"
-        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
-      >
-        <span class="text-xs uppercase tracking-wide text-slate-500">Nivel mínimo</span>
+      <label v-if="skillFilter" class="text-xs font-medium text-slate-600">
+        <span class="mb-1 block">Nivel mínimo</span>
         <select
           v-model="levelFilter"
           data-testid="capacity-filter-level"
-          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
         >
           <option value="1">1</option>
           <option value="2">2</option>

@@ -490,19 +490,48 @@ describe('CapacityMatrix', () => {
     ])
   })
 
-  it('los filtros tienen la forma de pildora del Gantt', async () => {
+  it('los filtros usan el formato cuadrado del resto de la app', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
     const select = wrapper.get('[data-testid="capacity-filter-project"]')
     const etiqueta = select.element.closest('label')
-    expect(etiqueta.className).toContain(
-      'inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5',
-    )
+    expect(etiqueta.className).toContain('text-xs font-medium text-slate-600')
+    expect(etiqueta.querySelector('span').className).toContain('mb-1 block')
     expect(etiqueta.querySelector('span').textContent).toBe('Proyecto')
     expect(select.classes().join(' ')).toContain(
-      'border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0',
+      'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
     )
+  })
+
+  it('los cuatro filtros usan el formato cuadrado y conservan su testid', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="capacity-filter-skill"]').setValue('1')
+    await flushPromises()
+
+    const filtros = [
+      ['capacity-filter-department', 'Departamento'],
+      ['capacity-filter-project', 'Proyecto'],
+      ['capacity-filter-skill', 'Competencia'],
+      ['capacity-filter-level', 'Nivel mínimo'],
+    ]
+
+    for (const [testid, texto] of filtros) {
+      const select = wrapper.get(`[data-testid="${testid}"]`)
+      const etiqueta = select.element.closest('label')
+      expect(etiqueta.className).toContain('text-xs font-medium text-slate-600')
+      expect(etiqueta.className).not.toContain('rounded-full')
+
+      const span = etiqueta.querySelector('span')
+      expect(span.className).toContain('mb-1 block')
+      expect(span.textContent).toBe(texto)
+
+      expect(select.classes().join(' ')).toContain(
+        'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
+      )
+    }
   })
 
   it('el selector de proyecto filtra la matriz', async () => {

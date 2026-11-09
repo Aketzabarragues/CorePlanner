@@ -767,6 +767,71 @@ describe('CalendarView con filtros', () => {
 
     expect(router.currentRoute.value.query.assigned_to).toBe('2')
   })
+
+  it('los tres filtros usan el formato cuadrado de las demas vistas', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    const filtros = [
+      { testid: 'filter-department', etiqueta: 'Departamento' },
+      { testid: 'filter-project', etiqueta: 'Proyecto' },
+      { testid: 'filter-person', etiqueta: 'Persona' },
+    ]
+
+    for (const filtro of filtros) {
+      const select = wrapper.find(`[data-testid="${filtro.testid}"]`)
+      expect(select.exists()).toBe(true)
+      expect([...select.classes()]).toEqual([
+        'rounded',
+        'border',
+        'border-slate-300',
+        'bg-white',
+        'px-2',
+        'py-1.5',
+        'text-sm',
+      ])
+
+      const label = select.element.closest('label')
+      expect(label).not.toBeNull()
+      expect([...label.classList]).toEqual(['text-xs', 'font-medium', 'text-slate-600'])
+
+      const span = label.querySelector('span')
+      expect([...span.classList]).toEqual(['mb-1', 'block'])
+      expect(span.textContent).toBe(filtro.etiqueta)
+    }
+
+    // El contenedor de los filtros deja el mismo margen que en las otras vistas.
+    const contenedor = wrapper.find('[data-testid="filter-department"]').element.closest('label')
+      .parentElement
+    expect([...contenedor.classList]).toContain('gap-3')
+    expect([...contenedor.classList]).not.toContain('gap-2')
+  })
+
+  it('los filtros ya no se muestran como pastilla', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    for (const testid of ['filter-department', 'filter-project', 'filter-person']) {
+      const select = wrapper.find(`[data-testid="${testid}"]`)
+      const label = select.element.closest('label')
+      expect([...label.classList]).not.toContain('rounded-full')
+      expect([...label.classList]).not.toContain('px-3')
+      expect(select.classes()).not.toContain('rounded-full')
+      expect(select.classes()).not.toContain('border-0')
+      expect(select.classes()).not.toContain('bg-transparent')
+      expect(select.classes()).not.toContain('focus:ring-0')
+    }
+  })
 })
 
 describe('WeekGrid y DayDetail', () => {

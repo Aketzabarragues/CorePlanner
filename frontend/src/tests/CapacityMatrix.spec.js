@@ -22,6 +22,7 @@ const capacityReport = {
       name: 'Ana',
       weekly_base_hours: 40,
       department_id: 1,
+      department_name: 'Automatización & SCADA',
       job_title: 'Project Manager',
       project_ids: [1],
       total_hours: 10,
@@ -36,6 +37,7 @@ const capacityReport = {
       name: 'Sebastian',
       weekly_base_hours: 40,
       department_id: 1,
+      department_name: 'Automatización & SCADA',
       job_title: 'Ingeniero',
       project_ids: [1],
       total_hours: 72,
@@ -64,6 +66,7 @@ const reportConAjeno = {
       name: 'Jorge',
       weekly_base_hours: 40,
       department_id: 2,
+      department_name: 'Oficina Técnica / EPLAN',
       job_title: 'Ingeniero',
       project_ids: [2],
       total_hours: 0,
@@ -464,7 +467,7 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const filtro = wrapper.find('[data-testid="filter-department"]')
+    const filtro = wrapper.find('[data-testid="capacity-filter-department"]')
     await filtro.setValue('2')
     await flushPromises()
 
@@ -472,12 +475,163 @@ describe('CapacityMatrix', () => {
     expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
   })
 
+  it('el selector de proyecto lista los proyectos visibles', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const opciones = wrapper
+      .get('[data-testid="capacity-filter-project"]')
+      .findAll('option')
+      .map((option) => option.text())
+    expect(opciones).toEqual([
+      'Todos los proyectos',
+      'Linea Pasteurizadora SIVE',
+      'Ampliacion linea 2',
+    ])
+  })
+
+  it('los filtros tienen la forma de pildora del Gantt', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const select = wrapper.get('[data-testid="capacity-filter-project"]')
+    const etiqueta = select.element.closest('label')
+    expect(etiqueta.className).toContain(
+      'inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5',
+    )
+    expect(etiqueta.querySelector('span').textContent).toBe('Proyecto')
+    expect(select.classes().join(' ')).toContain(
+      'border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0',
+    )
+  })
+
+  it('el selector de proyecto filtra la matriz', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    const filtro = wrapper.get('[data-testid="capacity-filter-project"]')
+    await filtro.setValue('2')
+    await flushPromises()
+
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('project_id=2'))).toBe(true)
+    expect(router.currentRoute.value.query.project).toBe('2')
+    // El proyecto abierto es el del filtro: la cabecera lo enseña.
+    expect(wrapper.text()).toContain('Ampliacion linea 2')
+  })
+
+  it('cada fila lleva la franja y el nombre de su departamento', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // El color sale del id del departamento: el 1 es el segundo de la paleta.
+    const franja = wrapper.get('[data-testid="department-stripe-1"]')
+    expect(franja.classes()).toContain('bg-teal-700')
+    expect(wrapper.get('[data-testid="department-name-1"]').text()).toContain(
+      'Automatización & SCADA',
+    )
+  })
+
+  it('la franja cambia con el departamento de cada persona', async () => {
+    setupFetch({
+      '/api/capacity': () => jsonResponse(reportConAjeno),
+    })
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.get('[data-testid="department-stripe-1"]').classes()).toContain(
+      'bg-teal-700',
+    )
+    expect(wrapper.get('[data-testid="department-stripe-3"]').classes()).toContain(
+      'bg-amber-700',
+    )
+    expect(wrapper.get('[data-testid="department-name-3"]').text()).toContain(
+      'Oficina Técnica / EPLAN',
+    )
+  })
+
+  it('una persona sin departamento lleva la franja gris y ningun nombre', async () => {
+    setupFetch({
+      '/api/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          rows: capacityReport.rows.map((row) => ({
+            ...row,
+            department_id: null,
+            department_name: '',
+          })),
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.get('[data-testid="department-stripe-1"]').classes()).toContain(
+      'bg-slate-400',
+    )
+    expect(wrapper.find('[data-testid="department-name-1"]').exists()).toBe(false)
+  })
+
+  it('el panel de visibilidad esconde y vuelve a mostrar una persona', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    expect(wrapper.get('[data-testid="visibility-panel"]').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="cell-1-2026-W45"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="cell-2-2026-W45"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('1 oculto')
+
+    await wrapper.get('[data-testid="show-all"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="cell-1-2026-W45"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="hidden-count"]').exists()).toBe(false)
+  })
+
+  it('el panel de visibilidad esconde un departamento entero', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await flushPromises()
+
+    // Ana y Sebastian son del departamento 1.
+    expect(wrapper.find('[data-testid="cell-1-2026-W45"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cell-2-2026-W45"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('2 ocultos')
+    // La casilla de cada persona refleja el departamento escondido.
+    expect(wrapper.get('[data-testid="hide-person-1"]').element.checked).toBe(true)
+    expect(wrapper.get('[data-testid="hide-person-2"]').element.checked).toBe(true)
+
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(false)
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="cell-1-2026-W45"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="cell-2-2026-W45"]').exists()).toBe(true)
+  })
+
+  it('esconder personas no toca la URL ni vuelve a pedir la matriz', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountMatrix()
+
+    const peticiones = capacityCalls(calls).length
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await flushPromises()
+
+    expect(Object.keys(router.currentRoute.value.query).sort()).toEqual(['from', 'to'])
+    expect(capacityCalls(calls).length).toBe(peticiones)
+  })
+
   it('el selector de departamento se esconde con una sola opcion', async () => {
     setupFetch({ '/api/departments': () => jsonResponse([departments[0]]) })
 
     const wrapper = await mountMatrix()
 
-    expect(wrapper.find('[data-testid="filter-department"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="capacity-filter-department"]').exists()).toBe(false)
   })
 
   it('el selector de departamento se ve con varias opciones', async () => {
@@ -485,7 +639,7 @@ describe('CapacityMatrix', () => {
 
     const wrapper = await mountMatrix()
 
-    const filtro = wrapper.get('[data-testid="filter-department"]')
+    const filtro = wrapper.get('[data-testid="capacity-filter-department"]')
     expect(filtro.findAll('option').map((option) => option.text())).toEqual([
       'Todos los departamentos',
       'Automatización & SCADA',
@@ -507,11 +661,11 @@ describe('CapacityMatrix', () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const filtro = wrapper.find('[data-testid="filter-skill"]')
+    const filtro = wrapper.find('[data-testid="capacity-filter-skill"]')
     await filtro.setValue('1')
     await flushPromises()
 
-    const nivel = wrapper.find('[data-testid="filter-level"]')
+    const nivel = wrapper.find('[data-testid="capacity-filter-level"]')
     await nivel.setValue('2')
     await flushPromises()
 

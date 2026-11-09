@@ -14,7 +14,7 @@
  * que componen esas horas, desde donde se pueden editar. Cualquier cambio
  * recalcula la matriz.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { overviewApi, projectsApi, skillsApi, tasksApi } from '../api/client'
@@ -153,6 +153,100 @@ const dropTarget = ref(null)
 
 /** Celda por la que ha pasado el arrastre, para resolver el destino al soltar. */
 const celdaHover = ref(null)
+
+/**
+ * Mostrar y ocultar filas de la matriz.
+ *
+ * Vive en el componente: no va a la URL, no se pide al servidor y no se
+ * guarda. Es una vista de la matriz, no un filtro de los datos.
+ */
+const panelVisibilidad = ref(false)
+const personasOcultas = ref([])
+const departamentosOcultos = ref([])
+const panelVisibilidadRoot = ref(null)
+
+/** Clave del grupo de departamento: el id, o 'sin' si la persona no tiene. */
+function claveDepartamento(row) {
+  const id = row.department_id
+  return id === null || id === undefined ? 'sin' : String(id)
+}
+
+/** Si la persona esta escondida, ya sea por ella o por su departamento. */
+function personaOculta(row) {
+  if (departamentosOcultos.value.includes(claveDepartamento(row))) return true
+  return personasOcultas.value.includes(String(row.user_id))
+}
+
+/** Personas que se ven en la matriz. */
+const filasVisibles = computed(() => rows.value.filter((row) => !personaOculta(row)))
+
+/** Cuantas personas quedan fuera de la matriz. */
+const ocultosCount = computed(() => rows.value.length - filasVisibles.value.length)
+
+/** Nombre del departamento: el de la fila o el del catalogo. */
+function nombreDepartamento(clave, row) {
+  if (row.department_name) return row.department_name
+  if (clave === 'sin') return 'Sin departamento'
+  const encontrado = store.departments.find((item) => String(item.id) === clave)
+  return encontrado?.name ?? `Departamento ${clave}`
+}
+
+/** Departamentos de las personas del informe, con sus miembros. */
+const gruposVisibilidad = computed(() => {
+  const grupos = new Map()
+  for (const row of rows.value) {
+    const clave = claveDepartamento(row)
+    if (!grupos.has(clave)) {
+      grupos.set(clave, { id: clave, name: nombreDepartamento(clave, row), rows: [] })
+    }
+    grupos.get(clave).rows.push(row)
+  }
+  return [...grupos.values()]
+})
+
+/** Esconde o muestra una persona. */
+function alternarPersona(userId) {
+  const id = String(userId)
+  const row = rows.value.find((item) => String(item.user_id) === id)
+  if (!row) return
+  if (!personaOculta(row)) {
+    personasOcultas.value = [...personasOcultas.value, id]
+    return
+  }
+  personasOcultas.value = personasOcultas.value.filter((item) => item !== id)
+  // Si el departamento estaba escondido, se muestra y se esconden sus
+  // compañeros: las personas visibles no cambian.
+  const clave = claveDepartamento(row)
+  if (!departamentosOcultos.value.includes(clave)) return
+  departamentosOcultos.value = departamentosOcultos.value.filter((item) => item !== clave)
+  const acompanantes = rows.value
+    .filter((item) => claveDepartamento(item) === clave && String(item.user_id) !== id)
+    .map((item) => String(item.user_id))
+  personasOcultas.value = [...personasOcultas.value, ...acompanantes]
+}
+
+/** Esconde o muestra un departamento entero. */
+function alternarDepartamento(clave) {
+  if (departamentosOcultos.value.includes(clave)) {
+    departamentosOcultos.value = departamentosOcultos.value.filter((item) => item !== clave)
+    return
+  }
+  departamentosOcultos.value = [...departamentosOcultos.value, clave]
+}
+
+/** Muestra a todo el mundo otra vez. */
+function mostrarTodos() {
+  personasOcultas.value = []
+  departamentosOcultos.value = []
+}
+
+/** Cierra el panel de visibilidad cuando se pulsa fuera. */
+function onDocumentClick(event) {
+  if (!panelVisibilidadRoot.value?.contains(event.target)) panelVisibilidad.value = false
+}
+
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
 /** Marca que el arrastre acaba de terminar, para que el clic no abra la celda. */
 let arrastreTerminado = false
@@ -428,9 +522,35 @@ const summary = computed(() => {
   }
 })
 
+/**
+ * Paleta de las franjas de departamento.
+ *
+ * El indice sale del id del departamento, de modo que un departamento siempre
+ * lleva el mismo color y la paleta se repite cuando se acaba.
+ */
+const DEPARTMENT_COLORS = [
+  'bg-blue-900',
+  'bg-teal-700',
+  'bg-amber-700',
+  'bg-violet-700',
+  'bg-rose-800',
+  'bg-slate-600',
+]
+
+/** Franja de la persona que no tiene departamento. */
+const DEPARTMENT_COLOR_NONE = 'bg-slate-400'
+
+/** Color de la franja de una persona. */
+function departmentColorClass(departmentId) {
+  if (departmentId === null || departmentId === undefined) return DEPARTMENT_COLOR_NONE
+  const id = Number(departmentId)
+  if (!Number.isFinite(id)) return DEPARTMENT_COLOR_NONE
+  return DEPARTMENT_COLORS[Math.abs(id) % DEPARTMENT_COLORS.length]
+}
+
 /** La matriz con cada celda ya resuelta. */
 const matrix = computed(() =>
-  rows.value.map((row) => ({
+  filasVisibles.value.map((row) => ({
     fila: row,
     celdas: weeks.value.map((semana) => cellView(row, semana.week)),
   })),
@@ -925,9 +1045,9 @@ async function dropOn(row, week, event) {
 async function moverConTeclado(task, delta) {
   const semana = breakdown.value?.week
   if (!semana) return
-  const indice = rows.value.findIndex((row) => row.user_id === task.assigned_to)
+  const indice = filasVisibles.value.findIndex((row) => row.user_id === task.assigned_to)
   if (indice < 0) return
-  const destino = rows.value[indice + delta]
+  const destino = filasVisibles.value[indice + delta]
   if (!destino) {
     aviso.value = 'No hay nadie más en esa dirección.'
     return
@@ -1042,9 +1162,11 @@ watch(
     query.value.level,
   ],
   () => {
-    if (escribiendo) return
+    // El proyecto abierto cambia con el filtro, aunque el cambio venga del
+    // propio componente: la cabecera y el alta de tareas lo necesitan.
     project.value =
       store.projects.find((p) => String(p.id) === String(projectFilter.value)) ?? null
+    if (escribiendo) return
     recargar()
   },
   { flush: 'sync' },
@@ -1078,16 +1200,16 @@ watch(
       </div>
     </header>
 
-    <div class="mb-4 flex flex-wrap items-end gap-3">
+    <div class="mb-4 flex flex-wrap items-end gap-2">
       <label
         v-if="store.departments.length > 1"
-        class="text-xs font-medium text-slate-600"
+        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
       >
-        <span class="mb-1 block">Departamento</span>
+        <span class="text-xs uppercase tracking-wide text-slate-500">Departamento</span>
         <select
           v-model="departmentFilter"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          data-testid="filter-department"
+          data-testid="capacity-filter-department"
+          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
         >
           <option value="">Todos los departamentos</option>
           <option
@@ -1100,12 +1222,35 @@ watch(
         </select>
       </label>
 
-      <label class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Competencia</span>
+      <label
+        v-if="store.projects.length"
+        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+      >
+        <span class="text-xs uppercase tracking-wide text-slate-500">Proyecto</span>
+        <select
+          v-model="projectFilter"
+          data-testid="capacity-filter-project"
+          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
+        >
+          <option value="">Todos los proyectos</option>
+          <option
+            v-for="item in store.projects"
+            :key="item.id"
+            :value="String(item.id)"
+          >
+            {{ item.name }}
+          </option>
+        </select>
+      </label>
+
+      <label
+        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+      >
+        <span class="text-xs uppercase tracking-wide text-slate-500">Competencia</span>
         <select
           v-model="skillFilter"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          data-testid="filter-skill"
+          data-testid="capacity-filter-skill"
+          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
         >
           <option value="">Cualquiera</option>
           <option v-for="item in skills" :key="item.id" :value="String(item.id)">
@@ -1114,18 +1259,89 @@ watch(
         </select>
       </label>
 
-      <label v-if="skillFilter" class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Nivel mínimo</span>
+      <label
+        v-if="skillFilter"
+        class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5"
+      >
+        <span class="text-xs uppercase tracking-wide text-slate-500">Nivel mínimo</span>
         <select
           v-model="levelFilter"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          data-testid="filter-level"
+          data-testid="capacity-filter-level"
+          class="border-0 bg-transparent text-sm font-medium text-slate-700 focus:ring-0"
         >
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3">3</option>
         </select>
       </label>
+
+      <div ref="panelVisibilidadRoot" class="relative">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+          :aria-expanded="panelVisibilidad"
+          data-testid="toggle-visibility"
+          @click="panelVisibilidad = !panelVisibilidad"
+        >
+          <span class="h-4 w-4 text-slate-500"><AppIcon name="users" /></span>
+          Mostrar/ocultar
+          <span
+            v-if="ocultosCount"
+            class="rounded-full bg-siemens-900 px-1.5 text-[10px] font-semibold text-white"
+            data-testid="hidden-count"
+          >
+            {{ ocultosCount }} {{ ocultosCount === 1 ? 'oculto' : 'ocultos' }}
+          </span>
+        </button>
+
+        <div
+          v-if="panelVisibilidad"
+          class="absolute left-0 z-30 mt-1 w-72 rounded-md bg-white p-3 shadow-lg ring-1 ring-slate-200"
+          data-testid="visibility-panel"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Visibilidad
+            </span>
+            <button
+              v-if="ocultosCount"
+              type="button"
+              class="text-xs font-medium text-siemens-700 underline"
+              data-testid="show-all"
+              @click="mostrarTodos"
+            >
+              Mostrar todos
+            </button>
+          </div>
+
+          <div v-for="grupo in gruposVisibilidad" :key="grupo.id" class="mt-2">
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                class="h-4 w-4"
+                :checked="departamentosOcultos.includes(grupo.id)"
+                :data-testid="`hide-department-${grupo.id}`"
+                @change="alternarDepartamento(grupo.id)"
+              />
+              {{ grupo.name }}
+            </label>
+            <label
+              v-for="fila in grupo.rows"
+              :key="fila.user_id"
+              class="ml-5 mt-1 flex items-center gap-2 text-sm text-slate-600"
+            >
+              <input
+                type="checkbox"
+                class="h-4 w-4"
+                :checked="personaOculta(fila)"
+                :data-testid="`hide-person-${fila.user_id}`"
+                @change="alternarPersona(fila.user_id)"
+              />
+              {{ fila.name }}
+            </label>
+          </div>
+        </div>
+      </div>
 
       <div class="flex items-center gap-1">
         <button
@@ -1249,12 +1465,28 @@ watch(
           <tbody>
             <tr v-for="entrada in matrix" :key="entrada.fila.user_id">
               <th
-                class="sticky left-0 z-10 border border-slate-200 bg-white px-3 py-2 text-left font-medium"
+                class="sticky left-0 z-10 border border-slate-200 bg-white text-left font-medium"
               >
-                {{ entrada.fila.name }}
-                <span class="block text-xs font-normal text-slate-400">
-                  {{ entrada.fila.weekly_base_hours }} h/semana
-                </span>
+                <div class="flex items-stretch gap-2 px-3 py-2">
+                  <span
+                    class="w-1 shrink-0 rounded-full"
+                    :class="departmentColorClass(entrada.fila.department_id)"
+                    :data-testid="`department-stripe-${entrada.fila.user_id}`"
+                  ></span>
+                  <span class="min-w-0 flex-1">
+                    {{ entrada.fila.name }}
+                    <span class="block text-xs font-normal text-slate-400">
+                      {{ entrada.fila.weekly_base_hours }} h/semana
+                    </span>
+                    <span
+                      v-if="entrada.fila.department_name"
+                      class="block text-[11px] font-normal text-slate-500"
+                      :data-testid="`department-name-${entrada.fila.user_id}`"
+                    >
+                      {{ entrada.fila.department_name }}
+                    </span>
+                  </span>
+                </div>
               </th>
               <td
                 v-for="celda in entrada.celdas"

@@ -25,8 +25,10 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { calendarApi, meApi, overviewApi, peopleApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
@@ -139,11 +141,48 @@ const departmentByProject = computed(() => {
 })
 
 /**
+ * Personas que se pueden esconder: las de la leyenda con su departamento.
+ *
+ * El departamento es el de la persona, no el del proyecto que gestiona: se
+ * busca en el directorio. Si la persona no esta en el, no tiene departamento.
+ */
+const personasVisibilidad = computed(() =>
+  members.value.map((member) => {
+    const persona = people.value.find((item) => String(item.id) === String(member.user_id))
+    return {
+      id: member.user_id,
+      name: member.name,
+      department_id: persona?.department_id ?? null,
+      department_name: persona?.department_name ?? null,
+    }
+  }),
+)
+
+/**
+ * Mostrar y ocultar personas y departamentos.
+ *
+ * Vive en la vista: no va a la URL, no se pide al servidor y no se guarda.
+ * Es una vista de lo que ya esta cargado, no un filtro de los datos.
+ */
+const {
+  departamentosOcultos,
+  idsOcultos,
+  ocultosCount,
+  ocultoPara,
+  alternarPersona,
+  alternarDepartamento,
+  mostrarTodos,
+} = useVisibilidad(personasVisibilidad)
+
+/**
  * Tareas que pasan los tres filtros.
  *
  * Los filtros se combinan: una tarea sale solo si cumple los tres. El
  * departamento se acota con el que gestiona cada proyecto; si esa lista no se
  * ha podido leer, el filtro se deja al servidor, que ya lo aplico.
+ *
+ * Las tareas de las personas escondidas tampoco salen. Las que no tienen
+ * persona se quedan.
  */
 const visibleTasks = computed(() =>
   tasks.value.filter((task) => {
@@ -157,8 +196,14 @@ const visibleTasks = computed(() =>
       const department = departmentByProject.value.get(Number(task.project_id))
       if (String(department ?? '') !== String(departmentFilter.value)) return false
     }
+    if (ocultoPara(task.assigned_to)) return false
     return true
   }),
+)
+
+/** Miembros de la leyenda que no estan escondidos. */
+const miembrosVisibles = computed(() =>
+  members.value.filter((member) => !ocultoPara(member.user_id)),
 )
 
 /** Si hay algun filtro puesto. */
@@ -455,6 +500,16 @@ watch(
             </option>
           </select>
         </label>
+
+        <VisibilityPanel
+          :personas="personasVisibilidad"
+          :ids-ocultos="idsOcultos"
+          :departamentos-ocultos="departamentosOcultos"
+          :ocultos-count="ocultosCount"
+          @alternar-persona="alternarPersona"
+          @alternar-departamento="alternarDepartamento"
+          @mostrar-todos="mostrarTodos"
+        />
       </div>
 
       <AlertBanner
@@ -466,8 +521,12 @@ watch(
         Ninguna tarea coincide con los filtros.
       </AlertBanner>
 
-      <ul v-if="members.length" class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600">
-        <li v-for="member in members" :key="member.user_id" class="flex items-center gap-1.5">
+      <ul
+        v-if="miembrosVisibles.length"
+        class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"
+        data-testid="calendar-legend"
+      >
+        <li v-for="member in miembrosVisibles" :key="member.user_id" class="flex items-center gap-1.5">
           <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
           {{ member.name }}
         </li>

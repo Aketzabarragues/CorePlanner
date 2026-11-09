@@ -136,6 +136,77 @@ const DETALLE_TAREA = {
   project_id: 1,
 }
 
+/** Personas con tareas: Ana y Beto son del departamento 1, Carla del 2. */
+const feedVisibilidad = {
+  tasks: [
+    {
+      id: 21,
+      title: 'Tarea de Ana',
+      start: '2026-11-02',
+      end: '2026-11-02',
+      custom_class: 'persona-0',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      assigned_to: 2,
+      assigned_name: 'Ana',
+      status: 'in_progress',
+    },
+    {
+      id: 22,
+      title: 'Tarea de Beto',
+      start: '2026-11-03',
+      end: '2026-11-03',
+      custom_class: 'persona-1',
+      project_id: 1,
+      project_name: 'Linea Pasteurizadora SIVE',
+      assigned_to: 3,
+      assigned_name: 'Beto',
+      status: 'in_progress',
+    },
+    {
+      id: 23,
+      title: 'Tarea de Carla',
+      start: '2026-11-04',
+      end: '2026-11-04',
+      custom_class: 'persona-2',
+      project_id: 2,
+      project_name: 'Red de tuberias linea 2',
+      assigned_to: 4,
+      assigned_name: 'Carla',
+      status: 'in_progress',
+    },
+  ],
+  members: [
+    { user_id: 2, name: 'Ana', css_class: 'persona-0' },
+    { user_id: 3, name: 'Beto', css_class: 'persona-1' },
+    { user_id: 4, name: 'Carla', css_class: 'persona-2' },
+  ],
+  undated_task_ids: [],
+  unassigned_task_ids: [],
+}
+
+/** Directorio con el departamento de cada persona del feed de visibilidad. */
+const DIRECTORIO_VISIBILIDAD = [
+  {
+    id: 2,
+    name: 'Ana',
+    department_id: 1,
+    department_name: 'Automatizacion & SCADA',
+  },
+  {
+    id: 3,
+    name: 'Beto',
+    department_id: 1,
+    department_name: 'Automatizacion & SCADA',
+  },
+  {
+    id: 4,
+    name: 'Carla',
+    department_id: 2,
+    department_name: 'Oficina Tecnica / EPLAN',
+  },
+]
+
 function setupFetch({
   payload = feed,
   dias = diasNoLaborables,
@@ -831,6 +902,128 @@ describe('CalendarView con filtros', () => {
       expect(select.classes()).not.toContain('bg-transparent')
       expect(select.classes()).not.toContain('focus:ring-0')
     }
+  })
+})
+
+describe('CalendarView con el panel de visibilidad', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('el panel de visibilidad se abre con su boton', async () => {
+    setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper } = await mountView()
+
+    expect(wrapper.find('[data-testid="visibility-panel"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="visibility-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="hide-person-2"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="hide-department-1"]').exists()).toBe(true)
+  })
+
+  it('esconder una persona quita sus tareas y la quita de la leyenda', async () => {
+    setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper } = await mountView()
+
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(3)
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await flushPromises()
+
+    // La tarea de Ana no aparece en ningun dia.
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-02"]').text()).not.toContain(
+      'Tarea de Ana',
+    )
+    // Las de los demas siguen ahi.
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-03"]').text()).toContain('Tarea de Beto')
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-04"]').text()).toContain('Tarea de Carla')
+    // Y la leyenda ya no la ensena.
+    expect(wrapper.find('[data-testid="calendar-legend"]').text()).not.toContain('Ana')
+    expect(wrapper.find('[data-testid="calendar-legend"]').text()).toContain('Beto')
+    expect(wrapper.find('[data-testid="hidden-count"]').text()).toContain('1 oculto')
+  })
+
+  it('esconder un departamento quita las tareas de todas sus personas', async () => {
+    setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.find('[data-testid="hide-department-1"]').setValue(true)
+    await flushPromises()
+
+    // Ana y Beto son del departamento 1: sus tareas no salen.
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-02"]').text()).not.toContain(
+      'Tarea de Ana',
+    )
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-03"]').text()).not.toContain(
+      'Tarea de Beto',
+    )
+    // Carla es del departamento 2: la suya sigue.
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-04"]').text()).toContain('Tarea de Carla')
+    expect(wrapper.find('[data-testid="calendar-legend"]').text()).not.toContain('Ana')
+    expect(wrapper.find('[data-testid="calendar-legend"]').text()).not.toContain('Beto')
+    expect(wrapper.find('[data-testid="hidden-count"]').text()).toContain('2 ocultos')
+  })
+
+  it('mostrar todos vuelve a ensenar las tareas y la leyenda', async () => {
+    setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="show-all"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(3)
+    expect(wrapper.find('[data-testid="calendar-cell-2026-11-02"]').text()).toContain('Tarea de Ana')
+    expect(wrapper.find('[data-testid="calendar-legend"]').text()).toContain('Ana')
+    expect(wrapper.find('[data-testid="hidden-count"]').exists()).toBe(false)
+  })
+
+  it('las tareas escondidas desaparecen tambien de la semana y del dia', async () => {
+    setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await flushPromises()
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="week-cell-2026-11-02"]').text()).not.toContain('Tarea de Ana')
+
+    await wrapper.find('[data-testid="week-day-2026-11-04"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="day-task"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="day-view"]').text()).not.toContain('Tarea de Ana')
+  })
+
+  it('esconder no toca la URL ni vuelve a pedir los datos', async () => {
+    const calls = setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
+    const { wrapper, router } = await mountView()
+
+    const peticiones = calls.filter((call) => call.url.includes('/gantt')).length
+
+    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await flushPromises()
+
+    expect(Object.keys(router.currentRoute.value.query)).toEqual([])
+    expect(calls.filter((call) => call.url.includes('/gantt')).length).toBe(peticiones)
   })
 })
 

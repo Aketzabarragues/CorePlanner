@@ -1779,3 +1779,69 @@ Hay dos UIs de personas: el directorio de Personas y Competencias (boton "Perfil
 1. **El directorio manda en el estilo**: es la vista operativa, la que se mira todos los dias, y la que ya tenia el avatar. Configuracion se ajusta a ella.
 2. **El avatar se anade en vez de quitarse**: quitarlo de Configuracion habria hecho la tabla mas pobre sin ganar nada.
 3. **Las iniciales son dos letras, o una si el nombre es una sola palabra**: es el criterio que ya usaba el directorio.
+## 37. El panel de visibilidad, compartido
+
+El boton "Mostrar/ocultar" que ya tenia Capacidad pasa a ser un control de filtro mas, y su logica se saca a dos piezas que las tres vistas comparten: un composable con el estado (`frontend/src/composables/useVisibilidad.js`) y un componente con el dibujo (`frontend/src/components/common/VisibilityPanel.vue`).
+
+### Que entra
+
+- El boton "Mostrar/ocultar" de Capacidad pasa de `rounded-full` a `rounded`, igual que los demas controles de filtro de la vista.
+- El contador de ocultos **se queda en pastilla** (`rounded-full`): es un indicador de estado, como "Activo" u "Sobrecargada", no un control de filtro.
+- El panel desplegable ya era cuadrado y no se toca.
+- El composable `useVisibilidad(personas)`: guarda las personas escondidas una a una, las claves de los departamentos escondidos, el contador y las tres acciones (esconder persona, esconder departamento, mostrar todos).
+- El componente `VisibilityPanel`: el boton, el panel con las casillas agrupadas por departamento, "Mostrar todos" y el contador. El componente dibuja; el estado lo tiene la vista.
+- Los `data-testid` son los mismos en las tres vistas: `toggle-visibility`, `visibility-panel`, `hide-department-{id}`, `hide-person-{id}`, `show-all` y `hidden-count`.
+
+### Que no entra
+
+- **No se persiste**: el estado es del componente. No va a la URL, no se pide al servidor y al recargar se ha perdido.
+- **No cambia el alcance**: es un acotamiento de presentacion sobre lo que ya esta visible. Nunca amplia lo que `resolve_scope` deja ver.
+- **El panel desplegable no cambia**: sigue siendo cuadrado, con la misma sombra y el mismo ancho.
+- **No se anade a otras vistas**: Panel, Mi trabajo y las vistas de proyecto se quedan como estan.
+
+### Decisiones tomadas
+
+1. **Dos piezas y no una**: el estado (composable) y el dibujo (componente) van separados. Asi las tres vistas comparten la logica y solo cada vista decide a quien esconde. El componente no sabe nada de la matriz, del diagrama ni del calendario: recibe una lista de personas y devuelve lo que se pulsa.
+2. **El departamento es el de la persona**, no el del proyecto que gestiona. En el Gantt, "Agrupar por: Departamento" agrupa las barras por el proyecto, pero el panel agrupa a las personas por el departamento que tienen en el directorio. Asi el panel significa lo mismo en las tres vistas.
+3. **Marcar a una persona de un departamento escondido no cambia quien se ve**: el departamento se muestra y sus demas companeros se esconden uno a uno. Si no, al desmarcar a alguien se verian de golpe todos los companeros del departamento.
+4. **El boton es cuadrado y el contador es pastilla**: el boton es un control de filtro, como los selects; el contador es un estado, como las pastillas de estado de la app.
+5. **Una persona escondida sigue escondida aunque ya no este en la lista**: el filtro comprueba el id y el departamento de la persona, no solo las casillas marcadas.
+
+## 38. El panel de visibilidad en el Gantt
+
+### Que entra
+
+- El boton "Mostrar/ocultar" junto a los filtros del diagrama (departamento, proyecto, persona y "Agrupar por").
+- Las barras de las personas escondidas desaparecen del diagrama. Las tareas sin asignar se quedan: no son de nadie que se pueda esconder.
+- Las personas escondidas desaparecen de la leyenda de colores.
+- El diagrama se vuelve a pintar cuando cambia la seleccion.
+
+### Que no entra
+
+- No cambia los filtros de la URL ni hace falta volver a pedir el diagrama: esconder a alguien es solo de pantalla.
+- No se puede esconder a una persona que no aparece en el diagrama.
+
+### Decisiones tomadas
+
+1. **La lista del panel sale de los miembros del feed** (las personas con barra), unidos al directorio para el departamento. Los miembros del feed pueden no tener barra en la semana abierta: se pueden esconder igual y cuentan en el contador.
+2. **El diagrama se repinta entero**, en vez de quitar barras sueltas del SVG: la libreria dibuja el diagrama completo y las franjas de grupo se calculan con las barras que quedan.
+3. **La lista se deriva del feed y no del ref de miembros**: ese ref se reescribe en cada repintado, y si el panel se apoyara en el, cada repintado volveria a disparar el repintado.
+
+## 39. El panel de visibilidad en el Calendario
+
+### Que entra
+
+- El boton "Mostrar/ocultar" junto a los tres filtros del calendario.
+- Las tarjetas de las personas escondidas desaparecen del mes, de la semana y del dia.
+- Las personas escondidas desaparecen de la leyenda de colores.
+
+### Que no entra
+
+- No cambia los filtros de la URL ni vuelve a pedir el calendario.
+- El detalle de una tarea ya escondida se puede seguir abriendo: el detalle busca la tarea en la lista completa, no en la que se ve.
+
+### Decisiones tomadas
+
+1. **El corte se hace en `visibleTasks`**: de ahi salen la rejilla del mes, la rejilla de la semana y el detalle del dia. Un solo sitio, las tres vistas quedan cubiertas.
+2. **Las tareas sin asignar se quedan**, como en el Gantt.
+3. **La lista del panel sale de los miembros del feed**, igual que en el Gantt, y las personas que no estan en el directorio se agrupan en "Sin departamento".

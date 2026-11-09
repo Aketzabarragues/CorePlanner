@@ -92,7 +92,7 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
   <div
     role="img"
     :aria-label="ariaLabel"
-    class="flex items-end gap-2"
+    class="flex items-start gap-2"
     :data-testid="testId"
   >
     <div
@@ -113,7 +113,7 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
         />
         <span
           v-if="item.sobrecargada"
-          class="absolute -top-1 left-1/2 inline-flex -translate-x-1/2 text-red-700"
+          class="absolute -top-1 left-1/2 inline-flex h-3.5 w-3.5 -translate-x-1/2 text-red-700"
           aria-hidden="true"
         >
           <AppIcon name="warning" />

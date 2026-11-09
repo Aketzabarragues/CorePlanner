@@ -978,11 +978,27 @@ async function loadSkills(token) {
  * instancia del componente cuando solo cambia la consulta, de modo que sin
  * esta recarga la matriz seguiria mostrando los datos del proyecto anterior.
  */
+/**
+ * Quita de la URL un departamento que ya no se puede ver.
+ *
+ * Una URL guardada puede llevar el departamento de otra persona. Aplicar ese
+ * filtro dejaria la matriz vacia sin explicar por que, asi que el filtro se
+ * cae y la pantalla vuelve a enseñar lo que si es visible.
+ */
+async function limpiarDepartamentoInvisible() {
+  const id = query.value.department
+  if (!id) return
+  const visible = store.departments.some((item) => String(item.id) === String(id))
+  if (visible) return
+  await updateQuery({ department: undefined }, false)
+}
+
 async function loadReport() {
   const token = await auth.ensureSession()
   await store.ensureProjects(token)
   await loadSkills(token)
   await normalizarUrl()
+  await limpiarDepartamentoInvisible()
 
   const projects = store.projects
   empty.value = projects.length === 0
@@ -1063,7 +1079,10 @@ watch(
     </header>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
-      <label class="text-xs font-medium text-slate-600">
+      <label
+        v-if="store.departments.length > 1"
+        class="text-xs font-medium text-slate-600"
+      >
         <span class="mb-1 block">Departamento</span>
         <select
           v-model="departmentFilter"

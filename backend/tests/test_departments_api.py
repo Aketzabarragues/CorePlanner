@@ -143,3 +143,77 @@ async def test_el_login_de_una_persona_sin_departamento_lo_devuelve_nulo(
 
     assert response.status_code == 200, response.text
     assert response.json()["user"]["department_id"] is None
+
+
+async def test_el_gerente_ve_los_tres_departamentos(
+    client_con_seed: AsyncClient, entrar
+):
+    headers = await entrar("ivan@example.com")
+
+    response = await client_con_seed.get("/api/departments", headers=headers)
+
+    assert response.status_code == 200, response.text
+    nombres = {item["name"] for item in response.json()}
+    assert nombres == {"Alimentación", "Energía", "Medio Ambiente"}
+
+
+@pytest.mark.parametrize(
+    ("email", "departamento"),
+    [
+        ("ana@example.com", "Alimentación"),
+        ("jorge@example.com", "Energía"),
+        ("sebastian@example.com", "Medio Ambiente"),
+        ("aketza@example.com", "Alimentación"),
+    ],
+)
+async def test_cada_persona_solo_ve_su_departamento(
+    client_con_seed: AsyncClient, entrar, email: str, departamento: str
+):
+    """El listado se acota al ambito: nadie ve los departamentos ajenos."""
+    headers = await entrar(email)
+
+    response = await client_con_seed.get("/api/departments", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [item["name"] for item in data] == [departamento]
+
+
+async def test_quien_no_tiene_departamento_no_ve_ninguno(
+    client_con_seed: AsyncClient, entrar
+):
+    headers = await entrar("forastero@example.com", PASSWORD)
+
+    response = await client_con_seed.get("/api/departments", headers=headers)
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+
+
+async def test_crear_un_departamento_sigue_exigiendo_un_gerente(
+    client_con_seed: AsyncClient, entrar
+):
+    """Acotar la lectura no abre la escritura: crear sigue siendo del gerente."""
+    headers = await entrar("ana@example.com")
+
+    response = await client_con_seed.post(
+        "/api/departments", json={"name": "Departamento nuevo"}, headers=headers
+    )
+
+    assert response.status_code == 403, response.text
+
+
+async def test_modificar_un_departamento_sigue_exigiendo_un_gerente(
+    client_con_seed: AsyncClient, entrar
+):
+    headers = await entrar("jorge@example.com")
+    departamentos = await client_con_seed.get("/api/departments", headers=headers)
+    objetivo = departamentos.json()[0]
+
+    response = await client_con_seed.patch(
+        f"/api/departments/{objetivo['id']}",
+        json={"name": "Cambiado"},
+        headers=headers,
+    )
+
+    assert response.status_code == 403, response.text

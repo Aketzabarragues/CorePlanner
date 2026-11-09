@@ -5,6 +5,36 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import PanelView from '../views/PanelView.vue'
 
+const byDepartment = [
+  {
+    id: 4,
+    name: 'Alimentación',
+    active_projects: 1,
+    overloaded_people: 1,
+    utilization: 88,
+    planned_hours: 57.28,
+    capacity_hours: 152,
+  },
+  {
+    id: 5,
+    name: 'Energía',
+    active_projects: 3,
+    overloaded_people: 0,
+    utilization: 51,
+    planned_hours: 49.32,
+    capacity_hours: 96,
+  },
+  {
+    id: 6,
+    name: 'Medio Ambiente',
+    active_projects: 3,
+    overloaded_people: 1,
+    utilization: 53,
+    planned_hours: 64,
+    capacity_hours: 120,
+  },
+]
+
 const panel = {
   week: '2026-W45',
   is_current_week: true,
@@ -82,6 +112,7 @@ const panel = {
       problem: 'Sin fechas',
     },
   ],
+  by_department: byDepartment,
 }
 
 function jsonResponse(payload, ok = true, status = 200) {
@@ -196,6 +227,48 @@ describe('PanelView', () => {
 
     expect(wrapper.find('[data-testid="panel-projects-status"]').text()).toContain('Activo')
     expect(wrapper.find('[data-testid="panel-tasks-status"]').text()).toContain('En Desarrollo')
+  })
+
+  it('desglosa el estado por departamento cuando hay mas de uno', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-departments"]').exists()).toBe(true)
+    const filas = wrapper.findAll('[data-testid="panel-department-row"]')
+    expect(filas).toHaveLength(3)
+    expect(filas[0].text()).toContain('Alimentación')
+    expect(filas[0].text()).toContain('88 %')
+    expect(filas[1].text()).toContain('Energía')
+    expect(filas[1].text()).toContain('51 %')
+    expect(filas[2].text()).toContain('Medio Ambiente')
+  })
+
+  it('el desglose dice cuantos proyectos y cuantas sobrecargas tiene cada area', async () => {
+    const wrapper = await mountView()
+
+    const filas = wrapper.findAll('[data-testid="panel-department-row"]')
+    expect(filas[0].text()).toContain('57.28 h planificadas')
+    expect(filas[0].text()).toContain('152 h')
+  })
+
+  it('no enseña el desglose cuando solo hay un departamento', async () => {
+    setupFetch({ ...panel, by_department: [byDepartment[0]] })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-departments"]').exists()).toBe(false)
+  })
+
+  it('un departamento sin capacidad conocida lo dice', async () => {
+    setupFetch({
+      ...panel,
+      by_department: [{ ...byDepartment[0], utilization: null }, byDepartment[1]],
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.findAll('[data-testid="panel-department-row"]')[0].text()).toContain(
+      'sin capacidad',
+    )
   })
 
   it('avisa cuando no hay nada planificado', async () => {

@@ -11,12 +11,13 @@ panel y la matriz nunca pueden discrepar.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Project, Task
+from ..models import Department, Project, Task
 from .capacity import CapacityReport, build_capacity_report
 from .capacity_repository import load_capacity_for_projects
 from .schedule import current_week_key, week_window
@@ -32,6 +33,19 @@ class PanelOverload:
     name: str
     week: str
     units: int
+    capacity_units: int
+
+
+@dataclass(frozen=True, slots=True)
+class PanelDepartment:
+    """Resumen de un departamento: sus proyectos, sus sobrecargas y su uso."""
+
+    id: int
+    name: str
+    active_projects: int
+    overloaded_people: int
+    utilization: int | None
+    planned_units: int
     capacity_units: int
 
 
@@ -86,6 +100,7 @@ class Panel:
     total_people: int
     weeks: tuple[PanelWeek, ...] = ()
     pending: tuple[PanelPending, ...] = ()
+    by_department: tuple[PanelDepartment, ...] = ()
 
     def to_dict(self) -> dict:
         """Representacion del panel. Las horas siguen siendo Decimal."""
@@ -145,6 +160,18 @@ class Panel:
                 }
                 for task in self.pending
             ],
+            "by_department": [
+                {
+                    "id": department.id,
+                    "name": department.name,
+                    "active_projects": department.active_projects,
+                    "overloaded_people": department.overloaded_people,
+                    "utilization": department.utilization,
+                    "planned_hours": from_units(department.planned_units),
+                    "capacity_hours": from_units(department.capacity_units),
+                }
+                for department in self.by_department
+            ],
         }
 
 
@@ -157,6 +184,24 @@ def utilization_percent(planned_units: int, capacity_units: int) -> int | None:
     if capacity_units <= 0:
         return None
     return (planned_units * 100 + capacity_units // 2) // capacity_units
+
+
+def week_usage(report: CapacityReport, week: str | None) -> tuple[int, int]:
+    """Horas planificadas y de capacidad de una semana del informe.
+
+    Sin capacidad conocida, la capacidad no cuenta: no se inventa un limite que
+    nadie ha fijado, y el porcentaje sale sin publicar.
+    """
+    planned = 0
+    capacity = 0
+    for row in report.rows:
+        for cell in row.cells:
+            if cell.week != week:
+                continue
+            planned += cell.units
+            if cell.capacity_units is not None:
+                capacity += cell.capacity_units
+    return planned, capacity
 
 
 def reference_week(weeks: Sequence[str], today: date | None = None) -> str | None:
@@ -248,15 +293,7 @@ def build_panel(
     week = reference_week(report.weeks, today)
     current = current_week_key(today)
 
-    planned_units = 0
-    capacity_units = 0
-    for row in report.rows:
-        for cell in row.cells:
-            if cell.week != week:
-                continue
-            planned_units += cell.units
-            if cell.capacity_units is not None:
-                capacity_units += cell.capacity_units
+    planned_units, capacity_units = week_usage(report, week)
 
     overloaded: list[PanelOverload] = []
     for row in report.rows:
@@ -326,6 +363,62 @@ def build_panel(
     )
 
 
+async def load_department_panels(
+    session: AsyncSession,
+    projects: Sequence[Project],
+    weeks: Sequence[str],
+    today: date | None = None,
+) -> tuple[PanelDepartment, ...]:
+    """Resumen de cada departamento al que llegan los proyectos visibles.
+
+    Cada departamento se mide con su propio subconjunto de proyectos y con el
+    mismo calculo que el agregado global: uso del equipo en la semana de
+    referencia, quien se pasa de capacidad y proyectos en marcha. Un proyecto
+    sin departamento no entra en ningun grupo: no hay contra que medirlo.
+    """
+    groups: dict[int, list[Project]] = {}
+    for project in projects:
+        if project.department_id is None:
+            continue
+        groups.setdefault(project.department_id, []).append(project)
+    if not groups:
+        return ()
+
+    rows = (
+        await session.execute(
+            select(Department).where(Department.id.in_(list(groups)))
+        )
+    ).scalars().all()
+    names = {row.id: row.name for row in rows}
+
+    entries: list[PanelDepartment] = []
+    for department_id, department_projects in groups.items():
+        report = await load_capacity_for_projects(
+            session, [project.id for project in department_projects], weeks=weeks
+        )
+        week = reference_week(report.weeks, today)
+        planned, capacity = week_usage(report, week)
+        entries.append(
+            PanelDepartment(
+                id=department_id,
+                name=names.get(department_id, ""),
+                active_projects=sum(
+                    1 for project in department_projects if project.status == "active"
+                ),
+                overloaded_people=sum(
+                    1
+                    for row in report.rows
+                    if any(cell.is_overloaded for cell in row.cells)
+                ),
+                utilization=utilization_percent(planned, capacity),
+                planned_units=planned,
+                capacity_units=capacity,
+            )
+        )
+    entries.sort(key=lambda item: item.name.lower())
+    return tuple(entries)
+
+
 async def load_panel(
     session: AsyncSession,
     projects: Sequence[Project],
@@ -342,4 +435,6 @@ async def load_panel(
         session, project_ids, weeks=window
     )
     tasks = await list_tasks_for_projects(session, project_ids)
-    return build_panel(report, projects, tasks, today)
+    panel = build_panel(report, projects, tasks, today)
+    by_department = await load_department_panels(session, projects, window, today)
+    return replace(panel, by_department=by_department)

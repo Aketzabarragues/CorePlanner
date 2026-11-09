@@ -472,6 +472,37 @@ describe('CapacityMatrix', () => {
     expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
   })
 
+  it('el selector de departamento se esconde con una sola opcion', async () => {
+    setupFetch({ '/api/departments': () => jsonResponse([departments[0]]) })
+
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.find('[data-testid="filter-department"]').exists()).toBe(false)
+  })
+
+  it('el selector de departamento se ve con varias opciones', async () => {
+    setupFetch()
+
+    const wrapper = await mountMatrix()
+
+    const filtro = wrapper.get('[data-testid="filter-department"]')
+    expect(filtro.findAll('option').map((option) => option.text())).toEqual([
+      'Todos los departamentos',
+      'Automatización & SCADA',
+      'Oficina Técnica / EPLAN',
+    ])
+  })
+
+  it('un departamento de la URL que ya no se ve se quita del filtro', async () => {
+    const calls = setupFetch()
+
+    await mountMatrix({ department: '9' })
+
+    expect(router.currentRoute.value.query.department).toBeUndefined()
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('department_id'))).toBe(false)
+  })
+
   it('el filtro por competencia va con su nivel minimo', async () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()

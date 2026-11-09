@@ -1450,3 +1450,67 @@ vista global con filtro, asi que no entra en el menu global.
 10. **Los filtros son de la vista, no de la URL**: no se guardan ni se comparten.
     Eso queda para una vista guardada, que no entra.
 
+## 28. Ambito de departamentos y desglose por departamento
+
+El listado de departamentos no miraba el ambito de quien entraba: `GET /api/departments`
+devolvia los tres departamentos a cualquiera con un token. Un jefe de area veia los
+departamentos de los demas con sus responsables, sin tener nada que hacer ahi. El
+panel global tampoco descentraba los departamentos: daba un numero agregado y punto.
+
+### Que entra
+
+**El listado acotado**
+
+- `GET /api/departments` resuelve el ambito con `resolve_scope()` y filtra por
+  `scope.department_id`, igual que hace `list_visible_users()` con las personas.
+- El gerente y el administrador global ven todos. El resto ve solo el suyo. Quien no
+  tiene departamento asignado no ve ninguno: la lista sale vacia, no da error.
+- La escritura no se toca: `POST` y `PATCH` de departamentos siguen exigiendo gerente.
+
+**El filtro de departamento de la capacidad**
+
+- El backend ya aceptaba `department_id` en `GET /api/capacity`; lo que faltaba era
+  acotar la lista del desplegable y decidir cuando esconderlo.
+- El desplegable lista los departamentos visibles de quien entra y deja la matriz en
+  el equipo de ese departamento. Por defecto, "Todos los departamentos".
+- Con una sola opcion el desplegable no se muestra: no hay nada que elegir y solo
+  ocupa sitio.
+- Si una URL guardada lleva un departamento que ya no se ve, el filtro se cae de la
+  URL y la matriz vuelve a enseñar lo visible, en vez de quedarse vacia sin explicacion.
+
+**El desglose del panel**
+
+- `PanelOut` gana `by_department`: una entrada por departamento visible con sus
+  proyectos activos, sus personas con sobrecarga y el uso de su equipo.
+- Cada departamento se mide con **su propio grupo de proyectos** y con el mismo
+  calculo que el agregado global (semana de referencia, horas planificadas frente a
+  capacidad, sobrecargas). No es el informe global repartido: cada equipo se mide
+  con su gente.
+- Un proyecto sin departamento no entra en ningun grupo: no hay contra que medirlo.
+- En `PanelView.vue` es una tabla debajo de las cuatro tarjetas. Solo se muestra con
+  mas de un departamento: con uno solo seria redundante con las tarjetas de arriba.
+
+### Que no entra
+
+- **Un desglose por persona**: el panel ya dice quien se pasa y cuanto.
+- **Series por departamento**: el desglose es de la semana de referencia, no de todo el
+  periodo.
+- **Filtros en el panel**: el desglose es de lectura, no un selector mas.
+- **Comparar departamentos entre si**: la tabla no ordena ni rankea areas.
+
+### Decisiones tomadas
+
+1. **El filtro por `department_id` se queda en la URL**: es un filtro mas de la matriz,
+   y el resto de filtros ya viajan con ella.
+2. **Con una sola opcion el desplegable se esconde**: es lo menos forzado. Un jefe de
+   area ve su equipo entero en la matriz, sin un selector que no puede usar.
+3. **La URL guardada se limpia sola**: un filtro que ya no se puede aplicar se quita,
+   en vez de dejar la pantalla vacia sin decir por que.
+4. **Cada departamento se mide con sus proyectos**: el uso de un equipo no se reparte
+   desde el informe global. Una persona que trabaja en dos departamentos cuenta en
+   los dos, con su capacidad completa en cada uno.
+5. **El desglose es del gerente, en la practica**: se muestra con mas de un
+   departamento visible, que solo pasa con el gerente o el administrador global.
+6. **El calculo es el mismo**: se extrajo `week_usage()` para que el agregado global
+   y el desglose usen exactamente la misma aritmetica.
+

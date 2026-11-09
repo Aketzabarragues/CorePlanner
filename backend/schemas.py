@@ -504,6 +504,18 @@ class PanelProjectOut(BaseModel):
     department_id: int | None = None
 
 
+class PanelDepartmentOut(BaseModel):
+    """Resumen de un departamento: sus proyectos, sus sobrecargas y su uso."""
+
+    id: int
+    name: str
+    active_projects: int
+    overloaded_people: int
+    utilization: int | None = None
+    planned_hours: Hours = 0
+    capacity_hours: Hours = 0
+
+
 class PanelOut(BaseModel):
     """Panel global: el estado de la organizacion."""
 
@@ -520,6 +532,7 @@ class PanelOut(BaseModel):
     total_people: int
     weeks: list[PanelWeekOut] = []
     pending: list[PanelPendingOut] = []
+    by_department: list[PanelDepartmentOut] = []
 
 
 class GanttTaskOut(BaseModel):

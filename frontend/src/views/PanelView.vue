@@ -33,6 +33,7 @@ const overloaded = computed(() => panel.value?.overloaded ?? [])
 const projects = computed(() => panel.value?.projects ?? [])
 const weeks = computed(() => panel.value?.weeks ?? [])
 const pending = computed(() => panel.value?.pending ?? [])
+const byDepartment = computed(() => panel.value?.by_department ?? [])
 const projectStatuses = computed(() =>
   Object.entries(panel.value?.projects_by_status ?? {}),
 )
@@ -250,6 +251,83 @@ useTaskReload(load)
           </p>
         </RouterLink>
       </div>
+
+      <section
+        v-if="byDepartment.length > 1"
+        aria-label="Estado por departamento"
+        class="mb-4 rounded border border-slate-200 bg-white p-4"
+        data-testid="panel-departments"
+      >
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-sm font-semibold text-siemens-900">Estado por departamento</h2>
+          <span class="text-xs text-slate-500">
+            Semana {{ panel.week ? weekNumber(panel.week) : '—' }} de cada equipo por separado
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr
+                class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
+              >
+                <th scope="col" class="py-2 pr-3 font-medium">Departamento</th>
+                <th scope="col" class="px-3 py-2 font-medium">Proyectos activos</th>
+                <th scope="col" class="px-3 py-2 font-medium">Personas con sobrecarga</th>
+                <th scope="col" class="px-3 py-2 font-medium">Uso del equipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="department in byDepartment"
+                :key="department.id"
+                class="border-t border-slate-100"
+                data-testid="panel-department-row"
+              >
+                <th scope="row" class="py-2 pr-3 font-semibold text-slate-800">
+                  {{ department.name }}
+                </th>
+                <td class="px-3 py-2 tabular-nums text-slate-700">
+                  {{ department.active_projects }}
+                </td>
+                <td class="px-3 py-2">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+                    :class="
+                      department.overloaded_people
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-slate-100 text-slate-600'
+                    "
+                  >
+                    {{ department.overloaded_people }}
+                  </span>
+                </td>
+                <td class="px-3 py-2 tabular-nums">
+                  <span
+                    class="font-semibold"
+                    :class="
+                      department.utilization === null
+                        ? 'text-slate-500'
+                        : department.utilization >= 100
+                          ? 'text-red-700'
+                          : 'text-siemens-900'
+                    "
+                  >
+                    {{
+                      department.utilization === null
+                        ? 'sin capacidad'
+                        : `${department.utilization} %`
+                    }}
+                  </span>
+                  <span class="ml-2 text-xs text-slate-500">
+                    {{ formatHours(department.planned_hours) }} planificadas de
+                    {{ formatHours(department.capacity_hours) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section

@@ -169,6 +169,14 @@ async def _auth(client: AsyncClient, email: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
+async def _departamentos(client: AsyncClient, entrar) -> dict[str, int]:
+    """Id de cada departamento, leidos con el gerente."""
+    headers = await entrar("ivan@example.com")
+    response = await client.get("/api/departments", headers=headers)
+    assert response.status_code == 200, response.text
+    return {item["name"]: item["id"] for item in response.json()}
+
+
 def _row(data: dict, user_id: int) -> dict | None:
     for row in data["rows"]:
         if row["user_id"] == user_id:
@@ -396,5 +404,128 @@ async def test_el_listado_global_de_tareas_filtra_por_persona_y_semana(client: A
 
 async def test_el_listado_global_de_tareas_exige_token(client: AsyncClient):
     response = await client.get("/api/tasks")
+
+    assert response.status_code == 401, response.text
+
+
+async def test_el_panel_de_un_jefe_de_area_no_se_sale_de_su_departamento(
+    client_con_seed: AsyncClient,
+    entrar,
+):
+    """Jorge pide el panel y solo le salen los proyectos de Energia.
+
+    Es la prueba que fija el ambito del panel global: un jefe de area no ve
+    los proyectos de los demas departamentos ni en el desglose.
+    """
+    headers = await entrar("jorge@example.com")
+
+    response = await client_con_seed.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    departamentos = await _departamentos(client_con_seed, entrar)
+    assert data["projects"]
+    assert {p["department_id"] for p in data["projects"]} == {departamentos["Energía"]}
+    assert [d["name"] for d in data["by_department"]] == ["Energía"]
+
+
+async def test_el_panel_del_gerente_desglosa_los_tres_departamentos(
+    client_con_seed: AsyncClient,
+    entrar,
+):
+    headers = await entrar("ivan@example.com")
+
+    response = await client_con_seed.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [d["name"] for d in data["by_department"]] == [
+        "Alimentación",
+        "Energía",
+        "Medio Ambiente",
+    ]
+    assert [d["active_projects"] for d in data["by_department"]] == [5, 3, 3]
+    assert [d["overloaded_people"] for d in data["by_department"]] == [1, 0, 1]
+
+
+async def test_el_desglose_por_departamento_cuadra_con_el_total(
+    client_con_seed: AsyncClient,
+    entrar,
+):
+    """Las horas de los departamentos suman las horas del panel."""
+    headers = await entrar("ivan@example.com")
+
+    response = await client_con_seed.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert sum(d["planned_hours"] for d in data["by_department"]) == pytest.approx(
+        data["planned_hours"]
+    )
+    assert sum(d["capacity_hours"] for d in data["by_department"]) == pytest.approx(
+        data["capacity_hours"]
+    )
+
+
+async def test_el_desglose_por_departamento_tiene_las_cifras_de_cada_equipo(
+    client_con_seed: AsyncClient,
+    entrar,
+):
+    """Cada departamento se mide con su equipo, en la semana pedida."""
+    headers = await entrar("ivan@example.com")
+
+    response = await client_con_seed.get(
+        "/api/panel?from=2026-W46&to=2026-W46", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    esperado = {
+        "Alimentación": {
+            "active_projects": 5,
+            "overloaded_people": 1,
+            "utilization": 38,
+            "planned_hours": 57.28,
+            "capacity_hours": 152.0,
+        },
+        "Energía": {
+            "active_projects": 3,
+            "overloaded_people": 0,
+            "utilization": 51,
+            "planned_hours": 49.32,
+            "capacity_hours": 96.0,
+        },
+        "Medio Ambiente": {
+            "active_projects": 3,
+            "overloaded_people": 1,
+            "utilization": 53,
+            "planned_hours": 64.0,
+            "capacity_hours": 120.0,
+        },
+    }
+    for departamento in data["by_department"]:
+        valores = esperado[departamento["name"]]
+        assert departamento["active_projects"] == valores["active_projects"]
+        assert departamento["overloaded_people"] == valores["overloaded_people"]
+        assert departamento["utilization"] == valores["utilization"]
+        assert departamento["planned_hours"] == pytest.approx(valores["planned_hours"])
+        assert departamento["capacity_hours"] == pytest.approx(valores["capacity_hours"])
+
+
+async def test_un_tecnico_solo_desglosa_su_departamento(
+    client_con_seed: AsyncClient, entrar
+):
+    """Aketza ve un solo departamento: el desglose de uno no aporta nada."""
+    headers = await entrar("aketza@example.com")
+
+    response = await client_con_seed.get("/api/panel", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [d["name"] for d in data["by_department"]] == ["Alimentación"]
+
+
+async def test_el_panel_exige_token(client_con_seed: AsyncClient):
+    response = await client_con_seed.get("/api/panel")
 
     assert response.status_code == 401, response.text

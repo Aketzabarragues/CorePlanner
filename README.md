@@ -355,7 +355,7 @@ cada uno numera los suyos.
 | `GET` | `/api/projects/{id}/members` | `capacity.read` en el proyecto |
 | `GET` | `/api/projects/{id}/gantt` | `gantt.read` en el proyecto |
 | `GET` | `/api/projects/{id}/kanban` | `capacity.read` en el proyecto |
-| `GET` | `/api/departments` | token valido |
+| `GET` | `/api/departments` | token valido; los departamentos visibles de quien entra |
 | `GET` | `/api/me` | token valido; ambito de la persona |
 | `GET` | `/api/users` | gerente |
 | `POST` | `/api/users` | gerente |
@@ -385,7 +385,7 @@ cada uno numera los suyos.
 | `GET` | `/api/capacity` | token valido, filtros opcionales `department_id` y `project_id` |
 | `GET` | `/api/gantt` | token valido, filtro opcional `project_id` |
 | `GET` | `/api/activity` | token valido, filtros opcionales `project_id`, `entity_type` y `entity_id`; bitacora de actividad |
-| `GET` | `/api/panel` | token valido; resumen de la organizacion |
+| `GET` | `/api/panel` | token valido; resumen de la organizacion, con el desglose por departamento |
 | `GET` | `/api/my-work` | token valido; tareas propias y carga por semana |
 | `GET` | `/api/tasks` | token valido, filtros `assigned_to`, `week`, `from` y `to` |
 | `POST` | `/api/projects/{id}/tasks` | `task.write` en el proyecto |
@@ -667,6 +667,11 @@ los proyectos visibles, y con el filtro `?project=` para uno solo.
   en la URL: el enlace se puede compartir. El modo y la celda abierta tambien,
   pero no recargan el informe. El filtro de proyecto lo pone el selector de la
   cabecera, que es el unico control que lo cambia.
+- El filtro de **departamento** lista los departamentos visibles de quien entra
+  y deja la matriz en el equipo de ese departamento. Empieza en "Todos los
+  departamentos". Cuando solo hay un departamento visible el filtro no se
+  muestra: no hay nada que elegir. Si una URL guardada lleva un departamento que
+  ya no se ve, el filtro se cae y la matriz vuelve a enseñar lo que si es visible.
 
 El arrastre con previsualizacion es la otra forma de reasignar:
 
@@ -764,6 +769,12 @@ guardada.
 departamento agrupa a las personas y es el gestor de los proyectos que
 declaran su `department_id`.
 
+El listado se acota al ambito de quien entra, igual que el de las personas: el
+gerente ve todos los departamentos y el resto ve solo el suyo. Un jefe de area
+no tiene nada que hacer con los departamentos de los demas, asi que no se le
+enseñan; quien no tiene departamento asignado no ve ninguno. Crear y modificar
+departamentos sigue siendo solo del gerente.
+
 La vista global `/departments` los muestra con su responsable y los proyectos
 que gestiona cada uno, con los proyectos sin departamento aparte.
 
@@ -855,6 +866,12 @@ completa en el `title`.
   con el motivo y un enlace al tablero del proyecto.
 - **Recuentos**: proyectos por estado, tareas por estado, personas con carga y
   tareas del periodo.
+- **Estado por departamento**: una fila por departamento visible con sus
+  proyectos activos, sus personas con sobrecarga y el uso de su equipo en la
+  semana de referencia. Cada departamento se mide con su propio grupo de
+  proyectos, con el mismo calculo que el agregado global. Solo se muestra cuando
+  hay mas de un departamento: con uno solo seria redundante con las tarjetas de
+  arriba, y asi un jefe de area no ve un desglose de un unico elemento.
 
 Todo sale de la matriz de capacidad y del listado de tareas, de modo que el
 panel y la matriz no pueden discrepar. El panel **no** lleva veredictos
@@ -1127,7 +1144,9 @@ Las pantallas personales ya no son listas de tablas:
   estado desde la propia pantalla.
 - **El panel** (`/panel`) resume la organizacion con cuatro indicadores que
   llevan a su origen, la serie del equipo, las sobrecargas, los proyectos con
-  mas carga y la planificacion incompleta.
+  mas carga y la planificacion incompleta. Cuando hay mas de un departamento
+  visible, debajo de los indicadores viene el desglose por departamento: sus
+  proyectos activos, sus sobrecargas y el uso de su equipo.
 - **El resumen del proyecto** (`/projects/{id}`) es la portada del proyecto:
   estado, equipo, horas por semana y accesos a las demas vistas.
 - **La bitacora de actividad** (`/activity`) deja constancia de quien creo,

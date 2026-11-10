@@ -85,6 +85,12 @@ export function useVisibilidad(personas) {
   function alternarDepartamento(clave) {
     if (departamentosOcultos.value.includes(clave)) {
       departamentosOcultos.value = departamentosOcultos.value.filter((item) => item !== clave)
+      // Al mostrar el departamento se muestran tambien sus personas: si se
+      // escondieron una a una al repartir, no pueden quedar atrapadas.
+      const miembros = lista.value
+        .filter((item) => claveDepartamento(item) === clave)
+        .map((item) => String(item.id))
+      personasOcultas.value = personasOcultas.value.filter((item) => !miembros.includes(item))
       return
     }
     departamentosOcultos.value = [...departamentosOcultos.value, clave]

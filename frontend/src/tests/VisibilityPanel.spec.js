@@ -89,6 +89,29 @@ describe('useVisibilidad', () => {
     expect(idsOcultos.value).toEqual(['2'])
   })
 
+  it('volver a mostrar el departamento deja visibles a todos sus miembros', () => {
+    const { idsOcultos, ocultosCount, alternarDepartamento, alternarPersona } = montarComposable()
+
+    // 1. Se esconde el departamento entero.
+    alternarDepartamento('1')
+    expect(idsOcultos.value).toEqual(['1', '2'])
+
+    // 2. Se revela una persona: el departamento se muestra y el companero
+    // queda escondido uno a uno.
+    alternarPersona(1)
+    expect(idsOcultos.value).toEqual(['2'])
+
+    // 3. Se vuelve a esconder el departamento.
+    alternarDepartamento('1')
+    expect(idsOcultos.value).toEqual(['1', '2'])
+
+    // 4. Se vuelve a mostrar el departamento: nadie puede quedar atrapado
+    // por el reparto automatico del paso 2.
+    alternarDepartamento('1')
+    expect(idsOcultos.value).toEqual([])
+    expect(ocultosCount.value).toBe(0)
+  })
+
   it('una persona escondida sigue escondida aunque ya no este en la lista', () => {
     const { lista, alternarPersona, ocultoPara } = montarComposable()
 

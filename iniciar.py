@@ -37,10 +37,18 @@ ESPERA_PUERTO = 30.0
 
 
 def puerto_ocupado(host: str, port: int) -> bool:
-    """True si algo escucha ya en ese puerto."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.5)
-        return sock.connect_ex((host, port)) == 0
+    """True si algo escucha ya en ese puerto.
+
+    La conexion se hace con create_connection, que prueba todas las direcciones
+    que resuelva el nombre. En Windows "localhost" resuelve a ::1 y Vite escucha
+    solo en IPv6, asi que un socket AF_INET se queda con 127.0.0.1, donde no
+    hay nadie, y la comprobacion da un falso negativo.
+    """
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except OSError:
+        return False
 
 
 def esperar_puerto(host: str, port: int, timeout: float) -> bool:

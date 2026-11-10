@@ -4,13 +4,14 @@
  *
  * La misma planificacion que muestra el Gantt, vista por filas de persona: en
  * las tres vistas (mes, semana y dia) las tareas se colocan bajo la persona
- * que las lleva, de lunes a viernes, en vez de identificarse por color. Los
- * dias no laborables aparecen marcados en la cabecera, porque forman parte
- * del calendario de trabajo.
+ * que las lleva, de lunes a domingo, en vez de identificarse por color. El fin
+ * de semana se ve atenuado y sin barras, porque el motor de capacidad no
+ * reparte horas ahi. Los dias no laborables aparecen marcados en la cabecera,
+ * porque forman parte del calendario de trabajo.
  *
- * El mes es una lista de semanas y cada semana es la misma rejilla de filas
- * que la vista semanal. La vista de dia es el detalle de un solo dia, y se
- * abre al pulsar un dia de cualquiera de las dos.
+ * El mes es una sola tabla con un grupo de filas por semana, y cada semana es
+ * la misma rejilla de filas que la vista semanal. La vista de dia es el detalle
+ * de un solo dia, y se abre al pulsar un dia de cualquiera de las dos.
  *
  * Es de toda la organizacion y los filtros son de presentacion: acotan lo que
  * ya esta cargado, no lo que la persona puede ver. Los tres viven en la URL
@@ -52,7 +53,6 @@ import {
   shiftWeek,
   weekRangeLabel,
   weekWorkdays,
-  workdaysRangeLabel,
 } from '../utils/weeks'
 
 const auth = useAuthStore()
@@ -236,20 +236,13 @@ const canEditSelected = computed(() => {
 })
 
 /**
- * Semanas del mes, con sus dias laborables.
+ * Semanas del mes, con sus siete dias.
  *
- * El mes se ve como una lista de semanas, de lunes a viernes. El fin de semana
- * no aporta nada: el motor de capacidad solo reparte horas entre dias
- * laborables.
+ * El mes se ve como una sola tabla con un grupo de filas por semana. El fin de
+ * semana sale atenuado y sin barras: el motor de capacidad solo reparte horas
+ * entre dias laborables.
  */
-const semanasDelMes = computed(() =>
-  weeks.value.map((semana) => semana.filter((dia) => !dia.weekend)),
-)
-
-/** Clave ISO de cada semana del mes. */
-const clavesSemana = computed(() =>
-  semanasDelMes.value.map((semana) => isoWeekKey(new Date(`${semana[0].date}T00:00:00Z`))),
-)
+const semanasDelMes = computed(() => weeks.value)
 
 async function load() {
   try {
@@ -523,34 +516,26 @@ watch(
         {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el calendario.
       </p>
 
-      <div v-if="view === 'month'" class="space-y-3" data-testid="calendar-month-view">
-        <section
-          v-for="(semana, indice) in semanasDelMes"
-          :key="indice"
-          class="overflow-hidden rounded border border-slate-200 bg-white"
-          :data-testid="`calendar-week-block-${indice}`"
+      <div
+        v-if="view === 'month'"
+        class="overflow-x-auto rounded border border-slate-200 bg-white"
+        data-testid="calendar-month-view"
+      >
+        <table
+          class="w-full min-w-[42rem] table-fixed border-collapse text-sm"
+          data-testid="calendar-month-table"
         >
-          <header
-            class="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-100 px-3 py-1.5"
-          >
-            <h3
-              class="text-xs font-semibold uppercase tracking-wide text-slate-600"
-              data-testid="calendar-week-range"
-            >
-              {{ workdaysRangeLabel(semana) }}
-            </h3>
-            <span class="text-[10px] text-slate-400">{{ clavesSemana[indice] }}</span>
-          </header>
-
-          <WeekLanes
-            :days="semana"
-            :people="personasVisibles"
-            :tasks="visibleTasks"
-            :non-working-days="nonWorkingDays"
-            @open-day="openDay"
-            @open-task="openTask"
-          />
-        </section>
+          <template v-for="(semana, indice) in semanasDelMes" :key="indice">
+            <WeekLanes
+              :days="semana"
+              :people="personasVisibles"
+              :tasks="visibleTasks"
+              :non-working-days="nonWorkingDays"
+              @open-day="openDay"
+              @open-task="openTask"
+            />
+          </template>
+        </table>
       </div>
 
       <WeekGrid

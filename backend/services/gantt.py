@@ -33,6 +33,16 @@ PERSONA_CLASSES = (
 )
 """Clases CSS de la paleta. El indice de cada persona elige su color."""
 
+PROYECTO_CLASSES = (
+    "proyecto-0",
+    "proyecto-1",
+    "proyecto-2",
+    "proyecto-3",
+    "proyecto-4",
+    "proyecto-5",
+)
+"""Clases CSS de la paleta de proyecto. El indice de cada proyecto elige su color."""
+
 PROGRESS_BY_STATUS = {
     "done": 100,
     "testing": 75,
@@ -84,6 +94,7 @@ class GanttTask:
     progress: int
     dependencies: str
     custom_class: str
+    project_class: str
     project_id: int
     project_name: str
     title: str = ""
@@ -100,6 +111,7 @@ class GanttTask:
             "progress": self.progress,
             "dependencies": self.dependencies,
             "custom_class": self.custom_class,
+            "project_class": self.project_class,
             "project_id": self.project_id,
             "project_name": self.project_name,
             "title": self.title,
@@ -149,6 +161,12 @@ def build_gantt_feed(
     class_by_user = {member.user_id: member.css_class for member in members}
     name_by_user = {member.user_id: member.name for member in members}
 
+    project_ids = sorted({task.project_id for task in tasks})
+    class_by_project = {
+        project_id: PROYECTO_CLASSES[index % len(PROYECTO_CLASSES)]
+        for index, project_id in enumerate(project_ids)
+    }
+
     bars: list[GanttTask] = []
     undated: list[int] = []
     unassigned: list[int] = []
@@ -170,6 +188,7 @@ def build_gantt_feed(
                 progress=PROGRESS_BY_STATUS.get(task.status, 0),
                 dependencies="",
                 custom_class=class_by_user.get(task.assigned_to, ""),
+                project_class=class_by_project[task.project_id],
                 project_id=task.project_id,
                 project_name=project_names.get(task.project_id, ""),
                 title=task.title,

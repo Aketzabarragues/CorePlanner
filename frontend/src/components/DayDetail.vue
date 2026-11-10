@@ -119,21 +119,24 @@ function nonWorkingClass(scope) {
         <li
           v-for="task in seccion.tasks"
           :key="task.id"
-          class="cursor-pointer flex items-start gap-3 px-4 py-3"
+          class="cursor-pointer px-4 py-2"
           data-testid="day-task"
           @click="emit('open-task', task.id)"
         >
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-slate-800" :title="task.title">
-              {{ task.title }}
-            </p>
-            <p class="mt-0.5 text-xs text-slate-500">
-              {{ columnLabel(task.status) }} · {{ task.project_name }}
-            </p>
+          <div
+            class="flex items-start gap-3 rounded px-2 py-1.5 text-white"
+            :class="task.project_class || 'bg-slate-500'"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium" :title="task.title">{{ task.title }}</p>
+              <p class="mt-0.5 truncate text-[11px] opacity-80">
+                {{ columnLabel(task.status) }} · {{ task.project_name }}
+              </p>
+            </div>
+            <span class="shrink-0 text-[11px] tabular-nums opacity-80">
+              {{ task.start }} - {{ task.end }}
+            </span>
           </div>
-          <span class="shrink-0 text-xs tabular-nums text-slate-400">
-            {{ task.start }} - {{ task.end }}
-          </span>
         </li>
       </ul>
 

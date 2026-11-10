@@ -573,6 +573,7 @@ class GanttTaskOut(BaseModel):
     progress: int
     dependencies: str
     custom_class: str
+    project_class: str
     project_id: int
     project_name: str
     title: str = ""

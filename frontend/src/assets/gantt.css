@@ -20,6 +20,20 @@
 .persona-4 { --persona-color: #cf222e; background-color: var(--persona-color); }
 .persona-5 { --persona-color: #57606a; background-color: var(--persona-color); }
 
+/*
+ * Color de cada proyecto.
+ *
+ * El backend elige el indice de la paleta segun la posicion del proyecto y lo
+ * devuelve como clase. En el Calendario el color dice de que proyecto es cada
+ * tarea; el diagrama de Gantt sigue coloreando por persona con `persona-N`.
+ */
+.proyecto-0 { background-color: #0f4c81; }
+.proyecto-1 { background-color: #0b6e4f; }
+.proyecto-2 { background-color: #8a5a00; }
+.proyecto-3 { background-color: #5b21b6; }
+.proyecto-4 { background-color: #a11d2b; }
+.proyecto-5 { background-color: #3f4c5a; }
+
 .gantt .bar-wrapper .bar {
   fill: var(--persona-color, #b8c2cc);
 }

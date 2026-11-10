@@ -187,6 +187,7 @@ async def test_el_gantt_devuelve_las_barras_del_proyecto(client: AsyncClient):
     assert barra["dependencies"] == ""
     assert "Engineer" in barra["name"]
     assert barra["custom_class"].startswith("persona-")
+    assert barra["project_class"].startswith("proyecto-")
 
 
 async def test_el_gantt_avisa_de_las_tareas_sin_fechas(client: AsyncClient):

@@ -20,6 +20,7 @@ const feed = {
       progress: 50,
       dependencies: '',
       custom_class: 'persona-0',
+      project_class: 'proyecto-0',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 2,
@@ -35,6 +36,7 @@ const feed = {
       progress: 75,
       dependencies: '',
       custom_class: '',
+      project_class: 'proyecto-1',
       project_id: 2,
       project_name: 'Red de tuberias linea 2',
       assigned_to: null,
@@ -146,6 +148,7 @@ const feedVisibilidad = {
       start: '2026-11-02',
       end: '2026-11-02',
       custom_class: 'persona-0',
+      project_class: 'proyecto-0',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 2,
@@ -158,6 +161,7 @@ const feedVisibilidad = {
       start: '2026-11-03',
       end: '2026-11-03',
       custom_class: 'persona-1',
+      project_class: 'proyecto-0',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 3,
@@ -170,6 +174,7 @@ const feedVisibilidad = {
       start: '2026-11-04',
       end: '2026-11-04',
       custom_class: 'persona-2',
+      project_class: 'proyecto-1',
       project_id: 2,
       project_name: 'Red de tuberias linea 2',
       assigned_to: 4,
@@ -304,49 +309,75 @@ describe('CalendarView', () => {
     vi.useRealTimers()
   })
 
-  it('muestra el mes en curso como una lista de semanas', async () => {
+  it('muestra el mes en curso en una sola tabla de semanas', async () => {
     const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
-    expect(wrapper.find('[data-testid="calendar-month-view"]').exists()).toBe(true)
-    // Noviembre de 2026 va del lunes 26 de octubre al viernes 4 de diciembre:
-    // seis semanas de lunes a viernes.
-    const rangos = wrapper.findAll('[data-testid="calendar-week-range"]')
+    expect(wrapper.find('[data-testid="calendar-month-table"]').exists()).toBe(true)
+    // Un solo grupo de filas por semana, todos dentro de la misma tabla.
+    expect(wrapper.findAll('[data-testid="calendar-month-table"] > tbody')).toHaveLength(6)
+    expect(wrapper.findAll('[data-testid="week-lanes"]')).toHaveLength(6)
+  })
+
+  it('cada semana lleva su rango y su clave', async () => {
+    const { wrapper } = await mountView()
+
+    const rangos = wrapper.findAll('[data-testid="week-lane-range"]')
     expect(rangos).toHaveLength(6)
-    expect(rangos[1].text()).toBe('2 - 6 nov')
-    expect(rangos[2].text()).toBe('9 - 13 nov')
+    expect(rangos[1].text()).toBe('2 - 8 nov')
+    expect(rangos[2].text()).toBe('9 - 15 nov')
+    expect(wrapper.findAll('[data-testid="week-lanes"]')[2].text()).toContain('2026-W46')
   })
 
   it('cada persona tiene su fila en cada semana', async () => {
     const { wrapper } = await mountView()
 
-    const bloque = wrapper.find('[data-testid="calendar-week-block-1"]')
-    expect(bloque.find('[data-testid="week-lane-person-2"]').exists()).toBe(true)
-    expect(bloque.find('[data-testid="week-lane-name-2"]').text()).toBe('Ana')
+    const filas = wrapper.findAll('[data-testid="week-lane-name-2"]')
+    expect(filas).toHaveLength(6)
+    expect(filas[0].text()).toContain('Ana')
   })
 
   it('cada tarea es una barra que ocupa los dias que tiene', async () => {
     const { wrapper } = await mountView()
 
-    // La primera va del lunes 2 al viernes 6: las cinco columnas.
-    const primera = wrapper.find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+    const semanas = wrapper.findAll('[data-testid="week-lanes"]')
+    // La primera va del lunes 2 al viernes 6: las cinco columnas del lunes al viernes.
+    const primera = semanas[1].find('[data-testid="week-task"]')
     expect(primera.text()).toContain('Programacion SCADA')
-    expect(primera.attributes('style')).toContain('grid-column: 1 / 6')
+    expect(primera.text()).toContain('Linea Pasteurizadora SIVE')
+    expect(primera.attributes('data-inicio')).toBe('0')
+    expect(primera.attributes('data-columnas')).toBe('5')
 
     // La segunda va del lunes 9 al martes 10: las dos primeras columnas.
-    const segunda = wrapper.find('[data-testid="calendar-week-block-2"] [data-testid="week-task"]')
+    const segunda = semanas[2].find('[data-testid="week-task"]')
     expect(segunda.text()).toContain('Cableado de campo')
-    expect(segunda.attributes('style')).toContain('grid-column: 1 / 3')
+    expect(segunda.attributes('data-inicio')).toBe('0')
+    expect(segunda.attributes('data-columnas')).toBe('2')
   })
 
-  it('las semanas solo tienen los dias laborables', async () => {
+  it('el fin de semana se ve pero sin barras', async () => {
     const { wrapper } = await mountView()
 
-    expect(wrapper.find('[data-testid="week-lane-head-2026-11-02"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="week-lane-head-2026-11-06"]').exists()).toBe(true)
-    // El fin de semana no tiene columna.
-    expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="week-lane-head-2026-11-08"]').exists()).toBe(false)
+    const sabado = wrapper.find('[data-testid="week-lane-head-2026-11-07"]')
+    expect(sabado.exists()).toBe(true)
+    expect(sabado.classes()).toContain('bg-slate-50')
+    const domingo = wrapper.find('[data-testid="week-lane-head-2026-11-08"]')
+    expect(domingo.exists()).toBe(true)
+    expect(domingo.classes()).toContain('bg-slate-50')
+
+    // Ninguna barra llega al fin de semana: las columnas son de lunes a viernes.
+    for (const barra of wrapper.findAll('[data-testid="week-task"]')) {
+      const fin = Number(barra.attributes('data-inicio')) + Number(barra.attributes('data-columnas'))
+      expect(fin).toBeLessThanOrEqual(5)
+    }
+  })
+
+  it('la barra se pinta del color de su proyecto', async () => {
+    const { wrapper } = await mountView()
+
+    const semanas = wrapper.findAll('[data-testid="week-lanes"]')
+    expect(semanas[1].find('[data-testid="week-task"]').classes()).toContain('proyecto-0')
+    expect(semanas[2].find('[data-testid="week-task"]').classes()).toContain('proyecto-1')
   })
 
   it('marca el dia de hoy en la cabecera', async () => {
@@ -357,7 +388,7 @@ describe('CalendarView', () => {
     expect(hoy).toHaveLength(1)
     expect(hoy[0].text()).toBe('Hoy')
     expect(
-      wrapper.find('[data-testid="calendar-week-block-1"] [data-testid="week-lane-today"]').exists(),
+      wrapper.findAll('[data-testid="week-lanes"]')[1].find('[data-testid="week-lane-today"]').exists(),
     ).toBe(true)
   })
 
@@ -373,13 +404,13 @@ describe('CalendarView', () => {
   it('la fila de sin asignar sale solo donde hay tareas sin persona', async () => {
     const { wrapper } = await mountView()
 
-    // La segunda tarea no tiene persona: sale en su semana.
+    // La segunda tarea no tiene persona: solo sale en su semana.
+    const sinAsignar = wrapper.findAll('[data-testid="week-lane-unassigned-name"]')
+    expect(sinAsignar).toHaveLength(1)
+    expect(sinAsignar[0].text()).toBe('Sin asignar')
     expect(
-      wrapper.find('[data-testid="calendar-week-block-2"] [data-testid="week-lane-unassigned"]').exists(),
-    ).toBe(true)
-    // En la primera semana no hay ninguna.
-    expect(
-      wrapper.find('[data-testid="calendar-week-block-1"] [data-testid="week-lane-unassigned"]').exists(),
+      wrapper.findAll('[data-testid="week-lanes"]')[1].find('[data-testid="week-lane-unassigned-name"]')
+        .exists(),
     ).toBe(false)
   })
 
@@ -421,16 +452,15 @@ describe('CalendarView', () => {
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
   })
 
-  it('la barra de una tarea se pinta del color de la persona, no del color de la tarea', async () => {
+  it('las barras no usan la paleta por persona', async () => {
     const { wrapper } = await mountView()
 
-    // La paleta por persona ya no se usa en el calendario: todas las barras
-    // llevan el mismo color.
+    // El color es el del proyecto. La paleta por persona es del Gantt.
     const barras = wrapper.findAll('[data-testid="week-task"]')
     expect(barras.length).toBeGreaterThan(0)
     for (const barra of barras) {
-      expect(barra.classes()).toContain('bg-siemens-700')
-      expect(barra.classes()).not.toContain('persona-0')
+      expect(barra.classes().some((clase) => clase.startsWith('persona-'))).toBe(false)
+      expect(barra.classes()).not.toContain('bg-siemens-700')
     }
   })
 
@@ -478,8 +508,11 @@ describe('CalendarView en modo semanal', () => {
     expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
     expect(wrapper.find('[data-testid="week-lane-head-2026-11-02"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="week-lane-head-2026-11-06"]').exists()).toBe(true)
-    // El fin de semana no tiene columna.
-    expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').exists()).toBe(false)
+    // El fin de semana tambien tiene columna, pero atenuado.
+    expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').classes()).toContain(
+      'bg-slate-50',
+    )
   })
 
   it('muestra el detalle de cada tarea', async () => {
@@ -491,8 +524,9 @@ describe('CalendarView en modo semanal', () => {
     // La primera tarea va del lunes 2 al viernes 6: una sola barra.
     expect(fichas).toHaveLength(1)
     expect(fichas[0].text()).toContain('Programacion SCADA')
-    expect(fichas[0].attributes('title')).toContain('Ana')
+    expect(fichas[0].text()).toContain('Linea Pasteurizadora SIVE')
     expect(fichas[0].attributes('title')).toContain('En Desarrollo')
+    expect(fichas[0].attributes('title')).toContain('2026-11-02 - 2026-11-06')
   })
 
   it('la barra va bajo la fila de quien la lleva', async () => {
@@ -500,8 +534,8 @@ describe('CalendarView en modo semanal', () => {
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
 
-    const fila = wrapper.find('[data-testid="week-lane-person-2"]')
-    expect(fila.find('[data-testid="week-lane-name-2"]').text()).toBe('Ana')
+    const fila = wrapper.find('[data-testid="week-lane-row-2-0"]')
+    expect(fila.find('[data-testid="week-lane-name-2"]').text()).toContain('Ana')
     expect(fila.findAll('[data-testid="week-task"]')).toHaveLength(1)
   })
 
@@ -516,7 +550,7 @@ describe('CalendarView en modo semanal', () => {
     // La segunda tarea ocupa el lunes 9 y el martes 10, y no tiene persona.
     const barras = wrapper.findAll('[data-testid="week-task"]')
     expect(barras).toHaveLength(1)
-    expect(wrapper.find('[data-testid="week-lane-unassigned"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-lane-unassigned-name"]').exists()).toBe(true)
 
     await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
     expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
@@ -625,6 +659,17 @@ describe('CalendarView en modo dia', () => {
 
     expect(wrapper.find('[data-testid="day-view"]').text()).toContain('Fiesta local')
   })
+
+  it('cada tarea del dia se pinta del color de su proyecto', async () => {
+    const { wrapper } = await mountView()
+
+    await wrapper.find('[data-testid="week-day-2026-11-09"]').trigger('click')
+
+    // La tarea sin persona es del segundo proyecto.
+    const bloque = wrapper.find('[data-testid="day-task"]')
+    expect(bloque.find('.proyecto-1').exists()).toBe(true)
+    expect(bloque.text()).toContain('Red de tuberias linea 2')
+  })
 })
 
 describe('CalendarView con el detalle de la tarea', () => {
@@ -644,7 +689,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
     const panel = wrapper.findComponent(TaskDetailPanel)
@@ -658,7 +703,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
     expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(true)
@@ -669,7 +714,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
     expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
@@ -681,7 +726,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
     expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
@@ -693,7 +738,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
     const antes = calls.filter((call) => call.url.includes('/gantt')).length
 
@@ -709,7 +754,7 @@ describe('CalendarView con el detalle de la tarea', () => {
     const { wrapper } = await mountView()
 
     await wrapper
-      .find('[data-testid="calendar-week-block-1"] [data-testid="week-task"]')
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
     const antes = calls.filter((call) => call.url.includes('/gantt')).length
 
@@ -986,15 +1031,14 @@ describe('CalendarView con el panel de visibilidad', () => {
 
     // La tarea de Ana no aparece en ninguna semana.
     expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(2)
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).not.toContain(
-      'Tarea de Ana',
-    )
+    const semana = wrapper.findAll('[data-testid="week-lanes"]')[1]
+    expect(semana.text()).not.toContain('Tarea de Ana')
     // Las de los demas siguen ahi.
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).toContain('Tarea de Beto')
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).toContain('Tarea de Carla')
+    expect(semana.text()).toContain('Tarea de Beto')
+    expect(semana.text()).toContain('Tarea de Carla')
     // Y su fila ya no sale.
-    expect(wrapper.find('[data-testid="week-lane-person-2"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="week-lane-person-3"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="week-lane-name-2"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="week-lane-name-3"]').length).toBeGreaterThan(0)
     expect(wrapper.find('[data-testid="hidden-count"]').text()).toContain('1 oculto')
   })
 
@@ -1008,17 +1052,14 @@ describe('CalendarView con el panel de visibilidad', () => {
 
     // Ana y Beto son del departamento 1: sus tareas no salen.
     expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(1)
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).not.toContain(
-      'Tarea de Ana',
-    )
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).not.toContain(
-      'Tarea de Beto',
-    )
+    const semana = wrapper.findAll('[data-testid="week-lanes"]')[1]
+    expect(semana.text()).not.toContain('Tarea de Ana')
+    expect(semana.text()).not.toContain('Tarea de Beto')
     // Carla es del departamento 2: la suya sigue.
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).toContain('Tarea de Carla')
-    expect(wrapper.find('[data-testid="week-lane-person-2"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="week-lane-person-3"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="week-lane-person-4"]').exists()).toBe(true)
+    expect(semana.text()).toContain('Tarea de Carla')
+    expect(wrapper.findAll('[data-testid="week-lane-name-2"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="week-lane-name-3"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="week-lane-name-4"]').length).toBeGreaterThan(0)
     expect(wrapper.find('[data-testid="hidden-count"]').text()).toContain('2 ocultos')
   })
 
@@ -1035,8 +1076,8 @@ describe('CalendarView con el panel de visibilidad', () => {
     await flushPromises()
 
     expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(3)
-    expect(wrapper.find('[data-testid="calendar-week-block-1"]').text()).toContain('Tarea de Ana')
-    expect(wrapper.find('[data-testid="week-lane-person-2"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="week-lanes"]')[1].text()).toContain('Tarea de Ana')
+    expect(wrapper.findAll('[data-testid="week-lane-name-2"]').length).toBeGreaterThan(0)
     expect(wrapper.find('[data-testid="hidden-count"]').exists()).toBe(false)
   })
 
@@ -1119,13 +1160,15 @@ describe('WeekGrid y DayDetail', () => {
 })
 
 describe('WeekLanes', () => {
-  /** Dias laborables de la semana del 2 al 6 de noviembre de 2026. */
+  /** Los siete dias de la semana del 2 al 8 de noviembre de 2026. */
   const dias = [
-    { date: '2026-11-02', day: 2, weekday: 0 },
-    { date: '2026-11-03', day: 3, weekday: 1 },
-    { date: '2026-11-04', day: 4, weekday: 2 },
-    { date: '2026-11-05', day: 5, weekday: 3 },
-    { date: '2026-11-06', day: 6, weekday: 4 },
+    { date: '2026-11-02', day: 2, weekday: 0, weekend: false },
+    { date: '2026-11-03', day: 3, weekday: 1, weekend: false },
+    { date: '2026-11-04', day: 4, weekday: 2, weekend: false },
+    { date: '2026-11-05', day: 5, weekday: 3, weekend: false },
+    { date: '2026-11-06', day: 6, weekday: 4, weekend: false },
+    { date: '2026-11-07', day: 7, weekday: 5, weekend: true },
+    { date: '2026-11-08', day: 8, weekday: 6, weekend: true },
   ]
 
   const personas = [
@@ -1141,6 +1184,7 @@ describe('WeekLanes', () => {
       end,
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
+      project_class: 'proyecto-0',
       assigned_to: assignedTo,
       assigned_name: assignedTo === null ? null : 'Ana',
       status: 'in_progress',
@@ -1152,10 +1196,9 @@ describe('WeekLanes', () => {
       props: { days: dias, people: personas, tasks: [], nonWorkingDays: [] },
     })
 
-    expect(wrapper.findAll('[data-testid^="week-lane-person-"]')).toHaveLength(2)
-    expect(wrapper.find('[data-testid="week-lane-person-3"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="week-lane-name-3"]').text()).toBe('Beto')
-    expect(wrapper.find('[data-testid="week-lane-person-3"] [data-testid="week-task"]').exists()).toBe(
+    expect(wrapper.findAll('[data-testid^="week-lane-name-"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="week-lane-name-3"]').text()).toContain('Beto')
+    expect(wrapper.find('[data-testid="week-lane-row-3-0"] [data-testid="week-task"]').exists()).toBe(
       false,
     )
   })
@@ -1170,9 +1213,35 @@ describe('WeekLanes', () => {
       },
     })
 
-    // Entra el lunes y sale el viernes: las cinco columnas.
+    // Entra el lunes y sale el viernes: las cinco columnas laborables.
     const barra = wrapper.find('[data-testid="week-task"]')
-    expect(barra.attributes('style')).toContain('grid-column: 1 / 6')
+    expect(barra.attributes('data-inicio')).toBe('0')
+    expect(barra.attributes('data-columnas')).toBe('5')
+  })
+
+  it('el fin de semana no lleva barras', () => {
+    const soloFinDeSemana = mount(WeekLanes, {
+      props: {
+        days: dias,
+        people: personas,
+        tasks: [tarea(1, 'Solo el fin de semana', '2026-11-07', '2026-11-08', 2)],
+        nonWorkingDays: [],
+      },
+    })
+    expect(soloFinDeSemana.findAll('[data-testid="week-task"]')).toHaveLength(0)
+
+    // Una que empieza en domingo entra el lunes y sale el viernes.
+    const desdeDomingo = mount(WeekLanes, {
+      props: {
+        days: dias,
+        people: personas,
+        tasks: [tarea(2, 'Desde el domingo', '2026-11-01', '2026-11-06', 2)],
+        nonWorkingDays: [],
+      },
+    })
+    const barra = desdeDomingo.find('[data-testid="week-task"]')
+    expect(barra.attributes('data-inicio')).toBe('0')
+    expect(barra.attributes('data-columnas')).toBe('5')
   })
 
   it('apila en carriles distintos las tareas que se pisan', () => {
@@ -1191,10 +1260,15 @@ describe('WeekLanes', () => {
     const barras = wrapper.findAll('[data-testid="week-task"]')
     expect(barras).toHaveLength(2)
     // Las dos se pisan el martes y el miercoles: van en carriles distintos.
-    expect(barras[0].attributes('style')).toContain('grid-column: 1 / 4')
-    expect(barras[0].attributes('style')).toContain('grid-row: 1')
-    expect(barras[1].attributes('style')).toContain('grid-column: 2 / 5')
-    expect(barras[1].attributes('style')).toContain('grid-row: 2')
+    expect(barras[0].attributes('data-lane')).toBe('0')
+    expect(barras[0].attributes('data-inicio')).toBe('0')
+    expect(barras[0].attributes('data-columnas')).toBe('3')
+    expect(barras[1].attributes('data-lane')).toBe('1')
+    expect(barras[1].attributes('data-inicio')).toBe('1')
+    expect(barras[1].attributes('data-columnas')).toBe('3')
+    // Y cada una en su fila.
+    expect(wrapper.findAll('[data-testid="week-lane-row-2-0"] [data-testid="week-task"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="week-lane-row-2-1"] [data-testid="week-task"]')).toHaveLength(1)
   })
 
   it('no apila las tareas que no se pisan', () => {
@@ -1212,15 +1286,15 @@ describe('WeekLanes', () => {
 
     const barras = wrapper.findAll('[data-testid="week-task"]')
     expect(barras).toHaveLength(2)
-    expect(barras[0].attributes('style')).toContain('grid-row: 1')
-    expect(barras[1].attributes('style')).toContain('grid-row: 1')
+    expect(barras[0].attributes('data-lane')).toBe('0')
+    expect(barras[1].attributes('data-lane')).toBe('0')
   })
 
   it('la fila de sin asignar solo sale si hay tareas sin persona', () => {
     const vacio = mount(WeekLanes, {
       props: { days: dias, people: personas, tasks: [], nonWorkingDays: [] },
     })
-    expect(vacio.find('[data-testid="week-lane-unassigned"]').exists()).toBe(false)
+    expect(vacio.find('[data-testid="week-lane-unassigned-name"]').exists()).toBe(false)
 
     const conSueltas = mount(WeekLanes, {
       props: {
@@ -1230,9 +1304,25 @@ describe('WeekLanes', () => {
         nonWorkingDays: [],
       },
     })
-    expect(conSueltas.find('[data-testid="week-lane-unassigned"]').exists()).toBe(true)
+    expect(conSueltas.find('[data-testid="week-lane-unassigned-name"]').exists()).toBe(true)
     expect(conSueltas.find('[data-testid="week-lane-unassigned-name"]').text()).toBe('Sin asignar')
     expect(conSueltas.findAll('[data-testid="week-task"]')).toHaveLength(1)
+  })
+
+  it('la barra lleva el nombre del proyecto y el color que le toca', () => {
+    const wrapper = mount(WeekLanes, {
+      props: {
+        days: dias,
+        people: personas,
+        tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+        nonWorkingDays: [],
+      },
+    })
+
+    const barra = wrapper.find('[data-testid="week-task"]')
+    expect(barra.text()).toContain('Programacion')
+    expect(barra.text()).toContain('Linea Pasteurizadora SIVE')
+    expect(barra.classes()).toContain('proyecto-0')
   })
 
   it('marca los dias no laborables de la semana', () => {

@@ -123,6 +123,31 @@ export function weekWorkdays(key) {
   return days
 }
 
+/**
+ * Los siete dias de la semana: de lunes a domingo.
+ *
+ * El fin de semana va marcado con `weekend`, como en la rejilla del mes. Se
+ * ve atenuado y sin barras, porque el motor de capacidad no reparte horas
+ * ahi, pero sigue estando para que el mes no tenga huecos.
+ */
+export function weekDays(key) {
+  const monday = weekMonday(key)
+  const days = []
+  for (let offset = 0; offset < 7; offset += 1) {
+    const day = new Date(monday.getTime())
+    day.setUTCDate(monday.getUTCDate() + offset)
+    const month = String(day.getUTCMonth() + 1).padStart(2, '0')
+    const date = String(day.getUTCDate()).padStart(2, '0')
+    days.push({
+      date: `${day.getUTCFullYear()}-${month}-${date}`,
+      day: day.getUTCDate(),
+      weekday: offset,
+      weekend: offset >= 5,
+    })
+  }
+  return days
+}
+
 /** Rango de la semana en texto: "9 - 13 nov 2026". */
 export function weekRangeLabel(key) {
   const days = weekWorkdays(key)
@@ -138,13 +163,12 @@ export function weekRangeLabel(key) {
 }
 
 /**
- * Rango de los dias laborables de una semana, en texto corto: "9 - 13 nov".
+ * Rango de los dias de una semana, en texto corto: "9 - 15 nov".
  *
- * Los dias son los mismos que usa la vista de semana, de modo que el
- * encabezado del mes y el de la semana dicen lo mismo. El anio no sale: en el
- * mes ya esta en el titulo.
+ * Los dias son los que se pintan, asi que el rango abarca los siete. El anio
+ * no sale: en el mes ya esta en el titulo.
  */
-export function workdaysRangeLabel(days) {
+export function daysRangeLabel(days) {
   if (!days.length) return ''
   const first = days[0]
   const last = days[days.length - 1]

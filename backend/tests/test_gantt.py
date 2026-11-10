@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from backend.services.gantt import PERSONA_CLASSES, build_gantt_feed
+from backend.services.gantt import PERSONA_CLASSES, PROYECTO_CLASSES, build_gantt_feed
 
 
 @dataclass
@@ -44,6 +44,7 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "progress",
         "dependencies",
         "custom_class",
+        "project_class",
         "project_id",
         "project_name",
         "title",
@@ -160,3 +161,49 @@ def test_el_color_va_mas_alli_del_tamano_de_la_paleta():
     clases = [member["css_class"] for member in feed.to_dict()["members"]]
     assert len(clases) == 8
     assert all(clase in PERSONA_CLASSES for clase in clases)
+
+
+def test_cada_proyecto_recibe_una_clase_distinta_segun_el_id():
+    """El color del proyecto depende del id, no del orden de las tareas."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=7),
+        Tarea(id=2, title="B", assigned_to=2, project_id=3),
+    ]
+
+    feed = build_gantt_feed(PERSONAS, tareas, {3: "Tres", 7: "Siete"})
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    assert barras[2]["project_class"] == PROYECTO_CLASSES[0]
+    assert barras[1]["project_class"] == PROYECTO_CLASSES[1]
+    assert barras[1]["project_class"] != barras[2]["project_class"]
+
+
+def test_el_mismo_proyecto_mantiene_la_clase_en_todas_sus_tareas():
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=2),
+        Tarea(id=2, title="B", assigned_to=2, project_id=2),
+        Tarea(id=3, title="C", assigned_to=3, project_id=1),
+    ]
+
+    feed = build_gantt_feed(PERSONAS, tareas, PROYECTOS)
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    assert barras[1]["project_class"] == barras[2]["project_class"]
+    assert barras[1]["project_class"] == PROYECTO_CLASSES[1]
+    assert barras[3]["project_class"] == PROYECTO_CLASSES[0]
+
+
+def test_el_color_de_proyecto_cicla_cuando_hay_mas_de_seis():
+    tareas = [
+        Tarea(id=index, title=f"T{index}", assigned_to=1, project_id=index)
+        for index in range(1, 9)
+    ]
+
+    feed = build_gantt_feed(PERSONAS, tareas, {index: f"P{index}" for index in range(1, 9)})
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    clases = [barra["project_class"] for barra in feed.to_dict()["tasks"]]
+    assert all(clase in PROYECTO_CLASSES for clase in clases)
+    assert clases[0] == PROYECTO_CLASSES[0]
+    assert clases[6] == PROYECTO_CLASSES[0]
+    assert barras[1]["project_class"] != barras[2]["project_class"]

@@ -136,3 +136,22 @@ export function weekRangeLabel(key) {
   }
   return `${first.day} ${firstMonth} - ${last.day} ${lastMonth} ${year}`
 }
+
+/**
+ * Rango de los dias laborables de una semana, en texto corto: "9 - 13 nov".
+ *
+ * Los dias son los mismos que usa la vista de semana, de modo que el
+ * encabezado del mes y el de la semana dicen lo mismo. El anio no sale: en el
+ * mes ya esta en el titulo.
+ */
+export function workdaysRangeLabel(days) {
+  if (!days.length) return ''
+  const first = days[0]
+  const last = days[days.length - 1]
+  const firstMonth = shortMonthName(Number(first.date.slice(5, 7)))
+  const lastMonth = shortMonthName(Number(last.date.slice(5, 7)))
+  if (firstMonth === lastMonth) {
+    return `${first.day} - ${last.day} ${lastMonth}`
+  }
+  return `${first.day} ${firstMonth} - ${last.day} ${lastMonth}`
+}

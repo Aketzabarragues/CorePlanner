@@ -2,15 +2,15 @@
 /**
  * Calendario de la planificacion.
  *
- * La misma planificacion que muestra el Gantt, vista como una rejilla de meses:
- * cada dia del mes con las tareas que lo ocupan. Los dias no laborables
- * aparecen marcados en su celda, porque forman parte del calendario de
- * trabajo.
+ * La misma planificacion que muestra el Gantt, vista por filas de persona: en
+ * las tres vistas (mes, semana y dia) las tareas se colocan bajo la persona
+ * que las lleva, de lunes a viernes, en vez de identificarse por color. Los
+ * dias no laborables aparecen marcados en la cabecera, porque forman parte
+ * del calendario de trabajo.
  *
- * La vista semanal es el mismo calendario con otro corte: una columna por dia
- * laborable de la semana ISO, con mas detalle en cada tarea. La vista de dia
- * es el detalle de un solo dia, y se abre al pulsar un dia de cualquiera de
- * las dos.
+ * El mes es una lista de semanas y cada semana es la misma rejilla de filas
+ * que la vista semanal. La vista de dia es el detalle de un solo dia, y se
+ * abre al pulsar un dia de cualquiera de las dos.
  *
  * Es de toda la organizacion y los filtros son de presentacion: acotan lo que
  * ya esta cargado, no lo que la persona puede ver. Los tres viven en la URL
@@ -29,6 +29,7 @@ import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
+import WeekLanes from '../components/common/WeekLanes.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
@@ -43,15 +44,15 @@ import {
   monthLabel,
   shiftDay,
   shiftMonth,
-  tasksOnDay,
-  weekdayNames,
 } from '../utils/month'
+import { sortByDepartment } from '../utils/people'
 import {
   currentWeekKey,
   isoWeekKey,
   shiftWeek,
   weekRangeLabel,
   weekWorkdays,
+  workdaysRangeLabel,
 } from '../utils/weeks'
 
 const auth = useAuthStore()
@@ -141,7 +142,8 @@ const departmentByProject = computed(() => {
 })
 
 /**
- * Personas que se pueden esconder: las de la leyenda con su departamento.
+ * Personas que se pueden esconder: las que salen en el calendario, con su
+ * departamento.
  *
  * El departamento es el de la persona, no el del proyecto que gestiona: se
  * busca en el directorio. Si la persona no esta en el, no tiene departamento.
@@ -201,9 +203,14 @@ const visibleTasks = computed(() =>
   }),
 )
 
-/** Miembros de la leyenda que no estan escondidos. */
-const miembrosVisibles = computed(() =>
-  members.value.filter((member) => !ocultoPara(member.user_id)),
+/**
+ * Personas visibles, ordenadas por departamento y luego por nombre.
+ *
+ * Es la lista de filas de los carriles: una por persona, aunque no tenga
+ * tareas. Las escondidas por el panel de visibilidad ya no estan.
+ */
+const personasVisibles = computed(() =>
+  sortByDepartment(personasVisibilidad.value.filter((persona) => !ocultoPara(persona.id))),
 )
 
 /** Si hay algun filtro puesto. */
@@ -229,29 +236,20 @@ const canEditSelected = computed(() => {
 })
 
 /**
- * Tareas de cada dia de la rejilla.
+ * Semanas del mes, con sus dias laborables.
  *
- * La celda tiene un alto fijo: lo que no cabe se ve desplazando la celda, sin
- * esconder tareas.
+ * El mes se ve como una lista de semanas, de lunes a viernes. El fin de semana
+ * no aporta nada: el motor de capacidad solo reparte horas entre dias
+ * laborables.
  */
-const tasksByDay = computed(() => {
-  const map = new Map()
-  for (const cell of weeks.value.flat()) {
-    map.set(cell.date, tasksOnDay(visibleTasks.value, cell.date))
-  }
-  return map
-})
+const semanasDelMes = computed(() =>
+  weeks.value.map((semana) => semana.filter((dia) => !dia.weekend)),
+)
 
-/** Dias no laborables de cada fecha. */
-const nonWorkingByDate = computed(() => {
-  const map = new Map()
-  for (const day of nonWorkingDays.value) {
-    const list = map.get(day.date) ?? []
-    list.push(day)
-    map.set(day.date, list)
-  }
-  return map
-})
+/** Clave ISO de cada semana del mes. */
+const clavesSemana = computed(() =>
+  semanasDelMes.value.map((semana) => isoWeekKey(new Date(`${semana[0].date}T00:00:00Z`))),
+)
 
 async function load() {
   try {
@@ -521,119 +519,44 @@ watch(
         Ninguna tarea coincide con los filtros.
       </AlertBanner>
 
-      <ul
-        v-if="miembrosVisibles.length"
-        class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"
-        data-testid="calendar-legend"
-      >
-        <li v-for="member in miembrosVisibles" :key="member.user_id" class="flex items-center gap-1.5">
-          <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
-          {{ member.name }}
-        </li>
-      </ul>
-
       <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
         {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el calendario.
       </p>
 
-      <div
-        v-if="view === 'month'"
-        class="overflow-x-auto rounded border border-slate-200 bg-white"
-      >
-        <table class="w-full table-fixed border-collapse text-sm" data-testid="calendar-grid">
-          <thead>
-            <tr class="bg-slate-100">
-              <th
-                v-for="name in weekdayNames()"
-                :key="name"
-                class="border border-slate-200 px-2 py-1.5 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-              >
-                {{ name }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(week, index) in weeks" :key="index">
-              <td
-                v-for="cell in week"
-                :key="cell.date"
-                class="overflow-hidden align-top border border-slate-200 p-1.5"
-                :class="cell.inMonth ? 'bg-white' : 'bg-slate-50'"
-                :data-testid="`calendar-cell-${cell.date}`"
-              >
-                <!--
-                  La altura va en el contenido, no en la celda: una tabla no
-                  resuelve alturas en porcentaje, asi que el alto de la celda
-                  depende de su contenido y la fila creceria con las tareas.
-                  Con una altura definida, la lista interior se desplaza y todas
-                  las filas del mes miden lo mismo.
-                -->
-                <div class="flex h-28 flex-col" data-testid="calendar-cell-body">
-                  <div class="mb-1 flex shrink-0 flex-wrap items-center gap-1">
-                    <button
-                      type="button"
-                      class="rounded text-xs font-medium hover:underline"
-                      :class="cell.inMonth ? 'text-slate-700' : 'text-slate-400'"
-                      :title="`Ver el día ${cell.date}`"
-                      :data-testid="`calendar-day-${cell.date}`"
-                      @click="openDay(cell.date)"
-                    >
-                      {{ cell.day }}
-                    </button>
-                    <template
-                      v-for="nonWorking in nonWorkingByDate.get(cell.date) ?? []"
-                      :key="nonWorking.id"
-                    >
-                      <span
-                        v-if="nonWorking.scope === 'global'"
-                        class="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
-                        :title="nonWorking.name"
-                        data-testid="calendar-non-working"
-                      >
-                        {{ nonWorking.name }}
-                      </span>
-                      <span
-                        v-else
-                        class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
-                        :title="
-                          nonWorking.department_name
-                            ? `${nonWorking.name} (${nonWorking.department_name})`
-                            : nonWorking.name
-                        "
-                        data-testid="calendar-non-working"
-                      >
-                        {{ nonWorking.name }}
-                      </span>
-                    </template>
-                  </div>
+      <div v-if="view === 'month'" class="space-y-3" data-testid="calendar-month-view">
+        <section
+          v-for="(semana, indice) in semanasDelMes"
+          :key="indice"
+          class="overflow-hidden rounded border border-slate-200 bg-white"
+          :data-testid="`calendar-week-block-${indice}`"
+        >
+          <header
+            class="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-100 px-3 py-1.5"
+          >
+            <h3
+              class="text-xs font-semibold uppercase tracking-wide text-slate-600"
+              data-testid="calendar-week-range"
+            >
+              {{ workdaysRangeLabel(semana) }}
+            </h3>
+            <span class="text-[10px] text-slate-400">{{ clavesSemana[indice] }}</span>
+          </header>
 
-                  <div
-                    v-if="!cell.weekend"
-                    class="min-h-0 flex-1 space-y-1 overflow-y-auto"
-                    data-testid="calendar-task-list"
-                  >
-                    <div
-                      v-for="task in tasksByDay.get(cell.date) ?? []"
-                      :key="task.id"
-                      class="cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] text-white"
-                      :class="task.custom_class || 'bg-slate-500'"
-                      :title="`${task.title} · ${task.assigned_name ?? 'sin asignar'} · ${task.project_name}`"
-                      data-testid="calendar-task"
-                      @click="openTask(task.id)"
-                    >
-                      {{ task.title }}
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          <WeekLanes
+            :days="semana"
+            :people="personasVisibles"
+            :tasks="visibleTasks"
+            :non-working-days="nonWorkingDays"
+            @open-day="openDay"
+            @open-task="openTask"
+          />
+        </section>
       </div>
 
       <WeekGrid
         v-else-if="view === 'week'"
         :week-key="week"
+        :people="personasVisibles"
         :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
         @open-day="openDay"
@@ -643,6 +566,7 @@ watch(
       <DayDetail
         v-else
         :date="day"
+        :people="personasVisibles"
         :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
         @open-task="openTask"

@@ -59,24 +59,30 @@ async def global_capacity(
     limita a los proyectos que gestiona ese departamento y con project_id a un
     proyecto solo. Con skill_id salen unicamente las personas que tienen esa
     competencia con ese nivel o mas.
+    El filtro de proyecto no cambia las filas: siguen todas las personas del
+    informe, pero solo se cuentan las horas de ese proyecto. Con department_id
+    y project_id a la vez, las filas son las del departamento y las horas las
+    del proyecto.
     El rango de semanas (from y to) acota el eje: sin rango, el informe sale
     con las semanas que tienen actividad.
     """
     projects = await list_accessible_projects(session, user)
+    selected = _by_department(projects, department_id)
+    hours_ids = None
     if project_id is not None:
-        projects = [project for project in projects if project.id == project_id]
-        if not projects:
+        if not any(project.id == project_id for project in projects):
             raise HTTPException(
                 status_code=404,
                 detail="Ese proyecto no esta entre los que puedes ver",
             )
-    selected = _by_department(projects, department_id)
+        hours_ids = [project_id]
     report = await load_capacity_for_projects(
         session,
         [project.id for project in selected],
         weeks=week_range_or_422(from_week, to_week),
         skill_id=skill_id,
         min_level=min_level,
+        hours_project_ids=hours_ids,
     )
     return report.to_dict()
 

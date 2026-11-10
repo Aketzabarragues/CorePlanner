@@ -315,9 +315,28 @@ async def test_la_capacidad_global_filtra_por_proyecto(client: AsyncClient):
 
     assert response.status_code == 200, response.text
     data = response.json()
-    # Solo la linea pasteurizadora: Ana tiene 8 h y Jorge no sale.
+    # El filtro de proyecto acota las horas, no las filas: Ana tiene las 8 h de
+    # la linea y Jorge sigue en el informe, con la celda vacia.
     assert _row(data, client.ids["ana"])["total_hours"] == 8
-    assert _row(data, client.ids["jorge"]) is None
+    jorge = _row(data, client.ids["jorge"])
+    assert jorge is not None
+    assert jorge["total_hours"] == 0
+
+
+async def test_el_filtro_de_proyecto_no_amplia_el_ambito(client: AsyncClient):
+    """Filtrar por un proyecto no saca a nadie de su alcance."""
+    headers = await _auth(client, "jorge@example.com")
+
+    response = await client.get(
+        f"/api/capacity?project_id={client.ids['tuberias']}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    # Jorge solo ve un proyecto: las 8 h de Ana en el otro no le salen, pero
+    # Ana sigue en el informe porque tiene una tarea en el que si ve.
+    assert _row(data, client.ids["ana"])["total_hours"] == 4
+    assert _row(data, client.ids["jorge"])["total_hours"] == 10
 
 
 async def test_un_proyecto_que_no_se_ve_es_404(client: AsyncClient):

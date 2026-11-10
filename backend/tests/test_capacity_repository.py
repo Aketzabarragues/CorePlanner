@@ -28,7 +28,11 @@ from backend.models import (
     TaskStatus,
     User,
 )
-from backend.services.capacity_repository import load_project_capacity, load_task_week_hours
+from backend.services.capacity_repository import (
+    load_capacity_for_projects,
+    load_project_capacity,
+    load_task_week_hours,
+)
 
 
 @pytest.fixture
@@ -341,3 +345,79 @@ async def test_las_horas_de_una_tarea_son_las_de_su_semana(session):
 
     # 40 h repartidas en cinco dias laborables: 16 h en W10 y 24 h en W11.
     assert horas[montaje.id] == Decimal("16.00")
+
+
+async def test_las_filas_vienen_por_departamento_y_dentro_por_nombre(session):
+    """El informe agrupa a las personas por su departamento."""
+    alta = Department(name="Zeta")
+    baja = Department(name="Alfa")
+    session.add_all([alta, baja])
+    await session.flush()
+
+    project = Project(name="Linea 1")
+    role = Role(name="Ingeniero", permissions_json=["task.read"])
+    ana = User(
+        name="Ana",
+        email="ana-zeta@example.com",
+        hashed_password="x",
+        department_id=alta.id,
+    )
+    zora = User(
+        name="Zora",
+        email="zora@example.com",
+        hashed_password="x",
+        department_id=baja.id,
+    )
+    suelto = User(name="Sin", email="sin@example.com", hashed_password="x")
+    session.add_all([project, role, ana, zora, suelto])
+    await session.flush()
+    session.add_all(
+        [
+            ProjectMember(user_id=ana.id, project_id=project.id, role_id=role.id),
+            ProjectMember(user_id=zora.id, project_id=project.id, role_id=role.id),
+            ProjectMember(user_id=suelto.id, project_id=project.id, role_id=role.id),
+        ]
+    )
+    await session.commit()
+
+    report = await load_project_capacity(session, project.id)
+
+    # Primero quien no tiene departamento, luego Alfa y despues Zeta. Por
+    # nombre solo, el orden seria Sin, Ana, Zora.
+    assert [row.name for row in report.rows] == ["Sin", "Zora", "Ana"]
+
+
+async def test_el_filtro_de_horas_acota_las_celdas_y_no_las_filas(session):
+    """Con hours_project_ids solo cuentan las horas de esos proyectos."""
+    _ana, luis, project = await _seed(session)
+    otro = Project(name="Linea 2")
+    role = (await session.execute(select(Role).where(Role.name == "Ingeniero"))).scalars().one()
+    session.add(otro)
+    await session.flush()
+    session.add(ProjectMember(user_id=luis.id, project_id=otro.id, role_id=role.id))
+    session.add(
+        Task(
+            project_id=otro.id,
+            assigned_to=luis.id,
+            title="Montaje de la otra linea",
+            status=TaskStatus.BACKLOG.value,
+            start_date=date(2026, 3, 5),
+            end_date=date(2026, 3, 11),
+            estimated_hours=40,
+        )
+    )
+    await session.commit()
+
+    report = await load_capacity_for_projects(
+        session,
+        [project.id, otro.id],
+        hours_project_ids=[otro.id],
+    )
+
+    # Las filas son las del informe entero: Ana y Luis.
+    assert [row.name for row in report.rows] == ["Ana", "Luis"]
+    # Ana no tiene nada en la otra linea: su celda sale vacia.
+    ana = next(r for r in report.rows if r.name == "Ana")
+    assert ana.total_hours == 0
+    luis_row = next(r for r in report.rows if r.name == "Luis")
+    assert luis_row.total_hours == Decimal("40.00")

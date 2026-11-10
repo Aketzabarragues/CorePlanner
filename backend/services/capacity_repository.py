@@ -79,6 +79,7 @@ async def load_person_capacities(
     users: Sequence[User],
     project_ids_by_user: Mapping[int, Sequence[int]] | None = None,
     holidays_by_scope: Mapping[tuple[str, int | None], Mapping[date, int]] | None = None,
+    names_by_department: Mapping[int, str] | None = None,
 ) -> list[PersonCapacity]:
     """Perfil de capacidad de cada persona.
 
@@ -86,7 +87,8 @@ async def load_person_capacities(
     aplican: los de alcance global, los del departamento al que pertenece y
     los que son solo suyos. Con project_ids_by_user se anaden los proyectos de
     los que es miembro, para que el frontend no los tenga que pedir aparte.
-    Con holidays_by_scope se reutilizan los dias ya leidos.
+    Con holidays_by_scope se reutilizan los dias ya leidos y con
+    names_by_department los nombres de los departamentos.
     """
     if not users:
         return []
@@ -101,6 +103,9 @@ async def load_person_capacities(
 
     if holidays_by_scope is None:
         holidays_by_scope, _ = await load_holidays(session)
+
+    if names_by_department is None:
+        names_by_department = await department_names(session)
 
     versions: dict[int, list[ScheduleVersion]] = {}
     for row in schedules:
@@ -121,7 +126,6 @@ async def load_person_capacities(
         )
 
     people: list[PersonCapacity] = []
-    names_by_department = await department_names(session)
     for user in users:
         holidays = merge_holidays(
             holidays_by_scope.get((NonWorkingDayScope.GLOBAL.value, None), {}),
@@ -263,6 +267,7 @@ async def load_capacity_for_projects(
     weeks: Sequence[str] | None = None,
     skill_id: int | None = None,
     min_level: int | None = None,
+    hours_project_ids: Sequence[int] | None = None,
 ) -> CapacityReport:
     """Matriz de ocupacion de un conjunto de proyectos.
 
@@ -273,6 +278,10 @@ async def load_capacity_for_projects(
     Con weeks el eje es esa lista de semanas, completa aunque no haya
     actividad. Con skill_id solo salen las personas que tienen esa competencia
     con ese nivel o mas.
+    Con hours_project_ids solo cuentan para las celdas las tareas de esos
+    proyectos: las filas siguen siendo las del informe entero, de modo que una
+    persona sin trabajo en ese proyecto sale con la celda vacia. Sin ese
+    parametro cuentan todos los proyectos del informe.
     """
     ids = {int(project_id) for project_id in project_ids}
     if not ids:
@@ -306,12 +315,27 @@ async def load_capacity_for_projects(
         await session.execute(select(User).where(User.id.in_(wanted_ids)))
     ).scalars().all()
 
-    ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
+    names_by_department = await department_names(session)
+    ordered = sorted(
+        users,
+        key=lambda user: (
+            names_by_department.get(user.department_id, "").lower()
+            if user.department_id is not None
+            else "",
+            user.name.lower(),
+            user.id,
+        ),
+    )
     holidays_by_scope, global_days = await load_holidays(session)
     people = await load_person_capacities(
-        session, ordered, projects_by_user, holidays_by_scope
+        session, ordered, projects_by_user, holidays_by_scope, names_by_department
     )
-    return build_capacity_report(people, tasks, weeks=weeks, holidays=global_days)
+    if hours_project_ids is None:
+        cell_tasks = tasks
+    else:
+        hours_ids = {int(project_id) for project_id in hours_project_ids}
+        cell_tasks = [task for task in tasks if task.project_id in hours_ids]
+    return build_capacity_report(people, cell_tasks, weeks=weeks, holidays=global_days)
 
 
 async def load_project_capacity(

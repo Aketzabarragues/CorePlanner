@@ -2018,7 +2018,7 @@ El Calendario identificaba las tareas por color y las colocaba en una celda por 
 - Las personas visibles se calculan una sola vez (`personasVisibles`), ordenadas por departamento y luego por nombre, y se pasan a la vista de mes, a la semanal y a la de dia.
 - Se quita la leyenda de miembros con su color: las tareas ya no se identifican por color, asi que la leyenda solo repetia los nombres.
 - `frontend/src/utils/people.js`: `sortByDepartment(people)` ordena por departamento y, dentro de cada departamento, por nombre. Quien no tiene departamento va al final.
-- `frontend/src/utils/weeks.js`: `workdaysRangeLabel(days)` da el rango corto de una semana ("9 - 13 nov").
+- `frontend/src/utils/weeks.js`: `daysRangeLabel(days)` da el rango corto de una semana ("9 - 15 nov"). La funcion se renombra porque el rango ya no se limita a los dias laborables.
 
 ### Que no entra
 
@@ -2056,3 +2056,40 @@ El Calendario identificaba las tareas por color y las colocaba en una celda por 
 1. **Una seccion por persona, siempre**: saber que alguien no tiene nada ese dia tambien es informacion, y asi el dia se lee igual que la semana.
 2. **El color no se sustituye por nada**: en el dia la persona ya esta en el encabezado, asi que el cuadradito solo ocupaba sitio.
 3. **Las tareas de alguien que no esta en la lista no se inventan**: la vista ya deja fuera a quien esta escondido, asi que la lista de personas es la que manda.
+
+## 49. El calendario vuelve a los siete dias y colorea por proyecto
+
+El Calendario se habia quedado con cinco columnas por semana, el mes era una lista de bloques separados por bordes y sombras, y todas las barras tenian el mismo color. Esta seccion devuelve los siete dias, une el mes en una sola tabla continua y da a cada barra el color de su proyecto, sin tocar el Gantt. La seccion 47 queda superada en la parte del rango: ahora abarca los siete dias.
+
+### Que entra
+
+- `frontend/src/utils/weeks.js`: `weekDays(key)` devuelve los siete dias de la semana ISO con el flag `weekend` en sabado y domingo. `daysRangeLabel(days)` (antes `workdaysRangeLabel`) da el rango de los siete dias ("9 - 15 nov").
+- `frontend/src/components/common/WeekLanes.vue`: el componente pasa a pintar un `tbody`. La cabecera lleva los siete dias con su fecha, la insignia "Hoy" y la de festivo; sabado y domingo salen atenuados con `bg-slate-50`. Debajo va una fila por persona, con su nombre y su departamento, y los carriles de solape como filas dentro de la misma persona.
+- El fin de semana no recibe barras: el recorte de cada tarea se hace solo sobre los dias laborables, asi que una tarea que empieza un sabado entra el lunes siguiente y una que acaba un domingo sale el viernes.
+- Cada barra lleva el color de su proyecto (`task.project_class`), el titulo en la primera linea y el nombre del proyecto en la segunda, mas pequena y tenue. El tooltip lleva estado, proyecto y fechas.
+- `frontend/src/components/WeekGrid.vue`: sigue siendo un envoltorio, pero pinta la tabla (`table-fixed`, `min-w-[42rem]`) que envuelve al `WeekLanes`.
+- `frontend/src/views/CalendarView.vue`: el mes es una sola tabla (`data-testid="calendar-month-table"`) con un `tbody` por semana, generado con `<template v-for>`. Se quitan los bloques sueltos, sus bordes y sus sombras.
+- `frontend/src/components/DayDetail.vue`: cada tarea es un bloque con el fondo de su proyecto y la linea "estado y proyecto".
+- `backend/services/gantt.py`: `PROYECTO_CLASSES` con las seis clases `proyecto-0`..`proyecto-5`. `build_gantt_feed()` ordena los ids de proyecto distintos que aparecen en las tareas y reparte las clases en ciclo. `GanttTask` gana el campo `project_class` junto a `custom_class`, y `to_dict()` lo expone.
+- `backend/schemas.py`: `GanttTaskOut.project_class`.
+- `frontend/src/assets/gantt.css`: paleta `.proyecto-0`..`.proyecto-5`, distinta de la de personas.
+- `backend/tests/test_gantt.py`: tres tests (una clase distinta por proyecto, la misma clase en todas las tareas de un proyecto y el ciclo cuando hay mas de seis proyectos).
+- `backend/tests/test_gantt_api.py`: la barra del feed lleva `project_class` con prefijo `proyecto-`.
+- `frontend/src/tests/CalendarView.spec.js`: los tests de mes, semana y dia se reescriben sobre la tabla continua, los siete dias y el color por proyecto.
+
+### Que no entra
+
+- El Gantt no se toca: sigue coloreando por persona con `custom_class` y su leyenda. `project_class` llega al feed pero `/gantt` no lo usa. Comprobado en vivo: las barras de `/gantt` llevan `persona-N` y en esa vista no hay ninguna clase `proyecto-`.
+- `custom_class` no se renombra ni se reutiliza: sigue siendo el color por persona.
+- El motor de capacidad no se toca: el fin de semana sigue sin recibir horas, por eso sus columnas quedan vacias.
+- No hay migracion de base de datos ni endpoint nuevo: el feed ya lleva el campo.
+- La fila "Sin asignar" y los carriles de solape se mantienen.
+- No se anaden dependencias.
+
+### Decisiones tomadas
+
+1. **El componente compartido pinta el `tbody`**: el mes es una tabla y la semana la misma tabla. Si `WeekLanes` pintara un `div`, el mes no podria ser una sola tabla sin duplicar el marcado.
+2. **El fin de semana se ve, pero queda vacio**: recupera la continuidad visual del mes y deja claro que ahi no se trabaja. El recorte se hace sobre los dias laborables, no sobre los siete.
+3. **La paleta de proyecto es distinta de la de persona**: el Gantt y el Calendario pueden convivir en la misma pantalla sin que un color signifique dos cosas. El Gantt conserva la suya.
+4. **La clase sale de la posicion del id de proyecto**: se ordenan los ids distintos de las tareas y se reparte en ciclo de seis. Con mas de seis proyectos el color se repite, que es lo que cabe en una paleta corta.
+5. **El proyecto va escrito, no solo en el tooltip**: en el mes la barra es estrecha, asi que el nombre va en una segunda linea y en el `title`; en la semana y en el dia se ve completo.

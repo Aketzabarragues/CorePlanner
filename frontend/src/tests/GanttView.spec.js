@@ -252,13 +252,13 @@ describe('GanttView', () => {
     expect(call.url).toBe('/api/gantt?project_id=2')
   })
 
-  it('con los tres filtros los pide juntos', async () => {
+  it('con los dos filtros los pide juntos', async () => {
     const calls = setupFetch()
 
-    await mountGantt({ department: '2', project: '3', assigned_to: '5' })
+    await mountGantt({ department: '2', project: '3' })
 
     const call = calls.find((c) => c.url.includes('/gantt'))
-    expect(call.url).toBe('/api/gantt?department_id=2&project_id=3&assigned_to=5')
+    expect(call.url).toBe('/api/gantt?department_id=2&project_id=3')
   })
 
   it('al cambiar el filtro vuelve a pedir el diagrama', async () => {
@@ -287,17 +287,22 @@ describe('GanttView', () => {
     expect(urls.some((url) => url.includes('department_id=2'))).toBe(true)
   })
 
-  it('el selector de persona escribe el filtro en la url', async () => {
+  it('el filtro de persona ya no esta en el Gantt', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    expect(wrapper.find('[data-testid="gantt-filter-person"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Todas las personas')
+  })
+
+  it('un assigned_to en la URL no se manda al backend', async () => {
     const calls = setupFetch()
-    const { wrapper, router } = await mountGantt()
 
-    await wrapper.get('[data-testid="gantt-filter-person"]').setValue('1')
-    await flushPromises()
-    await flushPromises()
+    await mountGantt({ assigned_to: '5' })
 
-    expect(router.currentRoute.value.query.assigned_to).toBe('1')
-    const urls = calls.filter((c) => c.url.includes('/gantt')).map((c) => c.url)
-    expect(urls.some((url) => url.includes('assigned_to=1'))).toBe(true)
+    const call = calls.find((c) => c.url.includes('/gantt'))
+    expect(call.url).toBe('/api/gantt')
   })
 
   it('ofrece los filtros con las opciones visibles', async () => {
@@ -310,8 +315,6 @@ describe('GanttView', () => {
     expect(departamentos.text()).toContain('Energia')
     const proyectos = wrapper.get('[data-testid="gantt-filter-project"]')
     expect(proyectos.text()).toContain('Red de tuberias')
-    const personas = wrapper.get('[data-testid="gantt-filter-person"]')
-    expect(personas.text()).toContain('Jorge')
   })
 
   it('los filtros usan el formato cuadrado del resto de la app', async () => {
@@ -322,7 +325,6 @@ describe('GanttView', () => {
     const filtros = [
       ['gantt-filter-department', 'Departamento'],
       ['gantt-filter-project', 'Proyecto'],
-      ['gantt-filter-person', 'Persona'],
       ['gantt-group-by', 'Agrupar por'],
     ]
 
@@ -527,7 +529,7 @@ describe('GanttView', () => {
     const { wrapper } = await mountGantt()
 
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(false)
     await flushPromises()
     await flushPromises()
 
@@ -548,7 +550,7 @@ describe('GanttView', () => {
     const { wrapper } = await mountGantt()
 
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(false)
     await flushPromises()
     await flushPromises()
 
@@ -569,7 +571,7 @@ describe('GanttView', () => {
     const { wrapper } = await mountGantt()
 
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(false)
     await flushPromises()
     await flushPromises()
 
@@ -596,7 +598,7 @@ describe('GanttView', () => {
 
     const peticiones = calls.filter((c) => c.url.includes('/gantt')).length
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(false)
     await flushPromises()
     await flushPromises()
 

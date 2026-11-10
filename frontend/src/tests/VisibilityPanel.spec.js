@@ -169,13 +169,24 @@ describe('VisibilityPanel', () => {
     expect(wrapper.text()).toContain('Sin departamento')
   })
 
-  it('las casillas reflejan lo que esta escondido', async () => {
+  it('las casillas marcan lo que se ve', async () => {
     const wrapper = montar({ idsOcultos: ['1', '2'], departamentosOcultos: ['1'] })
+    await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
+
+    // Marcada es visible: el departamento escondido y la persona escondida
+    // salen desmarcados, y la que se ve sale marcada.
+    expect(wrapper.get('[data-testid="hide-department-1"]').element.checked).toBe(false)
+    expect(wrapper.get('[data-testid="hide-person-1"]').element.checked).toBe(false)
+    expect(wrapper.get('[data-testid="hide-person-3"]').element.checked).toBe(true)
+  })
+
+  it('con nadie escondido todas las casillas salen marcadas', async () => {
+    const wrapper = montar()
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
 
     expect(wrapper.get('[data-testid="hide-department-1"]').element.checked).toBe(true)
     expect(wrapper.get('[data-testid="hide-person-1"]').element.checked).toBe(true)
-    expect(wrapper.get('[data-testid="hide-person-3"]').element.checked).toBe(false)
+    expect(wrapper.get('[data-testid="hide-person-3"]').element.checked).toBe(true)
   })
 
   it('devuelve lo que se pulsa', async () => {

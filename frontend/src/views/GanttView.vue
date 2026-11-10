@@ -6,9 +6,9 @@
  * una por tarea, con la persona asignada en la etiqueta y su color.
  *
  * El diagrama es de toda la organizacion y se puede acotar con los filtros
- * de departamento, proyecto y persona, que viven en la URL (`?department=`,
- * `?project=`, `?assigned_to=`): con filtro, solo salen las barras que
- * cumplen. El backend acota lo que ya es visible, nunca lo amplía.
+ * de departamento y proyecto, que viven en la URL (`?department=`,
+ * `?project=`): con filtro, solo salen las barras que cumplen. El backend acota
+ * lo que ya es visible, nunca lo amplía.
  *
  * Las barras se pueden agrupar por proyecto, por departamento o por persona.
  * Cada bloque lleva una franja divisoria con el nombre del grupo, pintada
@@ -63,7 +63,6 @@ const GRUPOS = [
 
 const departmentFilter = computed(() => route.query.department ?? '')
 const projectFilter = computed(() => route.query.project ?? '')
-const personFilter = computed(() => route.query.assigned_to ?? '')
 const groupBy = computed(() => route.query.group ?? 'proyecto')
 
 const proyectos = computed(() => (Array.isArray(store.projects) ? store.projects : []))
@@ -117,9 +116,6 @@ const subtitle = computed(() => {
   if (projectFilter.value) {
     filtros.push(`proyecto ${nombreProyecto(projectFilter.value)}`)
   }
-  if (personFilter.value) {
-    filtros.push(`persona ${nombrePersona(personFilter.value)}`)
-  }
   if (!filtros.length) {
     return 'Las barras de todos los proyectos visibles, agrupadas por proyecto.'
   }
@@ -136,11 +132,6 @@ function nombreDepartamento(id) {
 function nombreProyecto(id) {
   const proyecto = proyectos.value.find((item) => String(item.id) === String(id))
   return proyecto?.name ?? 'desconocido'
-}
-
-function nombrePersona(id) {
-  const persona = personas.value.find((item) => String(item.id) === String(id))
-  return persona?.name ?? 'desconocida'
 }
 
 /** Departamento que gestiona el proyecto de una barra. */
@@ -302,7 +293,6 @@ async function load() {
     const params = {}
     if (departmentFilter.value) params.department_id = departmentFilter.value
     if (projectFilter.value) params.project_id = projectFilter.value
-    if (personFilter.value) params.assigned_to = personFilter.value
 
     const [respuesta, directorio] = await Promise.all([
       overviewApi.gantt(token, params),
@@ -367,8 +357,7 @@ async function reintentar() {
 
 onMounted(load)
 watch(
-  () =>
-    [departmentFilter.value, projectFilter.value, personFilter.value].join('|'),
+  () => [departmentFilter.value, projectFilter.value].join('|'),
   (nuevo, viejo) => {
     if (nuevo !== viejo) load()
   },
@@ -440,21 +429,6 @@ onBeforeUnmount(() => {
         >
           <option value="">Todos los proyectos</option>
           <option v-for="item in proyectos" :key="item.id" :value="String(item.id)">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
-
-      <label class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Persona</span>
-        <select
-          data-testid="gantt-filter-person"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          :value="personFilter"
-          @change="cambiarFiltro('assigned_to', $event.target.value)"
-        >
-          <option value="">Todas las personas</option>
-          <option v-for="item in personas" :key="item.id" :value="String(item.id)">
             {{ item.name }}
           </option>
         </select>

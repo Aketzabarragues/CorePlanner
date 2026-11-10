@@ -6,6 +6,10 @@
  * tocar la URL ni pedir nada al servidor. El estado lo lleva la vista, que es la
  * que decide a quien esconde; el panel solo lo dibuja y devuelve lo que se
  * pulsa.
+ *
+ * Las casillas estan marcadas cuando la persona o el departamento se ve: al
+ * desmarcarla se esconde. El contador y "Mostrar todos" cuentan y restauran a
+ * quien esta escondido.
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
@@ -109,7 +113,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           <input
             type="checkbox"
             class="h-4 w-4"
-            :checked="departamentosOcultos.includes(grupo.id)"
+            :checked="!departamentosOcultos.includes(grupo.id)"
             :data-testid="`hide-department-${grupo.id}`"
             @change="emit('alternar-departamento', grupo.id)"
           />
@@ -123,7 +127,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           <input
             type="checkbox"
             class="h-4 w-4"
-            :checked="oculta(persona)"
+            :checked="!oculta(persona)"
             :data-testid="`hide-person-${persona.id}`"
             @change="emit('alternar-persona', persona.id)"
           />

@@ -937,7 +937,7 @@ describe('CalendarView con el panel de visibilidad', () => {
     expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(3)
 
     await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(false)
     await flushPromises()
 
     // La tarea de Ana no aparece en ningun dia.
@@ -959,7 +959,7 @@ describe('CalendarView con el panel de visibilidad', () => {
     const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.find('[data-testid="hide-department-1"]').setValue(true)
+    await wrapper.find('[data-testid="hide-department-1"]').setValue(false)
     await flushPromises()
 
     // Ana y Beto son del departamento 1: sus tareas no salen.
@@ -982,7 +982,7 @@ describe('CalendarView con el panel de visibilidad', () => {
     const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(false)
     await flushPromises()
     expect(wrapper.findAll('[data-testid="calendar-task"]')).toHaveLength(2)
 
@@ -1000,7 +1000,7 @@ describe('CalendarView con el panel de visibilidad', () => {
     const { wrapper } = await mountView()
 
     await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(false)
     await flushPromises()
 
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
@@ -1019,7 +1019,7 @@ describe('CalendarView con el panel de visibilidad', () => {
     const peticiones = calls.filter((call) => call.url.includes('/gantt')).length
 
     await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.find('[data-testid="hide-person-2"]').setValue(true)
+    await wrapper.find('[data-testid="hide-person-2"]').setValue(false)
     await flushPromises()
 
     expect(Object.keys(router.currentRoute.value.query)).toEqual([])

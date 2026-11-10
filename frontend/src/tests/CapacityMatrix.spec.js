@@ -594,7 +594,8 @@ describe('CapacityMatrix', () => {
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
     expect(wrapper.get('[data-testid="visibility-panel"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    // Desmarcar a la persona la esconde.
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(false)
     await flushPromises()
 
     expect(wrapper.find('[data-testid="cell-1-2026-W45"]').exists()).toBe(false)
@@ -613,18 +614,19 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(false)
     await flushPromises()
 
     // Ana y Sebastian son del departamento 1.
     expect(wrapper.find('[data-testid="cell-1-2026-W45"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="cell-2-2026-W45"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="hidden-count"]').text()).toContain('2 ocultos')
-    // La casilla de cada persona refleja el departamento escondido.
-    expect(wrapper.get('[data-testid="hide-person-1"]').element.checked).toBe(true)
-    expect(wrapper.get('[data-testid="hide-person-2"]').element.checked).toBe(true)
+    // La casilla de cada persona sale desmarcada: el departamento escondido
+    // esconde tambien a sus miembros.
+    expect(wrapper.get('[data-testid="hide-person-1"]').element.checked).toBe(false)
+    expect(wrapper.get('[data-testid="hide-person-2"]').element.checked).toBe(false)
 
-    await wrapper.get('[data-testid="hide-department-1"]').setValue(false)
+    await wrapper.get('[data-testid="hide-department-1"]').setValue(true)
     await flushPromises()
 
     expect(wrapper.get('[data-testid="cell-1-2026-W45"]').exists()).toBe(true)
@@ -637,7 +639,7 @@ describe('CapacityMatrix', () => {
 
     const peticiones = capacityCalls(calls).length
     await wrapper.get('[data-testid="toggle-visibility"]').trigger('click')
-    await wrapper.get('[data-testid="hide-person-1"]').setValue(true)
+    await wrapper.get('[data-testid="hide-person-1"]').setValue(false)
     await flushPromises()
 
     expect(Object.keys(router.currentRoute.value.query).sort()).toEqual(['from', 'to'])

@@ -234,7 +234,7 @@ class Department(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
-    __table_args__ = (UniqueConstraint("name", name="name"),)
+    __table_args__ = (UniqueConstraint("name", name="uq_departments_name"),)
 
     manager: Mapped[User | None] = relationship(foreign_keys=[manager_id])
     members: Mapped[list[User]] = relationship(
@@ -252,7 +252,7 @@ class Role(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     permissions_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
-    __table_args__ = (UniqueConstraint("name", name="name"),)
+    __table_args__ = (UniqueConstraint("name", name="uq_roles_name"),)
 
     members: Mapped[list[ProjectMember]] = relationship(
         back_populates="role", passive_deletes=True
@@ -550,7 +550,7 @@ class Skill(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    __table_args__ = (UniqueConstraint("name", name="name"),)
+    __table_args__ = (UniqueConstraint("name", name="uq_skills_name"),)
 
 
 class PersonSkill(Base):

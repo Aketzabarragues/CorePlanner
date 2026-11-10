@@ -115,7 +115,7 @@ describe('uso del equipo', () => {
     expect(uso.capacity).toBe(80)
   })
 
-  it('si alguien no tiene capacidad, la del equipo se desconoce', () => {
+  it('una persona sin capacidad no anula la del equipo', () => {
     const conHueco = [
       rows[0],
       { user_id: 2, cells: [{ week: '2026-W46', hours: 24, capacity: null }] },
@@ -123,6 +123,18 @@ describe('uso del equipo', () => {
 
     const uso = teamUsage(conHueco, '2026-W46')
     expect(uso.hours).toBe(60)
+    expect(uso.capacity).toBe(40)
+    expect(uso.unknown).toBe(false)
+  })
+
+  it('si nadie tiene capacidad conocida, la del equipo se desconoce', () => {
+    const sinCapacidad = [
+      { user_id: 1, cells: [{ week: '2026-W46', hours: 20, capacity: null }] },
+      { user_id: 2, cells: [{ week: '2026-W46', hours: 10, capacity: null }] },
+    ]
+
+    const uso = teamUsage(sinCapacidad, '2026-W46')
+    expect(uso.hours).toBe(30)
     expect(uso.capacity).toBeNull()
     expect(uso.unknown).toBe(true)
   })
@@ -130,6 +142,7 @@ describe('uso del equipo', () => {
   it('una semana sin celdas no rompe nada', () => {
     const uso = teamUsage(rows, '2026-W99')
     expect(uso.hours).toBe(0)
-    expect(uso.capacity).toBe(0)
+    expect(uso.capacity).toBeNull()
+    expect(uso.unknown).toBe(true)
   })
 })

@@ -168,28 +168,30 @@ export function loadBarWidth(hours, capacity) {
  * Uso agregado del equipo en una semana.
  *
  * Solo suma lo que el backend ya devuelve: las horas y las capacidades de
- * cada persona. Las semanas en las que alguien no tiene capacidad conocida no
- * se cuentan como capacidad cero, porque no se sabe.
+ * cada persona. Quien no tiene capacidad conocida en esa semana se ignora
+ * para la capacidad (sus horas si se cuentan) y no anula la del resto del
+ * equipo. La capacidad del equipo es desconocida solo si nadie la tiene, y
+ * `unknown` vale true en ese caso.
  */
 export function teamUsage(rows, week) {
   let hours = 0
   let capacity = 0
-  let unknown = false
+  let anyKnown = false
 
   for (const row of rows ?? []) {
     const cell = (row.cells ?? []).find((item) => item.week === week)
     if (!cell) continue
     hours += Number(cell.hours ?? 0)
     if (cell.capacity === null || cell.capacity === undefined) {
-      unknown = true
       continue
     }
     capacity += Number(cell.capacity)
+    anyKnown = true
   }
 
   return {
     hours,
-    capacity: unknown ? null : capacity,
-    unknown,
+    capacity: anyKnown ? capacity : null,
+    unknown: !anyKnown,
   }
 }

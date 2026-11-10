@@ -84,11 +84,6 @@ const departments = [
   { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
 ]
 
-const skills = [
-  { id: 1, name: 'PLC S7-1500' },
-  { id: 2, name: 'HMI WinCC' },
-]
-
 /** Copia profunda: cada respuesta trae sus propios datos, como el servidor. */
 function clone(value) {
   if (value === undefined) return value
@@ -111,7 +106,6 @@ function setupFetch(overrides = {}) {
       return jsonResponse({ access_token: 'tok-demo', token_type: 'bearer', user: { id: 9, name: 'Admin' } })
     }
     if (url.includes('/capacity')) return jsonResponse(capacityReport)
-    if (url.endsWith('/skills')) return jsonResponse(skills)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.includes('/tasks')) return jsonResponse(projectTasks)
     if (url.endsWith('/departments')) return jsonResponse(departments)
@@ -504,18 +498,13 @@ describe('CapacityMatrix', () => {
     )
   })
 
-  it('los cuatro filtros usan el formato cuadrado y conservan su testid', async () => {
+  it('los dos filtros usan el formato cuadrado y conservan su testid', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
-
-    await wrapper.get('[data-testid="capacity-filter-skill"]').setValue('1')
-    await flushPromises()
 
     const filtros = [
       ['capacity-filter-department', 'Departamento'],
       ['capacity-filter-project', 'Proyecto'],
-      ['capacity-filter-skill', 'Competencia'],
-      ['capacity-filter-level', 'Nivel mínimo'],
     ]
 
     for (const [testid, texto] of filtros) {
@@ -686,21 +675,63 @@ describe('CapacityMatrix', () => {
     expect(urls.some((url) => url.includes('department_id'))).toBe(false)
   })
 
-  it('el filtro por competencia va con su nivel minimo', async () => {
+  it('el filtro de competencia ya no esta en la vista', async () => {
     const calls = setupFetch()
     const wrapper = await mountMatrix()
 
-    const filtro = wrapper.find('[data-testid="capacity-filter-skill"]')
-    await filtro.setValue('1')
-    await flushPromises()
-
-    const nivel = wrapper.find('[data-testid="capacity-filter-level"]')
-    await nivel.setValue('2')
-    await flushPromises()
+    expect(wrapper.find('[data-testid="capacity-filter-skill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="capacity-filter-level"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Competencia')
 
     const urls = capacityCalls(calls)
-    expect(urls.some((url) => url.includes('skill_id=1'))).toBe(true)
-    expect(urls.some((url) => url.includes('min_level=2'))).toBe(true)
+    expect(urls.some((url) => url.includes('skill_id'))).toBe(false)
+    expect(urls.some((url) => url.includes('min_level'))).toBe(false)
+    expect(calls.some((call) => call.url.includes('/skills'))).toBe(false)
+  })
+
+  it('una URL con los filtros de competencia se limpia al cargar', async () => {
+    const calls = setupFetch()
+
+    await mountMatrix({ skill: '1', level: '2' })
+
+    expect(router.currentRoute.value.query.skill).toBeUndefined()
+    expect(router.currentRoute.value.query.level).toBeUndefined()
+    const urls = capacityCalls(calls)
+    expect(urls.some((url) => url.includes('skill_id'))).toBe(false)
+    expect(urls.some((url) => url.includes('min_level'))).toBe(false)
+  })
+
+  it('la cabecera de Persona se queda fija al hacer scroll', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const thead = wrapper.get('thead').element
+    expect(thead.className).toContain('sticky')
+    expect(thead.className).toContain('top-0')
+
+    const cabecera = wrapper.get('thead th').element
+    expect(cabecera.textContent).toContain('Persona')
+    expect(cabecera.className).toContain('sticky')
+    expect(cabecera.className).toContain('left-0')
+    expect(cabecera.className).toContain('top-0')
+
+    // La cabecera tiene que ir por encima de las celdas sticky del cuerpo: si
+    // no, la celda blanca del nombre tapa la de "Persona" al hacer scroll.
+    const nombre = wrapper.get('tbody th').element
+    const nivelThead = Number((thead.className.match(/z-(\d+)/) ?? [])[1])
+    const nivelNombre = Number((nombre.className.match(/z-(\d+)/) ?? [])[1])
+    expect(nivelThead).toBeGreaterThan(nivelNombre)
+  })
+
+  it('los titulos de semana se alinean arriba con la insignia', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const semanas = wrapper.findAll('[data-testid="capacity-week-header"]')
+    expect(semanas.length).toBeGreaterThan(0)
+    for (const semana of semanas) {
+      expect(semana.element.className).toContain('align-top')
+    }
   })
 
   it('el rango por defecto son nueve semanas y queda en la URL', async () => {

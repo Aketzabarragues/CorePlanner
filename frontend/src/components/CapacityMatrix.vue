@@ -17,7 +17,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { overviewApi, projectsApi, skillsApi, tasksApi } from '../api/client'
+import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import { useAuthStore } from '../stores/auth'
@@ -71,7 +71,6 @@ const aviso = ref(null)
 const empty = ref(false)
 const loading = ref(true)
 const saving = ref(false)
-const skills = ref([])
 
 const breakdown = ref(null)
 const breakdownTasks = ref([])
@@ -249,22 +248,6 @@ const projectFilter = computed({
 const departmentFilter = computed({
   get: () => query.value.department ?? '',
   set: (value) => updateQuery({ department: value }),
-})
-
-/** Filtro de competencia. */
-const skillFilter = computed({
-  get: () => query.value.skill ?? '',
-  set: (value) =>
-    updateQuery({
-      skill: value,
-      level: value ? levelFilter.value : undefined,
-    }),
-})
-
-/** Nivel minimo de la competencia. */
-const levelFilter = computed({
-  get: () => query.value.level ?? '1',
-  set: (value) => updateQuery({ level: value }),
 })
 
 /** Rango del eje: la semana inicial y la final. */
@@ -574,10 +557,6 @@ function festivoTitulo(holidays) {
 async function refresh() {
   const token = auth.token
   const params = { from: range.value.from, to: range.value.to }
-  if (skillFilter.value) {
-    params.skill_id = skillFilter.value
-    params.min_level = levelFilter.value
-  }
   if (departmentFilter.value) params.department_id = departmentFilter.value
   if (projectFilter.value) params.project_id = projectFilter.value
   report.value = await overviewApi.capacity(token, params)
@@ -1025,12 +1004,6 @@ function onCellClick(row, week) {
   openCell(row, week)
 }
 
-/** Catalogo de competencias, para el filtro. */
-async function loadSkills(token) {
-  if (skills.value.length) return
-  skills.value = await skillsApi.catalog(token)
-}
-
 /**
  * Carga la matriz que toca.
  *
@@ -1056,12 +1029,24 @@ async function limpiarDepartamentoInvisible() {
   await updateQuery({ department: undefined }, false)
 }
 
+/**
+ * Quita de la URL los filtros que ya no existen.
+ *
+ * El filtro de competencia se retiro de la vista, asi que una URL guardada
+ * con `skill` o `level` ya no significa nada. Se limpian para que el enlace
+ * que se copia sea el de lo que se esta viendo.
+ */
+async function limpiarFiltrosObsoletos() {
+  if (!query.value.skill && !query.value.level) return
+  await updateQuery({ skill: undefined, level: undefined }, false)
+}
+
 async function loadReport() {
   const token = await auth.ensureSession()
   await store.ensureProjects(token)
-  await loadSkills(token)
   await normalizarUrl()
   await limpiarDepartamentoInvisible()
+  await limpiarFiltrosObsoletos()
 
   const projects = store.projects
   empty.value = projects.length === 0
@@ -1101,8 +1086,6 @@ watch(
     query.value.to,
     query.value.project,
     query.value.department,
-    query.value.skill,
-    query.value.level,
   ],
   () => {
     // El proyecto abierto cambia con el filtro, aunque el cambio venga del
@@ -1177,33 +1160,6 @@ watch(
           >
             {{ item.name }}
           </option>
-        </select>
-      </label>
-
-      <label class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Competencia</span>
-        <select
-          v-model="skillFilter"
-          data-testid="capacity-filter-skill"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="">Cualquiera</option>
-          <option v-for="item in skills" :key="item.id" :value="String(item.id)">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
-
-      <label v-if="skillFilter" class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Nivel mínimo</span>
-        <select
-          v-model="levelFilter"
-          data-testid="capacity-filter-level"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
         </select>
       </label>
 
@@ -1300,17 +1256,18 @@ watch(
 
       <div class="max-h-[70vh] overflow-auto rounded border border-slate-200 bg-white">
         <table class="w-full border-collapse text-sm">
-          <thead class="sticky top-0 z-10 bg-slate-100">
+          <thead class="sticky top-0 z-20 bg-slate-100">
             <tr class="bg-slate-100">
               <th
-                class="sticky left-0 z-20 border border-slate-200 bg-slate-100 px-3 py-2 text-left"
+                class="sticky left-0 top-0 z-20 border border-slate-200 bg-slate-100 px-3 py-2 text-left"
               >
                 Persona
               </th>
               <th
                 v-for="semana in weeks"
                 :key="semana.week"
-                class="border border-slate-200 px-2 py-2 text-center"
+                data-testid="capacity-week-header"
+                class="border border-slate-200 px-2 py-2 text-center align-top"
               >
                 <span class="block text-xs font-semibold text-slate-700">
                   {{ weekTitle(semana.week) }}

@@ -1979,3 +1979,80 @@ El Gantt tenia cuatro controles en la cabecera: departamento, proyecto, persona 
 1. **Quita el control, no el parametro**: el backend conserva `assigned_to` porque otra vista lo usa. Una URL guardada con `?assigned_to=` deja de mandar ese filtro, pero la vista sigue funcionando igual.
 2. **El directorio se sigue pidiendo**: quitar el selector de personas no significa dejar de conocer a las personas: el panel de visibilidad necesita su departamento.
 3. **La agrupacion por persona se queda**: con el filtro fuera, "Agrupar por: Persona" es la manera de ver el diagrama separado por gente.
+
+## 46. Los carriles de la semana: una fila por persona
+
+El Calendario identificaba las tareas por color y las colocaba en una celda por dia. Con muchas personas, el color deja de servir: hay que mirar la leyenda para saber de quien es cada tarea. Ahora las tareas van bajo la persona que las lleva, en una fila por persona.
+
+### Que entra
+
+- `frontend/src/components/common/WeekLanes.vue` (nuevo): componente compartido que pinta una semana como una fila por persona. Recibe `days` (los cinco dias laborables), `people` (las personas visibles, ordenadas por departamento y luego por nombre), `tasks` (ya filtradas) y `nonWorkingDays`.
+- La cabecera lleva los cinco dias con su fecha y la insignia "Hoy" o de festivo, con `align-top` como en la Capacidad.
+- Cada persona tiene su fila siempre, tenga tareas o no. Dentro de la fila, una rejilla CSS de `repeat(5, 1fr)`: cada tarea es una barra continua con `grid-column` desde el dia en que empieza hasta el dia en que acaba.
+- Las tareas que se pisan de la misma persona van en carriles distintos, una sub-fila cada una: nunca se tapan y la fila crece solo para quien lo necesita.
+- Las tareas se recortan a la semana: una que empieza antes entra el lunes y una que acaba despues sale el viernes.
+- Al final sale una fila "Sin asignar" cuando hay tareas sin persona.
+- Las barras llevan un solo color (`bg-siemens-700`), sin paleta por persona. Al pulsar una barra se emite `open-task` con su identificador; al pulsar un dia de la cabecera, `open-day`.
+
+### Que no entra
+
+- `frontend/src/components/WeekGrid.vue` deja de pintar la rejilla de columnas por dia: pasa a ser un envoltorio que calcula los dias laborables de la semana ISO y le pasa todo a `WeekLanes`.
+- El Gantt no se toca: sigue con su paleta por persona (`custom_class` en las barras y `css_class` en su leyenda).
+- El panel de visibilidad y los tres filtros (departamento, proyecto y persona) no cambian.
+- No se anaden ni se quitan vistas del conmutador de mes, semana y dia.
+
+### Decisiones tomadas
+
+1. **Un solo componente para la semana y el mes**: el mes se ve como una lista de semanas, asi que las dos vistas tienen que pintar exactamente lo mismo. El componente va en `components/common/` porque lo comparten dos vistas.
+2. **Las columnas se calculan por fecha, no por indice**: cada barra busca el primer dia laborable que no es anterior a su inicio y el ultimo que no es posterior a su fin. Asi una tarea que empieza un sabado entra el lunes y una que acaba un domingo sale el viernes, sin tocar los datos.
+3. **Los carriles se reparten por inicio**: cada barra busca el primer carril cuyo ultimo dia queda antes de su inicio; si no hay ninguno se abre uno nuevo. Es el reparto minimo y garantiza que dos barras nunca se pisen.
+4. **El color ya no dice quien**: la fila dice quien. Un solo color para todas las barras deja el Calendario sin paleta por persona.
+
+## 47. El mes es una lista de semanas
+
+### Que entra
+
+- `frontend/src/views/CalendarView.vue`: la rejilla de meses (tabla de siete columnas con una celda por dia) se sustituye por una lista vertical de bloques, uno por semana de `monthGrid(month)`.
+- Cada bloque lleva su encabezado con el rango de lunes a viernes ("9 - 13 nov") y la clave ISO de la semana.
+- Al pulsar una fecha de la cabecera se abre el detalle de ese dia, como antes.
+- Las personas visibles se calculan una sola vez (`personasVisibles`), ordenadas por departamento y luego por nombre, y se pasan a la vista de mes, a la semanal y a la de dia.
+- Se quita la leyenda de miembros con su color: las tareas ya no se identifican por color, asi que la leyenda solo repetia los nombres.
+- `frontend/src/utils/people.js`: `sortByDepartment(people)` ordena por departamento y, dentro de cada departamento, por nombre. Quien no tiene departamento va al final.
+- `frontend/src/utils/weeks.js`: `workdaysRangeLabel(days)` da el rango corto de una semana ("9 - 13 nov").
+
+### Que no entra
+
+- El backend no se toca: el feed del Gantt sigue siendo el mismo que lee el Calendario.
+- El paso de mes, de semana y de dia sigue igual, con los mismos botones.
+- El aviso de tareas sin fechas se mantiene.
+- Los dias no laborables siguen apareciendo, ahora en la cabecera de cada semana.
+
+### Decisiones tomadas
+
+1. **El mes son semanas, no dias**: una celda por dia no cabe cuando cada dia lleva una barra por persona. Con un bloque por semana, el mes y la semana se leen igual y el dia sigue estando a un clic.
+2. **La lista de personas se calcula en la vista**: los tres componentes reciben la misma lista ya ordenada, en vez de repetir el calculo en cada uno. `WeekLanes` y `DayDetail` la dan por buena.
+3. **La leyenda se va con el color**: si el color ya no identifica a nadie, la leyenda solo ocupaba sitio.
+4. **El rango sale de los dias, no de la clave de semana**: el mes se arma con fechas de la rejilla y no con claves ISO, asi que el encabezado sale de los mismos cinco dias que se pintan.
+
+## 48. El detalle del dia va por persona
+
+### Que entra
+
+- `frontend/src/components/DayDetail.vue`: las tareas se agrupan en una seccion por persona visible, con su nombre como encabezado y su departamento al lado.
+- La seccion sale siempre. Si esa persona no tiene tareas ese dia, la seccion pone "Sin tareas" en vez de desaparecer.
+- Al final sale una seccion "Sin asignar" si ese dia hay tareas sin persona.
+- Se quita el cuadradito de color de cada tarea.
+- Cada tarea muestra su estado, su proyecto y sus fechas.
+
+### Que no entra
+
+- El panel de detalle de la tarea no cambia.
+- Los dias no laborables del dia se siguen escribiendo en la cabecera.
+- El Calendario no pide datos nuevos: usa el mismo feed y el mismo directorio que antes.
+- El orden de las secciones es el de las demas vistas: por departamento y luego por nombre.
+
+### Decisiones tomadas
+
+1. **Una seccion por persona, siempre**: saber que alguien no tiene nada ese dia tambien es informacion, y asi el dia se lee igual que la semana.
+2. **El color no se sustituye por nada**: en el dia la persona ya esta en el encabezado, asi que el cuadradito solo ocupaba sitio.
+3. **Las tareas de alguien que no esta en la lista no se inventan**: la vista ya deja fuera a quien esta escondido, asi que la lista de personas es la que manda.

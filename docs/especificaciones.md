@@ -1931,3 +1931,51 @@ Con un proyecto delante, la matriz global seguia enseñando solo a los miembros 
 1. **Una persona sin capacidad no anula al equipo**: el resumen divide entre las capacidades que si se conocen, no entre el numero de personas de la fila.
 2. **Sin capacidades conocidas la capacidad es `null`**: `0` significaria "el equipo no puede trabajar", que no es lo mismo que "no se sabe".
 3. **Mostrar un departamento muestra a todo el mundo**: si al esconder un departamento se esconden sus miembros uno a uno, al volver a mostrarlo se limpian esos residuos.
+
+## 44. Las casillas del panel marcan lo que se ve
+
+El panel de visibilidad de las tres vistas marcaba la casilla de una persona o de un departamento cuando estaba escondido. Eso obligaba a leer al reves: una casilla marcada significaba "esta escondido". Ahora la casilla marcada significa "esto se ve", que es lo que espera cualquiera al abrir un panel de este tipo.
+
+### Que entra
+
+- `frontend/src/components/common/VisibilityPanel.vue`: los dos `:checked` se invierten. El de departamento pasa a `:checked="!departamentosOcultos.includes(grupo.id)"` y el de persona a `:checked="!oculta(persona)"`.
+- El docstring del componente explica la semantica nueva: marcada es visible, al desmarcar se esconde.
+- Los tests de las tres vistas cambian en el mismo sentido: esconder es `setValue(false)` y las aserciones de `:checked` se invierten.
+
+### Que no entra
+
+- `frontend/src/composables/useVisibilidad.js` no se toca: el estado sigue siendo "quien esta oculto". `alternarPersona()` y `alternarDepartamento()` ya son un toggle de ese estado y funcionan igual en cualquier direccion.
+- El contador ("X ocultos") y el boton "Mostrar todos" no cambian: cuentan y restauran a quien esta escondido, que es lo que ya hacian.
+- Los `data-testid` se mantienen (`hide-person-{id}` y `hide-department-{id}`), aunque ahora la casilla marcada signifique visible.
+- El panel desplegable no cambia de forma ni de ancho.
+
+### Decisiones tomadas
+
+1. **Cambia la casilla, no la vista**: el estado oculto es el mismo de antes, asi que las tres vistas siguen comportandose igual por dentro. Lo unico que cambia es como se lee el control.
+2. **El composable no se toca**: `alternarPersona()` y `alternarDepartamento()` ya alternan el estado de "oculto", sin importar si quien pulsa quiere esconder o mostrar. Invertir la semantica del panel no obliga a tocar esa logica.
+3. **Los testid no se renombran**: `hide-person-{id}` sigue siendo el identificador del control. Renombrarlos tocaria las tres vistas, sus tests y el panel compartido sin ganar nada.
+
+## 45. El Gantt se queda sin filtro de persona
+
+El Gantt tenia cuatro controles en la cabecera: departamento, proyecto, persona y agrupacion. El de persona se solapaba con el panel de visibilidad, que ya permite esconder a una persona concreta con mas Precision.
+
+### Que entra
+
+- `frontend/src/views/GanttView.vue`: sale el `<select data-testid="gantt-filter-person">` y su etiqueta.
+- Se quitan el computed `personFilter` y sus usos: el subtitulo, `assigned_to` en los parametros que se mandan al feed y la dependencia del watcher.
+- Se quita `nombrePersona()`, que se quedaba sin uso.
+- El docstring del componente ya no menciona el filtro de persona ni el `?assigned_to=`.
+- La seccion 31 de este documento queda superada en la parte del filtro por persona: el Gantt se queda con departamento y proyecto.
+
+### Que no entra
+
+- **El backend no se toca**: `GET /api/gantt` sigue aceptando `assigned_to`, que el Calendario usa para su propio filtro de persona.
+- **"Agrupar por" no se toca**: Persona sigue siendo una forma de agrupar las barras. Agrupar no es filtrar.
+- La Capacidad y el Calendario no cambian: solo el Gantt pierde este control.
+- El directorio (`peopleApi.list`) se sigue pidiendo: hace falta para saber el departamento de cada persona en el panel de visibilidad.
+
+### Decisiones tomadas
+
+1. **Quita el control, no el parametro**: el backend conserva `assigned_to` porque otra vista lo usa. Una URL guardada con `?assigned_to=` deja de mandar ese filtro, pero la vista sigue funcionando igual.
+2. **El directorio se sigue pidiendo**: quitar el selector de personas no significa dejar de conocer a las personas: el panel de visibilidad necesita su departamento.
+3. **La agrupacion por persona se queda**: con el filtro fuera, "Agrupar por: Persona" es la manera de ver el diagrama separado por gente.

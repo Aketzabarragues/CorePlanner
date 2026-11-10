@@ -1845,3 +1845,89 @@ El boton "Mostrar/ocultar" que ya tenia Capacidad pasa a ser un control de filtr
 1. **El corte se hace en `visibleTasks`**: de ahi salen la rejilla del mes, la rejilla de la semana y el detalle del dia. Un solo sitio, las tres vistas quedan cubiertas.
 2. **Las tareas sin asignar se quedan**, como en el Gantt.
 3. **La lista del panel sale de los miembros del feed**, igual que en el Gantt, y las personas que no estan en el directorio se agrupan en "Sin departamento".
+
+## 40. El filtro de proyecto acota las horas, no las filas
+
+Con un proyecto delante, la matriz global seguia enseñando solo a los miembros de ese proyecto. El filtro de proyecto acota las horas: las filas son las de todo el roster visible y las celdas cuentan las horas de ese proyecto.
+
+### Que entra
+
+- `backend/api/overview.py`: `global_capacity()` deja de filtrar la lista de proyectos. El `project_id` se valida (404 si el usuario no lo ve) y se pasa como `hours_project_ids`.
+- `backend/services/capacity_repository.py`: `load_capacity_for_projects()` acepta `hours_project_ids` y corta las tareas que se cuentan. Las filas las pone `build_capacity_report()` con la lista de personas completa.
+- Con `department_id` y `project_id` a la vez: filas del departamento, horas del proyecto.
+- Los totales y la sobrecarga se calculan sobre las horas acotadas.
+
+### Que no entra
+
+- `load_project_capacity()` (el endpoint `GET /api/projects/{id}/capacity`) no cambia: ese es el informe del proyecto, con sus miembros.
+- `resolve_scope()` no se toca: quien no ve un proyecto, no lo ve tampoco con el filtro puesto.
+- `/projects/:id/capacity` sigue redirigiendo a `/capacity?project=:id`.
+
+### Decisiones tomadas
+
+1. **Filas y celdas se deciden por separado**: las filas las decide el roster (personas visibles, con el filtro de departamento) y las celdas las decide el filtro de proyecto. Por eso el filtro de proyecto ya no cambia el numero de filas.
+2. **El proyecto se valida aparte**: un `project_id` que el usuario no puede ver da 404, pero no se contrasta con el subconjunto del departamento. El filtro de proyecto no queda encerrado en el filtro de departamento.
+3. **El parametro lleva el nombre de lo que hace**: `hours_project_ids` deja claro que acota las horas. Con `None` (sin filtro) se cuentan todas las tareas, como antes.
+
+## 41. El orden de la lista y el filtro de competencia
+
+### Que entra
+
+- `backend/services/capacity_repository.py`: las filas se ordenan por nombre de departamento y, dentro del departamento, por nombre de persona. Quien no tiene departamento va primero.
+- El mapa de nombres de departamento se pide una vez (`department_names(session)`) y se pasa a `load_person_capacities()`, en vez de preguntar por la relacion de cada persona.
+- `frontend/src/components/CapacityMatrix.vue`: el selector "Competencia" y el de "Nivel minimo" salen de la cabecera, con su cableado (`skillFilter`, `levelFilter`, `loadSkills`) y su parte en la peticion del informe.
+- Una URL guardada con `skill` o `level` se limpia al cargar la vista.
+
+### Que no entra
+
+- El backend no pierde el soporte de `skill_id` y `min_level`: los usa el informe por proyecto (`GET /api/projects/{id}/capacity`).
+- El catalogo de competencias (`GET /api/skills`) no se toca.
+- No se cambia el modelo de datos ni se anade ninguna otra fuente de orden.
+
+### Decisiones tomadas
+
+1. **El orden lo pone el backend**, no el navegador: el informe llega ya ordenado y todas las vistas que lo pintan lo enseñan igual.
+2. **Los nombres de departamento se piden una vez**: `department_names(session)` devuelve el mapa id -> nombre y se reutiliza, en vez de cargar la relacion de cada persona.
+3. **Quien no tiene departamento va primero**: su clave de orden es la cadena vacia, que ordena antes que cualquier nombre.
+4. **La URL se limpia**: `skill` y `level` ya no significan nada en esta vista, asi que se quitan al cargar, sin volver a pedir la matriz.
+
+## 42. La cabecera fija y los titulos de semana
+
+### Que entra
+
+- `frontend/src/components/CapacityMatrix.vue`: la cabecera "Persona" lleva `top-0` ademas de `left-0`, asi que se queda clavada en la esquina al bajar la tabla.
+- El `<thead>` pasa de `z-10` a `z-20`: por encima de las celdas sticky del cuerpo (la del nombre de cada fila, con fondo blanco), que si no tapaban la cabecera "Persona" al hacer scroll.
+- Las cabeceras de semana llevan `align-top`: el titulo de la semana, el rango de fechas y la insignia "Hoy" o de festivo quedan alineados arriba.
+- La cabecera de semana lleva `data-testid="capacity-week-header"` para poder comprobarlo desde los tests.
+
+### Que no entra
+
+- No se toca el `max-h-[70vh]` del contenedor con scroll: el alto de la tabla sigue siendo el de antes.
+- La cabecera "Total" no se alinea arriba: se queda como estaba.
+- Las celdas del cuerpo no cambian de posicion: siguen con `left-0` para el scroll horizontal.
+
+### Decisiones tomadas
+
+1. **`top-0` en la celda, no en la fila**: la esquina "Persona" necesita las dos direcciones fijas (`left-0` y `top-0`) para quedar clavada en la esquina de la tabla.
+2. **La cabecera sube por encima del cuerpo**: con el `<thead>` y la celda del nombre al mismo nivel (`z-10`), la celda blanca del nombre, que va despues en el documento, tapaba la cabecera "Persona". Subir el `<thead>` a `z-20` lo resuelve sin tocar las celdas del cuerpo.
+3. **`align-top` en la celda de semana**: el desajuste venia de que el contenido de la celda se centraba en vertical dentro de una celda mas alta que las demas, y la insignia "Hoy" no quedaba a la altura del titulo de la semana.
+
+## 43. El resumen de equipo y el panel de visibilidad
+
+### Que entra
+
+- `frontend/src/utils/load.js`: `teamUsage()` deja de anular la capacidad del equipo cuando una persona no tiene capacidad conocida. La capacidad del equipo sale de sumar las horas y dividir entre la suma de las capacidades conocidas.
+- Si en esa semana nadie tiene capacidad conocida, la capacidad del equipo es `null` y `unknown` vale `true`.
+- `frontend/src/composables/useVisibilidad.js`: al mostrar un departamento se limpian de `personasOcultas` sus miembros, que se habian quedado escondidos al esconder el departamento.
+
+### Que no entra
+
+- `unknown` no lo consume nadie todavia: se deja el campo para que la UI pueda distinguir "no hay datos" de "el equipo esta libre".
+- La sobrecarga de cada persona sigue mirando su propia celda: el cambio es solo del resumen de equipo.
+- `alternarPersona()` no cambia.
+
+### Decisiones tomadas
+
+1. **Una persona sin capacidad no anula al equipo**: el resumen divide entre las capacidades que si se conocen, no entre el numero de personas de la fila.
+2. **Sin capacidades conocidas la capacidad es `null`**: `0` significaria "el equipo no puede trabajar", que no es lo mismo que "no se sabe".
+3. **Mostrar un departamento muestra a todo el mundo**: si al esconder un departamento se esconden sus miembros uno a uno, al volver a mostrarlo se limpian esos residuos.

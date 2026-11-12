@@ -2093,3 +2093,43 @@ El Calendario se habia quedado con cinco columnas por semana, el mes era una lis
 3. **La paleta de proyecto es distinta de la de persona**: el Gantt y el Calendario pueden convivir en la misma pantalla sin que un color signifique dos cosas. El Gantt conserva la suya.
 4. **La clase sale de la posicion del id de proyecto**: se ordenan los ids distintos de las tareas y se reparte en ciclo de seis. Con mas de seis proyectos el color se repite, que es lo que cabe en una paleta corta.
 5. **El proyecto va escrito, no solo en el tooltip**: en el mes la barra es estrecha, asi que el nombre va en una segunda linea y en el `title`; en la semana y en el dia se ve completo.
+
+## 50. El color del departamento y del proyecto es un dato guardado
+
+Hasta ahora el color de un proyecto se calculaba al leer el feed (una paleta de seis clases que ciclaba por el id) y el de un departamento salia de una paleta de seis clases de Tailwind segun su id. Con once proyectos, dos de ellos acababan con el mismo color. Ahora cada departamento y cada proyecto tiene un color propio, elegido de una paleta cerrada de dieciocho y guardado en la base de datos.
+
+### Que entra
+
+- `backend/palette.py` (nuevo): `PALETTE` con los dieciocho colores y su nombre, `PALETTE_COLORS` con los valores validos, `least_used_color(counts)`, `suggest_color(session, model)` y `assign_missing_colors(session, model)`.
+- `frontend/src/utils/palette.js` (nuevo): la misma paleta en `{ hex, label }`. Los dos ficheros tienen que seguir teniendo la misma lista y los dos avisan de ello en su comentario.
+- `backend/models.py`: `Department.color` y `Project.color`, `String(7)`, nullable.
+- `backend/migrations.py`: las columnas `color` de `departments` y `projects` entran en `COLUMN_ADDITIONS` y, despues, `_backfill_colors` reparte la paleta entre las filas que aun no tienen color. Es idempotente: las filas que ya lo tienen no se tocan.
+- `backend/seed.py`: la siembra reparte tambien los colores, para que una base de datos nueva salga con ellos.
+- `backend/schemas.py`: `color` en los esquemas de alta, modificacion y salida de departamentos y proyectos. En el alta, `None` significa "elige el menos usado"; en la modificacion, un `null` explicito y cualquier valor fuera de la paleta se rechazan con 422.
+- `backend/services/configuration.py`: `create_department` y `create_project` eligen el color con `suggest_color` cuando el payload no trae ninguno; `update_department` y `update_project` aplican el color recibido.
+- `backend/api/departments.py` y `backend/api/projects.py`: el color sale en las respuestas.
+- `backend/services/gantt.py`: `PROYECTO_CLASSES` desaparece. `GanttTask` lleva `project_color` y `build_gantt_feed` lo recibe en `project_colors`, junto a los nombres.
+- `backend/services/gantt_repository.py`: los colores de los proyectos salen de la base de datos, igual que los nombres.
+- `frontend/src/components/common/WeekLanes.vue` y `frontend/src/components/DayDetail.vue`: las barras y las tareas del dia se pintan con `task.project_color`.
+- `frontend/src/components/CapacityMatrix.vue`: la franja de cada persona lleva el color de su departamento, no una clase calculada por id.
+- `frontend/src/components/common/ColorPicker.vue` (nuevo): la fila de circulos de la paleta, con el color elegido marcado.
+- `frontend/src/components/settings/DepartmentsPanel.vue` y `ProjectsPanel.vue`: el color se ve junto al nombre y se puede cambiar en el formulario de modificacion. En el alta no se pide: lo elige el backend.
+- `frontend/src/assets/gantt.css`: fuera las reglas `.proyecto-0`..`.proyecto-5`, que ya no se usan.
+
+### Que no entra
+
+- El Gantt no cambia de color: sigue coloreando por persona con `custom_class` y su leyenda. `project_color` llega en el feed pero `/gantt` no lo usa.
+- La paleta de personas (`PERSONA_CLASSES` y `.persona-N`) no se toca.
+- No hay endpoint nuevo ni tabla nueva: es una columna mas en dos tablas.
+- No se anaden dependencias.
+- El motor de capacidad no se toca.
+- La seccion 49 queda superada en la parte del color de proyecto: ya no es una clase calculada, es el color guardado.
+
+### Decisiones tomadas
+
+1. **El color se elige una vez y se guarda**: el backend lo decide al crear la fila y desde entonces es un dato mas, como el nombre. Al leer ya no hay que calcular nada.
+2. **Una paleta cerrada de dieciocho**: son los unicos valores que aceptan la API y el selector. Con once proyectos en la demo los colores no se repiten; cuando se acaben, vuelve a salir el menos usado.
+3. **El color se cuenta por tabla**: un departamento y un proyecto pueden compartir color, porque son dos catalogos distintos.
+4. **El alta no pide color**: es lo menos intrusivo y lo que menos errores da. El backend elige el color menos usado, el formulario de alta se queda como estaba y el de modificacion trae la fila de circulos. Si el alta pidiera color, el usuario acabaria aceptando el primero de la lista y los colores se repetirian.
+5. **El color no se puede soltar**: en la modificacion un `null` se rechaza. Un departamento o un proyecto sin color no tiene sentido en las vistas.
+6. **El Gantt sigue siendo de personas**: el color del proyecto es para el Calendario y la Capacidad; el diagrama de Gantt no lo cambia.

@@ -9,8 +9,10 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import { PALETTE } from '../../utils/palette'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
+import ColorPicker from '../common/ColorPicker.vue'
 
 const props = defineProps({
   departments: { type: Array, required: true },
@@ -23,7 +25,10 @@ const auth = useAuthStore()
 const error = ref(null)
 const saving = ref(false)
 
-const empty = () => ({ id: null, name: '', manager_id: '' })
+/** Color de una fila que todavia no tiene color guardado. */
+const COLOR_SIN_DEFINIR = '#94a3b8'
+
+const empty = () => ({ id: null, name: '', manager_id: '', color: PALETTE[0].hex })
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
 const formOpen = ref(false)
@@ -52,6 +57,7 @@ function edit(department) {
     id: department.id,
     name: department.name,
     manager_id: department.manager_id === null ? '' : String(department.manager_id),
+    color: department.color ?? PALETTE[0].hex,
   }
   error.value = null
   formOpen.value = true
@@ -67,7 +73,10 @@ async function save() {
       manager_id: form.value.manager_id === '' ? null : Number(form.value.manager_id),
     }
     if (editing.value) {
-      await configApi.updateDepartment(token, form.value.id, payload)
+      await configApi.updateDepartment(token, form.value.id, {
+        ...payload,
+        color: form.value.color,
+      })
     } else {
       await configApi.createDepartment(token, payload)
     }
@@ -112,7 +121,14 @@ async function save() {
           :key="department.id"
           class="border-b border-slate-100"
         >
-          <td class="px-2 py-2 font-medium text-siemens-900">{{ department.name }}</td>
+          <td class="px-2 py-2 font-medium text-siemens-900">
+            <span
+              class="mr-2 inline-block h-3 w-3 rounded-full align-middle"
+              :style="{ backgroundColor: department.color ?? COLOR_SIN_DEFINIR }"
+              :data-testid="`department-color-${department.id}`"
+            ></span>
+            {{ department.name }}
+          </td>
           <td class="px-2 py-2 text-slate-600">
             {{ department.manager_name ?? 'Sin responsable' }}
           </td>
@@ -156,6 +172,8 @@ async function save() {
             </select>
           </label>
         </div>
+
+        <ColorPicker v-if="editing" v-model="form.color" class="mt-3" />
 
         <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}

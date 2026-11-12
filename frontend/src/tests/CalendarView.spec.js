@@ -20,7 +20,7 @@ const feed = {
       progress: 50,
       dependencies: '',
       custom_class: 'persona-0',
-      project_class: 'proyecto-0',
+      project_color: '#1f6feb',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 2,
@@ -36,7 +36,7 @@ const feed = {
       progress: 75,
       dependencies: '',
       custom_class: '',
-      project_class: 'proyecto-1',
+      project_color: '#0a3d91',
       project_id: 2,
       project_name: 'Red de tuberias linea 2',
       assigned_to: null,
@@ -72,6 +72,16 @@ const diasNoLaborables = [
 
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
+}
+
+/** Comprueba que un elemento se pinte con el color dado. */
+function esperaColor(elemento, hex) {
+  const estilo = elemento.attributes('style') ?? ''
+  const partes = hex.slice(1).match(/.{2}/g).map((par) => parseInt(par, 16))
+  const rgb = partes.join(', ')
+  expect(estilo).toMatch(
+    new RegExp(`background-color:\\s*(#${hex.slice(1)}|rgb\\(${rgb}\\))`, 'i'),
+  )
 }
 
 /** Ambito de quien entra: los proyectos en los que puede escribir. */
@@ -148,7 +158,7 @@ const feedVisibilidad = {
       start: '2026-11-02',
       end: '2026-11-02',
       custom_class: 'persona-0',
-      project_class: 'proyecto-0',
+      project_color: '#1f6feb',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 2,
@@ -161,7 +171,7 @@ const feedVisibilidad = {
       start: '2026-11-03',
       end: '2026-11-03',
       custom_class: 'persona-1',
-      project_class: 'proyecto-0',
+      project_color: '#1f6feb',
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
       assigned_to: 3,
@@ -174,7 +184,7 @@ const feedVisibilidad = {
       start: '2026-11-04',
       end: '2026-11-04',
       custom_class: 'persona-2',
-      project_class: 'proyecto-1',
+      project_color: '#0a3d91',
       project_id: 2,
       project_name: 'Red de tuberias linea 2',
       assigned_to: 4,
@@ -376,8 +386,8 @@ describe('CalendarView', () => {
     const { wrapper } = await mountView()
 
     const semanas = wrapper.findAll('[data-testid="week-lanes"]')
-    expect(semanas[1].find('[data-testid="week-task"]').classes()).toContain('proyecto-0')
-    expect(semanas[2].find('[data-testid="week-task"]').classes()).toContain('proyecto-1')
+    esperaColor(semanas[1].find('[data-testid="week-task"]'), '#1f6feb')
+    esperaColor(semanas[2].find('[data-testid="week-task"]'), '#0a3d91')
   })
 
   it('marca el dia de hoy en la cabecera', async () => {
@@ -667,7 +677,7 @@ describe('CalendarView en modo dia', () => {
 
     // La tarea sin persona es del segundo proyecto.
     const bloque = wrapper.find('[data-testid="day-task"]')
-    expect(bloque.find('.proyecto-1').exists()).toBe(true)
+    esperaColor(bloque.get('div'), '#0a3d91')
     expect(bloque.text()).toContain('Red de tuberias linea 2')
   })
 })
@@ -1184,7 +1194,7 @@ describe('WeekLanes', () => {
       end,
       project_id: 1,
       project_name: 'Linea Pasteurizadora SIVE',
-      project_class: 'proyecto-0',
+      project_color: '#1f6feb',
       assigned_to: assignedTo,
       assigned_name: assignedTo === null ? null : 'Ana',
       status: 'in_progress',
@@ -1322,7 +1332,7 @@ describe('WeekLanes', () => {
     const barra = wrapper.find('[data-testid="week-task"]')
     expect(barra.text()).toContain('Programacion')
     expect(barra.text()).toContain('Linea Pasteurizadora SIVE')
-    expect(barra.classes()).toContain('proyecto-0')
+    esperaColor(barra, '#1f6feb')
   })
 
   it('marca los dias no laborables de la semana', () => {

@@ -315,7 +315,7 @@ function tituloTarea(tarea) {
           <div
             v-if="celda.tipo === 'barra'"
             class="flex min-w-0 cursor-pointer flex-col justify-center overflow-hidden rounded px-1.5 py-0.5 text-white"
-            :class="celda.barra.tarea.project_class || 'bg-slate-500'"
+            :style="{ backgroundColor: celda.barra.tarea.project_color }"
             :title="tituloTarea(celda.barra.tarea)"
             :data-task-id="celda.barra.tarea.id"
             :data-lane="celda.barra.carril"

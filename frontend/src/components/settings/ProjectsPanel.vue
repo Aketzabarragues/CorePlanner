@@ -10,8 +10,10 @@ import { computed, ref } from 'vue'
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
 import { PROJECT_STATUSES, projectStatus } from '../../utils/navigation'
+import { PALETTE } from '../../utils/palette'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
+import ColorPicker from '../common/ColorPicker.vue'
 
 const props = defineProps({
   projects: { type: Array, required: true },
@@ -27,12 +29,16 @@ const saving = ref(false)
 
 const STATUSES = PROJECT_STATUSES
 
+/** Color de una fila que todavia no tiene color guardado. */
+const COLOR_SIN_DEFINIR = '#94a3b8'
+
 const empty = () => ({
   id: null,
   name: '',
   status: 'planning',
   department_id: '',
   owner_id: '',
+  color: PALETTE[0].hex,
 })
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
@@ -81,6 +87,7 @@ function edit(project) {
         : String(project.department_id),
     owner_id:
       project.owner_id === null || project.owner_id === undefined ? '' : String(project.owner_id),
+    color: project.color ?? PALETTE[0].hex,
   }
   error.value = null
   formOpen.value = true
@@ -99,7 +106,10 @@ async function save() {
       owner_id: form.value.owner_id === '' ? null : Number(form.value.owner_id),
     }
     if (editing.value) {
-      await configApi.updateProject(token, form.value.id, payload)
+      await configApi.updateProject(token, form.value.id, {
+        ...payload,
+        color: form.value.color,
+      })
     } else {
       await configApi.createProject(token, payload)
     }
@@ -146,7 +156,14 @@ async function save() {
       </thead>
       <tbody>
         <tr v-for="project in props.projects" :key="project.id" class="border-b border-slate-100">
-          <td class="px-2 py-2 font-medium text-siemens-900">{{ project.name }}</td>
+          <td class="px-2 py-2 font-medium text-siemens-900">
+            <span
+              class="mr-2 inline-block h-3 w-3 rounded-full align-middle"
+              :style="{ backgroundColor: project.color ?? COLOR_SIN_DEFINIR }"
+              :data-testid="`project-color-${project.id}`"
+            ></span>
+            {{ project.name }}
+          </td>
           <td class="px-2 py-2 text-slate-600">{{ departmentName(project.department_id) }}</td>
           <td class="px-2 py-2 text-slate-600">{{ personName(project.owner_id) }}</td>
           <td class="px-2 py-2 text-slate-600">{{ projectStatus(project.status).label }}</td>
@@ -217,6 +234,8 @@ async function save() {
             </select>
           </label>
         </div>
+
+        <ColorPicker v-if="editing" v-model="form.color" class="mt-3" />
 
         <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}

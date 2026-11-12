@@ -80,9 +80,31 @@ const reportConAjeno = {
 }
 
 const departments = [
-  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
-  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+  {
+    id: 1,
+    name: 'Automatización & SCADA',
+    manager_id: 1,
+    manager_name: 'Ana',
+    color: '#1f6feb',
+  },
+  {
+    id: 2,
+    name: 'Oficina Técnica / EPLAN',
+    manager_id: 3,
+    manager_name: 'Jorge',
+    color: '#0a3d91',
+  },
 ]
+
+/** Comprueba que un elemento se pinte con el color dado. */
+function esperaColor(elemento, hex) {
+  const estilo = elemento.attributes('style') ?? ''
+  const partes = hex.slice(1).match(/.{2}/g).map((par) => parseInt(par, 16))
+  const rgb = partes.join(', ')
+  expect(estilo).toMatch(
+    new RegExp(`background-color:\\s*(#${hex.slice(1)}|rgb\\(${rgb}\\))`, 'i'),
+  )
+}
 
 /** Copia profunda: cada respuesta trae sus propios datos, como el servidor. */
 function clone(value) {
@@ -542,9 +564,9 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    // El color sale del id del departamento: el 1 es el segundo de la paleta.
+    // La franja lleva el color que tiene guardado el departamento.
     const franja = wrapper.get('[data-testid="department-stripe-1"]')
-    expect(franja.classes()).toContain('bg-teal-700')
+    esperaColor(franja, '#1f6feb')
     expect(wrapper.get('[data-testid="department-name-1"]').text()).toContain(
       'Automatización & SCADA',
     )
@@ -556,12 +578,9 @@ describe('CapacityMatrix', () => {
     })
     const wrapper = await mountMatrix()
 
-    expect(wrapper.get('[data-testid="department-stripe-1"]').classes()).toContain(
-      'bg-teal-700',
-    )
-    expect(wrapper.get('[data-testid="department-stripe-3"]').classes()).toContain(
-      'bg-amber-700',
-    )
+    // La primera persona es del departamento 1 y la tercera del 2.
+    esperaColor(wrapper.get('[data-testid="department-stripe-1"]'), '#1f6feb')
+    esperaColor(wrapper.get('[data-testid="department-stripe-3"]'), '#0a3d91')
     expect(wrapper.get('[data-testid="department-name-3"]').text()).toContain(
       'Oficina Técnica / EPLAN',
     )
@@ -581,9 +600,7 @@ describe('CapacityMatrix', () => {
     })
     const wrapper = await mountMatrix()
 
-    expect(wrapper.get('[data-testid="department-stripe-1"]').classes()).toContain(
-      'bg-slate-400',
-    )
+    esperaColor(wrapper.get('[data-testid="department-stripe-1"]'), '#94a3b8')
     expect(wrapper.find('[data-testid="department-name-1"]').exists()).toBe(false)
   })
 

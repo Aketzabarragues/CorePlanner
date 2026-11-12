@@ -448,30 +448,16 @@ const summary = computed(() => {
   }
 })
 
-/**
- * Paleta de las franjas de departamento.
- *
- * El indice sale del id del departamento, de modo que un departamento siempre
- * lleva el mismo color y la paleta se repite cuando se acaba.
- */
-const DEPARTMENT_COLORS = [
-  'bg-blue-900',
-  'bg-teal-700',
-  'bg-amber-700',
-  'bg-violet-700',
-  'bg-rose-800',
-  'bg-slate-600',
-]
-
 /** Franja de la persona que no tiene departamento. */
-const DEPARTMENT_COLOR_NONE = 'bg-slate-400'
+const DEPARTMENT_COLOR_NONE = '#94a3b8'
 
-/** Color de la franja de una persona. */
-function departmentColorClass(departmentId) {
+/** Color de la franja de una persona: el que tiene guardado su departamento. */
+function departmentColor(departmentId) {
   if (departmentId === null || departmentId === undefined) return DEPARTMENT_COLOR_NONE
-  const id = Number(departmentId)
-  if (!Number.isFinite(id)) return DEPARTMENT_COLOR_NONE
-  return DEPARTMENT_COLORS[Math.abs(id) % DEPARTMENT_COLORS.length]
+  const encontrado = store.departments.find(
+    (item) => String(item.id) === String(departmentId),
+  )
+  return encontrado?.color ?? DEPARTMENT_COLOR_NONE
 }
 
 /** La matriz con cada celda ya resuelta. */
@@ -1301,7 +1287,7 @@ watch(
                 <div class="flex items-stretch gap-2 px-3 py-2">
                   <span
                     class="w-1 shrink-0 rounded-full"
-                    :class="departmentColorClass(entrada.fila.department_id)"
+                    :style="{ backgroundColor: departmentColor(entrada.fila.department_id) }"
                     :data-testid="`department-stripe-${entrada.fila.user_id}`"
                   ></span>
                   <span class="min-w-0 flex-1">

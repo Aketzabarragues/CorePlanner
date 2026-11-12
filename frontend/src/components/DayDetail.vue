@@ -125,7 +125,7 @@ function nonWorkingClass(scope) {
         >
           <div
             class="flex items-start gap-3 rounded px-2 py-1.5 text-white"
-            :class="task.project_class || 'bg-slate-500'"
+            :style="{ backgroundColor: task.project_color }"
           >
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium" :title="task.title">{{ task.title }}</p>

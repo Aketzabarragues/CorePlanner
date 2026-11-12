@@ -31,8 +31,20 @@ const people = [
 ]
 
 const departments = [
-  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
-  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+  {
+    id: 1,
+    name: 'Automatización & SCADA',
+    manager_id: 1,
+    manager_name: 'Ana',
+    color: '#1f6feb',
+  },
+  {
+    id: 2,
+    name: 'Oficina Técnica / EPLAN',
+    manager_id: 3,
+    manager_name: 'Jorge',
+    color: '#0a3d91',
+  },
 ]
 
 const projects = [
@@ -42,6 +54,7 @@ const projects = [
     status: 'active',
     department_id: 1,
     owner_id: 1,
+    color: '#1a7f37',
   },
 ]
 
@@ -323,6 +336,63 @@ describe('SettingsView', () => {
 
     expect(wrapper.text()).toContain('Oficina Técnica / EPLAN')
     expect(wrapper.text()).toContain('Jorge')
+  })
+
+  it('el formulario de edicion ofrece la paleta con el color del departamento', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-departments"]').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'Editar').trigger('click')
+    await flushPromises()
+
+    const picker = wrapper.get('[data-testid="color-picker"]')
+    expect(picker.findAll('[data-testid^="color-swatch-"]')).toHaveLength(18)
+    expect(wrapper.get('[data-testid="color-swatch-#1f6feb"]').attributes('aria-checked')).toBe(
+      'true',
+    )
+  })
+
+  it('el color elegido se guarda al modificar el departamento', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-departments"]').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'Editar').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="color-swatch-#1a7f37"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(([, options]) => options.method === 'PATCH')
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body).color).toBe('#1a7f37')
+  })
+
+  it('el alta no pide color: lo elige el backend', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-departments"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="new-department"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="color-picker"]').exists()).toBe(false)
+  })
+
+  it('el proyecto tambien ofrece la paleta al editarlo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'Editar').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="color-picker"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="color-swatch-#1a7f37"]').attributes('aria-checked')).toBe(
+      'true',
+    )
   })
 
   it('el catalogo de roles explica el alcance de cada rol', async () => {

@@ -48,6 +48,7 @@ async def _project_out(session: SessionDep, projects: list[Project]) -> list[Pro
         ProjectOut(
             id=project.id,
             name=project.name,
+            color=project.color,
             status=project.status,
             parent_id=project.parent_id,
             department_id=project.department_id,

@@ -16,6 +16,7 @@ from backend.auth import hash_password
 from backend.database import create_engine, get_db
 from backend.main import app
 from backend.models import Base, Project, ProjectMember, Role, Task, TaskStatus, User
+from backend.palette import PALETTE_COLORS
 
 PASSWORD = "clave-de-prueba"
 
@@ -187,7 +188,7 @@ async def test_el_gantt_devuelve_las_barras_del_proyecto(client: AsyncClient):
     assert barra["dependencies"] == ""
     assert "Engineer" in barra["name"]
     assert barra["custom_class"].startswith("persona-")
-    assert barra["project_class"].startswith("proyecto-")
+    assert barra["project_color"] in PALETTE_COLORS
 
 
 async def test_el_gantt_avisa_de_las_tareas_sin_fechas(client: AsyncClient):

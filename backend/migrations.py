@@ -10,10 +10,13 @@ existentes. Las bases nuevas si las tienen, porque las crea el esquema.
 
 from __future__ import annotations
 
+from collections import Counter
+
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .models import Base, NonWorkingDay
+from .palette import least_used_color
 
 COLUMN_ADDITIONS = (
     ("users", "company_role", "VARCHAR(32) NOT NULL DEFAULT 'tecnico'"),
@@ -22,7 +25,12 @@ COLUMN_ADDITIONS = (
     ("users", "employment_type", "VARCHAR(32) NOT NULL DEFAULT 'objetivo'"),
     ("projects", "owner_id", "INTEGER NULL"),
     ("tasks", "description", "TEXT NULL"),
+    ("departments", "color", "VARCHAR(7) NULL"),
+    ("projects", "color", "VARCHAR(7) NULL"),
 )
+
+COLOR_TABLES = ("departments", "projects")
+"""Tablas cuyo color se reparte al migrar."""
 
 NON_WORKING_DAYS_COLUMNS = ("id", "date", "name", "scope", "department_id", "user_id", "half_day")
 
@@ -72,21 +80,50 @@ def _migrate_non_working_days(sync_conn, tables: set[str], inspector) -> None:
         )
 
 
+def _backfill_colors(sync_conn, table: str) -> None:
+    """Reparte la paleta entre las filas de `table` que aun no tienen color.
+
+    Las filas se recorren por id y cada color asignado cuenta para las
+    siguientes, de modo que mientras queden colores libres las filas reciben
+    colores distintos. La operacion es idempotente: las filas que ya tienen
+    color no se tocan.
+    """
+    rows = sync_conn.execute(text(f"SELECT id, color FROM {table} ORDER BY id")).all()
+    counts = Counter(color for _, color in rows if color)
+
+    for row_id, color in rows:
+        if color:
+            continue
+        elegido = least_used_color(counts)
+        counts[elegido] += 1
+        sync_conn.execute(
+            text(f"UPDATE {table} SET color = :color WHERE id = :id"),
+            {"color": elegido, "id": row_id},
+        )
+
+
 async def apply_migrations(engine: AsyncEngine) -> None:
     """Anade a las tablas existentes las columnas que les falten."""
 
     def _migrate(sync_conn) -> None:
         inspector = inspect(sync_conn)
         tables = set(inspector.get_table_names())
+        columnas = {
+            table: {item["name"] for item in inspector.get_columns(table)}
+            for table in tables
+        }
         for table, column, definition in COLUMN_ADDITIONS:
             if table not in tables:
                 continue
-            columns = {item["name"] for item in inspector.get_columns(table)}
-            if column in columns:
+            if column in columnas[table]:
                 continue
             sync_conn.execute(
                 text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
             )
+            columnas[table].add(column)
+        for table in COLOR_TABLES:
+            if table in tables and "color" in columnas[table]:
+                _backfill_colors(sync_conn, table)
         _migrate_non_working_days(sync_conn, tables, inspector)
 
     async with engine.begin() as conn:

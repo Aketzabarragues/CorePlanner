@@ -40,6 +40,7 @@ async def list_departments(
         DepartmentOut(
             id=department.id,
             name=department.name,
+            color=department.color,
             manager_id=department.manager_id,
             manager_name=manager_name,
         )
@@ -64,6 +65,7 @@ async def add_department(
     return DepartmentOut(
         id=department.id,
         name=department.name,
+        color=department.color,
         manager_id=department.manager_id,
         manager_name=manager_name,
     )
@@ -87,6 +89,7 @@ async def edit_department(
     return DepartmentOut(
         id=department.id,
         name=department.name,
+        color=department.color,
         manager_id=department.manager_id,
         manager_name=manager_name,
     )

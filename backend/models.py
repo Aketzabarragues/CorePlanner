@@ -230,6 +230,7 @@ class Department(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     manager_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -269,6 +270,7 @@ class Project(Base):
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ProjectStatus.PLANNING.value
     )

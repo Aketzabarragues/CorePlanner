@@ -25,6 +25,7 @@ from ..models import (
     Role,
     User,
 )
+from ..palette import suggest_color
 from ..schemas import (
     DepartmentCreate,
     DepartmentUpdate,
@@ -184,7 +185,11 @@ async def create_department(
             detail="Ya hay un departamento con ese nombre",
         )
 
-    department = Department(name=name)
+    color = payload.color
+    if color is None:
+        color = await suggest_color(session, Department)
+
+    department = Department(name=name, color=color)
     session.add(department)
     await session.flush()
 
@@ -228,6 +233,9 @@ async def update_department(
             manager.department_id = department.id
             department.manager_id = manager.id
 
+    if "color" in changed:
+        department.color = payload.color
+
     await session.commit()
     await session.refresh(department)
     return department
@@ -240,8 +248,13 @@ async def create_project(session: AsyncSession, payload: ProjectCreate) -> Proje
     if payload.owner_id is not None:
         await _person_or_404(session, payload.owner_id)
 
+    color = payload.color
+    if color is None:
+        color = await suggest_color(session, Project)
+
     project = Project(
         name=payload.name,
+        color=color,
         status=payload.status,
         department_id=payload.department_id,
         owner_id=payload.owner_id,
@@ -265,6 +278,7 @@ async def update_project(
     changed = payload.changed_fields()
     antes = {
         "name": project.name,
+        "color": project.color,
         "status": project.status,
         "department_id": project.department_id,
         "owner_id": project.owner_id,
@@ -272,6 +286,8 @@ async def update_project(
 
     if "name" in changed and payload.name is not None:
         project.name = payload.name
+    if "color" in changed:
+        project.color = payload.color
     if "status" in changed and payload.status is not None:
         project.status = payload.status
     if "department_id" in changed:

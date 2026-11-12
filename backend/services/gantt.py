@@ -6,7 +6,8 @@ etiqueta y en una clase que permite pintar cada barra con su color.
 
 El color se asigna por la posicion de cada persona en la lista ordenada por
 nombre, la misma que usa la matriz de capacidad, de modo que una persona
-conserva su color en las dos vistas.
+conserva su color en las dos vistas. El color del proyecto no se calcula aqui:
+llega guardado en la base de datos, junto al nombre.
 
 Las tareas sin fechas no tienen sitio en el diagrama, asi que se listan
 aparte en vez de aparecer en blanco.
@@ -33,15 +34,8 @@ PERSONA_CLASSES = (
 )
 """Clases CSS de la paleta. El indice de cada persona elige su color."""
 
-PROYECTO_CLASSES = (
-    "proyecto-0",
-    "proyecto-1",
-    "proyecto-2",
-    "proyecto-3",
-    "proyecto-4",
-    "proyecto-5",
-)
-"""Clases CSS de la paleta de proyecto. El indice de cada proyecto elige su color."""
+DEFAULT_PROJECT_COLOR = "#57606a"
+"""Color de una barra cuyo proyecto no tiene color guardado."""
 
 PROGRESS_BY_STATUS = {
     "done": 100,
@@ -94,7 +88,7 @@ class GanttTask:
     progress: int
     dependencies: str
     custom_class: str
-    project_class: str
+    project_color: str
     project_id: int
     project_name: str
     title: str = ""
@@ -111,7 +105,7 @@ class GanttTask:
             "progress": self.progress,
             "dependencies": self.dependencies,
             "custom_class": self.custom_class,
-            "project_class": self.project_class,
+            "project_color": self.project_color,
             "project_id": self.project_id,
             "project_name": self.project_name,
             "title": self.title,
@@ -143,12 +137,14 @@ def build_gantt_feed(
     users: list[UserLike],
     tasks: list[TaskLike],
     project_names: Mapping[int, str],
+    project_colors: Mapping[int, str],
 ) -> GanttFeed:
     """Construye el diagrama a partir de las personas y las tareas.
 
     Las personas se reciben ordenadas por nombre: de ahi sale el color de
     cada una. Cada barra guarda el proyecto al que pertenece, de modo que el
-    diagrama global puede agrupar las barras por proyecto.
+    diagrama global puede agrupar las barras por proyecto. El color del
+    proyecto es el que tiene guardado en la base de datos.
     """
     members = tuple(
         GanttMember(
@@ -160,12 +156,6 @@ def build_gantt_feed(
     )
     class_by_user = {member.user_id: member.css_class for member in members}
     name_by_user = {member.user_id: member.name for member in members}
-
-    project_ids = sorted({task.project_id for task in tasks})
-    class_by_project = {
-        project_id: PROYECTO_CLASSES[index % len(PROYECTO_CLASSES)]
-        for index, project_id in enumerate(project_ids)
-    }
 
     bars: list[GanttTask] = []
     undated: list[int] = []
@@ -188,7 +178,8 @@ def build_gantt_feed(
                 progress=PROGRESS_BY_STATUS.get(task.status, 0),
                 dependencies="",
                 custom_class=class_by_user.get(task.assigned_to, ""),
-                project_class=class_by_project[task.project_id],
+                project_color=project_colors.get(task.project_id)
+                or DEFAULT_PROJECT_COLOR,
                 project_id=task.project_id,
                 project_name=project_names.get(task.project_id, ""),
                 title=task.title,

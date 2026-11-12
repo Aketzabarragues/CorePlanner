@@ -26,7 +26,15 @@ from .models import (
     ProjectStatus,
     TaskStatus,
 )
+from .palette import PALETTE_COLORS
 from .services.units import hours_to_json
+
+
+def _check_palette_color(value: str) -> str:
+    """Comprueba que el color sea uno de la paleta."""
+    if value not in PALETTE_COLORS:
+        raise ValueError("El color no esta en la paleta")
+    return value
 
 Hours = Annotated[
     Decimal,
@@ -68,6 +76,8 @@ class ProjectOut(BaseModel):
 
     id: int
     name: str
+    color: str | None = None
+    """Color propio del proyecto, uno de la paleta."""
     status: str
     parent_id: int | None = None
     department_id: int | None = None
@@ -223,14 +233,32 @@ class DepartmentCreate(BaseModel):
     """Alta de departamento."""
 
     name: str = Field(min_length=1, max_length=100)
+    color: str | None = None
+    """Color propio. Si no viene, el backend elige el de la paleta que menos se use."""
     manager_id: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _check_palette_color(value)
 
 
 class DepartmentUpdate(BaseModel):
     """Modificacion parcial de departamento."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    color: str | None = None
+    """Color propio. No se puede quedar vacio: el color siempre esta puesto."""
     manager_id: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("El color no puede quedar vacio")
+        return _check_palette_color(value)
 
     def changed_fields(self) -> set[str]:
         """Nombres de los campos presentes en la peticion."""
@@ -241,9 +269,18 @@ class ProjectCreate(BaseModel):
     """Alta de proyecto."""
 
     name: str = Field(min_length=1, max_length=255)
+    color: str | None = None
+    """Color propio. Si no viene, el backend elige el de la paleta que menos se use."""
     status: str = ProjectStatus.PLANNING.value
     department_id: int | None = None
     owner_id: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _check_palette_color(value)
 
     @field_validator("status")
     @classmethod
@@ -257,9 +294,18 @@ class ProjectUpdate(BaseModel):
     """Modificacion parcial de proyecto."""
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    color: str | None = None
+    """Color propio. No se puede quedar vacio: el color siempre esta puesto."""
     status: str | None = None
     department_id: int | None = None
     owner_id: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("El color no puede quedar vacio")
+        return _check_palette_color(value)
 
     @field_validator("status")
     @classmethod
@@ -299,6 +345,8 @@ class DepartmentOut(BaseModel):
 
     id: int
     name: str
+    color: str | None = None
+    """Color propio del departamento, uno de la paleta."""
     manager_id: int | None = None
     manager_name: str | None = None
 
@@ -573,7 +621,7 @@ class GanttTaskOut(BaseModel):
     progress: int
     dependencies: str
     custom_class: str
-    project_class: str
+    project_color: str
     project_id: int
     project_name: str
     title: str = ""

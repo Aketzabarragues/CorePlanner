@@ -46,6 +46,7 @@ from backend.models import (  # noqa: E402
     User,
     WorkingSchedule,
 )
+from backend.palette import assign_missing_colors  # noqa: E402
 
 DEFAULT_PASSWORD = "coreplanner"
 
@@ -662,6 +663,9 @@ async def populate(session) -> int:
                     estimated_hours=task["hours"],
                 )
             )
+
+    await assign_missing_colors(session, Department)
+    await assign_missing_colors(session, Project)
 
     await session.commit()
     return first_project_id

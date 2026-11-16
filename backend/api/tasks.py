@@ -33,8 +33,8 @@ from ..services.capacity_repository import load_task_week_hours
 from ..services.dates import as_utc
 from ..services.task_details import (
     add_checklist_item,
-    assignee_names,
     add_comment,
+    assignee_names,
     checklist_progress,
     list_checklist,
     list_comments,
@@ -95,7 +95,7 @@ async def _with_details(
         hours = await load_task_week_hours(session, tasks, week)
         outs = [
             out.model_copy(update={"week_hours": hours.get(task.id)})
-            for out, task in zip(outs, tasks)
+            for out, task in zip(outs, tasks, strict=True)
         ]
 
     names = await assignee_names(
@@ -111,7 +111,7 @@ async def _with_details(
                 "checklist_done": progress.get(task.id, {}).get("checklist_done", 0),
             }
         )
-        for out, task in zip(outs, tasks)
+        for out, task in zip(outs, tasks, strict=True)
     ]
 
 

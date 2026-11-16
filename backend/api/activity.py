@@ -8,6 +8,7 @@ el mismo que el de la capacidad: se ve lo de los proyectos visibles.
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Task
 from ..schemas import ActivityPageOut

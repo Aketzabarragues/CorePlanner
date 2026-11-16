@@ -7,7 +7,7 @@ silencio.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -29,11 +29,21 @@ from backend.models import (
     User,
     WorkingSchedule,
 )
-from backend.seed import DEFAULT_PASSWORD, populate
+from backend.seed import DEFAULT_PASSWORD, LUNES_BASE, populate
 from backend.services.capacity_repository import (
     load_capacity_for_projects,
     load_project_capacity,
 )
+
+
+def semana(offset: int) -> str:
+    """Clave ISO de la semana del seed que esta `offset` semanas delante.
+
+    El seed se ancla al lunes de la semana en curso, asi que las semanas se
+    nombran por su desplazamiento y no por una fecha fija que caduca.
+    """
+    iso = (LUNES_BASE + timedelta(weeks=offset)).isocalendar()
+    return f"{iso[0]:04d}-W{iso[1]:02d}"
 
 EMAILS = {
     "ivan@example.com",
@@ -263,9 +273,9 @@ async def test_la_jornada_parcial_reduce_la_capacidad(seeded_session):
     fila = await _fila(seeded_session, "Carlos")
     celdas = {cell.week: cell for cell in fila.cells}
 
-    assert celdas["2026-W45"].capacity == Decimal("32.00")
-    assert celdas["2026-W45"].hours == Decimal("32.00")
-    assert celdas["2026-W45"].is_overloaded is False
+    assert celdas[semana(2)].capacity == Decimal("32.00")
+    assert celdas[semana(2)].hours == Decimal("32.00")
+    assert celdas[semana(2)].is_overloaded is False
 
 
 async def test_el_seed_crea_los_dias_no_laborables_con_su_alcance(seeded_session):
@@ -332,8 +342,8 @@ async def test_una_tarea_cruza_el_fin_de_semana(seeded_session):
     )
 
     # De lunes a viernes de la semana siguiente: el fin de semana queda en medio.
-    assert pasteurizador.start_date == date(2026, 11, 2)
-    assert pasteurizador.end_date == date(2026, 11, 13)
+    assert pasteurizador.start_date == LUNES_BASE + timedelta(weeks=2)
+    assert pasteurizador.end_date == LUNES_BASE + timedelta(weeks=2, days=11)
     assert pasteurizador.start_date.weekday() == 0
     assert pasteurizador.end_date.weekday() == 4
     assert pasteurizador.estimated_hours == 40
@@ -343,22 +353,22 @@ async def test_el_seed_produce_la_sobrecarga_de_aketza(seeded_session):
     fila = await _fila(seeded_session, "Aketza")
     celdas = {cell.week: cell for cell in fila.cells}
 
-    # Dos tareas suyas se solapan la semana del 9 de noviembre.
-    assert celdas["2026-W46"].hours == Decimal("45.28")
-    assert celdas["2026-W46"].capacity == Decimal("40.00")
-    assert celdas["2026-W46"].is_overloaded is True
-    assert celdas["2026-W45"].hours == Decimal("20.00")
-    assert celdas["2026-W45"].is_overloaded is False
+    # Dos tareas suyas se solapan la segunda semana con carga.
+    assert celdas[semana(3)].hours == Decimal("45.28")
+    assert celdas[semana(3)].capacity == Decimal("40.00")
+    assert celdas[semana(3)].is_overloaded is True
+    assert celdas[semana(2)].hours == Decimal("20.00")
+    assert celdas[semana(2)].is_overloaded is False
 
 
 async def test_el_seed_produce_la_sobrecarga_de_emilio(seeded_session):
     fila = await _fila(seeded_session, "Emilio")
     celdas = {cell.week: cell for cell in fila.cells}
 
-    assert celdas["2026-W46"].hours == Decimal("44.00")
-    assert celdas["2026-W46"].is_overloaded is True
-    assert celdas["2026-W47"].hours == Decimal("24.00")
-    assert celdas["2026-W47"].is_overloaded is False
+    assert celdas[semana(3)].hours == Decimal("44.00")
+    assert celdas[semana(3)].is_overloaded is True
+    assert celdas[semana(4)].hours == Decimal("24.00")
+    assert celdas[semana(4)].is_overloaded is False
 
 
 async def test_el_seed_no_sobrecarga_a_los_demas(seeded_session):

@@ -7,7 +7,7 @@ Gantt globales no enseñen trabajo de otros.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -26,8 +26,20 @@ from backend.models import (
     TaskStatus,
     User,
 )
+from backend.seed import LUNES_BASE
 
 PASSWORD = "clave-de-prueba"
+
+
+def semana_del_seed(desplazamiento: int) -> str:
+    """Clave ISO de la semana del seed que esta `desplazamiento` semanas delante.
+
+    El seed se ancla al lunes de la semana en curso, asi que las semanas se
+    nombran por su desplazamiento y no por una fecha fija que caduca.
+    """
+    lunes = LUNES_BASE + timedelta(weeks=desplazamiento)
+    iso = lunes.isocalendar()
+    return f"{iso[0]:04d}-W{iso[1]:02d}"
 
 ROLES = {
     "Project Manager": ["capacity.read", "gantt.read", "task.write", "member.manage"],
@@ -564,8 +576,9 @@ async def test_el_desglose_por_departamento_tiene_las_cifras_de_cada_equipo(
     """Cada departamento se mide con su equipo, en la semana pedida."""
     headers = await entrar("ivan@example.com")
 
+    semana = semana_del_seed(3)
     response = await client_con_seed.get(
-        "/api/panel?from=2026-W46&to=2026-W46", headers=headers
+        f"/api/panel?from={semana}&to={semana}", headers=headers
     )
 
     assert response.status_code == 200, response.text

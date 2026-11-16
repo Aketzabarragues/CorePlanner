@@ -6,7 +6,7 @@ Uso:
 Borra la base de datos de desarrollo si existe y la vuelve a crear con la
 organizacion de la demo: un gerente, tres departamentos (Alimentacion, Energia
 y Medio Ambiente), las personas de cada uno, sus proyectos y las tareas que
-reparten la carga entre las semanas de noviembre de 2026.
+reparten la carga entre las semanas que empiezan en la semana en curso.
 
 Los horarios van versionados, las competencias se catalogan y los dias no
 laborables tienen su alcance: global, de departamento o de persona.
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -68,6 +68,24 @@ JORNADA_REDUCIDA = (750, 750, 750, 750, 750, 0, 0)
 """Lunes a viernes de 7,5 h."""
 
 SIN_HORARIO = ()
+
+LUNES_BASE = date.today() - timedelta(days=date.today().weekday())
+"""Lunes de la semana en curso: origen de las fechas de tareas y festivos.
+
+La demostracion se ancla a la semana actual para que la planificacion se vea
+siempre en las semanas que de verdad importan. Cada fecha de tarea y de festivo
+conserva su desplazamiento respecto a este lunes, de modo que la carga y la
+sobrecarga se reparten igual que antes.
+"""
+
+
+def d(semana: int, dia: int) -> date:
+    """Fecha de la semana `semana` (0 es la actual), en su dia `dia`.
+
+    El dia 0 es el lunes. Sirve para escribir las fechas de tareas y festivos
+    como desplazamientos, sin repetir aritmetica de dias.
+    """
+    return LUNES_BASE + timedelta(days=semana * 7 + dia)
 
 DEPARTAMENTOS = (
     {"name": "Alimentación", "manager": "ana@example.com"},
@@ -241,16 +259,16 @@ PROYECTOS = (
                 "title": "Programación PLC del pasteurizador",
                 "assignee": "aketza@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 13),
+                "start": d(2, 0),
+                "end": d(3, 4),
                 "hours": 40,
             },
             {
                 "title": "Pruebas FAT de la línea",
                 "assignee": "hector@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 16),
-                "end": date(2026, 11, 20),
+                "start": d(4, 0),
+                "end": d(4, 4),
                 "hours": 24,
             },
         ),
@@ -263,16 +281,16 @@ PROYECTOS = (
                 "title": "Diseño SCADA planta de quesos",
                 "assignee": "carlos@example.com",
                 "status": TaskStatus.DONE.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 6),
+                "start": d(2, 0),
+                "end": d(2, 4),
                 "hours": 32,
             },
             {
                 "title": "Puesta en marcha planta de quesos",
                 "assignee": "ana@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 11, 27),
+                "start": d(5, 0),
+                "end": d(5, 4),
                 "hours": 16,
             },
         ),
@@ -285,16 +303,16 @@ PROYECTOS = (
                 "title": "Automatización de fermentadores",
                 "assignee": "aketza@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 9),
-                "end": date(2026, 11, 20),
+                "start": d(3, 0),
+                "end": d(4, 4),
                 "hours": 48,
             },
             {
                 "title": "Documentación técnica de levaduras",
                 "assignee": "carlos@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 11, 25),
+                "start": d(5, 0),
+                "end": d(5, 2),
                 "hours": 12,
             },
         ),
@@ -307,16 +325,16 @@ PROYECTOS = (
                 "title": "Ingeniería básica de ultrafiltración",
                 "assignee": "hector@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 11),
+                "start": d(2, 0),
+                "end": d(3, 2),
                 "hours": 32,
             },
             {
                 "title": "Pruebas SAT de ultrafiltración",
                 "assignee": "aketza@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 30),
-                "end": date(2026, 12, 4),
+                "start": d(6, 0),
+                "end": d(6, 4),
                 "hours": 20,
             },
         ),
@@ -329,16 +347,16 @@ PROYECTOS = (
                 "title": "Revisión de instrumentación",
                 "assignee": "ana@example.com",
                 "status": TaskStatus.DONE.value,
-                "start": date(2026, 11, 4),
-                "end": date(2026, 11, 6),
+                "start": d(2, 2),
+                "end": d(2, 4),
                 "hours": 12,
             },
             {
                 "title": "Programación HMI planta leche",
                 "assignee": "hector@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 12, 4),
+                "start": d(5, 0),
+                "end": d(6, 4),
                 "hours": 40,
             },
         ),
@@ -351,16 +369,16 @@ PROYECTOS = (
                 "title": "Esquemas eléctricos planta Noruega",
                 "assignee": "juan@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 13),
+                "start": d(2, 0),
+                "end": d(3, 4),
                 "hours": 40,
             },
             {
                 "title": "Revisión normativa IEC",
                 "assignee": "jorge@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 9),
-                "end": date(2026, 11, 11),
+                "start": d(3, 0),
+                "end": d(3, 2),
                 "hours": 12,
             },
         ),
@@ -373,16 +391,16 @@ PROYECTOS = (
                 "title": "Cableado de cuadros eléctricos",
                 "assignee": "nerea@example.com",
                 "status": TaskStatus.DONE.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 6),
+                "start": d(2, 0),
+                "end": d(2, 4),
                 "hours": 32,
             },
             {
                 "title": "Puesta en marcha planta México",
                 "assignee": "natalia@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 11, 27),
+                "start": d(5, 0),
+                "end": d(5, 4),
                 "hours": 24,
             },
         ),
@@ -395,24 +413,24 @@ PROYECTOS = (
                 "title": "Programación de control del RTO",
                 "assignee": "natalia@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 9),
-                "end": date(2026, 11, 20),
+                "start": d(3, 0),
+                "end": d(4, 4),
                 "hours": 44,
             },
             {
                 "title": "Pruebas FAT del RTO",
                 "assignee": "juan@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 11, 25),
+                "start": d(5, 0),
+                "end": d(5, 2),
                 "hours": 16,
             },
             {
                 "title": "Documentación as-built",
                 "assignee": "nerea@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 30),
-                "end": date(2026, 12, 2),
+                "start": d(6, 0),
+                "end": d(6, 2),
                 "hours": 8,
             },
         ),
@@ -425,16 +443,16 @@ PROYECTOS = (
                 "title": "Programación PLC parking automático",
                 "assignee": "emilio@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 13),
+                "start": d(2, 0),
+                "end": d(3, 4),
                 "hours": 40,
             },
             {
                 "title": "Pruebas de maniobras",
                 "assignee": "alejandro@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 16),
-                "end": date(2026, 11, 20),
+                "start": d(4, 0),
+                "end": d(4, 4),
                 "hours": 20,
             },
         ),
@@ -447,16 +465,16 @@ PROYECTOS = (
                 "title": "Automatización de dosificación",
                 "assignee": "alejandro@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 2),
-                "end": date(2026, 11, 11),
+                "start": d(2, 0),
+                "end": d(3, 2),
                 "hours": 32,
             },
             {
                 "title": "Revisión de seguridad",
                 "assignee": "sebastian@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 13),
-                "end": date(2026, 11, 13),
+                "start": d(3, 4),
+                "end": d(3, 4),
                 "hours": 8,
             },
         ),
@@ -469,16 +487,16 @@ PROYECTOS = (
                 "title": "Programación del transelevador",
                 "assignee": "emilio@example.com",
                 "status": TaskStatus.IN_PROGRESS.value,
-                "start": date(2026, 11, 9),
-                "end": date(2026, 11, 20),
+                "start": d(3, 0),
+                "end": d(4, 4),
                 "hours": 48,
             },
             {
                 "title": "Puesta en marcha",
                 "assignee": "alejandro@example.com",
                 "status": TaskStatus.BACKLOG.value,
-                "start": date(2026, 11, 23),
-                "end": date(2026, 12, 4),
+                "start": d(5, 0),
+                "end": d(6, 4),
                 "hours": 40,
             },
         ),
@@ -486,14 +504,14 @@ PROYECTOS = (
 )
 
 DIAS_NO_LABORABLES = (
-    (date(2026, 10, 12), "Fiesta Nacional", None, None, False),
-    (date(2026, 11, 1), "Todos los Santos", None, None, False),
-    (date(2026, 11, 9), "Día de la Comunidad", "Energía", None, False),
-    (date(2026, 11, 16), "Formación interna", "Alimentación", None, True),
-    (date(2026, 11, 23), "Permiso individual", None, "carlos@example.com", False),
-    (date(2026, 12, 7), "Día de la Constitución", None, None, False),
-    (date(2026, 12, 24), "Nochebuena", None, None, True),
-    (date(2026, 12, 31), "Nochevieja", None, None, True),
+    (d(-1, 0), "Fiesta Nacional", None, None, False),
+    (d(1, 6), "Todos los Santos", None, None, False),
+    (d(3, 0), "Día de la Comunidad", "Energía", None, False),
+    (d(4, 0), "Formación interna", "Alimentación", None, True),
+    (d(5, 0), "Permiso individual", None, "carlos@example.com", False),
+    (d(7, 0), "Día de la Constitución", None, None, False),
+    (d(9, 3), "Nochebuena", None, None, True),
+    (d(10, 3), "Nochevieja", None, None, True),
 )
 """Fecha, motivo, departamento, persona (correo) y medio dia.
 

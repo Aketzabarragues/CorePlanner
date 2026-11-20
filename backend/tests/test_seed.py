@@ -202,7 +202,7 @@ async def test_nadie_entra_solo_por_tener_una_tarea(seeded_session):
         )
     ).all()
 
-    assert len(rows) == 23
+    assert len(rows) == 24
     assert all(role in ("Project Manager", "Ingeniero") for _, _, role in rows)
 
 
@@ -330,6 +330,7 @@ async def test_el_seed_crea_las_tareas_de_cada_proyecto(seeded_session):
         ("Pruebas de maniobras", "Alejandro", Decimal("20.00"), "backlog"),
         ("Automatización de dosificación", "Alejandro", Decimal("32.00"), "in_progress"),
         ("Revisión de seguridad", "Sebastián", Decimal("8.00"), "backlog"),
+        ("Auditoría de seguridad", "Sebastián", Decimal("16.00"), "backlog"),
         ("Programación del transelevador", "Emilio", Decimal("48.00"), "in_progress"),
         ("Puesta en marcha", "Alejandro", Decimal("40.00"), "backlog"),
     ]

@@ -477,6 +477,14 @@ PROYECTOS = (
                 "end": d(3, 4),
                 "hours": 8,
             },
+            {
+                "title": "Auditoría de seguridad",
+                "assignee": "sebastian@example.com",
+                "status": TaskStatus.BACKLOG.value,
+                "start": d(4, 0),
+                "end": d(4, 1),
+                "hours": 16,
+            },
         ),
     },
     {

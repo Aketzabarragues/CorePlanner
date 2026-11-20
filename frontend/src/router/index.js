@@ -16,7 +16,7 @@ import ProjectSummaryView from '../views/ProjectSummaryView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import TaskListView from '../views/TaskListView.vue'
-import { conFiltroDeProyecto, redirectByRole, requireSession } from './guards'
+import { redirectByRole, requireSession } from './guards'
 
 /** Pantalla de espera mientras la raiz decide a que vista llevar. */
 const Redirecting = { name: 'Redirecting', render: () => null }
@@ -70,19 +70,12 @@ const routes = [
     props: true,
   },
 
-  // Rutas antiguas: el proyecto era un espacio y ahora es un filtro.
-  {
-    path: '/projects/:id/capacity',
-    redirect: conFiltroDeProyecto('capacity'),
-  },
-  {
-    path: '/projects/:id/gantt',
-    redirect: conFiltroDeProyecto('gantt'),
-  },
-  {
-    path: '/projects/:id/calendar',
-    redirect: conFiltroDeProyecto('calendar'),
-  },
+  // Vistas de planificacion en el espacio del proyecto: el proyecto viene
+  // de la ruta y la vista lo lee como filtro.
+  { path: '/projects/:id/capacity', name: 'project-capacity', component: CapacityMatrix },
+  { path: '/projects/:id/gantt', name: 'project-gantt', component: GanttView },
+  { path: '/projects/:id/calendar', name: 'project-calendar', component: CalendarView },
+  { path: '/projects/:id/activity', name: 'project-activity', component: ActivityView },
 ]
 
 const router = createRouter({

@@ -41,13 +41,3 @@ export async function redirectByRole() {
     return { name: 'login' }
   }
 }
-
-/**
- * Redirige una ruta de proyecto a la vista global con el filtro puesto.
- *
- * El proyecto paso de ser un espacio a ser un filtro, de modo que las rutas
- * antiguas se quedan con una redireccion para no romper los enlaces.
- */
-export function conFiltroDeProyecto(name) {
-  return (to) => ({ name, query: { project: to.params.id } })
-}

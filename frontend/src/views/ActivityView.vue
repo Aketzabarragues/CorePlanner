@@ -4,12 +4,14 @@
  *
  * Es el registro de lo que ha pasado en los proyectos: quien lo hizo, que hizo
  * y cuando. La misma vista sirve para toda la organizacion y para un proyecto
- * concreto, que es un filtro (`?project=`), igual que la capacidad o el Gantt.
+ * concreto, que es un filtro (la ruta del proyecto o `?project=`), igual que
+ * la capacidad o el Gantt.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { activityApi } from '../api/client'
+import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
@@ -27,7 +29,7 @@ const error = ref(null)
 const loading = ref(true)
 
 /** Proyecto que filtra la bitacora. */
-const projectFilter = computed(() => route.query.project ?? '')
+const projectFilter = useProyectoFiltro()
 
 const subtitle = computed(() =>
   projectFilter.value
@@ -84,8 +86,9 @@ async function reintentar() {
 
 onMounted(load)
 
+// El filtro cambia con el proyecto de la ruta o con el de la URL.
 watch(
-  () => route.query.project,
+  () => projectFilter.value,
   async () => {
     loading.value = true
     await load()

@@ -1,8 +1,13 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { conFiltroDeProyecto, redirectByRole, requireSession } from '../router/guards'
+import CapacityMatrix from '../components/CapacityMatrix.vue'
+import { redirectByRole, requireSession } from '../router/guards'
+import router from '../router'
 import { useAuthStore } from '../stores/auth'
+import ActivityView from '../views/ActivityView.vue'
+import CalendarView from '../views/CalendarView.vue'
+import GanttView from '../views/GanttView.vue'
 
 function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
@@ -119,12 +124,19 @@ describe('guardas del router', () => {
     expect(result).toEqual({ name: 'login' })
   })
 
-  it('las rutas antiguas de proyecto llevan a la vista con el filtro', () => {
-    const redirect = conFiltroDeProyecto('gantt')
+  it('las vistas de planificacion viven en el espacio del proyecto', () => {
+    const esperados = {
+      '/projects/2/capacity': { name: 'project-capacity', componente: CapacityMatrix },
+      '/projects/2/gantt': { name: 'project-gantt', componente: GanttView },
+      '/projects/2/calendar': { name: 'project-calendar', componente: CalendarView },
+      '/projects/2/activity': { name: 'project-activity', componente: ActivityView },
+    }
 
-    expect(redirect({ params: { id: '7' } })).toEqual({
-      name: 'gantt',
-      query: { project: '7' },
-    })
+    for (const [path, { name, componente }] of Object.entries(esperados)) {
+      const ruta = router.resolve(path)
+      expect(ruta.name).toBe(name)
+      expect(ruta.matched[0].components.default).toBe(componente)
+      expect(ruta.params.id).toBe('2')
+    }
   })
 })

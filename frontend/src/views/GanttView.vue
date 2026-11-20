@@ -6,9 +6,10 @@
  * una por tarea, con la persona asignada en la etiqueta y su color.
  *
  * El diagrama es de toda la organizacion y se puede acotar con los filtros
- * de departamento y proyecto, que viven en la URL (`?department=`,
- * `?project=`): con filtro, solo salen las barras que cumplen. El backend acota
- * lo que ya es visible, nunca lo amplía.
+ * de departamento y proyecto: el de departamento vive en la URL
+ * (`?department=`) y el de proyecto, en la ruta del proyecto o en el filtro
+ * de la URL (`?project=`). Con filtro, solo salen las barras que cumplen. El
+ * backend acota lo que ya es visible, nunca lo amplía.
  *
  * Las barras se pueden agrupar por proyecto, por departamento o por persona.
  * Cada bloque lleva una franja divisoria con el nombre del grupo, pintada
@@ -23,6 +24,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { overviewApi, peopleApi, tasksApi } from '../api/client'
+import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
@@ -62,7 +64,7 @@ const GRUPOS = [
 ]
 
 const departmentFilter = computed(() => route.query.department ?? '')
-const projectFilter = computed(() => route.query.project ?? '')
+const projectFilter = useProyectoFiltro()
 const groupBy = computed(() => route.query.group ?? 'proyecto')
 
 const proyectos = computed(() => (Array.isArray(store.projects) ? store.projects : []))
@@ -419,7 +421,8 @@ onBeforeUnmount(() => {
         </select>
       </label>
 
-      <label class="text-xs font-medium text-slate-600">
+      <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
+      <label v-if="!route.params.id" class="text-xs font-medium text-slate-600">
         <span class="mb-1 block">Proyecto</span>
         <select
           data-testid="gantt-filter-project"

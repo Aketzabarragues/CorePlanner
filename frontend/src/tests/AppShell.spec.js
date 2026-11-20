@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import AppShell from '../components/AppShell.vue'
-import ProjectPicker from '../components/ProjectPicker.vue'
 import { useAuthStore } from '../stores/auth'
 
 const Empty = { render: () => null }
@@ -109,6 +108,10 @@ function buildRouter() {
       { path: '/projects/:id/tasks', name: 'task-list', component: Empty },
       { path: '/projects/:id/members', name: 'members', component: Empty },
       { path: '/projects/:id/settings', name: 'project-settings', component: Empty },
+      { path: '/projects/:id/capacity', name: 'project-capacity', component: Empty },
+      { path: '/projects/:id/gantt', name: 'project-gantt', component: Empty },
+      { path: '/projects/:id/calendar', name: 'project-calendar', component: Empty },
+      { path: '/projects/:id/activity', name: 'project-activity', component: Empty },
     ],
   })
 }
@@ -191,12 +194,13 @@ describe('AppShell', () => {
     expect(menu).toContain('Ajustes')
   })
 
-  it('con el filtro de la url se ve el menu del proyecto', async () => {
+  it('con el filtro de la url se sigue viendo el menu global', async () => {
     const { wrapper } = await mountShell('/capacity?project=1')
 
     const menu = wrapper.find('aside').text()
-    expect(menu).toContain('Tablero')
-    expect(menu).not.toContain('Personas y Competencias')
+    expect(menu).toContain('Panel')
+    expect(menu).toContain('Personas y Competencias')
+    expect(menu).not.toContain('Tablero')
   })
 
   it('el menu del proyecto no tiene las vistas de la organizacion', async () => {
@@ -208,17 +212,17 @@ describe('AppShell', () => {
     expect(menu).not.toContain('Configuración')
   })
 
-  it('desde el tablero la capacidad lleva el filtro del proyecto', async () => {
+  it('desde el tablero la capacidad queda en el espacio del proyecto', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe('/capacity?project=1')
+    expect(linkTo(wrapper, 'Capacidad').attributes('href')).toBe('/projects/1/capacity')
   })
 
-  it('las vistas de planificacion del menu de proyecto llevan el filtro', async () => {
+  it('las vistas de planificacion del menu de proyecto llevan el id en la ruta', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt?project=1')
-    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=1')
+    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/projects/1/gantt')
+    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/projects/1/calendar')
   })
 
   it('la actividad del menu global no lleva filtro', async () => {
@@ -227,16 +231,20 @@ describe('AppShell', () => {
     expect(linkTo(wrapper, 'Actividad').attributes('href')).toBe('/activity')
   })
 
-  it('la actividad del menu de proyecto lleva el filtro', async () => {
+  it('la actividad del menu de proyecto lleva el id en la ruta', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    expect(linkTo(wrapper, 'Actividad').attributes('href')).toBe('/activity?project=1')
+    expect(linkTo(wrapper, 'Actividad').attributes('href')).toBe('/projects/1/activity')
   })
 
-  it('la actividad acepta el filtro de proyecto en la cabecera', async () => {
-    const { wrapper } = await mountShell('/activity')
+  it('la actividad con el filtro de la url sigue en el espacio global', async () => {
+    const { wrapper } = await mountShell('/activity?project=1')
 
-    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Panel')
+    expect(menu).not.toContain('Tablero')
+    const migas = wrapper.find('header nav').text()
+    expect(migas).not.toContain('Linea Pasteurizadora SIVE')
   })
 
   it('las vistas propias del proyecto llevan el id en la ruta', async () => {
@@ -254,10 +262,10 @@ describe('AppShell', () => {
     expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/panel')
   })
 
-  it('volver a vista global quita el filtro de las vistas de planificacion', async () => {
+  it('con el filtro de la url no hay boton de volver a vista global', async () => {
     const { wrapper } = await mountShell('/capacity?project=1')
 
-    expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/capacity')
+    expect(wrapper.find('[data-testid="volver-global"]').exists()).toBe(false)
   })
 
   it('sin proyecto no hay boton de volver a vista global', async () => {
@@ -332,6 +340,16 @@ describe('AppShell', () => {
 
     expect(wrapper.text()).toContain('Solo lectura')
     expect(wrapper.text()).not.toContain('Nueva Tarea')
+  })
+
+  it('nueva tarea solo se ofrece en el espacio del proyecto', async () => {
+    const { wrapper: enProyecto } = await mountShell('/projects/1/capacity')
+
+    expect(enProyecto.find('[data-testid="new-task"]').exists()).toBe(true)
+
+    const { wrapper: enGlobal } = await mountShell('/capacity?project=1')
+
+    expect(enGlobal.find('[data-testid="new-task"]').exists()).toBe(false)
   })
 
   it('marca la vista abierta en el menu lateral', async () => {
@@ -419,59 +437,41 @@ describe('AppShell', () => {
     expect(wrapper.find('header').text()).not.toContain('Activo')
   })
 
-  it('el selector aparece en las vistas de planificacion', async () => {
-    const { wrapper } = await mountShell('/capacity')
-
-    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
-  })
-
-  it('el selector no aparece en las demas vistas', async () => {
-    const { wrapper } = await mountShell('/projects')
-
-    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(false)
-  })
-
-  it('el selector esta en la cabecera y no en el menu', async () => {
-    const { wrapper } = await mountShell('/capacity')
-
-    expect(wrapper.find('header').findComponent(ProjectPicker).exists()).toBe(true)
-    expect(wrapper.find('aside').findComponent(ProjectPicker).exists()).toBe(false)
-  })
-
-  it('el selector muestra el proyecto que filtra y su departamento', async () => {
+  it('el filtro de la url no cambia el armazon global', async () => {
     const { wrapper } = await mountShell('/capacity?project=2')
 
-    const picker = wrapper.findComponent(ProjectPicker)
-    expect(picker.text()).toContain('Red de tuberias linea 2')
-    expect(picker.text()).toContain('Oficina Técnica / EPLAN')
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Panel')
+    expect(menu).toContain('Configuración')
+    expect(menu).not.toContain('Tablero')
+    const migas = wrapper.find('header nav').text()
+    expect(migas).toContain('Capacidad')
+    expect(migas).not.toContain('Red de tuberias linea 2')
+    expect(wrapper.find('[data-testid="volver-global"]').exists()).toBe(false)
   })
 
-  it('elegir un proyecto pone el filtro en la URL', async () => {
-    const { wrapper, router } = await mountShell('/capacity')
+  it('en la vista de proyecto el armazon es del proyecto', async () => {
+    const { wrapper } = await mountShell('/projects/2/capacity')
 
-    await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
-    await wrapper.findAll('[role=option]')[2].trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.path).toBe('/capacity')
-    expect(router.currentRoute.value.query.project).toBe('2')
+    const menu = wrapper.find('aside').text()
+    expect(menu).toContain('Resumen')
+    expect(menu).toContain('Tablero')
+    expect(menu).not.toContain('Configuración')
+    const migas = wrapper.find('header nav').text()
+    expect(migas).toContain('Red de tuberias linea 2')
+    expect(migas).toContain('Capacidad')
   })
 
-  it('elegir todos los proyectos quita el filtro', async () => {
-    const { wrapper, router } = await mountShell('/capacity?project=2')
+  it('volver a vista global desde la capacidad lleva sin filtro', async () => {
+    const { wrapper } = await mountShell('/projects/2/capacity')
 
-    await wrapper.findComponent(ProjectPicker).find('button').trigger('click')
-    await wrapper.findAll('[role=option]')[0].trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.query.project).toBeUndefined()
+    expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/capacity')
   })
 
-  it('el filtro de proyecto acompaña a las vistas de planificacion', async () => {
-    const { wrapper } = await mountShell('/capacity?project=2')
+  it('volver a vista global desde el gantt del proyecto lleva sin filtro', async () => {
+    const { wrapper } = await mountShell('/projects/2/gantt')
 
-    expect(linkTo(wrapper, 'Gantt').attributes('href')).toBe('/gantt?project=2')
-    expect(linkTo(wrapper, 'Calendario').attributes('href')).toBe('/calendar?project=2')
+    expect(wrapper.find('[data-testid="volver-global"]').attributes('href')).toBe('/gantt')
   })
 
   it('el menu global no lleva filtro de proyecto', async () => {

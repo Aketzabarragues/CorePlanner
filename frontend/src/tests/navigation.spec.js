@@ -48,29 +48,29 @@ describe('navegacion', () => {
 
     expect(enElMenu.map((view) => view.name)).toEqual([
       'project',
-      'capacity',
-      'gantt',
-      'calendar',
+      'project-capacity',
+      'project-gantt',
+      'project-calendar',
       'kanban',
       'task-list',
       'members',
       'project-settings',
-      'activity',
+      'project-activity',
     ])
   })
 
-  it('las vistas propias del proyecto llevan el id en la ruta', () => {
+  it('todas las vistas del menu del proyecto llevan el id en la ruta', () => {
     const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items)
-    const propias = enElMenu.filter((view) => view.projectIn === 'params').map((view) => view.name)
 
-    expect(propias).toEqual(['project', 'kanban', 'task-list', 'members', 'project-settings'])
+    for (const view of enElMenu) {
+      expect(view.projectIn).toBe('params')
+    }
   })
 
-  it('las vistas de planificacion del proyecto llevan el filtro', () => {
+  it('ninguna vista del menu del proyecto lleva el proyecto como filtro', () => {
     const enElMenu = PROJECT_SECTIONS.flatMap((section) => section.items)
-    const filtradas = enElMenu.filter((view) => view.projectIn === 'query').map((view) => view.name)
 
-    expect(filtradas).toEqual(['capacity', 'gantt', 'calendar', 'activity'])
+    expect(enElMenu.filter((view) => view.projectIn === 'query')).toEqual([])
   })
 
   it('la actividad esta en los dos menus', () => {
@@ -78,7 +78,7 @@ describe('navegacion', () => {
     const proyecto = PROJECT_SECTIONS.flatMap((section) => section.items).map((view) => view.name)
 
     expect(global).toContain('activity')
-    expect(proyecto).toContain('activity')
+    expect(proyecto).toContain('project-activity')
   })
 
   it('la lista esta en el grupo de planificacion del proyecto', () => {
@@ -128,6 +128,10 @@ describe('navegacion', () => {
     expect(viewLabel('members')).toBe('Miembros')
     expect(viewLabel('project-settings')).toBe('Ajustes')
     expect(viewLabel('activity')).toBe('Actividad')
+    expect(viewLabel('project-capacity')).toBe('Capacidad')
+    expect(viewLabel('project-gantt')).toBe('Gantt')
+    expect(viewLabel('project-calendar')).toBe('Calendario')
+    expect(viewLabel('project-activity')).toBe('Actividad')
     expect(viewLabel('inventada')).toBe('')
   })
 

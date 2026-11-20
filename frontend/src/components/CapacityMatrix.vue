@@ -18,6 +18,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { overviewApi, projectsApi, tasksApi } from '../api/client'
+import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import { useAuthStore } from '../stores/auth'
@@ -238,9 +239,17 @@ const mode = computed({
   set: (value) => updateQuery({ mode: value === MODE.HOURS ? undefined : value }, false),
 })
 
-/** Filtro de proyecto: el que elige el selector de la cabecera. */
+/** Proyecto que fija la ruta, cuando la vista esta en el espacio del proyecto. */
+const proyectoDeLaRuta = useProyectoFiltro()
+
+/**
+ * Filtro de proyecto.
+ *
+ * En el espacio del proyecto lo da la ruta y no se toca desde aqui; en el
+ * global, lo escribe el desplegable.
+ */
 const projectFilter = computed({
-  get: () => query.value.project ?? '',
+  get: () => proyectoDeLaRuta.value,
   set: (value) => updateQuery({ project: value }),
 })
 
@@ -1070,7 +1079,7 @@ watch(
   () => [
     query.value.from,
     query.value.to,
-    query.value.project,
+    projectFilter.value,
     query.value.department,
   ],
   () => {
@@ -1131,7 +1140,11 @@ watch(
         </select>
       </label>
 
-      <label v-if="store.projects.length" class="text-xs font-medium text-slate-600">
+      <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
+      <label
+        v-if="store.projects.length && !route.params.id"
+        class="text-xs font-medium text-slate-600"
+      >
         <span class="mb-1 block">Proyecto</span>
         <select
           v-model="projectFilter"

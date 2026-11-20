@@ -69,31 +69,42 @@ Cada proyecto tiene un código corto (p. ej. `SIVE`, `TUB`, `RET`) con un par fo
 
 ## 4. Navegación
 
-### 4.1 Menú (un solo menú, sin dos contextos)
+### 4.1 Menú (dos menús, uno por contexto)
 ```
+Global
 Mi espacio       Panel · Mi trabajo
 Planificación    Capacidad · Gantt · Calendario
-Organización     Proyectos · Personas · Departamentos
+Organización     Proyectos · Personas · Departamentos · Actividad
 Administración   Configuración            (solo gerente)
+
+Proyecto
+Planificación y ejecución  Resumen · Capacidad · Gantt · Calendario · Tablero · Lista
+Gestión y equipo           Miembros · Ajustes · Actividad
 ```
 - El **Calendario laboral** deja de ser un ítem del menú: pasa a ser una pestaña de *Configuración* (ver 5.5).
-- Hoy `GLOBAL_SECTIONS` y `PROJECT_SECTIONS` en `frontend/src/utils/navigation.js` definen dos menús. Se unifica en uno.
+- `GLOBAL_SECTIONS` y `PROJECT_SECTIONS` en `frontend/src/utils/navigation.js` definen los dos menús; se ve el que corresponde a donde se está: en el espacio del proyecto el de proyecto, en el resto el global. El contexto sale de la ruta del proyecto, no del filtro.
 - Por debajo de `md` el menú es un cajón con botón de apertura (`aria-expanded`). Por encima, barra lateral fija de 248 px.
 
-### 4.2 Rutas: de dos árboles a uno
-El proyecto pasa de ser un **espacio** a ser un **filtro**.
+### 4.2 Rutas: el proyecto es un espacio y `?project=` un filtro
+El proyecto es un **espacio** con su menú, su cabecera y sus rutas
+(`/projects/:id/...`), y `?project=` es un **filtro** puro que las vistas
+globales de planificación se aplican a sí mismas: no cambia el menú, la
+cabecera ni las migas.
 
 | Hoy | Propuesta |
 | --- | --- |
-| `/capacity` y `/projects/:id/capacity` | `/capacity?project=<id>` |
-| `/gantt` y `/projects/:id/gantt` | `/gantt?project=<id>` |
-| `/calendar` y `/projects/:id/calendar` | `/calendar?project=<id>` |
+| `/capacity` y `/projects/:id/capacity` | `/capacity?project=<id>` en el global y `/projects/:id/capacity` en el espacio del proyecto |
+| `/gantt` y `/projects/:id/gantt` | `/gantt?project=<id>` en el global y `/projects/:id/gantt` en el espacio del proyecto |
+| `/calendar` y `/projects/:id/calendar` | `/calendar?project=<id>` en el global y `/projects/:id/calendar` en el espacio del proyecto |
+| `/activity` | `/activity?project=<id>` en el global y `/projects/:id/activity` en el espacio del proyecto |
 | `/planner` | se elimina, lo absorbe `/capacity` |
 | `/work-calendar` | `/configuration?tab=calendar` |
 | `/projects/:id` (resumen) | se mantiene, con pestañas |
 | `/projects/:id/kanban`, `/members`, `/settings` | se mantienen como pestañas del proyecto |
 
-- Mantén **redirecciones** de las rutas antiguas a las nuevas para no romper enlaces guardados.
+- Sin **redirecciones** entre los dos: `/projects/:id/capacity` y compañía son
+  rutas reales de las mismas vistas, no un salto a la global con filtro. Un
+  enlace guardado de cualquiera de las dos formas sigue valiendo.
 - `/` redirige según el rol: **técnico → `/my-work`**, **gerente y jefe de departamento → `/panel`**. Hoy `redirectToFirstProject` en `router/guards.js` los lleva a la matriz del primer proyecto.
 - Con este cambio, `navigation.js` (284 líneas) y las ramas `isGlobal` de `AppShell.vue`, `CapacityMatrix.vue`, `GanttView.vue` y `CalendarView.vue` se simplifican mucho. Es el cambio más grande de la lista: va en la fase 5.
 
@@ -253,7 +264,7 @@ Cada fase termina con `pytest`, `npm test`, `npm run build` y `npm run verify:cs
 | **2** | `load.js` con la escala de carga y su test unitario. Celdas con capacidad, %, barra e icono. Fila de equipo. Cabecera de semana con rango de fechas y «Hoy» | bajo |
 | **3** | Eje de semanas continuo (API 7.1) y filtros por proyecto, departamento y competencia (7.2, 7.3), con estado en la URL | medio |
 | **4** | Pantalla de Capacidad unificada con panel lateral y modos; eliminar `PlannerView`, `PlannerMatrix` y el modal manual. Arrastre con previsualización y teclado | medio |
-| **5** | Menú agrupado, entrada por rol, rutas unificadas con filtro `?project=` y redirecciones, simplificar `navigation.js` | **alto** |
+| **5** | Menú agrupado, entrada por rol, vistas de planificación en el espacio del proyecto (rutas `/projects/:id/...` reales, sin redirecciones) y filtro `?project=` puro en el global, simplificar `navigation.js` | **alto** |
 | **6** | *Mi trabajo*, *Panel* y *Proyecto* según 5.2 a 5.4; Configuración con calendario laboral integrado (5.5); responsive y cajón de menú | medio |
 
 Orden recomendado: 1 → 2 → 3 → 4 → 6 → 5. La fase 5 toca todas las rutas y los tests de navegación, así que conviene hacerla cuando el resto está estable.
@@ -419,8 +430,8 @@ Los datos de ejemplo (personas, proyectos, horas) sirven solo para ilustrar las 
 31. **Mayús + ↑/↓ hace lo mismo que arrastrar**: mueve la tarea a la persona de
     al lado, con la misma condición de miembro del proyecto.
 32. **El alta de una tarea nueva solo aparece en la vista de proyecto.** En la
-    global no hay un proyecto delante: el alta vive en el shell, con selector
-    de proyecto.
+    global no hay un proyecto delante: el alta vive en el shell y se muestra
+    cuando la ruta lleva proyecto.
 33. **El modo y la celda abierta viven en la URL** (`?mode=`, `?cell=`), pero no
     recargan el informe: solo lo hacen los seis filtros.
 34. **El panel de detalle de la capacidad no es modal.** Es una columna al
@@ -456,8 +467,10 @@ como en el prototipo, pero con el texto del proyecto real en vez de "RET".
 40. **La planificación incompleta se resuelve desde el tablero**: el enlace
     "Resolver" lleva a `/projects/{id}/kanban`, que lista todas las tareas del
     proyecto, incluidas las que no tienen persona y las que no tienen fechas.
-41. **"Ver su Gantt" abre el Gantt del proyecto** (`/projects/{id}/gantt`). El
-    Gantt global con filtro de proyecto es de la fase 5.
+41. **"Ver su Gantt" abre el Gantt global con filtro de proyecto**
+    (`/gantt?project={id}`), el que entró en la fase 5; la ruta del espacio
+    del proyecto (`/projects/{id}/gantt`) se llega desde el menú del
+    proyecto.
 42. **Se mantiene la pestaña "Miembros"** de Configuración. El prototipo no la
     trae, pero quitarla perdería funcionalidad.
 43. **Las horas por semana de la pantalla de proyecto se suman en el frontend**,
@@ -476,33 +489,40 @@ como un botón sin destino; aquí el gráfico lo pinta el backend con las horas
 reales de cada semana, y "Resolver" lleva al tablero del proyecto, que es
 donde se puede corregir la tarea.
 
-### Fase 5 — Menú agrupado y rutas unificadas
+### Fase 5 — Menú agrupado y rutas del espacio del proyecto
 
-46. **El menú tiene cuatro grupos**: Mi espacio (Panel, Mi trabajo), Planificación
-    (Capacidad, Gantt, Calendario), Organización (Proyectos, Personas y
-    Competencias, Departamentos) y Administración (Configuración, solo el
-    gerente). Es el catálogo único de `frontend/src/utils/navigation.js`: se van
-    `GLOBAL_SECTIONS`, `PROJECT_SECTIONS` y las funciones de ruta por contexto.
-47. **Las pestañas del proyecto salen del menú.** Tablero, Miembros y Ajustes se
-    llegan desde la página del proyecto (`/projects/{id}`), que es donde tiene
-    sentido abrirlas. El calendario laboral también sale: es una pestaña de
-    Configuración.
-48. **El selector de la cabecera es el filtro `?project=`**, y solo aparece en
-    Capacidad, Gantt y Calendario. En la URL el parámetro se llama `project` y en
-    la API `project_id`: es el mismo filtro con dos nombres.
-49. **El filtro de proyecto tiene un solo control**, el selector de la cabecera.
-    El desplegable "Proyecto" de la barra de filtros de la matriz se retira:
-    dos controles para el mismo filtro obligan a decidir cuál de los dos manda.
+46. **El menú global tiene cuatro grupos**: Mi espacio (Panel, Mi trabajo),
+    Planificación (Capacidad, Gantt, Calendario), Organización (Proyectos,
+    Personas y Competencias, Departamentos, Actividad) y Administración
+    (Configuración, solo el gerente). `frontend/src/utils/navigation.js` lleva
+    los dos catálogos, `GLOBAL_SECTIONS` y `PROJECT_SECTIONS`: el menú del
+    proyecto tiene dos grupos (Planificación y ejecución; Gestión y equipo) y
+    cada entrada lleva el proyecto en el parámetro de la ruta.
+47. **Las pantallas del proyecto viven en su menú.** Resumen, Capacidad, Gantt,
+    Calendario, Tablero, Lista, Miembros, Ajustes y Actividad se llegan desde
+    el menú del proyecto, con el proyecto en la ruta
+    (`/projects/{id}/...`). El calendario laboral sale del menú: es una
+    pestaña de Configuración.
+48. **El filtro de proyecto se controla desde la vista, no desde la cabecera.**
+    La matriz lleva su desplegable "Proyecto" en la barra de filtros y el
+    calendario su filtro "Proyecto"; la cabecera no tiene selector. En la URL
+    el parámetro se llama `project` y en la API `project_id`: es el mismo
+    filtro con dos nombres.
+49. **El filtro se oculta en el espacio del proyecto.** El desplegable de la
+    matriz y el filtro del calendario no se ven cuando la ruta lleva proyecto
+    (`/projects/:id/...`), porque el proyecto ya viene de la ruta y un control
+    más no cambiaría nada.
 50. **El filtro acompaña a las vistas de planificación.** Al pasar de la
-    capacidad al Gantt o al calendario, el proyecto que se estaba viendo viaja
-    con el enlace del menú. El enlace de la vista que ya está abierta conserva
-    su estado entero, para que el rango, el modo o la celda abierta no se
-    pierdan.
+    capacidad al Gantt o al calendario dentro del espacio del proyecto, el
+    proyecto viaja en la ruta (`/projects/{id}/...`). El enlace de la vista
+    que ya está abierta conserva su estado entero, para que el rango, el modo
+    o la celda abierta no se pierdan.
 
-**Lo que el código real hace distinto del prototipo.** La ruta del proyecto
-`/projects/{id}/gantt` pasa a ser `/gantt?project={id}`, y las tres rutas de
-proyecto que quedan como redirección para no romper los enlaces guardados. La
-raíz deja de llevar al primer proyecto: el técnico entra por Mi trabajo y el
-gerente y el jefe de departamento por el Panel. `GET /api/gantt` acepta
-`project_id` con el mismo comportamiento que la capacidad: si el proyecto no
-está entre los que se ven, responde 404.
+**Lo que el código real hace distinto del prototipo.** El espacio del proyecto
+conserva sus rutas: `/projects/{id}/capacity`, `/projects/{id}/gantt`,
+`/projects/{id}/calendar` y `/projects/{id}/activity` son rutas reales de las
+mismas vistas globales, no redirecciones a la global con filtro. La raíz deja
+de llevar al primer proyecto: el técnico entra por Mi trabajo y el gerente y el
+jefe de departamento por el Panel. `GET /api/gantt` acepta `project_id` con el
+mismo comportamiento que la capacidad: si el proyecto no está entre los que se
+ven, responde 404.

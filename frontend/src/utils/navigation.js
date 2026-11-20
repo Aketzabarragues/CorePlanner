@@ -2,9 +2,9 @@
  * Vistas de la aplicacion y menus laterales.
  *
  * Hay dos espacios. El global agrupa las vistas de toda la organizacion; el
- * del proyecto, las suyas. El proyecto sale siempre de la URL: el de la
- * pagina del proyecto, en la ruta, o el del filtro, en la consulta. Quien
- * mira un proyecto ve su menu; quien no, ve el global.
+ * del proyecto, las suyas. El contexto de proyecto sale solo de la ruta de la
+ * pagina del proyecto; en las vistas globales, el proyecto es un filtro que
+ * las acota. Quien mira un proyecto ve su menu; quien no, ve el global.
  */
 
 const PANEL_VIEW = {
@@ -98,18 +98,17 @@ export const GLOBAL_SECTIONS = [
  * Menu del proyecto, en dos grupos.
  *
  * `projectIn` dice donde lleva el identificador del proyecto cada entrada:
- * en los parametros de la ruta (`/projects/{id}/kanban`) para las vistas
- * propias del proyecto, o en el filtro de las vistas de planificacion
- * (`/capacity?project={id}`), que son las unificadas.
+ * en los parametros de la ruta (`/projects/{id}/kanban`), que es donde vive
+ * el contexto de proyecto, incluidas las vistas de planificacion.
  */
 export const PROJECT_SECTIONS = [
   {
     title: 'Planificación y ejecución',
     items: [
       { name: 'project', label: 'Resumen', icon: 'gauge', projectIn: 'params' },
-      { name: 'capacity', label: 'Capacidad', icon: 'chart', projectIn: 'query' },
-      { name: 'gantt', label: 'Gantt', icon: 'calendar', projectIn: 'query' },
-      { name: 'calendar', label: 'Calendario', icon: 'grid', projectIn: 'query' },
+      { name: 'project-capacity', label: 'Capacidad', icon: 'chart', projectIn: 'params' },
+      { name: 'project-gantt', label: 'Gantt', icon: 'calendar', projectIn: 'params' },
+      { name: 'project-calendar', label: 'Calendario', icon: 'grid', projectIn: 'params' },
       { name: 'kanban', label: 'Tablero', icon: 'board', projectIn: 'params' },
       { name: 'task-list', label: 'Lista', icon: 'list', projectIn: 'params' },
     ],
@@ -119,7 +118,7 @@ export const PROJECT_SECTIONS = [
     items: [
       { name: 'members', label: 'Miembros', icon: 'users', projectIn: 'params' },
       { name: 'project-settings', label: 'Ajustes', icon: 'sliders', projectIn: 'params' },
-      { name: 'activity', label: 'Actividad', icon: 'clock', projectIn: 'query' },
+      { name: 'project-activity', label: 'Actividad', icon: 'clock', projectIn: 'params' },
     ],
   },
 ]

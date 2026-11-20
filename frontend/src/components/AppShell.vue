@@ -3,22 +3,20 @@
  * Armazon de la aplicacion.
  *
  * Hay dos menus. El global agrupa las vistas de toda la organizacion; el del
- * proyecto, las suyas. El proyecto sale siempre de la URL: el de la pagina
- * del proyecto, en la ruta, o el del filtro, en la consulta. Al recargar se
- * vuelve al mismo, y con el el menu que le corresponde.
+ * proyecto, las suyas. El proyecto sale de la URL de la pagina del proyecto,
+ * en la ruta. Al recargar se vuelve al mismo, y con el el menu que le
+ * corresponde.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { meApi, tasksApi } from '../api/client'
 import AppIcon from './AppIcon.vue'
-import ProjectPicker from './ProjectPicker.vue'
 import TaskForm from './TaskForm.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
-  FILTERED_VIEWS,
   GLOBAL_SECTIONS,
   PROJECT_SECTIONS,
   projectStatus,
@@ -44,8 +42,8 @@ const scope = ref(null)
 
 let noticeTimer = null
 
-/** Identificador del proyecto abierto: el de la ruta o el del filtro. */
-const projectId = computed(() => route.params.id ?? route.query.project ?? null)
+/** Identificador del proyecto abierto: solo la ruta del proyecto lo da. */
+const projectId = computed(() => route.params.id ?? null)
 
 /**
  * Hay un proyecto abierto.
@@ -54,9 +52,6 @@ const projectId = computed(() => route.params.id ?? route.query.project ?? null)
  * las migas de pan dependen de ella.
  */
 const enProyecto = computed(() => projectId.value !== null)
-
-/** Proyecto que filtra la vista, cuando la vista admite filtro. */
-const filtroProyecto = computed(() => route.query.project ?? null)
 
 const currentProject = computed(
   () =>
@@ -112,9 +107,6 @@ const currentProjectName = computed(
   () => currentProject.value?.name ?? `Proyecto ${projectId.value}`,
 )
 
-/** Las vistas de planificacion son las que aceptan el filtro de proyecto. */
-const muestraFiltro = computed(() => FILTERED_VIEWS.includes(route.name))
-
 /**
  * Secciones del menu lateral.
  *
@@ -127,15 +119,23 @@ const sections = computed(() => {
   return lista.filter((section) => !section.managerOnly)
 })
 
+/** Homologa global de cada vista de proyecto, sin filtro. */
+const GLOBAL_BY_PROJECT_VIEW = {
+  'project-capacity': 'capacity',
+  'project-gantt': 'gantt',
+  'project-calendar': 'calendar',
+  'project-activity': 'activity',
+}
+
 /**
  * Destino del boton que devuelve al espacio global.
  *
- * Desde una vista de planificacion se vuelve a la misma vista sin filtro;
+ * Desde una vista de proyecto se vuelve a su homologa global sin filtro;
  * desde las demas, al panel.
  */
 const globalTarget = computed(() => {
-  if (FILTERED_VIEWS.includes(route.name)) return { name: route.name }
-  return { name: 'panel' }
+  const name = GLOBAL_BY_PROJECT_VIEW[route.name]
+  return name ? { name } : { name: 'panel' }
 })
 
 /** Iniciales de la persona con la sesion iniciada. */
@@ -175,15 +175,13 @@ const menuCompacto = computed(() => collapsed.value && !menuAbierto.value)
 /**
  * Destino de un enlace del menu.
  *
- * El menu del proyecto lleva su identificador en cada enlace: en los
- * parametros de la ruta para sus vistas propias y en el filtro para las de
- * planificacion. En la vista que ya esta abierta se conserva su estado
- * entero, para que el rango, el modo o la celda abierta no se pierdan.
+ * El menu del proyecto lleva su identificador en los parametros de la ruta.
+ * En la vista que ya esta abierta se conserva su estado entero, para que el
+ * rango, el modo o la celda abierta no se pierdan.
  */
 function linkFor(item) {
   const destino = { name: item.name }
   if (item.projectIn === 'params') destino.params = { id: String(projectId.value) }
-  if (item.projectIn === 'query') destino.query = { project: String(projectId.value) }
   if (item.name === route.name) {
     destino.query = { ...route.query }
     if (item.projectIn === 'params') {
@@ -191,21 +189,6 @@ function linkFor(item) {
     }
   }
   return destino
-}
-
-/**
- * Elige el proyecto que filtra la vista.
- *
- * El filtro vive en la URL (`?project=`), de modo que el enlace se puede
- * compartir y recargar la pagina no lo pierde. Sin proyecto, el filtro se
- * quita y la vista sale con todos los que se ven.
- */
-async function selectProject(id) {
-  const query = { ...route.query }
-  if (id === null || id === undefined) delete query.project
-  else query.project = String(id)
-  await router.replace({ query })
-  store.select(id)
 }
 
 function logout() {
@@ -420,15 +403,6 @@ watch(() => route.fullPath, () => {
         </nav>
 
         <div class="flex shrink-0 items-center gap-3">
-          <div v-if="muestraFiltro" class="w-36 sm:w-64">
-            <ProjectPicker
-              :projects="store.projects"
-              :departments="store.departments"
-              :current-id="filtroProyecto"
-              @select="selectProject"
-            />
-          </div>
-
           <template v-if="currentProject">
             <div class="flex items-center gap-3">
               <span

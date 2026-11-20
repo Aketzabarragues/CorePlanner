@@ -14,9 +14,10 @@
  * de un solo dia, y se abre al pulsar un dia de cualquiera de las dos.
  *
  * Es de toda la organizacion y los filtros son de presentacion: acotan lo que
- * ya esta cargado, no lo que la persona puede ver. Los tres viven en la URL
- * (`?department=`, `?project=` y `?assigned_to=`), de modo que la vista
- * abierta se puede compartir tal cual.
+ * ya esta cargado, no lo que la persona puede ver. El de departamento vive en
+ * la URL (`?department=`) y el de proyecto, en la ruta del proyecto o en el
+ * filtro de la URL (`?project=`), de modo que la vista abierta se puede
+ * compartir tal cual.
  *
  * Al pulsar una tarea se abre su detalle en el mismo panel que usa el Tablero.
  * Quien no puede escribir en ese proyecto lo ve en solo lectura.
@@ -25,6 +26,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { calendarApi, meApi, overviewApi, peopleApi } from '../api/client'
+import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
@@ -93,9 +95,17 @@ async function updateQuery(patch) {
   await router.replace({ query: next })
 }
 
-/** Proyecto que filtra el calendario. */
+/** Proyecto que fija la ruta, cuando la vista esta en el espacio del proyecto. */
+const proyectoDeLaRuta = useProyectoFiltro()
+
+/**
+ * Proyecto que filtra el calendario.
+ *
+ * En el espacio del proyecto lo da la ruta y no se toca desde aqui; en el
+ * global, lo escribe el desplegable.
+ */
 const projectFilter = computed({
-  get: () => query.value.project ?? '',
+  get: () => proyectoDeLaRuta.value,
   set: (value) => updateQuery({ project: value }),
 })
 
@@ -103,12 +113,6 @@ const projectFilter = computed({
 const departmentFilter = computed({
   get: () => query.value.department ?? '',
   set: (value) => updateQuery({ department: value }),
-})
-
-/** Persona que filtra el calendario: la que tiene la tarea asignada. */
-const assignedToFilter = computed({
-  get: () => query.value.assigned_to ?? '',
-  set: (value) => updateQuery({ assigned_to: value }),
 })
 
 /** Lo que se lee encima del calendario: con filtro, solo sale ese proyecto. */
@@ -191,9 +195,6 @@ const visibleTasks = computed(() =>
     if (projectFilter.value && String(task.project_id) !== String(projectFilter.value)) {
       return false
     }
-    if (assignedToFilter.value && String(task.assigned_to ?? '') !== String(assignedToFilter.value)) {
-      return false
-    }
     if (departmentFilter.value && departmentByProject.value.size) {
       const department = departmentByProject.value.get(Number(task.project_id))
       if (String(department ?? '') !== String(departmentFilter.value)) return false
@@ -214,9 +215,7 @@ const personasVisibles = computed(() =>
 )
 
 /** Si hay algun filtro puesto. */
-const hayFiltros = computed(
-  () => Boolean(projectFilter.value || departmentFilter.value || assignedToFilter.value),
-)
+const hayFiltros = computed(() => Boolean(projectFilter.value || departmentFilter.value))
 
 /** Tarea abierta en el panel de detalle. */
 const selectedTask = computed(
@@ -250,7 +249,6 @@ async function load() {
     const params = {}
     if (projectFilter.value) params.project_id = projectFilter.value
     if (departmentFilter.value) params.department_id = departmentFilter.value
-    if (assignedToFilter.value) params.assigned_to = assignedToFilter.value
     const [feed, days, ambito, directorio] = await Promise.all([
       overviewApi.gantt(token, params),
       calendarApi.list(token),
@@ -344,8 +342,9 @@ async function reintentar() {
 onMounted(load)
 useTaskReload(load)
 
+// El proyecto cambia con la ruta del proyecto o con el filtro de la URL.
 watch(
-  () => [route.query.project, route.query.department, route.query.assigned_to],
+  () => [projectFilter.value, departmentFilter.value],
   async () => {
     loading.value = true
     await load()
@@ -464,7 +463,8 @@ watch(
           </select>
         </label>
 
-        <label class="text-xs font-medium text-slate-600">
+        <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
+        <label v-if="!route.params.id" class="text-xs font-medium text-slate-600">
           <span class="mb-1 block">Proyecto</span>
           <select
             v-model="projectFilter"
@@ -474,20 +474,6 @@ watch(
             <option value="">Todos los proyectos</option>
             <option v-for="project in store.projects" :key="project.id" :value="String(project.id)">
               {{ project.name }}
-            </option>
-          </select>
-        </label>
-
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Persona</span>
-          <select
-            v-model="assignedToFilter"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-person"
-          >
-            <option value="">Todas las personas</option>
-            <option v-for="person in people" :key="person.id" :value="String(person.id)">
-              {{ person.name }}
             </option>
           </select>
         </label>

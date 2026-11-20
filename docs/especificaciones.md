@@ -945,8 +945,9 @@ interfaz, la ultima antes del menu agrupado y las rutas unificadas (fase 5).
 
 - **El menu agrupado y las rutas unificadas**: son de la fase 5, la de mayor
   riesgo. La fase 6 no cambia ninguna URL, salvo la entrada del calendario.
-- **El Gantt global con filtro de proyecto**: "Ver su Gantt" abre la vista del
-  proyecto, no la global con filtro.
+- **El Gantt global con filtro de proyecto**: "Ver su Gantt" del resumen del
+  proyecto abre la global con filtro (`/gantt?project=<id>`), no una ruta del
+  espacio del proyecto.
 - **La edicion completa de una tarea**: el selector de estado cambia el estado
   y nada mas.
 - **Los filtros y el rango de la matriz**: son de la fase 3 y no cambian.
@@ -996,18 +997,22 @@ Del agente:
 ## 24. Dos menus: el global y el del proyecto
 
 La navegacion tiene dos arboles y dos menus. Las vistas globales (`/panel`,
-`/my-work`, `/projects`, `/capacity`, `/gantt`, `/calendar`, `/departments`,
-`/people`, `/configuration`) y las del proyecto (`/projects/:id`,
-`/projects/:id/kanban`, `/projects/:id/members`, `/projects/:id/settings`) se
-muestran en menus distintos segun donde se este. El proyecto es un **espacio**
-con su propio menu, su propia cabecera y su propio bloque de migas.
+`/my-work`, `/projects`, `/capacity`, `/gantt`, `/calendar`, `/activity`,
+`/departments`, `/people`, `/configuration`) y las del proyecto (`/projects/:id`,
+`/projects/:id/capacity`, `/projects/:id/gantt`, `/projects/:id/calendar`,
+`/projects/:id/activity`, `/projects/:id/kanban`, `/projects/:id/tasks`,
+`/projects/:id/members`, `/projects/:id/settings`) se muestran en menus
+distintos segun donde se este. El proyecto es un **espacio** con su propio
+menu, su propia cabecera y su propio bloque de migas.
 
-Lo que decide cual de los dos se ve es una sola cosa: **que proyecto se esta
-mirando**. Sale de la URL, del parametro de la ruta (`/projects/:id/...`) o del
-filtro de la query (`?project=` en las vistas de planificacion). Si hay
-proyecto, se ve el menu de proyecto; si no, el global. Es el criterio de la
-maqueta (`demo/coreplanner-demo.html`, con `GLOBAL_NAV` y `PROJECT_NAV`) y del
-competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
+Lo que decide cual de los dos se ve es una sola cosa: **la ruta de la pagina
+del proyecto**. Sale del parametro de la ruta (`/projects/:id/...`): si la ruta
+lleva proyecto, se ve el menu de proyecto; si no, el global. El filtro de la
+query (`?project=`) no decide nada de eso: es un filtro que las vistas globales
+de planificacion se aplican a si mismas, sin cambiar el menu, la cabecera ni las
+migas. Es el criterio de la maqueta (`demo/coreplanner-demo.html`, con
+`GLOBAL_NAV` y `PROJECT_NAV`) y del competidor que mas se ha estudiado
+(`docs/openproject/analisis-openproject.md`).
 
 ### Que entra
 
@@ -1026,17 +1031,17 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 
   | Grupo | Vistas |
   | --- | --- |
-  | Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero |
-  | Gestion y equipo | Miembros, Ajustes |
+  | Planificacion y ejecucion | Resumen, Capacidad, Gantt, Calendario, Tablero, Lista |
+  | Gestion y equipo | Miembros, Ajustes, Actividad |
 
-- **Que menu se ve lo decide el proyecto activo**, no la ruta: si hay
+- **Que menu se ve lo decide la ruta del proyecto**: si la ruta lleva
   proyecto, el de proyecto; si no, el global.
 - **El menu global solo aparece sin proyecto**, asi que sus enlaces nunca
-  llevan filtro. El filtro viaja con los enlaces del menu de proyecto.
-- **El menu de proyecto lleva el proyecto en cada enlace**: en el parametro de
-  la ruta para Resumen, Tablero, Miembros y Ajustes (`/projects/1/kanban`), y en
-  el filtro de la query para Capacidad, Gantt y Calendario
-  (`/capacity?project=1`).
+  llevan proyecto. El filtro `?project=` no viaja con ningun enlace del menu.
+- **El menu de proyecto lleva el proyecto en cada enlace**, en el parametro de
+  la ruta: `/projects/1/capacity`, `/projects/1/gantt`, `/projects/1/calendar`,
+  `/projects/1/activity`, `/projects/1/kanban`, `/projects/1/tasks`,
+  `/projects/1/members` y `/projects/1/settings`.
 - **El calendario laboral sigue sin ser un item del menu**: ya vive en la
   primera pestana de la configuracion (§23), asi que el menu solo lleva a ella.
 - **El menu no decide quien ve que**: lo decide el rol de empresa, igual que
@@ -1051,9 +1056,10 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 
 **El boton "Volver a vista global"**
 
-- Al final del menu de proyecto hay un boton que quita el filtro y vuelve al
-  espacio global: a la misma vista de planificacion sin `?project=`, o al panel
-  cuando la vista no era de planificacion.
+- Al final del menu de proyecto hay un boton que vuelve al espacio global: a la
+  homologa global de la vista que se esta viendo, sin filtro (`/capacity`,
+  `/gantt`, `/calendar` o `/activity` segun la vista), o al panel cuando la
+  vista no es de planificacion.
 
 **Las migas de pan**
 
@@ -1062,26 +1068,33 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 
 **Las rutas**
 
-- **Las vistas de planificacion siguen unificadas y con filtro de proyecto en
-  la URL**: `/capacity?project=<id>`, `/gantt?project=<id>` y
-  `/calendar?project=<id>`. El menu de proyecto es quien genera esos enlaces.
-- **No se reintroducen las rutas anidadas** `/projects/:id/capacity`,
-  `/projects/:id/gantt` y `/projects/:id/calendar`: siguen siendo
-  redirecciones a las vistas unificadas, para no romper los enlaces guardados.
+- **Las vistas de planificacion viven en los dos espacios**: `/capacity`,
+  `/gantt`, `/calendar` y `/activity` en el global, con el filtro opcional
+  `?project=<id>`, y `/projects/:id/capacity`, `/projects/:id/gantt`,
+  `/projects/:id/calendar` y `/projects/:id/activity` en el del proyecto. Son
+  las mismas vistas montadas en las dos rutas: en el espacio del proyecto el
+  proyecto lo da la ruta, y el menu de proyecto es quien genera esos enlaces.
+- **No hay redirecciones entre los dos**: `/projects/:id/capacity` y compania
+  son rutas reales de la vista, no un salto a la global con filtro. Un enlace
+  guardado de una u otra forma sigue valiendo.
 - **En la URL el parametro se llama `project`; en la API, `project_id`.** Es
   el mismo filtro con dos nombres, uno para quien navega y otro para quien
   llama: el filtro por proyecto de la matriz ya usa `project_id`.
-- **Las rutas del proyecto se quedan**: `/projects/:id` (resumen),
-  `/projects/:id/kanban`, `/projects/:id/members` y `/projects/:id/settings`.
+- **Las demas rutas del proyecto se quedan**: `/projects/:id` (resumen),
+  `/projects/:id/kanban`, `/projects/:id/tasks`, `/projects/:id/members` y
+  `/projects/:id/settings`.
 - **`/` redirige segun el rol** y **`/work-calendar` sigue redirigiendo** al
   calendario laboral de la configuracion.
 
 **La cabecera de la pagina**
 
-- **El selector de proyecto es el filtro `?project=`** de las vistas de
-  planificacion, y sale de las demas pantallas.
+- **No hay selector de proyecto en la cabecera.** El filtro `?project=` lo
+  escribe cada vista de planificacion global con su propio control
+  (el desplegable "Proyecto" de la matriz y el filtro "Proyecto" del
+  calendario), y no se ve en el espacio del proyecto: alli el proyecto ya
+  viene de la ruta.
 - **La pila de estado del proyecto y el boton "Nueva Tarea"** aparecen cuando
-  hay un proyecto: en su pagina o filtrando por el.
+  la ruta lleva proyecto: en su pagina o en cualquiera de sus vistas.
 
 **El backend**
 
@@ -1094,13 +1107,16 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 
 - `frontend/src/utils/navigation.js`: dos catalogos de secciones,
   `GLOBAL_SECTIONS` y `PROJECT_SECTIONS`. Cada entrada del menu de proyecto
-  dice si lleva el proyecto en la ruta (`projectIn: 'params'`) o en el filtro
-  (`projectIn: 'query'`).
-- `frontend/src/components/AppShell.vue`: el proyecto activo se resuelve una
-  sola vez, como `route.params.id ?? route.query.project`, y de ahi salen el
-  menu, las migas y el boton de vuelta.
-- **El desplegable "Proyecto" de la barra de filtros de la matriz sigue sin
-  estar**: el filtro tiene un solo control, el selector de la cabecera.
+  lleva el proyecto en la ruta (`projectIn: 'params'`).
+- `frontend/src/components/AppShell.vue`: el proyecto abierto sale solo de la
+  ruta (`route.params.id`), y de ahi salen el menu, las migas y el boton de
+  vuelta.
+- `frontend/src/composables/useProyectoFiltro.js`: el identificador que filtra
+  cada vista de planificacion, `route.params.id ?? route.query.project ?? ''`.
+  En el espacio del proyecto lo da la ruta; en el global, el filtro de la URL.
+- **El desplegable "Proyecto" de la matriz y el filtro "Proyecto" del
+  calendario se ocultan en el espacio del proyecto**: alli el proyecto ya viene
+  de la ruta, y un control mas no cambiaria nada.
 
 ### Que no entra
 
@@ -1123,29 +1139,32 @@ competidor que mas se ha estudiado (`docs/openproject/analisis-openproject.md`).
 
 ### Decisiones tomadas
 
-1. **El proyecto activo se resuelve una sola vez**, en `AppShell.vue`, como
-   `route.params.id ?? route.query.project`. De ahi salen el menu que se ve, las
-   migas y el boton de vuelta. Es la unica fuente de verdad de "que proyecto
-   estoy mirando", que es lo que faltaba cuando el menu era unico.
-2. **Los enlaces del menu de proyecto llevan el proyecto**: en el parametro de
-   la ruta para Resumen, Tablero, Miembros y Ajustes; en el filtro para
-   Capacidad, Gantt y Calendario. Ningun enlace del menu global lleva filtro,
-   porque sin proyecto no hay filtro que llevar.
-3. **Las pestanas del proyecto se quedan en tres rutas**:
-   `/projects/:id/kanban`, `/projects/:id/members` y `/projects/:id/settings`. El
-   proyecto conserva su arbol, la URL dice que pantalla es y los enlaces del
-   resumen del proyecto siguen valiendo.
+1. **La ruta del proyecto es la unica fuente de verdad del espacio**. En
+   `AppShell.vue`, `route.params.id` decide el menu que se ve, las migas, la
+   cabecera y el boton de vuelta; `?project=` no cambia ninguno de los cuatro.
+   El filtro que cada vista de planificacion aplica a si misma lo resuelve
+   `useProyectoFiltro()`: la ruta si hay, el filtro de la URL si no.
+2. **Los enlaces del menu de proyecto llevan el proyecto en la ruta**:
+   `/projects/:id/capacity`, `/projects/:id/gantt`, `/projects/:id/calendar`,
+   `/projects/:id/activity`, `/projects/:id/kanban`, `/projects/:id/tasks`,
+   `/projects/:id/members` y `/projects/:id/settings`. Ningun enlace del menu
+   global lleva proyecto ni filtro, porque sin proyecto no hay filtro que
+   llevar.
+3. **Las vistas de planificacion montan dos rutas cada una**: la global, con
+   el filtro opcional, y la del proyecto, con el proyecto en la ruta. No hay
+   redirecciones entre las dos, de modo que un enlace guardado de cualquiera de
+   las dos formas sigue valiendo.
 4. **El calendario laboral se queda en `/configuration?tab=calendar`**. Las
    siete pestanas de la configuracion se comportan igual y no hay que tocar lo
    ya verificado en la fase 6.
-5. **El selector de la cabecera es el filtro `?project=` y sale de las demas
-   pantallas**. Aparece en Capacidad, Gantt y Calendario, que son las vistas
-   donde hay un proyecto que filtrar; en el resto no se muestra, porque alli no
-   filtraria nada.
-6. **El filtro de proyecto tiene un solo control**, el selector de la cabecera.
-   El desplegable "Proyecto" de la barra de filtros de la matriz se retira: dos
-   controles para el mismo filtro obligan al operario a decidir cual de los dos
-   manda.
+5. **El filtro de proyecto se controla desde la vista, no desde la cabecera**.
+   La matriz lleva su desplegable "Proyecto" en la barra de filtros y el
+   calendario su filtro "Proyecto"; la cabecera no tiene selector. En el
+   espacio del proyecto ambos se ocultan, porque el proyecto ya viene de la
+   ruta.
+6. **El boton de vuelta lleva a la homologa global sin filtro**: desde
+   `/projects/:id/capacity` a `/capacity`, y asi para Gantt, Calendario y
+   Actividad; desde las demas vistas del proyecto, al panel.
 7. **El enlace de la vista que ya esta abierta conserva su estado entero**,
    para que el rango, el modo o la celda abierta no se pierdan.
 
@@ -1214,17 +1233,20 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
 
 **La vista**
 
-- **Una sola pantalla**, `/activity`, que lee `?project=` de la URL igual que
-  `CapacityMatrix.vue`, `GanttView.vue` y `CalendarView.vue`.
+- **La misma pantalla en los dos espacios**: `/activity` en el global, con el
+  filtro opcional `?project=`, y `/projects/:id/activity` en el del proyecto,
+  igual que `CapacityMatrix.vue`, `GanttView.vue` y `CalendarView.vue`. El
+  filtro lo resuelve `useProyectoFiltro()`: la ruta en el espacio del
+  proyecto, el filtro de la URL en el global.
 - Cada entrada dice **quien**, **que hizo**, **sobre que** y **cuando**. El
   tiempo va en relativo ("hace 10 min", "hace 2 h", "hace 3 d") y la fecha
   completa va en el `title`.
-- En la vista global cada entrada lleva el nombre de su proyecto; con filtro no
-  lo lleva, porque es redundante.
+- En la vista global cada entrada lleva el nombre de su proyecto; con filtro o
+  en el espacio del proyecto no lo lleva, porque es redundante.
 - El menu tiene la entrada en los dos arboles: en el **global**, en el grupo
   *Organizacion*; en el **de proyecto**, en el grupo *Gestion y equipo*, con
-  `projectIn: 'query'`, como Capacidad, Gantt y Calendario: es una vista
-  unificada con filtro, no una ruta propia del proyecto.
+  `projectIn: 'params'`, como Capacidad, Gantt y Calendario: el proyecto va en
+  la ruta.
 
 ### Que no entra
 
@@ -1651,9 +1673,12 @@ El calendario global no tenia forma de abrir una tarea: en las tres vistas (mes,
 - El permiso se calcula con `scope.editable_project_ids` de `GET /api/me`: el panel abre en solo lectura si la persona no puede editar el proyecto de la tarea.
 - Al guardar o al borrar, el calendario recarga el feed.
 
-**Los tres filtros**
+**Los filtros**
 
-- Departamento, proyecto y persona, en pastilla, con los mismos parametros de URL que el Gantt (`?department=`, `?project=`, `?assigned_to=`).
+- Departamento y proyecto, con los mismos parametros de URL que el Gantt
+  (`?department=`, `?project=`). El de persona se retiro: quien decide que
+  persona se ve es el panel de visibilidad (Mostrar/ocultar, §39), igual que
+  en el Gantt (§45).
 - Se combinan con AND.
 - El filtro de departamento se aplica tambien en el cliente, cruzando el `project_id` de cada tarea con `store.projects`: el feed no trae el departamento de la tarea. Si la lista de proyectos no se puede leer, el filtro se deja al servidor en vez de dejar el calendario vacio.
 - Si no queda ninguna tarea, se avisa con "Ninguna tarea coincide con los filtros".
@@ -1831,7 +1856,7 @@ El boton "Mostrar/ocultar" que ya tenia Capacidad pasa a ser un control de filtr
 
 ### Que entra
 
-- El boton "Mostrar/ocultar" junto a los tres filtros del calendario.
+- El boton "Mostrar/ocultar" junto a los filtros del calendario.
 - Las tarjetas de las personas escondidas desaparecen del mes, de la semana y del dia.
 - Las personas escondidas desaparecen de la leyenda de colores.
 
@@ -1861,7 +1886,8 @@ Con un proyecto delante, la matriz global seguia enseñando solo a los miembros 
 
 - `load_project_capacity()` (el endpoint `GET /api/projects/{id}/capacity`) no cambia: ese es el informe del proyecto, con sus miembros.
 - `resolve_scope()` no se toca: quien no ve un proyecto, no lo ve tampoco con el filtro puesto.
-- `/projects/:id/capacity` sigue redirigiendo a `/capacity?project=:id`.
+- La ruta `/projects/:id/capacity` del espacio del proyecto no cambia: es la
+  misma vista con el proyecto de la ruta, y el filtro del endpoint no la toca.
 
 ### Decisiones tomadas
 
@@ -1969,14 +1995,16 @@ El Gantt tenia cuatro controles en la cabecera: departamento, proyecto, persona 
 
 ### Que no entra
 
-- **El backend no se toca**: `GET /api/gantt` sigue aceptando `assigned_to`, que el Calendario usa para su propio filtro de persona.
+- **El backend no se toca**: `GET /api/gantt` sigue aceptando `assigned_to`,
+  aunque ninguna vista lo usa ya como filtro de URL: el calendario retiro el
+  suyo y el control de persona paso a ser el panel de visibilidad.
 - **"Agrupar por" no se toca**: Persona sigue siendo una forma de agrupar las barras. Agrupar no es filtrar.
 - La Capacidad y el Calendario no cambian: solo el Gantt pierde este control.
 - El directorio (`peopleApi.list`) se sigue pidiendo: hace falta para saber el departamento de cada persona en el panel de visibilidad.
 
 ### Decisiones tomadas
 
-1. **Quita el control, no el parametro**: el backend conserva `assigned_to` porque otra vista lo usa. Una URL guardada con `?assigned_to=` deja de mandar ese filtro, pero la vista sigue funcionando igual.
+1. **Quita el control, no el parametro**: el backend conserva `assigned_to` porque el calendario lo usaba como filtro. Una URL guardada con `?assigned_to=` deja de mandar ese filtro, pero la vista sigue funcionando igual. Hoy ya ninguna vista lo usa como filtro de URL.
 2. **El directorio se sigue pidiendo**: quitar el selector de personas no significa dejar de conocer a las personas: el panel de visibilidad necesita su departamento.
 3. **La agrupacion por persona se queda**: con el filtro fuera, "Agrupar por: Persona" es la manera de ver el diagrama separado por gente.
 

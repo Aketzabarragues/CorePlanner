@@ -810,7 +810,7 @@ describe('CalendarView con filtros', () => {
     vi.useRealTimers()
   })
 
-  it('los filtros ofrecen los departamentos, proyectos y personas visibles', async () => {
+  it('los filtros ofrecen los departamentos y proyectos visibles', async () => {
     setupFetch({
       ambito: AMBITO,
       directorio: DIRECTORIO,
@@ -832,7 +832,6 @@ describe('CalendarView con filtros', () => {
       'Linea Pasteurizadora SIVE',
       'Red de tuberias linea 2',
     ])
-    expect(opciones('filter-person')).toEqual(['Todas las personas', 'Ana'])
   })
 
   it('el filtro de departamento acota las tareas que se ven', async () => {
@@ -875,24 +874,6 @@ describe('CalendarView con filtros', () => {
     expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(2)
   })
 
-  it('el filtro de persona acota las tareas que se ven', async () => {
-    setupFetch({
-      ambito: AMBITO,
-      directorio: DIRECTORIO,
-      proyectos: PROYECTOS,
-      departamentos: DEPARTAMENTOS,
-    })
-    const { wrapper } = await mountView()
-
-    await wrapper.find('[data-testid="filter-person"]').setValue('2')
-    await settle()
-    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(1)
-
-    await wrapper.find('[data-testid="filter-person"]').setValue('')
-    await settle()
-    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(2)
-  })
-
   it('los filtros se combinan y avisan cuando no queda ninguna tarea', async () => {
     setupFetch({
       ambito: AMBITO,
@@ -916,14 +897,28 @@ describe('CalendarView con filtros', () => {
       departamentos: DEPARTAMENTOS,
     })
 
-    await mountView({ department: '1', assigned_to: '2' })
+    await mountView({ department: '1', project: '2' })
 
     const url = ultimaUrlGantt(calls)
     expect(url).toContain('department_id=1')
-    expect(url).toContain('assigned_to=2')
+    expect(url).toContain('project_id=2')
   })
 
-  it('los filtros se quedan en la URL', async () => {
+  it('un assigned_to en la URL no se manda al backend', async () => {
+    const calls = setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+
+    await mountView({ assigned_to: '2' })
+
+    const url = ultimaUrlGantt(calls)
+    expect(url).not.toContain('assigned_to')
+  })
+
+  it('elegir un proyecto lo escribe en la URL sin salir de la vista global', async () => {
     setupFetch({
       ambito: AMBITO,
       directorio: DIRECTORIO,
@@ -932,13 +927,29 @@ describe('CalendarView con filtros', () => {
     })
     const { wrapper, router } = await mountView()
 
-    await wrapper.find('[data-testid="filter-person"]').setValue('2')
+    await wrapper.find('[data-testid="filter-project"]').setValue('2')
     await settle()
 
-    expect(router.currentRoute.value.query.assigned_to).toBe('2')
+    // El proyecto es un filtro: la ruta sigue siendo la global, no la del
+    // espacio del proyecto.
+    expect(router.currentRoute.value.path).toBe('/calendar')
+    expect(router.currentRoute.value.query.project).toBe('2')
   })
 
-  it('los tres filtros usan el formato cuadrado de las demas vistas', async () => {
+  it('no hay filtro de persona: la visibilidad se maneja desde su panel', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    expect(wrapper.find('[data-testid="filter-person"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="toggle-visibility"]').exists()).toBe(true)
+  })
+
+  it('los filtros usan el formato cuadrado de las demas vistas', async () => {
     setupFetch({
       ambito: AMBITO,
       directorio: DIRECTORIO,
@@ -950,7 +961,6 @@ describe('CalendarView con filtros', () => {
     const filtros = [
       { testid: 'filter-department', etiqueta: 'Departamento' },
       { testid: 'filter-project', etiqueta: 'Proyecto' },
-      { testid: 'filter-person', etiqueta: 'Persona' },
     ]
 
     for (const filtro of filtros) {
@@ -991,7 +1001,7 @@ describe('CalendarView con filtros', () => {
     })
     const { wrapper } = await mountView()
 
-    for (const testid of ['filter-department', 'filter-project', 'filter-person']) {
+    for (const testid of ['filter-department', 'filter-project']) {
       const select = wrapper.find(`[data-testid="${testid}"]`)
       const label = select.element.closest('label')
       expect([...label.classList]).not.toContain('rounded-full')

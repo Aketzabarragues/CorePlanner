@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import KanbanView from '../views/KanbanView.vue'
 
 const board = {
@@ -333,7 +333,7 @@ describe('KanbanView', () => {
     await wrapper.findAll('article')[0].trigger('click')
     await flushPromises()
 
-    const panel = wrapper.findComponent(TaskDetailPanel)
+    const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('taskId')).toBe(1)
   })
@@ -345,7 +345,7 @@ describe('KanbanView', () => {
     await wrapper.findAll('select')[0].trigger('click')
     await flushPromises()
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
   })
 
   it('un arrastre no abre el detalle', async () => {
@@ -360,7 +360,7 @@ describe('KanbanView', () => {
     await tarjeta.trigger('click')
     await flushPromises()
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
   })
 
   it('el detalle se abre tambien sin permiso de escritura', async () => {
@@ -370,7 +370,7 @@ describe('KanbanView', () => {
     await wrapper.findAll('article')[0].trigger('click')
     await flushPromises()
 
-    const panel = wrapper.findComponent(TaskDetailPanel)
+    const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('canEdit')).toBe(false)
   })

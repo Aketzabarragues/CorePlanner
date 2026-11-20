@@ -547,7 +547,9 @@ lo demas si la lleva.
   matriz de capacidad deja de estar hecho a mano y pasa a usar este componente.
   Admite un modo **no modal**, en el que el fondo se sigue viendo y se puede
   seguir usando: lo necesita la matriz de capacidad, donde las celdas tienen
-  que recibir el arrastre de una tarea.
+  que recibir el arrastre de una tarea. Es el **unico** panel lateral que
+  queda: el resto de dialogos (formularios, detalle de tarea, ficha de persona)
+  pasan por `ModalDialog`.
 - **`useDialog`**: el comportamiento de los dialogos (escucha de `Esc`, bloqueo
   del desplazamiento, trampa de foco y devolucion del foco) en un solo sitio.
   `ModalDialog` lo usa tambien, y de paso gana la trampa de foco que le
@@ -1331,7 +1333,7 @@ Capacidad, haciendo clic en una celda y luego en la tarea.
 
 **El panel**
 
-- `TaskDetailPanel.vue`, sobre `SidePanel`.
+- `TaskDetailDialog.vue`, sobre `ModalDialog`.
 - **Se abre desde la tarjeta del Tablero con un clic fuera del desplegable de
   estado**. El desplegable se queda donde esta, para el cambio rapido sin
   abrir nada. Un arrastre no abre el panel.
@@ -1361,7 +1363,7 @@ Capacidad, haciendo clic en una celda y luego en la tarea.
    todo lo demas.
 2. **Un arrastre no abre el panel**: si el puntero se ha movido, el gesto es un
    arrastre y no un clic, por mucho que la tarjeta vuelva a su columna.
-3. **El panel es un componente aparte** (`TaskDetailPanel.vue`), no un trozo
+3. **El detalle es un componente aparte** (`TaskDetailDialog.vue`), no un trozo
    del Tablero: asi el mismo detalle puede abrirse desde donde haga falta.
 4. **Los comentarios y el checklist se escriben con `task.write`**, el mismo
    permiso que protege `PATCH /api/tasks/{id}`. Leerlos es `capacity.read`.
@@ -1420,7 +1422,7 @@ vista global con filtro, asi que no entra en el menu global.
 
 **El detalle**
 
-- Un clic en la fila abre `TaskDetailPanel.vue`: **el mismo panel del §26**, con sus
+- Un clic en la fila abre `TaskDetailDialog.vue`: **el mismo detalle del §26**, con sus
   campos, su descripcion, su checklist, sus comentarios y su actividad. Mismas props
   (`task-id`, `can-edit`).
 - El boton "Nueva Tarea" no se repite: lo pone el armazon.
@@ -1668,7 +1670,7 @@ El calendario global no tenia forma de abrir una tarea: en las tres vistas (mes,
 
 **Abrir el detalle de una tarea**
 
-- Mes, semana y dia enganchan el clic de una tarea y abren el `TaskDetailPanel`, el mismo componente que el Tablero.
+- Mes, semana y dia enganchan el clic de una tarea y abren el `TaskDetailDialog`, el mismo componente que el Tablero.
 - La vista de dia y la de semana emiten `open-task`; el mes engancha el clic sobre la tarea de la celda.
 - El permiso se calcula con `scope.editable_project_ids` de `GET /api/me`: el panel abre en solo lectura si la persona no puede editar el proyecto de la tarea.
 - Al guardar o al borrar, el calendario recarga el feed.
@@ -1692,7 +1694,7 @@ El calendario global no tenia forma de abrir una tarea: en las tres vistas (mes,
 
 ### Decisiones tomadas
 
-1. **Se reutiliza el `TaskDetailPanel` del §26** en vez de crear uno especifico del calendario: asi el checklist, los comentarios y la bitacora se comportan igual en las tres pantallas.
+1. **Se reutiliza el `TaskDetailDialog` del §26** en vez de crear uno especifico del calendario: asi el checklist, los comentarios y la bitacora se comportan igual en las tres pantallas.
 2. **El permiso se lee una vez con `GET /api/me`** y se resuelve por tarea: es lo que ya devuelve el panel de las otras pantallas.
 3. **El filtro de departamento se aplica en cliente y en servidor**: en cliente por lo inmediato, en servidor porque el feed ya lo soporta. El filtro del cliente solo puede quitar mas, nunca devolver algo que el servidor no dio.
 4. **Los filtros del calendario son los mismos que los del Gantt**, con los mismos nombres de parametro: una URL de calendario y una de Gantt se leen igual.

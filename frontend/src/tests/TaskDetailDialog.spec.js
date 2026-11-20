@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 
 const AHORA = new Date(2026, 10, 8, 19, 30)
 
@@ -146,7 +146,7 @@ function setupFetch({ comments = [...comentarios], items = [...checklist], activ
 }
 
 async function mountPanel({ canEdit = true } = {}) {
-  const wrapper = mount(TaskDetailPanel, {
+  const wrapper = mount(TaskDetailDialog, {
     props: { open: true, taskId: 1, canEdit },
     global: { plugins: [createPinia()] },
   })
@@ -156,7 +156,7 @@ async function mountPanel({ canEdit = true } = {}) {
   return wrapper
 }
 
-describe('TaskDetailPanel', () => {
+describe('TaskDetailDialog', () => {
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())
@@ -181,7 +181,7 @@ describe('TaskDetailPanel', () => {
     const wrapper = await mountPanel()
 
     await wrapper.find('[data-testid="task-description"]').setValue('Nuevo texto')
-    await wrapper.find('[data-testid="task-save"]').trigger('submit')
+    await wrapper.find('[data-testid="task-save"]').trigger('click')
     await flushPromises()
 
     const patch = calls.find((call) => call.method === 'PATCH')

@@ -166,8 +166,8 @@ coreplanner/
 │       │   ├── CellBreakdown.vue   # desglose de una celda
 │       │   ├── LoadBars.vue        # grafico de barras de carga por semana
 │       │   ├── ProjectPicker.vue   # desplegable de proyecto
-│       │   ├── ModalDialog.vue      # modal centrado de los formularios de configuracion
-│       │   ├── TaskDetailPanel.vue  # detalle de una tarea: campos, lista, comentarios y actividad
+│       │   ├── ModalDialog.vue      # modal centrado unificado: todos los formularios, el detalle de tarea y la ficha de persona
+│       │   ├── TaskDetailDialog.vue # detalle de una tarea: campos, lista, comentarios y actividad
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
 │       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
@@ -714,21 +714,21 @@ vacias, para que el tablero no cambie de forma al guardar.
 
 ## Detalle de la tarea
 
-La tarjeta del Tablero abre un panel lateral con todo lo de la tarea. Es un
-componente aparte, `TaskDetailPanel.vue`, que se apoya en `SidePanel`.
+La tarjeta del Tablero abre el detalle de la tarea en un modal centrado. Es
+un componente aparte, `TaskDetailDialog.vue`, sobre `ModalDialog`.
 
 - **Los campos**: titulo, responsable, estado, fechas, horas estimadas y
   descripcion. Se guardan con el `PATCH /api/tasks/{id}` de siempre y solo se
   mandan los que han cambiado.
 - **La descripcion**: `tasks.description`, un texto largo y opcional que se
-  edita en el panel.
+  edita en el detalle.
 - **La lista de comprobacion**: `task_checklist_items`, una lista plana de
   puntos con su orden. Se anade, se marca, se renombra y se quita.
 - **Los comentarios**: `task_comments`, lo que se dice de la tarea. Se anaden y
   se leen; no se editan ni se borran.
 - **La actividad**: el historico de la tarea, que sale de
   `GET /api/activity?entity_type=task&entity_id={id}`. Cada accion hecha desde
-  el panel se ve aqui al momento, sin recargar.
+  el detalle se ve aqui al momento, sin recargar.
 - **Eliminar la tarea**, con confirmacion. Al borrarla se van sus comentarios y
   su lista.
 
@@ -749,9 +749,9 @@ esta en el menu del proyecto, en el grupo "Planificacion y ejecucion".
 - **Filtros**: dos selects encima de la tabla, al estilo de los de la matriz de
   capacidad, uno por estado (los cuatro del Tablero) y otro por persona. Se
   combinan, y el encabezado dice cuanto se esta enseñando.
-- **Un clic en la fila abre el detalle**: es el mismo `TaskDetailPanel.vue` del
-  Tablero, con sus campos, su descripcion, su checklist, sus comentarios y su
-  actividad.
+- **Un clic en la fila abre el detalle**: es el mismo `TaskDetailDialog.vue`
+  del Tablero, con sus campos, su descripcion, su checklist, sus comentarios y
+  su actividad.
 - El boton **+ Nueva Tarea** no se repite aqui: lo pone el armazon.
 
 El responsable y el progreso del checklist los trae el backend en `TaskOut`

@@ -21,7 +21,7 @@ import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 
@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
       Detalle de la tarea: sus campos, su descripcion, su lista de comprobacion,
       sus comentarios y su historico.
     -->
-    <TaskDetailPanel
+    <TaskDetailDialog
       :open="selectedTaskId !== null"
       :task-id="selectedTaskId"
       :can-edit="canEdit"

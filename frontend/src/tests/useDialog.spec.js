@@ -124,3 +124,150 @@ describe('comportamiento de los dialogos', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 })
+
+describe('props y slots nuevos', () => {
+  it('el titulo se expone via aria-labelledby apuntando al h2', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'Mi dialogo' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    const dialog = wrapper.find('[role="dialog"]')
+    const labelledby = dialog.attributes('aria-labelledby')
+    // El id existe, no depende del texto del titulo
+    expect(labelledby).toBeTruthy()
+    expect(labelledby).not.toContain('Mi dialogo')
+    // El h2 referenciado existe y contiene el titulo
+    expect(wrapper.find('h2').text()).toBe('Mi dialogo')
+    expect(wrapper.find('h2').attributes('id')).toBe(labelledby)
+  })
+
+  it('dos instancias con el mismo titulo tienen aria-labelledby distintos', async () => {
+    // Ambas instancias en el mismo arbol para que useId() incremente el contador
+    const DobleDialog = {
+      components: { ModalDialog },
+      template: `
+        <div>
+          <ModalDialog :open="true" title="Igual" data-instance="a" />
+          <ModalDialog :open="true" title="Igual" data-instance="b" />
+        </div>
+      `,
+    }
+    const wrapper = mount(DobleDialog, { attachTo: document.body })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    const dialogos = wrapper.findAll('[role="dialog"]')
+    expect(dialogos.length).toBe(2)
+    const id1 = dialogos[0].attributes('aria-labelledby')
+    const id2 = dialogos[1].attributes('aria-labelledby')
+    expect(id1).toBeTruthy()
+    expect(id2).toBeTruthy()
+    expect(id1).not.toBe(id2)
+  })
+
+  it('el subtitulo se pinta cuando se pasa', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T', subtitle: 'Descripcion de apoyo' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="modal-subtitle"]').text()).toBe('Descripcion de apoyo')
+  })
+
+  it('el subtitulo no aparece si no se pasa', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="modal-subtitle"]').exists()).toBe(false)
+  })
+
+  it('size=sm aplica max-w-md a la caja del dialogo', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T', size: 'sm' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[role="dialog"]').classes()).toContain('max-w-md')
+  })
+
+  it('size=lg aplica max-w-3xl a la caja del dialogo', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T', size: 'lg' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[role="dialog"]').classes()).toContain('max-w-3xl')
+  })
+
+  it('size=xl aplica max-w-5xl a la caja del dialogo', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T', size: 'xl' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[role="dialog"]').classes()).toContain('max-w-5xl')
+  })
+
+  it('size=md (por defecto) aplica max-w-lg a la caja del dialogo', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[role="dialog"]').classes()).toContain('max-w-lg')
+  })
+
+  it('el slot footer se renderiza dentro del pie', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T' },
+      slots: { footer: '<button data-testid="accion-footer">Guardar</button>' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="accion-footer"]').exists()).toBe(true)
+  })
+
+  it('el pie no aparece si no se pasa el slot footer', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="modal-footer"]').exists()).toBe(false)
+  })
+
+  it('el boton de cierre emite el evento close', async () => {
+    const wrapper = mount(ModalDialog, {
+      props: { open: true, title: 'T' },
+      attachTo: document.body,
+    })
+    montajes.push(wrapper)
+    await flushPromises()
+
+    await wrapper.find('[data-testid="modal-close"]').trigger('click')
+
+    expect(wrapper.emitted('close')).toBeTruthy()
+    expect(wrapper.emitted('close').length).toBeGreaterThan(0)
+  })
+})

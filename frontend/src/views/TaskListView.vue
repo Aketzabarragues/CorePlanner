@@ -17,7 +17,7 @@ import { useTaskReload } from '../composables/useTaskReload'
 import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnLabel, formatHours, statusPill } from '../utils/kanban'
 
@@ -319,7 +319,7 @@ useTaskReload(load)
       campos, su descripcion, su lista de comprobacion, sus comentarios y su
       historico.
     -->
-    <TaskDetailPanel
+    <TaskDetailDialog
       :open="selectedTaskId !== null"
       :task-id="selectedTaskId"
       :can-edit="canEdit"

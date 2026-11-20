@@ -5,12 +5,15 @@
  * Muestra su identidad profesional, el horario que tiene vigente y el
  * historial de horarios, que es donde se ve como ha cambiado su capacidad.
  * El gerente puede anadir una version de horario y fijar sus competencias.
+ *
+ * Usa ModalDialog (size="xl") como contenedor unificado de overlays.
  */
 import { computed, ref, watch } from 'vue'
 
 import { peopleApi } from '../../api/client'
 import AlertBanner from '../common/AlertBanner.vue'
 import AsyncState from '../common/AsyncState.vue'
+import ModalDialog from '../ModalDialog.vue'
 import { useAuthStore } from '../../stores/auth'
 
 const props = defineProps({
@@ -171,29 +174,15 @@ async function saveSkills() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex justify-end bg-slate-900/40" @click.self="$emit('close')">
-    <div
-      class="flex w-full max-w-2xl flex-col overflow-y-auto bg-white shadow-xl"
-      data-testid="person-drawer"
-    >
-      <header class="flex items-start justify-between border-b border-slate-200 px-5 py-4">
-        <div>
-          <h2 class="text-base font-semibold text-siemens-900">{{ person.name }}</h2>
-          <p class="mt-0.5 text-sm text-slate-500">
-            {{ [person.job_title, person.department_name, person.seniority_label].filter(Boolean).join(' · ') }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="text-sm text-slate-500 hover:text-slate-700"
-          data-testid="close-profile"
-          @click="$emit('close')"
-        >
-          Cerrar
-        </button>
-      </header>
-
-      <div class="flex-1 space-y-6 px-5 py-4">
+  <ModalDialog
+    :open="true"
+    :title="person.name"
+    :subtitle="[person.job_title, person.department_name, person.seniority_label].filter(Boolean).join(' · ')"
+    size="xl"
+    data-testid="person-drawer"
+    @close="$emit('close')"
+  >
+      <div class="space-y-6">
         <AlertBanner v-if="error" variant="error">
           {{ error }}
         </AlertBanner>
@@ -401,6 +390,5 @@ async function saveSkills() {
           </section>
         </template>
       </div>
-    </div>
-  </div>
+  </ModalDialog>
 </template>

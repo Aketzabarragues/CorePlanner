@@ -8,12 +8,18 @@
  *
  * Una tarea se puede arrastrar a la fila de otra persona para reasignarla, o
  * moverla con el teclado: "Mayus" y las flechas arriba o abajo.
+ *
+ * El alta y la edicion de tarea se hacen en un ModalDialog, no en linea: el
+ * panel que contiene este desglose no es modal, asi que un formulario pegado
+ * en el perderia el contexto. La reasignacion en linea y el borrado se
+ * quedan donde estan.
  */
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { loadAspect, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekWorkdays } from '../utils/weeks'
+import ModalDialog from './ModalDialog.vue'
 import TaskForm from './TaskForm.vue'
 
 const props = defineProps({
@@ -142,6 +148,12 @@ function startCreate() {
   creating.value = true
 }
 
+/** Cierra el formulario de alta o edicion sin guardar. */
+function cerrarForm() {
+  editing.value = null
+  creating.value = false
+}
+
 /** Guarda la tarea nueva y cierra el formulario. */
 function saveNew(payload) {
   emit('create', payload)
@@ -185,27 +197,38 @@ function onKeydown(task, event) {
       </p>
     </div>
 
-    <div v-if="editing" class="rounded border border-slate-200 bg-slate-50 p-3">
+    <ModalDialog
+      :open="Boolean(editing) || creating"
+      :title="editing ? 'Editar tarea' : 'Nueva tarea'"
+      size="md"
+      @close="cerrarForm"
+    >
       <TaskForm
-        :task="editing"
+        :task="editing ?? seed"
         :members="members"
-        :saving="saving"
-        @save="(payload) => emit('save', editing.id, payload)"
-        @cancel="editing = null"
+        form-id="task-form-celda"
+        @save="(payload) => (editing ? emit('save', editing.id, payload) : saveNew(payload))"
       />
-    </div>
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          @click="cerrarForm"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {{ saving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </template>
+    </ModalDialog>
 
-    <div v-else-if="creating" class="rounded border border-slate-200 bg-slate-50 p-3">
-      <TaskForm
-        :task="seed"
-        :members="members"
-        :saving="saving"
-        @save="saveNew"
-        @cancel="creating = false"
-      />
-    </div>
-
-    <div v-else-if="tasks.length === 0" class="rounded border border-dashed border-slate-300 p-3">
+    <div v-if="tasks.length === 0" class="rounded border border-dashed border-slate-300 p-3">
       <p class="text-sm font-semibold">Semana libre</p>
       <p class="mt-1 text-xs text-slate-500">
         Puedes asignar hasta {{ free }} h a esta persona sin sobrecargarla.

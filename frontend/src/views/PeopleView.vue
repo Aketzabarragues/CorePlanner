@@ -14,7 +14,7 @@ import { computed, onMounted, ref } from 'vue'
 import { departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
 import AsyncState from '../components/common/AsyncState.vue'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
-import PersonDrawer from '../components/people/PersonDrawer.vue'
+import PersonDialog from '../components/people/PersonDialog.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
@@ -175,7 +175,7 @@ onMounted(load)
         :skills="skills"
       />
 
-      <PersonDrawer
+      <PersonDialog
         v-if="selected"
         :person="selected"
         :skills="skills"

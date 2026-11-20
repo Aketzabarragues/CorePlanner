@@ -180,9 +180,10 @@ async function save() {
     <ModalDialog
       :open="formOpen"
       :title="editing ? 'Modificar persona' : 'Nueva persona'"
+      size="lg"
       @close="closeForm"
     >
-      <form @submit.prevent="save">
+      <form id="form-persona" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-sm font-medium">
             Nombre
@@ -281,24 +282,25 @@ async function save() {
         <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}
         </AlertBanner>
-
-        <div class="mt-4 flex gap-2">
-          <button
-            type="submit"
-            :disabled="saving"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-          >
-            {{ editing ? 'Guardar cambios' : 'Dar de alta' }}
-          </button>
-          <button
-            type="button"
-            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
-            @click="closeForm"
-          >
-            Cancelar
-          </button>
-        </div>
       </form>
+
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          @click="closeForm"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        >
+          {{ editing ? 'Guardar cambios' : 'Dar de alta' }}
+        </button>
+      </template>
     </ModalDialog>
   </section>
 </template>

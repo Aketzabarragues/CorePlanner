@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import DayDetail from '../components/DayDetail.vue'
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import WeekLanes from '../components/common/WeekLanes.vue'
 import CalendarView from '../views/CalendarView.vue'
@@ -702,7 +702,7 @@ describe('CalendarView con el detalle de la tarea', () => {
       .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
-    const panel = wrapper.findComponent(TaskDetailPanel)
+    const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('taskId')).toBe(1)
     expect(wrapper.find('[data-testid="task-panel"]').exists()).toBe(true)
@@ -716,7 +716,7 @@ describe('CalendarView con el detalle de la tarea', () => {
       .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('canEdit')).toBe(true)
   })
 
   it('una tarea de un proyecto que no se puede editar se abre en solo lectura', async () => {
@@ -727,8 +727,8 @@ describe('CalendarView con el detalle de la tarea', () => {
       .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
-    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(false)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('canEdit')).toBe(false)
   })
 
   it('sin ambito la tarea se abre igual, pero en solo lectura', async () => {
@@ -739,8 +739,8 @@ describe('CalendarView con el detalle de la tarea', () => {
       .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
       .trigger('click')
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
-    expect(wrapper.findComponent(TaskDetailPanel).props('canEdit')).toBe(false)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('canEdit')).toBe(false)
   })
 
   it('al guardar en el panel el calendario se recarga', async () => {
@@ -752,11 +752,11 @@ describe('CalendarView con el detalle de la tarea', () => {
       .trigger('click')
     const antes = calls.filter((call) => call.url.includes('/gantt')).length
 
-    wrapper.findComponent(TaskDetailPanel).vm.$emit('saved')
+    wrapper.findComponent(TaskDetailDialog).vm.$emit('saved')
     await settle()
 
     expect(calls.filter((call) => call.url.includes('/gantt')).length).toBe(antes + 1)
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
   })
 
   it('al borrar en el panel el calendario se recarga y el panel se cierra', async () => {
@@ -768,11 +768,11 @@ describe('CalendarView con el detalle de la tarea', () => {
       .trigger('click')
     const antes = calls.filter((call) => call.url.includes('/gantt')).length
 
-    wrapper.findComponent(TaskDetailPanel).vm.$emit('deleted')
+    wrapper.findComponent(TaskDetailDialog).vm.$emit('deleted')
     await settle()
 
     expect(calls.filter((call) => call.url.includes('/gantt')).length).toBe(antes + 1)
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(false)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
   })
 
   it('la tarea de la vista semanal tambien abre su detalle', async () => {
@@ -782,8 +782,8 @@ describe('CalendarView con el detalle de la tarea', () => {
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     await wrapper.find('[data-testid="week-task"]').trigger('click')
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
-    expect(wrapper.findComponent(TaskDetailPanel).props('taskId')).toBe(1)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('taskId')).toBe(1)
   })
 
   it('la tarea de la vista de dia tambien abre su detalle', async () => {
@@ -793,8 +793,8 @@ describe('CalendarView con el detalle de la tarea', () => {
     await wrapper.find('[data-testid="week-day-2026-11-09"]').trigger('click')
     await wrapper.find('[data-testid="day-task"]').trigger('click')
 
-    expect(wrapper.findComponent(TaskDetailPanel).props('open')).toBe(true)
-    expect(wrapper.findComponent(TaskDetailPanel).props('taskId')).toBe(2)
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+    expect(wrapper.findComponent(TaskDetailDialog).props('taskId')).toBe(2)
   })
 })
 

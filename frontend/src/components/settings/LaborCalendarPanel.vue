@@ -48,6 +48,7 @@ const error = ref(null)
 const notice = ref(null)
 const saving = ref(false)
 const deleting = ref(null)
+const formOpen = ref(false)
 const form = ref({
   date: '',
   name: '',
@@ -128,7 +129,7 @@ function selectDate(date) {
   if (!form.value.date) form.value.date = date
 }
 
-/** Prepara el alta de un dia no laborable en la fecha elegida. */
+/** Prepara el alta de un dia no laborable en la fecha elegida y abre el dialogo. */
 function startNewDay() {
   form.value = {
     date: selectedDate.value,
@@ -138,6 +139,7 @@ function startNewDay() {
     user_id: '',
     half_day: false,
   }
+  formOpen.value = true
 }
 
 async function addDay() {
@@ -163,6 +165,7 @@ async function addDay() {
       user_id: '',
       half_day: false,
     }
+    formOpen.value = false
     notice.value = 'Día no laborable añadido.'
     await load()
   } catch (err) {
@@ -371,89 +374,94 @@ onMounted(load)
       </aside>
     </div>
 
-    <form
-      v-if="editable"
-      class="mt-4 rounded border border-slate-200 bg-white p-4"
-      data-testid="non-working-form"
-      @submit.prevent="addDay"
+    <ModalDialog
+      :open="formOpen"
+      title="Añadir día no laborable"
+      size="md"
+      @close="formOpen = false"
     >
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">Añadir día no laborable</h3>
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label class="text-xs text-slate-500">
-          Fecha
-          <input
-            v-model="form.date"
-            type="date"
-            required
-            class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            data-testid="day-date"
-          />
+      <form id="form-dia-no-laborable" data-testid="non-working-form" @submit.prevent="addDay">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-xs text-slate-500">
+            Fecha
+            <input
+              v-model="form.date"
+              type="date"
+              required
+              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="day-date"
+            />
+          </label>
+          <label class="text-xs text-slate-500">
+            Motivo
+            <input
+              v-model="form.name"
+              type="text"
+              required
+              maxlength="255"
+              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="day-name"
+            />
+          </label>
+          <label class="text-xs text-slate-500">
+            Alcance
+            <select
+              v-model="form.scope"
+              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="day-scope"
+            >
+              <option value="global">Global</option>
+              <option value="department">Departamento</option>
+              <option value="person">Persona</option>
+            </select>
+          </label>
+          <label v-if="form.scope === 'department'" class="text-xs text-slate-500">
+            Departamento
+            <select
+              v-model="form.department_id"
+              required
+              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="day-department"
+            >
+              <option value="" disabled>Selecciona...</option>
+              <option v-for="department in departments" :key="department.id" :value="department.id">
+                {{ department.name }}
+              </option>
+            </select>
+          </label>
+          <label v-else-if="form.scope === 'person'" class="text-xs text-slate-500">
+            Persona
+            <select
+              v-model="form.user_id"
+              required
+              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="day-user"
+            >
+              <option value="" disabled>Selecciona...</option>
+              <option v-for="person in people" :key="person.id" :value="person.id">
+                {{ person.name }}
+              </option>
+            </select>
+          </label>
+        </div>
+        <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          <input v-model="form.half_day" type="checkbox" class="h-4 w-4 rounded" data-testid="day-half" />
+          Medio día laborable
         </label>
-        <label class="text-xs text-slate-500">
-          Motivo
-          <input
-            v-model="form.name"
-            type="text"
-            required
-            maxlength="255"
-            class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            data-testid="day-name"
-          />
-        </label>
-        <label class="text-xs text-slate-500">
-          Alcance
-          <select
-            v-model="form.scope"
-            class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            data-testid="day-scope"
-          >
-            <option value="global">Global</option>
-            <option value="department">Departamento</option>
-            <option value="person">Persona</option>
-          </select>
-        </label>
-        <label v-if="form.scope === 'department'" class="text-xs text-slate-500">
-          Departamento
-          <select
-            v-model="form.department_id"
-            required
-            class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            data-testid="day-department"
-          >
-            <option value="" disabled>Selecciona...</option>
-            <option v-for="department in departments" :key="department.id" :value="department.id">
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
-        <label v-else-if="form.scope === 'person'" class="text-xs text-slate-500">
-          Persona
-          <select
-            v-model="form.user_id"
-            required
-            class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
-            data-testid="day-user"
-          >
-            <option value="" disabled>Selecciona...</option>
-            <option v-for="person in people" :key="person.id" :value="person.id">
-              {{ person.name }}
-            </option>
-          </select>
-        </label>
-      </div>
-      <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
-        <input v-model="form.half_day" type="checkbox" class="h-4 w-4 rounded" data-testid="day-half" />
-        Medio día laborable
-      </label>
-      <button
-        type="submit"
-        :disabled="saving"
-        class="mt-3 h-10 rounded bg-siemens-900 px-4 text-sm font-medium text-white disabled:opacity-60"
-        data-testid="save-day"
-      >
-        Añadir al calendario
-      </button>
-    </form>
+      </form>
+
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="h-10 rounded bg-siemens-900 px-4 text-sm font-medium text-white disabled:opacity-60"
+          data-testid="save-day"
+        >
+          Añadir al calendario
+        </button>
+      </template>
+    </ModalDialog>
 
     <section class="mt-4 rounded border border-slate-200 bg-white p-4">
       <h2 class="text-sm font-semibold text-siemens-900">Impacto en la capacidad del mes</h2>
@@ -499,13 +507,15 @@ onMounted(load)
     <ModalDialog
       :open="Boolean(deleting)"
       title="Eliminar día no laborable"
+      size="sm"
       @close="deleting = null"
     >
       <p class="text-sm text-slate-700">
         Se va a eliminar «{{ deleting?.name }}» del {{ deleting?.date }}. Las horas de
         capacidad se recuperan.
       </p>
-      <div class="mt-4 flex justify-end gap-2">
+
+      <template #footer>
         <button
           type="button"
           class="h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700"
@@ -523,7 +533,7 @@ onMounted(load)
         >
           Eliminar
         </button>
-      </div>
+      </template>
     </ModalDialog>
   </div>
 </template>

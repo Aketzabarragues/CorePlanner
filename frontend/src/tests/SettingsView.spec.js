@@ -205,7 +205,13 @@ describe('SettingsView', () => {
 
     expect(wrapper.find('[data-testid="labor-month-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="labor-detail"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(true)
+    // El boton de alta aparece al seleccionar un dia laborable
+    const celdas = wrapper.findAll('[data-testid="labor-month-cell"]')
+    const laborable = celdas.find((c) => !c.attributes('title'))
+    expect(laborable).toBeTruthy()
+    await laborable.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="labor-add-day"]').exists()).toBe(true)
   })
 
   it('la pestana del calendario no arrastra el catalogo de competencias', async () => {
@@ -241,6 +247,15 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
     await flushPromises()
 
+    // Seleccionar un dia laborable para que aparezca el boton de alta
+    const celdas = wrapper.findAll('[data-testid="labor-month-cell"]')
+    const laborable = celdas.find((c) => !c.attributes('title'))
+    expect(laborable).toBeTruthy()
+    await laborable.trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="labor-add-day"]').trigger('click')
+    await flushPromises()
     await wrapper.find('[data-testid="day-date"]').setValue('2026-12-08')
     await wrapper.find('[data-testid="day-name"]').setValue('Inmaculada')
     await wrapper.find('[data-testid="day-scope"]').setValue('person')
@@ -586,7 +601,7 @@ describe('SettingsView', () => {
 
     const wrapper = await mountView()
 
-    expect(wrapper.find('[data-testid="non-working-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="labor-add-day"]').exists()).toBe(false)
 
     await wrapper
       .find('[data-testid="labor-month-day"][title="Dia de la Constitucion"]')
@@ -594,6 +609,5 @@ describe('SettingsView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="labor-delete-day"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="labor-add-day"]').exists()).toBe(false)
   })
 })

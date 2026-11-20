@@ -235,7 +235,7 @@ watch(() => props.id, loadMembers)
     </AsyncState>
 
     <ModalDialog :open="formOpen" title="Añadir persona al proyecto" @close="closeForm">
-      <form @submit.prevent="addMember">
+      <form id="form-miembro-proyecto" @submit.prevent="addMember">
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-sm font-medium">
             Persona
@@ -271,24 +271,25 @@ watch(() => props.id, loadMembers)
         >
           {{ formError }}
         </p>
-
-        <div class="mt-4 flex gap-2">
-          <button
-            type="submit"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-            data-testid="add-member"
-          >
-            Añadir
-          </button>
-          <button
-            type="button"
-            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
-            @click="closeForm"
-          >
-            Cancelar
-          </button>
-        </div>
       </form>
+
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          @click="closeForm"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          data-testid="add-member"
+        >
+          Añadir
+        </button>
+      </template>
     </ModalDialog>
   </div>
 </template>

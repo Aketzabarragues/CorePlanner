@@ -587,6 +587,32 @@ describe('AppShell', () => {
     expect(wrapper.text()).toContain('Tarea "Revision de PLC" creada.')
   })
 
+  it('el boton Guardar del pie del modal llama a la API de creacion', async () => {
+    const { wrapper } = await mountShell('/projects/1/kanban')
+
+    const nueva = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('Nueva Tarea'))
+    await nueva.trigger('click')
+    await flushPromises()
+
+    await wrapper.find('input[type=text]').setValue('Revision de PLC')
+    await wrapper.findAll('input[type=date]')[0].setValue('2026-11-02')
+    await wrapper.findAll('input[type=date]')[1].setValue('2026-11-04')
+    await wrapper.find('input[type=number]').setValue('12')
+    const guardar = wrapper
+      .findAll('[data-testid="modal-footer"] button')
+      .find((button) => button.text().includes('Guardar'))
+    await guardar.trigger('click')
+    await flushPromises()
+
+    const altas = global.fetch.mock.calls.filter(
+      ([url, options]) => options?.method === 'POST' && url.includes('/api/projects/1/tasks'),
+    )
+    expect(altas).toHaveLength(1)
+    expect(wrapper.text()).toContain('Tarea "Revision de PLC" creada.')
+  })
+
   it('el aviso se puede cerrar con un clic', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 

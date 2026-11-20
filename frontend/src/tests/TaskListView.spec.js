@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskListView from '../views/TaskListView.vue'
 
 const tareas = [
@@ -237,7 +237,7 @@ describe('TaskListView', () => {
     await wrapper.findAll('[data-testid="task-row"]')[1].trigger('click')
     await flushPromises()
 
-    const panel = wrapper.findComponent(TaskDetailPanel)
+    const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('taskId')).toBe(2)
   })
@@ -252,7 +252,7 @@ describe('TaskListView', () => {
     await wrapper.findAll('[data-testid="task-row"]')[0].trigger('click')
     await flushPromises()
 
-    const panel = wrapper.findComponent(TaskDetailPanel)
+    const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('canEdit')).toBe(false)
   })

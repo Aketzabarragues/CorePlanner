@@ -12,6 +12,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { meApi, tasksApi } from '../api/client'
 import AppIcon from './AppIcon.vue'
+import ModalDialog from './ModalDialog.vue'
 import TaskForm from './TaskForm.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
@@ -465,12 +466,35 @@ watch(() => route.fullPath, () => {
       </main>
     </div>
 
-    <TaskForm
-      v-if="showNewTask && projectId"
-      :members="store.members"
-      :saving="saving"
-      @cancel="showNewTask = false"
-      @save="createTask"
-    />
+    <ModalDialog
+      :open="showNewTask && Boolean(projectId)"
+      title="Nueva tarea"
+      size="md"
+      @close="showNewTask = false"
+    >
+      <TaskForm
+        v-if="projectId"
+        :members="store.members"
+        form-id="task-form-nueva"
+        @save="createTask"
+      />
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          @click="showNewTask = false"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {{ saving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </template>
+    </ModalDialog>
   </div>
 </template>

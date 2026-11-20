@@ -36,7 +36,7 @@ import WeekLanes from '../components/common/WeekLanes.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import TaskDetailPanel from '../components/TaskDetailPanel.vue'
+import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {
@@ -553,7 +553,7 @@ watch(
       Detalle de la tarea abierta al pulsarla en cualquiera de las tres vistas.
       Sin permiso de escritura en su proyecto, el panel se ve en solo lectura.
     -->
-    <TaskDetailPanel
+    <TaskDetailDialog
       :open="selectedTaskId !== null"
       :task-id="selectedTaskId"
       :can-edit="canEditSelected"

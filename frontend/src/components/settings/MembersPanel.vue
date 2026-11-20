@@ -145,7 +145,7 @@ async function remove(projectId, userId) {
     </div>
 
     <ModalDialog :open="formOpen" title="Añadir persona a un proyecto" @close="closeForm">
-      <form @submit.prevent="add">
+      <form id="form-miembro" @submit.prevent="add">
         <div class="grid grid-cols-3 gap-3">
           <label class="block text-sm font-medium">
             Proyecto
@@ -188,24 +188,25 @@ async function remove(projectId, userId) {
         <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}
         </AlertBanner>
-
-        <div class="mt-4 flex gap-2">
-          <button
-            type="submit"
-            :disabled="saving"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-          >
-            Añadir
-          </button>
-          <button
-            type="button"
-            class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
-            @click="closeForm"
-          >
-            Cancelar
-          </button>
-        </div>
       </form>
+
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          @click="closeForm"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        >
+          Añadir
+        </button>
+      </template>
     </ModalDialog>
   </section>
 </template>

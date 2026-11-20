@@ -1,19 +1,24 @@
 <script setup>
 /**
- * Formulario de alta y edicion de una tarea.
+ * Cuerpo del formulario de alta y edicion de una tarea.
  *
  * Se usa en dos sitios: el modal de nueva tarea y el desglose de una celda.
- * Las horas se manejan como texto para no perder decimales al escribir.
+ * Solo dibuja los campos y valida: el titulo lo pone el ModalDialog que lo
+ * contiene y los botones de accion van en el pie del dialogo, fuera del
+ * form: disparan el envio con el `submit` que el slot footer del
+ * ModalDialog les da. Las horas se manejan como texto para no perder
+ * decimales al escribir.
  */
 import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   task: { type: Object, default: null },
   members: { type: Array, required: true },
-  saving: { type: Boolean, default: false },
+  /** Id estable del form; el envio lo dispara el pie del dialogo. */
+  formId: { type: String, default: 'task-form' },
 })
 
-const emit = defineEmits(['save', 'cancel'])
+const emit = defineEmits(['save'])
 
 const title = ref('')
 const assignedTo = ref(null)
@@ -42,8 +47,6 @@ watch(
   },
   { immediate: true },
 )
-
-const isEditing = computed(() => props.task !== null)
 
 const memberName = computed(() => {
   const member = props.members.find((m) => m.user_id === assignedTo.value)
@@ -82,11 +85,7 @@ function submit() {
 </script>
 
 <template>
-  <form class="space-y-3" @submit.prevent="submit">
-    <h3 class="text-base font-semibold text-siemens-900">
-      {{ isEditing ? 'Editar tarea' : 'Nueva tarea' }}
-    </h3>
-
+  <form :id="formId" class="space-y-3" @submit.prevent="submit">
     <label class="block">
       <span class="text-sm font-medium">Título</span>
       <input
@@ -150,22 +149,5 @@ function submit() {
     </label>
 
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-
-    <div class="flex justify-end gap-2 pt-1">
-      <button
-        type="button"
-        class="rounded border border-slate-300 px-3 py-2 text-sm"
-        @click="emit('cancel')"
-      >
-        Cancelar
-      </button>
-      <button
-        type="submit"
-        :disabled="saving"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
-        {{ saving ? 'Guardando...' : 'Guardar' }}
-      </button>
-    </div>
   </form>
 </template>

@@ -1,25 +1,29 @@
 <script setup>
 /**
- * Panel de detalle de una tarea.
+ * Dialogo de detalle de una tarea.
  *
  * Reune todo lo que se puede hacer con una tarea en un solo sitio: sus
  * campos, la descripcion, la lista de comprobacion, los comentarios y su
  * historico. El historico sale de la bitacora filtrada por la tarea, asi que
  * no hay que mantenerlo aparte: cada accion que se hace desde aqui queda
  * registrada y se ve al momento.
+ *
+ * Usa ModalDialog (size="lg") como contenedor: cabecera y pie fijos, cuerpo
+ * con scroll. El boton "Guardar cambios" va en el slot footer; las acciones
+ * secundarias (checklist, comentarios) permanecen dentro del cuerpo.
  */
 import { computed, ref, watch } from 'vue'
 
 import { activityApi, projectsApi, tasksApi } from '../api/client'
 import AsyncState from './common/AsyncState.vue'
-import SidePanel from './common/SidePanel.vue'
+import ModalDialog from './ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { actionLabel, relativeTime } from '../utils/activity'
 import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
 
 const props = defineProps({
-  open: { type: Boolean, default: false },
-  taskId: { type: Number, default: null },
+  open:    { type: Boolean, default: false },
+  taskId:  { type: Number,  default: null },
   canEdit: { type: Boolean, default: false },
 })
 
@@ -27,36 +31,34 @@ const emit = defineEmits(['close', 'saved', 'deleted'])
 
 const auth = useAuthStore()
 
-const task = ref(null)
-const members = ref([])
-const comments = ref([])
-const checklist = ref([])
-const activity = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const error = ref(null)
-const notice = ref(null)
+const task           = ref(null)
+const members        = ref([])
+const comments       = ref([])
+const checklist      = ref([])
+const activity       = ref([])
+const loading        = ref(false)
+const saving         = ref(false)
+const error          = ref(null)
+const notice         = ref(null)
 /** Texto del comentario que se esta escribiendo. */
-const newComment = ref('')
+const newComment     = ref('')
 /** Texto del punto de la lista que se esta escribiendo. */
-const newItem = ref('')
+const newItem        = ref('')
 /** Pedir confirmacion antes de borrar la tarea. */
 const confirmingDelete = ref(false)
 
 /** Copia de la tarea que se esta editando. */
 const form = ref({
-  title: '',
-  assigned_to: null,
-  status: 'backlog',
-  start_date: '',
-  end_date: '',
+  title:           '',
+  assigned_to:     null,
+  status:          'backlog',
+  start_date:      '',
+  end_date:        '',
   estimated_hours: '',
-  description: '',
+  description:     '',
 })
 
-const title = computed(() => task.value?.title ?? 'Tarea')
-
-/** Estado de la pila, para el subtitulo del panel. */
+const title       = computed(() => task.value?.title ?? 'Tarea')
 const statusLabel = computed(() => columnLabel(form.value.status))
 
 /**
@@ -69,12 +71,12 @@ const changes = computed(() => {
   if (!task.value) return {}
   const antes = task.value
   const ahora = form.value
-  const diff = {}
-  if (ahora.title !== antes.title) diff.title = ahora.title
-  if (ahora.assigned_to !== antes.assigned_to) diff.assigned_to = ahora.assigned_to
-  if (ahora.status !== antes.status) diff.status = ahora.status
-  if (ahora.start_date !== (antes.start_date ?? '')) diff.start_date = ahora.start_date
-  if (ahora.end_date !== (antes.end_date ?? '')) diff.end_date = ahora.end_date
+  const diff  = {}
+  if (ahora.title       !== antes.title)              diff.title       = ahora.title
+  if (ahora.assigned_to !== antes.assigned_to)        diff.assigned_to = ahora.assigned_to
+  if (ahora.status      !== antes.status)             diff.status      = ahora.status
+  if (ahora.start_date  !== (antes.start_date  ?? '')) diff.start_date  = ahora.start_date
+  if (ahora.end_date    !== (antes.end_date    ?? '')) diff.end_date    = ahora.end_date
   if (ahora.description !== (antes.description ?? '')) diff.description = ahora.description
   const horas = Number.parseFloat(ahora.estimated_hours)
   if (Number.isFinite(horas) && horas !== Number(antes.estimated_hours)) {
@@ -88,13 +90,13 @@ const hasChanges = computed(() => Object.keys(changes.value).length > 0)
 function fillForm(tarea) {
   task.value = tarea
   form.value = {
-    title: tarea.title ?? '',
-    assigned_to: tarea.assigned_to ?? null,
-    status: tarea.status ?? 'backlog',
-    start_date: tarea.start_date ?? '',
-    end_date: tarea.end_date ?? '',
+    title:           tarea.title           ?? '',
+    assigned_to:     tarea.assigned_to     ?? null,
+    status:          tarea.status          ?? 'backlog',
+    start_date:      tarea.start_date      ?? '',
+    end_date:        tarea.end_date        ?? '',
     estimated_hours: tarea.estimated_hours ?? '',
-    description: tarea.description ?? '',
+    description:     tarea.description     ?? '',
   }
 }
 
@@ -102,28 +104,28 @@ function fillForm(tarea) {
 async function loadActivity() {
   if (!props.taskId) return
   const token = await auth.ensureSession()
-  const page = await activityApi.list(token, {
+  const page  = await activityApi.list(token, {
     entity_type: 'task',
-    entity_id: props.taskId,
-    limit: 20,
+    entity_id:   props.taskId,
+    limit:       20,
   })
   activity.value = page?.items ?? []
 }
 
 /** Pide los comentarios de la tarea. */
 async function loadComments() {
-  const token = await auth.ensureSession()
+  const token    = await auth.ensureSession()
   comments.value = (await tasksApi.comments.list(token, props.taskId)) ?? []
 }
 
 /** Pide la lista de comprobacion de la tarea. */
 async function loadChecklist() {
-  const token = await auth.ensureSession()
-  checklist.value = (await tasksApi.checklist.list(token, props.taskId)) ?? []
+  const token      = await auth.ensureSession()
+  checklist.value  = (await tasksApi.checklist.list(token, props.taskId)) ?? []
 }
 
 /**
- * Pide todo lo que enseña el panel.
+ * Pide todo lo que enseña el dialogo.
  *
  * Los miembros del proyecto hacen falta para el desplegable de responsable:
  * solo se puede asignar a quien esta en el proyecto.
@@ -131,13 +133,13 @@ async function loadChecklist() {
 async function load() {
   if (!props.taskId) return
   loading.value = true
-  error.value = null
+  error.value   = null
   try {
     const token = await auth.ensureSession()
     const tarea = await tasksApi.detail(token, props.taskId)
     fillForm(tarea)
-    const equipo = await projectsApi.members(token, tarea.project_id).catch(() => [])
-    members.value = equipo ?? []
+    const equipo   = await projectsApi.members(token, tarea.project_id).catch(() => [])
+    members.value  = equipo ?? []
     await Promise.all([loadComments(), loadChecklist(), loadActivity()])
   } catch (err) {
     error.value = err.message
@@ -155,10 +157,10 @@ async function reintentar() {
 /** Guarda los campos de la tarea. */
 async function guardar() {
   if (!hasChanges.value) return
-  saving.value = true
-  notice.value = null
+  saving.value  = true
+  notice.value  = null
   try {
-    const token = await auth.ensureSession()
+    const token   = await auth.ensureSession()
     const guardada = await tasksApi.update(token, props.taskId, changes.value)
     fillForm(guardada)
     await loadActivity()
@@ -175,7 +177,7 @@ async function comentar() {
   const cuerpo = newComment.value.trim()
   if (!cuerpo) return
   saving.value = true
-  error.value = null
+  error.value  = null
   try {
     const token = await auth.ensureSession()
     await tasksApi.comments.add(token, props.taskId, cuerpo)
@@ -194,7 +196,7 @@ async function anadirItem() {
   const etiqueta = newItem.value.trim()
   if (!etiqueta) return
   saving.value = true
-  error.value = null
+  error.value  = null
   try {
     const token = await auth.ensureSession()
     await tasksApi.checklist.add(token, props.taskId, etiqueta)
@@ -252,13 +254,13 @@ async function quitarItem(item) {
 /** Borra la tarea entera. */
 async function eliminar() {
   saving.value = true
-  error.value = null
+  error.value  = null
   try {
     const token = await auth.ensureSession()
     await tasksApi.remove(token, props.taskId)
     emit('deleted')
   } catch (err) {
-    error.value = err.message
+    error.value          = err.message
     confirmingDelete.value = false
   } finally {
     saving.value = false
@@ -275,13 +277,15 @@ watch(
 </script>
 
 <template>
-  <SidePanel :open="open" :title="title" data-testid="task-panel" @close="emit('close')">
-    <template #subtitle>
-      <p class="mt-1 text-sm text-slate-500" data-testid="task-panel-status">
-        {{ statusLabel }}
-      </p>
-    </template>
-
+  <ModalDialog
+    :open="open"
+    :title="title"
+    :subtitle="statusLabel"
+    size="lg"
+    data-testid="task-panel"
+    @close="emit('close')"
+  >
+    <!-- Cuerpo con scroll -->
     <AsyncState
       :loading="loading"
       :error="error"
@@ -375,17 +379,6 @@ watch(
               data-testid="task-description"
             />
           </label>
-
-          <div v-if="canEdit" class="flex justify-end">
-            <button
-              type="submit"
-              :disabled="!hasChanges || saving"
-              class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-              data-testid="task-save"
-            >
-              {{ saving ? 'Guardando...' : 'Guardar cambios' }}
-            </button>
-          </div>
         </form>
 
         <section class="border-t border-slate-200 pt-4">
@@ -541,5 +534,18 @@ watch(
         </section>
       </div>
     </AsyncState>
-  </SidePanel>
+
+    <!-- Pie: guardar cambios (solo si canEdit y hay cambios posibles) -->
+    <template v-if="canEdit" #footer>
+      <button
+        type="button"
+        :disabled="!hasChanges || saving"
+        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        data-testid="task-save"
+        @click="guardar"
+      >
+        {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+      </button>
+    </template>
+  </ModalDialog>
 </template>

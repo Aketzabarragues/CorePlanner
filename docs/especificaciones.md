@@ -955,8 +955,8 @@ interfaz, la ultima antes del menu agrupado y las rutas unificadas (fase 5).
 - **Los filtros y el rango de la matriz**: son de la fase 3 y no cambian.
 - **La entrada por rol**: el tecnico sigue entrando por Mi trabajo y el gerente
   por Panel.
-- **Las mejoras estructurales** que estan pendientes de decidir (Alembic, CI,
-  LICENSE, limite de intentos del login).
+- **Alembic**: las migraciones caseras de `backend/migrations.py` siguen siendo
+  el sistema; no se anade la dependencia.
 
 ### Decisiones tomadas
 
@@ -1127,8 +1127,12 @@ migas. Es el criterio de la maqueta (`demo/coreplanner-demo.html`, con
   unico que se puede cambiar de una tarea.
 - **Los demas filtros de la matriz**: departamento, competencia, escala, modo,
   rango y celda abierta no cambian de sitio ni de nombre.
-- **Las mejoras estructurales pendientes de decidir**: Alembic, CI, LICENSE,
-  limite de intentos del login y el N+1 de la configuracion.
+- **Las mejoras estructurales pendientes de decidir**: ninguna. CI, LICENSE (MIT),
+  limite de intentos del login y el N+1 del directorio de personas estan
+  resueltos: el CI pasa la bateria en cada push, el repo esta bajo MIT, el
+  login bloquea con 429 tras cinco intentos fallidos en quince minutos, y el
+  directorio carga con una sola consulta con `OUTER JOIN`, fijado con un test
+  que cuenta las consultas.
 - **La notificacion "Avisar a mi jefa"**, que se decidio retirar en el §23.
 - **La API de tareas, de proyectos y de personas**: no cambian. Esto es de
   navegacion, no de datos.

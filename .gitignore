@@ -54,3 +54,6 @@ desktop.ini
 # Excluir entornos virtuales locales
 .venv/
 venv/
+
+# Cache del grafo de codigo (skill graphify)
+graphify-out/

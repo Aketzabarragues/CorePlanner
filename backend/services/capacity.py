@@ -19,6 +19,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Protocol
 
+from .capacity_policy import PolicyCell, PolicyLike, evaluate_policies
 from .schedule import FULL_DAY, ScheduleVersion, capacity_units_for_week
 from .units import from_units, hours_to_json, to_units
 
@@ -32,6 +33,7 @@ __all__ = [
     "InvalidWeekRangeError",
     "NoBusinessDaysError",
     "PersonCapacity",
+    "PolicyLike",
     "TaskLike",
     "UserLoad",
     "WeekLoad",
@@ -148,6 +150,9 @@ class WeekLoad:
     provisionales, que no cuenta para la sobrecarga porque no esta firmada.
     actual_units es la carga real imputada en la semana; None significa que
     nadie ha imputado, que no es lo mismo que cero horas.
+    policy_verdict es el veredicto de la politica que le aplique (aviso o
+    aprobacion), y policy la politica que lo dio; None si no hay politica
+    aplicable o no hay capacidad contra la que comparar.
     """
 
     week: str
@@ -157,6 +162,8 @@ class WeekLoad:
     projects: tuple[CellProject, ...] = ()
     provisional_units: int = 0
     actual_units: int | None = None
+    policy_verdict: str | None = None
+    policy: PolicyLike | None = None
 
     @property
     def hours(self) -> Decimal:
@@ -280,6 +287,21 @@ class CapacityReport:
                                 else None
                             ),
                             "is_overloaded": cell.is_overloaded,
+                            "policy_verdict": cell.policy_verdict,
+                            "policy": (
+                                {
+                                    "id": cell.policy.id,
+                                    "scope_type": cell.policy.scope_type,
+                                    "scope_id": cell.policy.scope_id,
+                                    "warn_percent": cell.policy.warn_percent,
+                                    "requires_approval_percent": (
+                                        cell.policy.requires_approval_percent
+                                    ),
+                                    "active": cell.policy.active,
+                                }
+                                if cell.policy is not None
+                                else None
+                            ),
                             "projects": [
                                 {
                                     "project_id": project.project_id,
@@ -481,6 +503,7 @@ def build_capacity_report(
     holidays: Sequence[Holiday] = (),
     provisional_projects: frozenset[int] = frozenset(),
     actual_units_by_person_week: Mapping[tuple[int, str], int] | None = None,
+    policies: Sequence[PolicyLike] = (),
 ) -> CapacityReport:
     """Construye la matriz de ocupacion a partir de personas y tareas.
 
@@ -504,6 +527,11 @@ def build_capacity_report(
     actual_units_by_person_week lleva las horas reales imputadas, en centimas,
     por persona y semana ISO: la clave es (user_id, semana). Lo que no este
     en el mapa no se imputo: la celda sale con horas reales None, no cero.
+
+    policies son las politicas de capacidad de la empresa. Cada celda se
+    evalua con el motor puro contra la politica que le aplique, y el
+    veredicto y la politica aplicada se llevan en la celda. Sin politicas,
+    ninguna celda lleva veredicto.
     """
     by_id = {person.user_id: person for person in people}
     loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
@@ -554,6 +582,31 @@ def build_capacity_report(
             by_project[project_id] = by_project.get(project_id, 0) + units
 
     ordered_weeks = fixed_weeks if fixed_weeks is not None else tuple(sorted(weeks_seen))
+    # El veredicto de una celda solo depende de su carga, su capacidad y las
+    # politicas: se puede calcular por delante de las filas del informe.
+    policy_cells: list[PolicyCell] = []
+    for person in people:
+        user_load = loads.get(person.user_id, {})
+        provisional_week = provisional_loads.get(person.user_id, {})
+        for week in ordered_weeks:
+            policy_cells.append(
+                PolicyCell(
+                    user_id=person.user_id,
+                    department_id=person.department_id,
+                    week=week,
+                    units=user_load.get(week, 0) - provisional_week.get(week, 0),
+                    capacity_units=capacity_units_for_week(
+                        person.schedules,
+                        person.weekly_base_hours,
+                        week,
+                        person.holidays,
+                    ),
+                )
+            )
+    evaluation = (
+        evaluate_policies(policies, policy_cells) if policy_cells else None
+    )
+
     rows: list[UserLoad] = []
     for person in people:
         user_load = loads.get(person.user_id, {})
@@ -570,6 +623,11 @@ def build_capacity_report(
                 person.holidays,
             )
             by_project = project_loads.get((person.user_id, week), {})
+            policy = (
+                evaluation.applied.get((person.user_id, week))
+                if evaluation is not None
+                else None
+            )
             cells.append(
                 WeekLoad(
                     week=week,
@@ -592,6 +650,12 @@ def build_capacity_report(
                         if actual_units_by_person_week is not None
                         else None
                     ),
+                    policy_verdict=(
+                        evaluation.verdicts.get((person.user_id, week))
+                        if evaluation is not None
+                        else None
+                    ),
+                    policy=policy,
                 )
             )
         rows.append(

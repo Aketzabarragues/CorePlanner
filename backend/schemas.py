@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -265,6 +265,59 @@ class DepartmentUpdate(BaseModel):
     def changed_fields(self) -> set[str]:
         """Nombres de los campos presentes en la peticion."""
         return self.model_fields_set
+
+
+ScopeType = Literal["persona", "departamento"]
+
+
+class CapacityPolicyCreate(BaseModel):
+    """Alta de politica de capacidad: umbral de aviso y de aprobacion."""
+
+    scope_type: ScopeType
+    scope_id: int = Field(ge=1)
+    warn_percent: int = Field(default=80, ge=1, le=100)
+    requires_approval_percent: int = Field(default=100, ge=1, le=100)
+    active: bool = True
+
+    @model_validator(mode="after")
+    def _aprobacion_no_por_debajo_del_aviso(self) -> Self:
+        if self.requires_approval_percent < self.warn_percent:
+            raise ValueError(
+                "El umbral de aprobacion no puede estar por debajo del de aviso"
+            )
+        return self
+
+
+class CapacityPolicyUpdate(BaseModel):
+    """Modificacion parcial de politica. Solo se aplican los campos presentes.
+
+    Para unsetear un valor opcional se manda `null` explicito, como en el
+    resto de los PATCH parciales de la API.
+    """
+
+    scope_type: ScopeType | None = None
+    scope_id: int | None = Field(default=None, ge=1)
+    warn_percent: int | None = Field(default=None, ge=1, le=100)
+    requires_approval_percent: int | None = Field(default=None, ge=1, le=100)
+    active: bool | None = None
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class CapacityPolicyOut(BaseModel):
+    """Politica de capacidad, en el formato de la API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    scope_type: ScopeType
+    scope_id: int
+    warn_percent: int
+    requires_approval_percent: int
+    active: bool
+    created_at: datetime
 
 
 class ProjectCreate(BaseModel):

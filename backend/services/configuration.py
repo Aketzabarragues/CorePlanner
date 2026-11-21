@@ -19,6 +19,7 @@ from ..models import (
     COMPANY_ROLE_LABELS,
     EMPLOYMENT_TYPE_LABELS,
     SENIORITY_LABELS,
+    CapacityPolicy,
     Department,
     Project,
     ProjectMember,
@@ -27,6 +28,8 @@ from ..models import (
 )
 from ..palette import suggest_color
 from ..schemas import (
+    CapacityPolicyCreate,
+    CapacityPolicyUpdate,
     DepartmentCreate,
     DepartmentUpdate,
     PersonCreate,
@@ -322,6 +325,109 @@ async def update_project(
     await session.commit()
     await session.refresh(project)
     return project
+
+
+async def list_capacity_policies(session: AsyncSession) -> list[CapacityPolicy]:
+    """Politicas de capacidad de la empresa, activas e inactivas."""
+    result = await session.execute(
+        select(CapacityPolicy).order_by(CapacityPolicy.created_at, CapacityPolicy.id)
+    )
+    return list(result.scalars().all())
+
+
+async def _capacity_policy_or_404(session: AsyncSession, policy_id: int) -> CapacityPolicy:
+    policy = await session.get(CapacityPolicy, policy_id)
+    if policy is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Politica de capacidad no encontrada",
+        )
+    return policy
+
+
+async def _policy_scope_or_422(
+    session: AsyncSession, scope_type: str, scope_id: int
+) -> None:
+    """El destino del ambito tiene que existir: persona o departamento."""
+    if scope_type == "persona":
+        exists = (
+            await session.execute(select(User.id).where(User.id == scope_id))
+        ).scalar_one_or_none()
+        detalle = "La persona no existe"
+    else:
+        exists = (
+            await session.execute(select(Department.id).where(Department.id == scope_id))
+        ).scalar_one_or_none()
+        detalle = "El departamento no existe"
+    if exists is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detalle
+        )
+
+
+async def create_capacity_policy(
+    session: AsyncSession, payload: CapacityPolicyCreate
+) -> CapacityPolicy:
+    """Da de alta una politica de capacidad de la empresa."""
+    await _policy_scope_or_422(session, payload.scope_type, payload.scope_id)
+    policy = CapacityPolicy(
+        scope_type=payload.scope_type,
+        scope_id=payload.scope_id,
+        warn_percent=payload.warn_percent,
+        requires_approval_percent=payload.requires_approval_percent,
+        active=payload.active,
+    )
+    session.add(policy)
+    await session.commit()
+    await session.refresh(policy)
+    return policy
+
+
+async def update_capacity_policy(
+    session: AsyncSession, policy_id: int, payload: CapacityPolicyUpdate
+) -> CapacityPolicy:
+    """Aplica los campos presentes de la peticion sobre la politica."""
+    policy = await _capacity_policy_or_404(session, policy_id)
+    changed = payload.changed_fields()
+
+    scope_type = payload.scope_type if "scope_type" in changed else policy.scope_type
+    scope_id = payload.scope_id if "scope_id" in changed else policy.scope_id
+    if "scope_type" in changed or "scope_id" in changed:
+        await _policy_scope_or_422(session, scope_type, scope_id)
+
+    warn = payload.warn_percent if "warn_percent" in changed else policy.warn_percent
+    approval = (
+        payload.requires_approval_percent
+        if "requires_approval_percent" in changed
+        else policy.requires_approval_percent
+    )
+    if approval < warn:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="El umbral de aprobacion no puede estar por debajo del de aviso",
+        )
+
+    if "scope_type" in changed:
+        policy.scope_type = scope_type
+    if "scope_id" in changed:
+        policy.scope_id = scope_id
+    if "warn_percent" in changed:
+        policy.warn_percent = warn
+    if "requires_approval_percent" in changed:
+        policy.requires_approval_percent = approval
+    if "active" in changed and payload.active is not None:
+        policy.active = payload.active
+
+    await session.commit()
+    await session.refresh(policy)
+    return policy
+
+
+async def delete_capacity_policy(session: AsyncSession, policy_id: int) -> None:
+    """Borra una politica de capacidad."""
+    policy = await _capacity_policy_or_404(session, policy_id)
+    await session.delete(policy)
+    await session.commit()
 
 
 async def list_roles(session: AsyncSession) -> list[Role]:

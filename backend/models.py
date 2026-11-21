@@ -587,6 +587,49 @@ class NonWorkingDay(Base):
     user: Mapped[User | None] = relationship()
 
 
+class CapacityPolicy(Base):
+    """Politica de capacidad de la empresa: umbral de aviso y de aprobacion.
+
+    El ambito es una persona o un departamento, nunca un proyecto: la celda
+    de la matriz es persona x semana, y la referencia es la capacidad de esa
+    persona en esa semana. El umbral de aprobacion no esta por debajo del de
+    aviso.
+    """
+
+    __tablename__ = "capacity_policies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scope_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    scope_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    warn_percent: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=80, server_default="80"
+    )
+    requires_approval_percent: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=100, server_default="100"
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "scope_type IN ('persona', 'departamento')", name="scope_type"
+        ),
+        CheckConstraint("warn_percent BETWEEN 1 AND 100", name="warn_percent"),
+        CheckConstraint(
+            "requires_approval_percent BETWEEN 1 AND 100",
+            name="requires_approval_percent",
+        ),
+        CheckConstraint(
+            "requires_approval_percent >= warn_percent",
+            name="approval_above_warn",
+        ),
+    )
+
+
 class Skill(Base):
     """Habilidad del catalogo de la empresa."""
 

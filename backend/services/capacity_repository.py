@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (
+    CapacityPolicy,
     NonWorkingDay,
     NonWorkingDayScope,
     PersonSkill,
@@ -42,6 +43,16 @@ from .schedule import (
 )
 from .units import to_units
 from .work_calendar import department_names
+
+
+async def load_policies(session: AsyncSession) -> list[CapacityPolicy]:
+    """Politicas de capacidad activas de la empresa."""
+    rows = (
+        await session.execute(
+            select(CapacityPolicy).where(CapacityPolicy.active.is_(True))
+        )
+    ).scalars().all()
+    return list(rows)
 
 
 async def load_holidays(
@@ -369,6 +380,9 @@ async def load_capacity_for_projects(
         key = (entry.user_id, iso_week_key(entry.work_date))
         actual_units[key] = actual_units.get(key, 0) + to_units(entry.hours)
 
+    # Las politicas son de la empresa entera: la de la persona manda sobre la
+    # del departamento, y sin politica aplicable la celda no lleva veredicto.
+    policies = await load_policies(session)
     return build_capacity_report(
         people,
         cell_tasks,
@@ -376,6 +390,7 @@ async def load_capacity_for_projects(
         holidays=global_days,
         provisional_projects=provisional_projects,
         actual_units_by_person_week=actual_units,
+        policies=policies,
     )
 
 

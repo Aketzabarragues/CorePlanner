@@ -67,6 +67,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: horas reales. La tabla `time_entries` registra, por persona, tarea
+  y dia, las horas imputadas; el informe de capacidad lleva `hours_actual` por
+  celda, que es `null` cuando nadie ha imputado (un cero afirmaria algo que el
+  dato no sostiene). Cada persona imputa sobre si misma y las mutaciones van a
+  la bitacora.
 - **backend**: `projects.is_provisional`: un proyecto se puede marcar como no
   firmado. El informe de capacidad separa la carga confirmada de la
   provisional (la celda lleva `hours` y `hours_provisional`, y el desglose por

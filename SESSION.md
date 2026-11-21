@@ -84,6 +84,12 @@ cerrada en codigo.
     interruptor "Contar lo provisional" en la URL (`?provisional=1`).
   - El formulario de proyecto lleva el interruptor "Provisional" y el feed del
     Gantt lleva el flag, para pintar sus barras en contorno.
+- G1 (horas reales), backend:
+  - `time_entries` (tarea, persona, dia, horas, nota) con `ON DELETE` explicito.
+  - API: alta, listado por tarea, edicion y borrado (solo las propias
+    imputaciones), con la bitacora en la misma transaccion.
+  - El motor lleva `actual_units` por celda y el informe manda `hours_actual`,
+    que es `null` si nadie ha imputado.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

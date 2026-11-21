@@ -2337,3 +2337,31 @@ La matriz dice si alguien esta sobrecargado. No dice cuanto le queda libre, ni q
 - **La simulacion "¿que pasa si acepto este proyecto?"**: es una vista de escenario con su propio informe, y va aparte.
 - **Otros ejes de provisionalidad** (una tarea suelta, una persona a media jornada): el flag es de proyecto y ya.
 - **Colores nuevos**: lo provisional se distingue por el contorno, no por un tono mas de la escala de carga.
+
+## 55. Horas reales: el plan y lo registrado
+
+La aplicacion sabe lo planificado. No sabe lo hecho. Toda la categoria (Float, Runn, Resource Guru, OpenProject, Leantime) compara las dos cosas, y es la funcion que CorePlanner no tenia.
+
+### Que entra
+
+- **La imputacion**: `time_entries` con la tarea, la persona, el dia, las horas y una nota opcional. Las horas se guardan en centimas enteras dentro del motor, nunca en coma flotante.
+- **Quien imputa, lo hace sobre si mismo**: una persona crea y modifica sus propias imputaciones, y necesita ser miembro del proyecto de la tarea. Los permisos de lectura los tienen los que ven la tarea. En esta entrega nadie imputa por otra persona.
+- **El informe de capacidad lleva el real por celda**: `hours_actual` con las horas registradas de esa persona en esa semana, para los mismos proyectos que el plan de la celda (plan y real tienen que ser comparables).
+- **La ausencia de datos no es un cero**: si nadie ha imputado, `hours_actual` es `null`. Un cero afirmaria algo que el dato no sostiene; la interfaz lo presenta como "sin imputar", y a quien no imputa no se le penaliza.
+- **Donde se registra**: en el detalle de la tarea, que es donde la persona ya esta mirando la tarea que acaba de hacer.
+- **Donde se lee**: en el desglose de celda, junto al plan: las horas registradas de esa persona en esa semana y la diferencia con lo planificado.
+
+### Decisiones tomadas
+
+1. **La comparacion es semanal**: la capacidad y el plan son tasas semanales, asi que el real comparable es el de la semana (la misma logica que usa Leantime). Los datos se guardan de cualquier fecha, pero la lectura util es la de la semana en curso.
+2. **El real se cuenta con el mismo alcance que el plan**: si la celda esta filtrada por proyecto, el real es el de ese proyecto. Un real mas amplio que el plan no se podria comparar.
+3. **La diferencia la calcula el frontend**, restando las dos horas que llegan; el backend manda las dos y no un tercer numero derivado.
+4. **El dato es un hecho, no una opinion**: se registra con la fecha en que se trabajo, no con la semana a la que se atribuye.
+
+### Que no entra
+
+- **Imputar por otra persona**: lo puede pedir quien dirige el equipo, pero es otro increment.
+- **Una rejilla de partes de trabajo** (timesheet): la entrada minima es la tarea y el dia.
+- **Facturacion, coste yWidget**: el coste por hora no es de este producto.
+- **Comparar el real con el plan en la celda de la matriz**: la celda ya es densa; la lectura va en el desglose.
+- **Corregir el plan a posteriori**: si el real se desvía, el plan se corrige en la tarea, como hasta ahora.

@@ -78,6 +78,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   celda, que es `null` cuando nadie ha imputado (un cero afirmaria algo que el
   dato no sostiene). Cada persona imputa sobre si misma y las mutaciones van a
   la bitacora.
+- **frontend**: la politica de capacidad se configura en una pestana nueva de
+  Configuracion (solo el gerente) y la matriz marca el veredicto de cada celda
+  con un simbolo y un texto, no solo con color. El fondo de la celda no
+  cambia: el veredicto es ortogonal al estado de carga. El detalle de celda
+  explica que umbral se ha superado y que hace falta.
 - **frontend**: se imputan horas desde el detalle de la tarea (seccion "Horas
   imputadas", con la lista, el total y el formulario) y el desglose de celda
   lee el plan contra el real: "registrado 6 h · plan 12 h · -6 h", o "sin

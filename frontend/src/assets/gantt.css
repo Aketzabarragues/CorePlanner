@@ -58,6 +58,17 @@
   pointer-events: none;
 }
 
+/* Flechas de dependencias: encima de las barras y sin capturar el puntero,
+   para no estorbar el arrastre. */
+.gantt__flechas polyline {
+  pointer-events: none;
+}
+
+/* Marca de violacion dentro de la barra: no captura el puntero. */
+.gantt__barra-violacion {
+  pointer-events: none;
+}
+
 /*
  * Columna de nombres: no hace scroll propio; su pista interior se traslada
  * con el scroll del diagrama (translateY en la plantilla).

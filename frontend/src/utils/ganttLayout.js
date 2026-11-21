@@ -165,6 +165,34 @@ export function snapDelta(pixels, pxPerDay) {
 }
 
 /**
+ * Geometria de la flecha de un vinculo de dependencias.
+ *
+ * Sale del fin de la barra del requisito al inicio de la barra dependiente.
+ * En la misma fila es un trazo horizontal; en filas distintas, una polilinea
+ * con un quiebre en el punto medio, para no atravesar las barras. La y de
+ * cada fila es el centro de su barra. Si falta alguna de las dos barras
+ * (filtrada) no hay flecha: se devuelve null.
+ *
+ * `barraPorId` mapea identificador de tarea a barra del layout (`x`, `width`,
+ * `rowIndex`). `conPunta` solo lleva los `precedes`: los `relates` son linea
+ * discontinua sin punta.
+ */
+export function flechaDe(vinculo, barraPorId) {
+  const requisito = barraPorId.get(vinculo.depends_on_id)
+  const dependiente = barraPorId.get(vinculo.task_id)
+  if (!requisito || !dependiente) return null
+  const y1 = requisito.rowIndex * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
+  const y2 = dependiente.rowIndex * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
+  const x1 = requisito.x + requisito.width
+  const x2 = dependiente.x
+  const puntos =
+    requisito.rowIndex === dependiente.rowIndex
+      ? [[x1, y1], [x2, y2]]
+      : [[x1, y1], [(x1 + x2) / 2, y1], [(x1 + x2) / 2, y2], [x2, y2]]
+  return { ...vinculo, puntos, conPunta: vinculo.type === 'precedes' }
+}
+
+/**
  * Rango desplazado delta dias, conservando la duracion.
  *
  * Acepta y devuelve cadenas ISO.

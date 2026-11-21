@@ -5,7 +5,7 @@ import GanttChart from '../components/gantt/GanttChart.vue'
 
 const ESCALA = { id: 'Week', label: 'Semana', pxPerDay: 14, header: 'week' }
 
-function barraNueva(taskId = 10) {
+function barraNueva(taskId = 10, overrides = {}) {
   return {
     taskId,
     x: 42,
@@ -19,11 +19,12 @@ function barraNueva(taskId = 10) {
     assignedName: 'Ana',
     progress: 0,
     projectName: 'Linea Pasteurizadora SIVE',
+    ...overrides,
   }
 }
 
 /** Layout minimo de `buildLayout`, con la barra ya pegada a la fila. */
-function layoutDe(barras = [barraNueva()]) {
+function layoutDe(barras = [barraNueva()], extras = {}) {
   const rows = barras.map((barra, index) => ({ type: 'bar', rowIndex: index, barra }))
   return {
     scale: ESCALA,
@@ -37,6 +38,8 @@ function layoutDe(barras = [barraNueva()]) {
     bars: barras,
     shaded: [],
     todayIndex: null,
+    dependencies: [],
+    ...extras,
   }
 }
 
@@ -183,5 +186,78 @@ describe('GanttChart', () => {
     const evento = wrapper.emitted('tecla')[0][0]
     expect(evento.key).toBe('ArrowRight')
     expect(wrapper.emitted('tecla')[0][1]).toBe(10)
+  })
+
+  it('un vinculo precedes dibuja una flecha del fin del requisito al inicio de la dependiente', () => {
+    const layout = layoutDe([barraNueva(10), barraNueva(12, { x: 126, rowIndex: 1 })], {
+      dependencies: [{ task_id: 12, depends_on_id: 10, type: 'precedes' }],
+    })
+    const wrapper = montar(layout)
+
+    const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
+    // Fin de la barra 10: 42 + 56 = 98, centro de la fila 0: 18. Inicio de
+    // la barra 12: 126, centro de la fila 1: 36 + 18 = 54. El quiebre cae en
+    // el punto medio horizontal: (98 + 126) / 2 = 112.
+    expect(flecha.attributes('points')).toBe('98,18 112,18 112,54 126,54')
+    expect(flecha.attributes('marker-end')).toBe('url(#gantt-punta)')
+    expect(flecha.attributes('stroke-dasharray')).toBeUndefined()
+  })
+
+  it('un vinculo en la misma fila dibuja la flecha horizontal', () => {
+    const barras = [barraNueva(10), barraNueva(12, { x: 126, rowIndex: 0 })]
+    const layout = layoutDe(barras, {
+      dependencies: [{ task_id: 12, depends_on_id: 10, type: 'precedes' }],
+      // Las dos barras pintan en la fila 0: la fila no lleva barra propia.
+      rows: [{ type: 'bar', rowIndex: 0, barra: barras[0] }],
+    })
+    const wrapper = montar(layout)
+
+    expect(wrapper.get('[data-testid="gantt-dependency-10-12"]').attributes('points')).toBe(
+      '98,18 126,18',
+    )
+  })
+
+  it('un vinculo relates se dibuja discontinuo y sin punta', () => {
+    const layout = layoutDe([barraNueva(10), barraNueva(12, { x: 126 })], {
+      dependencies: [{ task_id: 12, depends_on_id: 10, type: 'relates' }],
+    })
+    const wrapper = montar(layout)
+
+    const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
+    expect(flecha.attributes('stroke-dasharray')).toBe('5 4')
+    expect(flecha.attributes('marker-end')).toBeUndefined()
+  })
+
+  it('un vinculo cuya otra tarea no esta visible no se dibuja', () => {
+    const layout = layoutDe([barraNueva(10)], {
+      // La dependiente (12) no tiene barra en el layout.
+      dependencies: [{ task_id: 12, depends_on_id: 10, type: 'precedes' }],
+    })
+    const wrapper = montar(layout)
+
+    expect(wrapper.find('[data-testid="gantt-dependency-10-12"]').exists()).toBe(false)
+  })
+
+  it('una barra que viola una dependencia lleva la marca y su aria-label lo dice', () => {
+    const layout = layoutDe([
+      barraNueva(10, { violates: true, title: 'Programacion SCADA WinCC' }),
+      barraNueva(11),
+    ])
+    const wrapper = montar(layout, {
+      etiquetaDe: (id) =>
+        id === 10
+          ? 'Programacion SCADA WinCC. Empieza antes de que termine Montajes.'
+          : `Etiqueta de la ${id}`,
+    })
+
+    const barra = wrapper.get('[data-testid="gantt-bar"]')
+    expect(barra.find('[data-testid="gantt-bar-violation"]').exists()).toBe(true)
+    expect(barra.attributes('aria-label')).toContain(
+      'Empieza antes de que termine Montajes.',
+    )
+    expect(
+      wrapper.findAll('[data-testid="gantt-bar"]')[1].find('[data-testid="gantt-bar-violation"]')
+        .exists(),
+    ).toBe(false)
   })
 })

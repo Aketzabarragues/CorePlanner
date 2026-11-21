@@ -22,7 +22,15 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { calendarApi, meApi, overviewApi, peopleApi, projectsApi, tasksApi } from '../api/client'
+import {
+  calendarApi,
+  dependenciesApi,
+  meApi,
+  overviewApi,
+  peopleApi,
+  projectsApi,
+  tasksApi,
+} from '../api/client'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
@@ -63,6 +71,10 @@ const savingAlta = ref(false)
 const seedTarea = ref(null)
 const altaProyecto = ref(null)
 const altaMiembros = ref([])
+/** Cascada pendiente de decidir: la barra arrastrada y las que arrastra. */
+const cascada = ref(null)
+/** Fallo de la consulta de cascada: se avisa sin bloquear el guardado. */
+const cascadaFallo = ref(null)
 
 /** Miembros por proyecto ya pedidos: una sola peticion por proyecto. */
 const miembrosCache = new Map()
@@ -341,11 +353,23 @@ const layout = computed(() => {
       task.project_name ?? 'Sin proyecto',
     ]),
   )
+  const tareasPorId = new Map((feed.value?.tasks ?? []).map((task) => [task.id, task]))
   modelo.bars = modelo.bars.map((barra) => ({
     ...barra,
     progress: avancePorTarea.get(barra.taskId) ?? 0,
     projectName: proyectoPorTarea.get(barra.taskId) ?? '',
+    violates: (tareasPorId.get(barra.taskId)?.violations ?? []).length > 0,
   }))
+  // Los vinculos del feed van al layout: la geometria de las flechas sale de
+  // aca, de las barras visibles.
+  modelo.dependencies = (feed.value?.dependencies ?? []).filter((vinculo) => {
+    const tarea = tareasPorId.get(vinculo.task_id)
+    const requisito = tareasPorId.get(vinculo.depends_on_id)
+    return (
+      tarea?.start != null && tarea?.end != null &&
+      requisito?.start != null && requisito?.end != null
+    )
+  })
   // La columna de nombres lee el titulo, la persona y el proyecto de la fila,
   // no de la barra: se pegan aqui, en la unica pieza que tiene las dos.
   const barraPorFila = new Map(modelo.bars.map((barra) => [barra.rowIndex, barra]))
@@ -443,7 +467,21 @@ function etiquetaDe(taskId) {
   )
   if (barra.progress > 0) partes.push(`${barra.progress} % de avance.`)
   const editable = editableDe(taskId)
-  return partes.join(' ') + (editable ? '' : ' Solo lectura.')
+  const etiqueta = partes.join(' ') + (editable ? '' : ' Solo lectura.')
+  // La violacion se explica: esta barra empieza antes de que termine el
+  // requisito. Sin violacion la etiqueta no se toca.
+  const tarea = (feed.value?.tasks ?? []).find((item) => item.id === taskId)
+  const requisitos = (tarea?.violations ?? []).map((id) => {
+    const requisito = (feed.value?.tasks ?? []).find((item) => item.id === id)
+    return requisito?.title ?? 'una dependencia'
+  })
+  if (!requisitos.length) return etiqueta
+  return (
+    etiqueta +
+    ' Empieza antes de que termine ' +
+    requisitos.join(', ') +
+    '.'
+  )
 }
 
 /** Lo que se lee en la descripcion del SVG. */
@@ -573,13 +611,43 @@ function goCompleto() {
  * Optimista, como el Kanban: primero el PATCH y, aunque el servidor lo
  * rechace, se vuelve a pedir el diagrama, para que lo que se vea sea lo que
  * hay en la base.
+ *
+ * Antes de guardar se consulta la cascada: si mover esta tarea arrastra otras,
+ * se abre el dialogo y nada se guarda hasta que se decida (aceptar o solo
+ * esta). La cascada es una propuesta, nunca se aplica sola. Si la consulta
+ * falla, se guarda la tarea arrastrada igualmente y el error se avisa.
  */
 async function moverTarea({ taskId, start, end }) {
+  const tareas = feed.value?.tasks ?? []
+  const tarea = tareas.find((item) => item.id === taskId)
+  const delta = tarea ? diffDays(parseIsoDate(tarea.start), parseIsoDate(start)) : 0
+  cascadaFallo.value = null
+  let propuestas = []
+  if (delta !== 0) {
+    try {
+      const token = await auth.ensureSession()
+      const respuesta = await dependenciesApi.cascade(token, taskId, delta)
+      propuestas = (respuesta?.moves ?? []).filter((mov) => mov.task_id !== taskId)
+    } catch {
+      // Sin la propuesta se guarda la tarea arrastrada de todos modos; el
+      // fallo se avisa sin bloquear.
+      cascadaFallo.value =
+        'No se pudo consultar la cascada: se guarda solo la tarea arrastrada.'
+    }
+  }
+  if (propuestas.length) {
+    cascada.value = { taskId, start, end, propuestas }
+    return
+  }
+  await guardarFechas(taskId, start, end)
+}
+
+/** Guarda el PATCH de una barra y recarga el diagrama. */
+async function guardarFechas(taskId, start, end) {
   saving.value = true
-  const payload = dateChangePayload(start, end)
   try {
-    await tasksApi.update(auth.token, taskId, payload)
-    notice.value = `Fechas actualizadas: ${payload.start_date} a ${payload.end_date}.`
+    await tasksApi.update(auth.token, taskId, dateChangePayload(start, end))
+    notice.value = `Fechas actualizadas: ${start} a ${end}.`
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -744,6 +812,66 @@ async function guardarAlta(payload) {
     savingAlta.value = false
   }
   await load()
+}
+
+/** Titulo de una tarea por su identificador, para la lista de la cascada. */
+function tituloTarea(id) {
+  return (feed.value?.tasks ?? []).find((item) => item.id === id)?.title ?? `Tarea ${id}`
+}
+
+/**
+ * Acepta la cascada: se guarda la tarea arrastrada y, una a una, las
+ * propuestas con sus fechas nuevas. Si un PATCH falla, se avisa y se para:
+ * el resto de la propuesta no se aplica a media.
+ */
+async function aceptarCascada() {
+  const pendiente = cascada.value
+  if (!pendiente) return
+  cascada.value = null
+  let fallo = null
+  saving.value = true
+  try {
+    await tasksApi.update(
+      auth.token,
+      pendiente.taskId,
+      dateChangePayload(pendiente.start, pendiente.end),
+    )
+    for (const mov of pendiente.propuestas) {
+      try {
+        await tasksApi.update(
+          auth.token,
+          mov.task_id,
+          dateChangePayload(mov.start_date, mov.end_date),
+        )
+      } catch (err) {
+        fallo = err
+        break
+      }
+    }
+    if (fallo) {
+      error.value = fallo.message
+    } else {
+      notice.value = `Fechas actualizadas: ${pendiente.start} a ${pendiente.end}.`
+      error.value = null
+    }
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+  await load()
+}
+
+/** "Solo esta": se guarda la tarea arrastrada y nada mas. */
+async function guardarSoloEsta() {
+  const pendiente = cascada.value
+  if (!pendiente) return
+  cascada.value = null
+  await guardarFechas(pendiente.taskId, pendiente.start, pendiente.end)
+}
+
+function cerrarCascada() {
+  cascada.value = null
 }
 
 async function load() {
@@ -1036,6 +1164,58 @@ useTaskReload(load)
           class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           {{ savingAlta ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </template>
+    </ModalDialog>
+
+    <!-- Cascada de dependencias al soltar una barra: nada se guarda hasta
+         que se decide aqui. -->
+    <ModalDialog
+      :open="cascada !== null"
+      title="Cascada de dependencias"
+      :subtitle="
+        cascada
+          ? `Mover esta tarea arrastra ${cascada.propuestas.length} tarea${
+              cascada.propuestas.length === 1 ? '' : 's'
+            } mas.`
+          : ''
+      "
+      size="md"
+      @close="cerrarCascada"
+    >
+      <p class="text-sm text-slate-600">
+        Propuesta: si se acepta, se guardan la tarea arrastrada y estas con
+        sus fechas nuevas.
+      </p>
+      <ul class="mt-3 space-y-1 text-sm" data-testid="cascada-moves">
+        <li
+          v-for="mov in cascada?.propuestas ?? []"
+          :key="mov.task_id"
+          class="flex items-baseline justify-between gap-3"
+          :data-testid="`cascada-move-${mov.task_id}`"
+        >
+          <span class="truncate">{{ tituloTarea(mov.task_id) }}</span>
+          <span class="shrink-0 text-xs text-slate-500">{{ mov.start_date }} a {{ mov.end_date }}</span>
+        </li>
+      </ul>
+      <template #footer>
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          :disabled="saving"
+          data-testid="cascada-solo-esta"
+          @click="guardarSoloEsta"
+        >
+          Solo esta
+        </button>
+        <button
+          type="button"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          :disabled="saving"
+          data-testid="cascada-aceptar"
+          @click="aceptarCascada"
+        >
+          {{ saving ? 'Guardando...' : 'Aceptar' }}
         </button>
       </template>
     </ModalDialog>

@@ -143,7 +143,7 @@ const feedVisibilidad = {
   unassigned_task_ids: [13],
 }
 
-function setupFetch(respuesta = feed, festivos = [], editables = [1, 2]) {
+function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -153,6 +153,14 @@ function setupFetch(respuesta = feed, festivos = [], editables = [1, 2]) {
         status: 200,
         json: async () => ({ access_token: 'tok', user: { id: 9, name: 'Admin' } }),
       }
+    }
+    if (url.includes('/cascade')) {
+      // Propuesta de cascada de la barra soltada; sin configurar no arrastra
+      // nada. Con `cascadaOk` en falso la consulta cae, como un 500 real.
+      if (!cascadaOk) {
+        return { ok: false, status: 500, json: async () => ({ detail: 'Sin cascada' }) }
+      }
+      return { ok: true, status: 200, json: async () => cascada ?? { moves: [] } }
     }
     if (url.includes('/gantt')) {
       return { ok: true, status: 200, json: async () => respuesta }
@@ -218,6 +226,26 @@ function barrasPintadas(wrapper) {
   return wrapper
     .findAll('[data-testid="gantt-bar"]')
     .map((barra) => barra.attributes('aria-label'))
+}
+
+/**
+ * Arrastra la barra cuyo aria-label contiene `parte` y suelta dentro del
+ * diagrama, desplazando el raton `delta` px a la derecha desde la agarre en
+ * clientX 40. En jsdom la caja del panel mide cero: se fija para que el
+ * punto de soltado caiga dentro.
+ */
+async function arrastrarBarra(wrapper, parte, delta) {
+  wrapper
+    .get('[data-testid="gantt-scroll"]')
+    .element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+  const barra = wrapper
+    .findAll('[data-testid="gantt-bar"]')
+    .find((item) => item.attributes('aria-label').includes(parte))
+  await barra.trigger('mousedown', { clientX: 40, clientY: 40 })
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: 40 + delta / 2, clientY: 40 }))
+  window.dispatchEvent(new MouseEvent('mouseup', { clientX: 40 + delta, clientY: 40 }))
+  await flushPromises()
+  await flushPromises()
 }
 
 describe('GanttView', () => {
@@ -898,5 +926,111 @@ describe('GanttView', () => {
 
     const miembros = calls.filter((c) => c.url === '/api/projects/1/members')
     expect(miembros).toHaveLength(1)
+  })
+
+  it('soltar una barra que arrastra otras abre la cascada y no guarda nada', async () => {
+    const calls = setupFetch(feed, [], [1, 2], {
+      moves: [
+        { task_id: 11, start_date: '2026-11-13', end_date: '2026-11-16' },
+        { task_id: 12, start_date: '2026-11-07', end_date: '2026-11-10' },
+      ],
+    })
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+
+    // El dialogo lista las tareas arrastradas con sus fechas nuevas.
+    expect(wrapper.get('[data-testid="cascada-move-11"]').text()).toContain('2026-11-13')
+    expect(wrapper.get('[data-testid="cascada-move-11"]').text()).toContain('2026-11-16')
+    expect(wrapper.get('[data-testid="cascada-move-12"]').text()).toContain('2026-11-07')
+    expect(wrapper.get('[data-testid="cascada-solo-esta"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="cascada-aceptar"]').exists()).toBe(true)
+    // Nada se guarda hasta que se decide: ni la arrastrada ni las propuestas.
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false)
+  })
+
+  it('Aceptar guarda la arrastrada y cada tarea propuesta, con sus fechas', async () => {
+    const calls = setupFetch(feed, [], [1, 2], {
+      moves: [
+        { task_id: 11, start_date: '2026-11-13', end_date: '2026-11-16' },
+        { task_id: 12, start_date: '2026-11-07', end_date: '2026-11-10' },
+      ],
+    })
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+    await wrapper.get('[data-testid="cascada-aceptar"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const patches = calls.filter((c) => c.method === 'PATCH')
+    expect(patches).toHaveLength(3)
+    // La arrastrada, con el rango al que llego el gesto.
+    expect(patches.find((c) => c.url === '/api/tasks/10')).toBeDefined()
+    expect(JSON.parse(calls.find((c) => c.url === '/api/tasks/10').body)).toEqual({
+      start_date: '2026-11-09',
+      end_date: '2026-11-15',
+    })
+    // Cada propuesta, con las fechas que trajo la cascada.
+    expect(JSON.parse(calls.find((c) => c.url === '/api/tasks/11').body)).toEqual({
+      start_date: '2026-11-13',
+      end_date: '2026-11-16',
+    })
+    expect(JSON.parse(calls.find((c) => c.url === '/api/tasks/12').body)).toEqual({
+      start_date: '2026-11-07',
+      end_date: '2026-11-10',
+    })
+    expect(wrapper.text()).toContain('Fechas actualizadas')
+  })
+
+  it('Solo esta guarda la arrastrada y se queda sin las propuestas', async () => {
+    const calls = setupFetch(feed, [], [1, 2], {
+      moves: [{ task_id: 11, start_date: '2026-11-13', end_date: '2026-11-16' }],
+    })
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+    await wrapper.get('[data-testid="cascada-solo-esta"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const patches = calls.filter((c) => c.method === 'PATCH')
+    expect(patches).toHaveLength(1)
+    expect(patches[0].url).toBe('/api/tasks/10')
+    expect(JSON.parse(patches[0].body)).toEqual({
+      start_date: '2026-11-09',
+      end_date: '2026-11-15',
+    })
+    expect(wrapper.text()).toContain('Fechas actualizadas')
+  })
+
+  it('soltar sin cascada guarda la arrastrada sin abrir dialogo', async () => {
+    const calls = setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+
+    // Sin movimientos propuestos no hay dialogo y el PATCH va directo.
+    expect(wrapper.find('[data-testid="cascada-moves"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cascada-aceptar"]').exists()).toBe(false)
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch.url).toBe('/api/tasks/10')
+    expect(JSON.parse(patch.body)).toEqual({
+      start_date: '2026-11-09',
+      end_date: '2026-11-15',
+    })
+    expect(wrapper.text()).toContain('Fechas actualizadas')
+  })
+
+  it('si la consulta de cascada falla se guarda la arrastrada de todos modos', async () => {
+    setupFetch(feed, [], [1, 2], null, false)
+
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+
+    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(wrapper.find('[data-testid="cascada-aceptar"]').exists()).toBe(false)
   })
 })

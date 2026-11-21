@@ -29,6 +29,8 @@ const props = defineProps({
   previsualizada: { type: Boolean, default: false },
   /** Etiqueta aria completa: titulo, persona, fechas, avance, estado. */
   etiquetaAria: { type: String, required: true },
+  /** Viola una dependencia: empieza antes de que termine su requisito. */
+  viola: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['empezar-arrastrar', 'abrir', 'seleccionar', 'tecla'])
@@ -107,6 +109,21 @@ function empezarArrastre(event) {
       class="gantt__barra-etiqueta"
       pointer-events="none"
     >{{ barra.label }}</text>
+
+    <!-- Marca de violacion: triangulo en la esquina superior derecha, dentro
+         de la barra. Distingue por forma, no por color; el motivo va en la
+         aria-label. -->
+    <polygon
+      v-if="viola"
+      class="gantt__barra-violacion"
+      points="10,1 20,1 15,10"
+      :transform="`translate(${anchoBarra - 21} 0)`"
+      fill="#475569"
+      stroke="#fff"
+      stroke-width="1"
+      aria-hidden="true"
+      data-testid="gantt-bar-violation"
+    />
 
     <!-- Asas de redimension: solo con permiso. El teclado usa Mayús+arriba/
          abajo, que toca el extremo final. -->

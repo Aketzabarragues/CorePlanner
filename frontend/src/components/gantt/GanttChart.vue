@@ -17,7 +17,7 @@ import { computed, ref } from 'vue'
 
 import { addDays, dayIndex, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
-import { GANTT_ROW_HEIGHT } from '../../utils/ganttLayout'
+import { GANTT_ROW_HEIGHT, flechaDe } from '../../utils/ganttLayout'
 import { useGanttDrag } from '../../composables/useGanttDrag'
 import GanttAxis from './GanttAxis.vue'
 import GanttBar from './GanttBar.vue'
@@ -55,6 +55,21 @@ const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.rows.
 /** Bandas que se sombrea: en la escala de Mes no se sombrea. */
 const bandas = computed(() =>
   props.layout.scale.header === 'month' ? [] : props.layout.shaded,
+)
+
+/** Barras por identificador de tarea, para resolver los extremos de las flechas. */
+const barraPorId = computed(
+  () => new Map(props.layout.bars.map((barra) => [barra.taskId, barra])),
+)
+
+/**
+ * Flechas de dependencias, del fin del requisito al inicio de la dependiente.
+ * Un vinculo cuya otra barra no esta visible (filtrada) no se dibuja.
+ */
+const flechas = computed(() =>
+  (props.layout.dependencies ?? [])
+    .map((vinculo) => flechaDe(vinculo, barraPorId.value))
+    .filter(Boolean),
 )
 
 /**
@@ -155,6 +170,21 @@ function alDobleClicFondo(event) {
         <title id="gantt-titulo">Diagrama de Gantt</title>
         <desc id="gantt-descripcion">{{ descripcion }}</desc>
 
+        <!-- Punta de flecha de los vinculos precedes; los relates no llevan. -->
+        <defs>
+          <marker
+            id="gantt-punta"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+          </marker>
+        </defs>
+
         <!-- Rejilla vertical: una linea por tick del eje. Decorativa. -->
         <g class="gantt__rejilla" aria-hidden="true">
           <line
@@ -200,6 +230,7 @@ function alDobleClicFondo(event) {
               :seleccionada="barraEnfocada === fila.barra.taskId"
               :previsualizada="previsualizacion && previsualizacion.taskId === fila.barra.taskId"
               :etiqueta-aria="etiquetaDe(fila.barra.taskId)"
+              :viola="fila.barra.violates === true"
               @empezar-arrastrar="alEmpezarArrastre"
               @abrir="alAbrirBarra"
               @seleccionar="(id) => emit('seleccionar', id)"
@@ -230,6 +261,22 @@ function alDobleClicFondo(event) {
             stroke-width="2"
             aria-hidden="true"
           />
+
+          <!-- Flechas de dependencias, encima de las barras: no capturan el
+               puntero para no estorbar el arrastre. -->
+          <g class="gantt__flechas" aria-hidden="true">
+            <polyline
+              v-for="flecha in flechas"
+              :key="`dep-${flecha.depends_on_id}-${flecha.task_id}`"
+              :points="flecha.puntos.map(([x, y]) => `${x},${y}`).join(' ')"
+              fill="none"
+              stroke="#475569"
+              stroke-width="1.5"
+              :stroke-dasharray="flecha.conPunta ? undefined : '5 4'"
+              :marker-end="flecha.conPunta ? 'url(#gantt-punta)' : undefined"
+              :data-testid="`gantt-dependency-${flecha.depends_on_id}-${flecha.task_id}`"
+            />
+          </g>
         </g>
 
         <!-- Eje: se contratraslada para quedar clavado arriba. -->

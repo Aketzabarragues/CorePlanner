@@ -83,6 +83,9 @@ export const dependenciesApi = {
   remove: (token, taskId, dependsOnId) =>
     apiFetch(`/tasks/${taskId}/dependencies/${dependsOnId}`, { method: 'DELETE', token }),
   task: (token, taskId) => apiFetch(`/tasks/${taskId}/dependencies`, { token }),
+  /** Propuesta de cascada si la tarea se moviera delta_days dias; no modifica. */
+  cascade: (token, taskId, deltaDays) =>
+    apiFetch(`/tasks/${taskId}/cascade?delta_days=${deltaDays}`, { token }),
 }
 
 /** Ambito de la persona que entra: rol, departamento y proyectos editables. */

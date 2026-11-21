@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
 from backend.services.gantt import (
     DEFAULT_PROJECT_COLOR,
@@ -27,6 +28,7 @@ class Tarea:
     end_date: date | None = date(2026, 11, 11)
     assigned_to: int | None = None
     project_id: int = 1
+    estimated_hours: Decimal = Decimal("8.00")
 
 
 PERSONAS = [Persona(1, "Ana"), Persona(2, "Jorge"), Persona(3, "Sebastian")]
@@ -58,12 +60,27 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "assigned_to",
         "assigned_name",
         "status",
+        "estimated_hours",
     }
     assert barra["id"] == 7
     assert barra["start"] == "2026-11-05"
     assert barra["end"] == "2026-11-11"
     assert barra["progress"] == 0
     assert barra["dependencies"] == ""
+
+
+def test_el_feed_trae_las_horas_de_la_tarea():
+    """El calendario muestra las horas reales de la tarea en la vista de dia."""
+    feed = build_gantt_feed(
+        PERSONAS,
+        [Tarea(id=7, title="Programacion", estimated_hours=Decimal("4.50"))],
+        PROYECTOS,
+        COLORES,
+    )
+
+    barra = feed.to_dict()["tasks"][0]
+    assert barra["estimated_hours"] == Decimal("4.50")
+    assert isinstance(barra["estimated_hours"], Decimal)
 
 
 def test_cada_barra_lleva_el_titulo_y_la_persona_por_separado():

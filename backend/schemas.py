@@ -630,6 +630,7 @@ class GanttTaskOut(BaseModel):
     assigned_to: int | None = None
     assigned_name: str | None = None
     status: str = ""
+    estimated_hours: Hours = Decimal("0")
 
 
 class GanttMemberOut(BaseModel):

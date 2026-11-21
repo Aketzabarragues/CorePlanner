@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Protocol
 
 PERSONA_CLASSES = (
@@ -54,6 +55,7 @@ class TaskLike(Protocol):
     end_date: date | None
     assigned_to: int | None
     project_id: int
+    estimated_hours: Decimal
 
 
 class UserLike(Protocol):
@@ -95,6 +97,7 @@ class GanttTask:
     assigned_to: int | None = None
     assigned_name: str | None = None
     status: str = ""
+    estimated_hours: Decimal = Decimal("0")
 
     def to_dict(self) -> dict:
         return {
@@ -112,6 +115,7 @@ class GanttTask:
             "assigned_to": self.assigned_to,
             "assigned_name": self.assigned_name,
             "status": self.status,
+            "estimated_hours": self.estimated_hours,
         }
 
 
@@ -186,6 +190,7 @@ def build_gantt_feed(
                 assigned_to=task.assigned_to,
                 assigned_name=assignee,
                 status=task.status,
+                estimated_hours=task.estimated_hours,
             )
         )
 

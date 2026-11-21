@@ -143,7 +143,7 @@ const feedVisibilidad = {
   unassigned_task_ids: [13],
 }
 
-function setupFetch(respuesta = feed, festivos = []) {
+function setupFetch(respuesta = feed, festivos = [], editables = [1, 2]) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -163,6 +163,18 @@ function setupFetch(respuesta = feed, festivos = []) {
     if (url.includes('/people')) {
       return { ok: true, status: 200, json: async () => directorio }
     }
+    if (url.includes('/members')) {
+      // Antes que `/projects`: la URL de miembros va debajo del proyecto.
+      const miembros = {
+        1: [
+          { user_id: 1, name: 'Ana', email: 'ana@demo', role_id: 1, role_name: 'Ingeniera', weekly_base_hours: '40.00' },
+        ],
+        2: [
+          { user_id: 2, name: 'Jorge', email: 'jorge@demo', role_id: 2, role_name: 'Ingeniero', weekly_base_hours: '40.00' },
+        ],
+      }
+      return { ok: true, status: 200, json: async () => miembros[Number(url.split('/projects/')[1].split('/')[0])] ?? [] }
+    }
     if (url.includes('/projects')) {
       return { ok: true, status: 200, json: async () => proyectos }
     }
@@ -171,7 +183,7 @@ function setupFetch(respuesta = feed, festivos = []) {
     }
     if (url.endsWith('/me')) {
       // El gerente de demostracion escribe en los dos proyectos del feed.
-      return { ok: true, status: 200, json: async () => ({ editable_project_ids: [1, 2] }) }
+      return { ok: true, status: 200, json: async () => ({ editable_project_ids: editables }) }
     }
     return { ok: true, status: 200, json: async () => ({}) }
   })
@@ -752,5 +764,139 @@ describe('GanttView', () => {
 
     expect(Object.keys(router.currentRoute.value.query)).toEqual([])
     expect(calls.filter((c) => c.url.includes('/gantt')).length).toBe(peticiones)
+  })
+
+  it('un clic simple en la barra abre el detalle de la tarea', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const barra = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.attributes('aria-label').includes('Programacion SCADA'))
+    await barra.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="task-panel"]').exists()).toBe(true)
+  })
+
+  it('doble clic en el hueco abre el alta con el dia y la persona de la fila', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+    // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
+    // El rango del feed abre en 2026-11-02 (lunes) a 14 px/dia: x 56 es el
+    // 2026-11-06 (jueves). La fila 2 es la tarea de Ana.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="task-panel"]').exists()).toBe(false)
+    const titulo = wrapper.find('input[placeholder="Programación SCADA WinCC"]')
+    expect(titulo.exists()).toBe(true)
+    expect(titulo.element.value).toBe('')
+    expect(wrapper.find('input[type="date"]').element.value).toBe('2026-11-06')
+    // El primer select del documento es el filtro de departamento: el de la
+    // asignacion es el del formulario del dialogo.
+    const asignado = wrapper.find('form#gantt-task-form select')
+    expect(asignado.element.value).toBe('1')
+  })
+
+  it('doble clic en domingo precarga la semana laborable completa', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    // x 70 es el dia 5 del rango (2026-11-02 + 5 = 2026-11-07, domingo).
+    await svg.trigger('dblclick', { clientX: 70, clientY: 130 })
+    await flushPromises()
+
+    const fechas = wrapper.findAll('input[type="date"]')
+    expect(fechas[0].element.value).toBe('2026-11-02')
+    expect(fechas[1].element.value).toBe('2026-11-06')
+  })
+
+  it('guardar el alta manda el payload al proyecto de la fila y recarga', async () => {
+    const calls = setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+
+    await wrapper.find('input[placeholder="Programación SCADA WinCC"]').setValue('Tarea nueva')
+    // El formulario exige horas numericas: las del seed quedan en blanco.
+    await wrapper.find('input[type="number"]').setValue('8')
+    await wrapper.find('form#gantt-task-form').trigger('submit')
+    await flushPromises()
+    await flushPromises()
+
+    const crear = calls.find((c) => c.method === 'POST' && c.url === '/api/projects/1/tasks')
+    expect(crear).toBeDefined()
+    expect(JSON.parse(crear.body)).toEqual({
+      title: 'Tarea nueva',
+      assigned_to: 1,
+      start_date: '2026-11-06',
+      end_date: '2026-11-06',
+      estimated_hours: '8.00',
+    })
+    expect(wrapper.text()).toContain('Tarea creada: Tarea nueva.')
+    expect(wrapper.find('form#gantt-task-form').exists()).toBe(false)
+  })
+
+  it('sin proyecto en contexto el doble clic no abre nada y el subtitulo lo dice', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ group: 'persona' })
+
+    expect(wrapper.find('header').text()).toContain('Para crear una tarea, elige un proyecto.')
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+
+    expect(wrapper.find('form#gantt-task-form').exists()).toBe(false)
+  })
+
+  it('sin permiso de escritura el doble clic no abre nada', async () => {
+    const calls = setupFetch(feed, [], [])
+
+    const { wrapper } = await mountGantt()
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+
+    expect(wrapper.find('form#gantt-task-form').exists()).toBe(false)
+    expect(calls.some((c) => c.url.includes('/members'))).toBe(false)
+  })
+
+  it('los miembros se piden una vez por proyecto, no por cada alta', async () => {
+    const calls = setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+
+    // Dos altas en la misma fila: el proyecto es el mismo y los miembros
+    // no se vuelven a pedir.
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+    await wrapper.get('[data-testid="modal-close"]').trigger('click')
+    await flushPromises()
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+
+    const miembros = calls.filter((c) => c.url === '/api/projects/1/members')
+    expect(miembros).toHaveLength(1)
   })
 })

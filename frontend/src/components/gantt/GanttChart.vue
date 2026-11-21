@@ -2,10 +2,11 @@
 /**
  * Diagrama de Gantt: una sola pieza, con la columna de nombres aparte.
  *
- * El SVG tiene cuatro capas, en orden: rejilla, bandas, cuerpo y eje. El
- * cuerpo se traslada hacia arriba con el scroll y el eje se contratraslada,
- * para que la cabecera quede clavada arriba. La columna de nombres no hace
- * scroll propio: su pista interior lleva el mismo desplazamiento.
+ * El SVG tiene cuatro capas, en orden: rejilla, bandas, cuerpo y eje. El SVG
+ * entero es el contenido del panel con overflow: el scroll nativo sube el
+ * cuerpo y el eje se contratraslada, para que la cabecera quede clavada
+ * arriba. La columna de nombres no hace scroll propio: su pista interior
+ * lleva el mismo desplazamiento.
  *
  * El arrastre lo gestiona `useGanttDrag`: la barra emite donde se agarra y
  * el composable devuelve el fantasma y el rango previsualizado, que la vista
@@ -14,7 +15,7 @@
  */
 import { computed, ref } from 'vue'
 
-import { dayIndex, parseIsoDate } from '../../utils/ganttScale'
+import { addDays, dayIndex, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
 import { GANTT_ROW_HEIGHT } from '../../utils/ganttLayout'
 import { useGanttDrag } from '../../composables/useGanttDrag'
@@ -42,10 +43,10 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover'])
+const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear'])
 
 const panelDiagrama = ref(null)
-/** Desplazamiento vertical del diagrama: el cuerpo sube, el eje baja. */
+/** Desplazamiento vertical del diagrama: el eje lo invierte, la columna lo replica. */
 const desplazamiento = ref(0)
 
 /** Alto total del SVG: cabecera mas una fila por entrada del layout. */
@@ -56,10 +57,27 @@ const bandas = computed(() =>
   props.layout.scale.header === 'month' ? [] : props.layout.shaded,
 )
 
+/**
+ * Arrastre que acaba de confirmarse: el clic que sigue al mouseup no debe
+ * abrir el detalle (mismo criterio que el arrastre del Kanban).
+ */
+let arrastradaRecien = false
+
 const drag = useGanttDrag({
   pxPerDayDe: () => props.layout.pxPerDay,
-  alConfirmar: (preview) => emit('mover', preview),
+  alConfirmar: (preview) => {
+    arrastradaRecien = true
+    emit('mover', preview)
+  },
 })
+
+function alAbrirBarra(id) {
+  if (arrastradaRecien) {
+    arrastradaRecien = false
+    return
+  }
+  emit('abrir', id)
+}
 
 /** X de la previsualizacion, para la banda de destino. */
 const xDestino = computed(() => {
@@ -75,6 +93,29 @@ function alEmpezarArrastre({ barra, zona, event }) {
   // El panel es la caja del diagrama: si la soltura cae fuera, el composable
   // anula el gesto igual que con Escape (§8.5).
   drag.empezarArrastre({ barra, zona, event, dentro: panelDiagrama })
+}
+
+/**
+ * Doble clic en el hueco del diagrama: punto de alta de tarea.
+ *
+ * El fondo es el propio SVG y las barras se dibujan encima: el doble clic
+ * sobre una barra no crea nada, solo la barra abre el detalle (clic simple).
+ * La fecha sale de la x (indice de dia desde el inicio del rango) y la fila
+ * de la y (fila debajo de la cabecera del eje).
+ */
+function alDobleClicFondo(event) {
+  const caja = event.currentTarget.getBoundingClientRect()
+  const x = event.clientX - caja.left
+  const y = event.clientY - caja.top
+  if (x < 0 || x >= props.layout.width || y < GANTT_METRICS.headerHeight) return
+  const indiceDia = Math.floor(x / props.layout.pxPerDay)
+  const indiceFila = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
+  const fila = props.layout.rows[indiceFila]
+  if (!fila || fila.type !== 'bar') return
+  emit('crear', {
+    dateIso: toIsoDate(addDays(parseIsoDate(props.layout.start), indiceDia)),
+    fila,
+  })
 }
 </script>
 
@@ -103,6 +144,7 @@ function alEmpezarArrastre({ barra, zona, event }) {
         aria-labelledby="gantt-titulo"
         aria-describedby="gantt-descripcion gantt-instrucciones"
         data-testid="gantt-svg"
+        @dblclick="alDobleClicFondo"
       >
         <title id="gantt-titulo">Diagrama de Gantt</title>
         <desc id="gantt-descripcion">{{ descripcion }}</desc>
@@ -134,8 +176,8 @@ function alEmpezarArrastre({ barra, zona, event }) {
           />
         </g>
 
-        <!-- Cuerpo: grupos, barras y linea de hoy. Sube con el scroll. -->
-        <g class="gantt__cuerpo" :transform="`translate(0, ${-desplazamiento})`">
+        <!-- Cuerpo: grupos, barras y linea de hoy. Sube con el scroll nativo. -->
+        <g class="gantt__cuerpo">
           <template v-for="fila in layout.rows" :key="fila.rowIndex">
             <GanttGroupRow
               v-if="fila.type === 'group'"
@@ -153,7 +195,7 @@ function alEmpezarArrastre({ barra, zona, event }) {
               :previsualizada="drag.previsualizacion && drag.previsualizacion.taskId === fila.barra.taskId"
               :etiqueta-aria="etiquetaDe(fila.barra.taskId)"
               @empezar-arrastrar="alEmpezarArrastre"
-              @abrir="(id) => emit('abrir', id)"
+              @abrir="alAbrirBarra"
               @seleccionar="(id) => emit('seleccionar', id)"
               @tecla="(event, id) => emit('tecla', event, id)"
             />

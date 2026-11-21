@@ -75,7 +75,8 @@ function empezarArrastre(event) {
       },
     ]"
     @mousedown.prevent="empezarArrastre"
-    @dblclick="emit('abrir', barra.taskId)"
+    @click="emit('abrir', barra.taskId)"
+    @dblclick.stop
     @focus="emit('seleccionar', barra.taskId)"
     @keydown="emit('tecla', $event, barra.taskId)"
   >

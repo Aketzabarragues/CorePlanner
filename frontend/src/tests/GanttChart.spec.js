@@ -105,14 +105,74 @@ describe('GanttChart', () => {
     expect(wrapper.get('[data-testid="gantt-handle-end"]').exists()).toBe(true)
   })
 
-  it('un doble clic emite abrir y el foco emite seleccionar', async () => {
+  it('un clic emite abrir y el foco emite seleccionar', async () => {
     const wrapper = montar(layoutDe())
 
-    await wrapper.get('[data-testid="gantt-bar"]').trigger('dblclick')
+    await wrapper.get('[data-testid="gantt-bar"]').trigger('click')
     expect(wrapper.emitted('abrir')).toEqual([[10]])
 
     await wrapper.get('[data-testid="gantt-bar"]').trigger('focus')
     expect(wrapper.emitted('seleccionar')).toEqual([[10]])
+  })
+
+  it('un doble clic en el hueco emite crear con la fecha y la fila del punto', async () => {
+    const layout = layoutDe()
+    const wrapper = montar(layout)
+
+    // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
+    // x 30 a 14 px/dia es el dia 3 (2026-11-03); y 58, 10 px bajo la
+    // cabecera de 48, cae en la fila 0.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 58 })
+
+    const [payload] = wrapper.emitted('crear')[0]
+    expect(payload.dateIso).toBe('2026-11-03')
+    expect(payload.fila).toEqual(expect.objectContaining({ type: 'bar', rowIndex: 0 }))
+  })
+
+  it('un doble clic fuera del rango de filas no emite crear', async () => {
+    const wrapper = montar(layoutDe())
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
+    // y 40 esta dentro de la cabecera; y 1000, fuera del cuerpo.
+    await svg.trigger('dblclick', { clientX: 30, clientY: 40 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 1000 })
+
+    expect(wrapper.emitted('crear')).toBeUndefined()
+  })
+
+  it('un doble clic sobre la barra no emite crear', async () => {
+    const wrapper = montar(layoutDe())
+
+    await wrapper.get('[data-testid="gantt-bar"]').trigger('dblclick')
+
+    expect(wrapper.emitted('crear')).toBeUndefined()
+  })
+
+  it('el scroll del panel sube el contenido sin traslacion extra del cuerpo', async () => {
+    const wrapper = montar(layoutDe())
+
+    const panel = wrapper.get('[data-testid="gantt-scroll"]')
+    panel.element.scrollTop = 40
+    await panel.trigger('scroll')
+
+    // El desplazamiento propagado es 40: el eje lo invierte y queda clavado
+    // arriba.
+    const eje = wrapper.get('.gantt__eje')
+    expect(eje.attributes('transform')).toBe('translate(0, 40)')
+
+    // El cuerpo ya sube con el scroll nativo: no lleva traslacion propia, ni
+    // una negativa igual al desplazamiento, que lo subiria el doble de
+    // rapido.
+    const transformCuerpo = wrapper.get('.gantt__cuerpo').attributes('transform')
+    expect([undefined, '', 'translate(0, 0)']).toContain(transformCuerpo)
+
+    // La columna de nombres no esta dentro del panel: su pista replica el
+    // desplazamiento una sola vez.
+    const pista = wrapper.get('.gantt__nombres-pista')
+    expect(pista.attributes('style')).toContain('translateY(-40px)')
   })
 
   it('una tecla sube a la vista con el identificador de la barra', async () => {

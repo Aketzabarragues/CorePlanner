@@ -22,15 +22,17 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { calendarApi, meApi, overviewApi, peopleApi, tasksApi } from '../api/client'
+import { calendarApi, meApi, overviewApi, peopleApi, projectsApi, tasksApi } from '../api/client'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
+import TaskForm from '../components/TaskForm.vue'
+import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import GanttChart from '../components/gantt/GanttChart.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
@@ -38,7 +40,7 @@ import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 import { addDays, diffDays, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
 import { localDateKey, shortMonthName } from '../utils/month'
-import { isoWeekKey, weekDays, weekMonday } from '../utils/weeks'
+import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -56,6 +58,14 @@ const saving = ref(false)
 const escalaId = ref('Week')
 const barraEnfocada = ref(null)
 const selectedTaskId = ref(null)
+const altaAbierta = ref(false)
+const savingAlta = ref(false)
+const seedTarea = ref(null)
+const altaProyecto = ref(null)
+const altaMiembros = ref([])
+
+/** Miembros por proyecto ya pedidos: una sola peticion por proyecto. */
+const miembrosCache = new Map()
 
 const GRUPOS = [
   { id: 'proyecto', label: 'Proyecto' },
@@ -463,7 +473,19 @@ const subtitle = computed(() => {
   } else {
     texto = 'Las barras de todos los proyectos visibles, agrupadas por proyecto.'
   }
-  return avisoSoloLectura.value ? `${texto} ${avisoSoloLectura.value}` : texto
+  const avisos = [avisoSoloLectura.value, avisoAlta.value].filter(Boolean)
+  return avisos.length ? texto + ' ' + avisos.join(' ') : texto
+})
+
+/**
+ * Aviso de alta de tarea cuando no hay proyecto en contexto.
+ *
+ * Con filtro de proyecto o agrupacion por proyecto el doble clic si tiene
+ * destino: el aviso solo se gana cuando no lo tiene.
+ */
+const avisoAlta = computed(() => {
+  if (projectFilter.value || groupBy.value === 'proyecto') return ''
+  return 'Para crear una tarea, elige un proyecto.'
 })
 
 /** Tareas sin fechas: en plural correcto, con una sola no se lee "1 tareas". */
@@ -633,6 +655,90 @@ function unidadDelEje(barra) {
 function abrirDetalle(id) {
   barraEnfocada.value = id
   selectedTaskId.value = id
+}
+
+/**
+ * Alta de tarea desde un doble clic en el hueco del diagrama.
+ *
+ * El proyecto destino es el del filtro (ruta o `?project=`) y, si no hay,
+ * el del grupo de la fila cuando se agrupa por proyecto. Sin un solo
+ * proyecto en contexto no hay alta, igual que sin permiso de escritura.
+ */
+function proyectoDestinoDe(fila) {
+  const filtro = projectFilter.value
+  if (filtro) return Number(filtro)
+  if (groupBy.value !== 'proyecto') return null
+  // La fila de barra lleva la tarea: su proyecto es el del grupo de la fila,
+  // que es donde se agrupa.
+  const tarea = (feed.value?.tasks ?? []).find((item) => item.id === fila.barra?.taskId)
+  return tarea?.project_id ?? null
+}
+
+/**
+ * Doble clic en el hueco: prepara y abre el alta de tarea.
+ *
+ * Sin proyecto destino o sin permiso de escritura el gesto no hace nada. Los
+ * miembros se piden una vez por proyecto y se cachean en la vista. El seed
+ * lleva la persona de la fila (fila de persona, o la tarea de la fila) y las
+ * fechas del dia del doble clic; si cae en fin de semana, la semana
+ * laborable de esa semana ISO, para que el alta nunca falle por rango.
+ */
+async function alCrear({ dateIso, fila }) {
+  const proyecto = proyectoDestinoDe(fila)
+  if (proyecto === null) return
+  const editables = scope.value?.editable_project_ids ?? []
+  if (!editables.includes(proyecto)) return
+  if (!miembrosCache.has(proyecto)) {
+    try {
+      const token = await auth.ensureSession()
+      const miembros = await projectsApi.members(token, proyecto)
+      miembrosCache.set(proyecto, Array.isArray(miembros) ? miembros : [])
+    } catch {
+      miembrosCache.set(proyecto, [])
+    }
+  }
+  altaMiembros.value = miembrosCache.get(proyecto) ?? []
+  altaProyecto.value = proyecto
+  // La persona de la fila es la de su tarea: en el grupo "Sin asignar" es
+  // null y el formulario deja la reserva sin asignar.
+  const tarea = (feed.value?.tasks ?? []).find((item) => item.id === fila.barra?.taskId)
+  const persona = tarea?.assigned_to ?? null
+  const dia = parseIsoDate(dateIso)
+  const laborable = dia.getUTCDay() >= 1 && dia.getUTCDay() <= 5
+  const dias = laborable ? null : weekWorkdays(isoWeekKey(dia))
+  seedTarea.value = {
+    title: '',
+    assigned_to: persona,
+    start_date: laborable ? dateIso : dias[0].date,
+    end_date: laborable ? dateIso : dias[dias.length - 1].date,
+    estimated_hours: '',
+  }
+  altaAbierta.value = true
+}
+
+function cerrarAlta() {
+  altaAbierta.value = false
+}
+
+/**
+ * Guarda la tarea nueva y recarga el diagrama.
+ *
+ * El exito va al banner verde de la vista, el fallo al banner de error.
+ */
+async function guardarAlta(payload) {
+  savingAlta.value = true
+  try {
+    const token = await auth.ensureSession()
+    await tasksApi.create(token, altaProyecto.value, payload)
+    altaAbierta.value = false
+    notice.value = `Tarea creada: ${payload.title}.`
+    error.value = null
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    savingAlta.value = false
+  }
+  await load()
 }
 
 async function load() {
@@ -878,6 +984,7 @@ useTaskReload(load)
         @seleccionar="barraEnfocada = $event"
         @tecla="alPulsarTecla"
         @mover="moverTarea"
+        @crear="alCrear"
       />
     </AsyncState>
 
@@ -889,5 +996,37 @@ useTaskReload(load)
       @saved="load"
       @deleted="selectedTaskId = null; load()"
     />
+
+    <!-- Alta por doble clic en el hueco: mismo patron que el desglose de celda. -->
+    <ModalDialog
+      :open="altaAbierta"
+      title="Nueva tarea"
+      size="md"
+      @close="cerrarAlta"
+    >
+      <TaskForm
+        :task="seedTarea"
+        :members="altaMiembros"
+        form-id="gantt-task-form"
+        @save="guardarAlta"
+      />
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          @click="cerrarAlta"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="savingAlta"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {{ savingAlta ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </template>
+    </ModalDialog>
   </div>
 </template>

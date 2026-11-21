@@ -67,6 +67,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: dependencias entre tareas. La tabla `task_dependencies` une una tarea
+  dependiente con su requisito (`precedes`, que restringe, o `relates`, que no).
+  Un modulo puro resuelve el ciclo, las violaciones de orden, el orden topologico
+  (`graphlib` de la stdlib), la cascada PROPUESTA y la ruta critica. La API
+  permite anadir y quitar vinculos, consultar los de una tarea y pedir la
+  propuesta de cascada sin modificar nada.
 - **backend**: servidor MCP. `backend/mcp_server/` expone la API a un agente por
   stdio con ocho tools de solo lectura: quien es el token, los proyectos
   visibles, la matriz de capacidad, quien esta sobrecargado, la capacidad de un

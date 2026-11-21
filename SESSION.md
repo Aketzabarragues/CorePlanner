@@ -117,6 +117,14 @@ hacer. G1, G2, G3 y G5 quedan cerradas en codigo.
   - El paquete se llama `mcp_server` y no `mcp`: con `backend/` en el
     `sys.path` (pytest desde `backend/`), un paquete `mcp` ensombrece el SDK.
   - El catalogo es un contrato: un test fija la lista exacta de tools.
+- G4 (dependencias entre tareas), backend:
+  - `task_dependencies` (dependiente, requisito, tipo) con `ON DELETE` explicito
+    y sin vinculos duplicados; las dependencias son del mismo proyecto.
+  - `backend/services/task_dependencies.py`: deteccion de ciclos, violaciones,
+    orden topologico, cascada propuesta y ruta critica. Puro, sin base de datos.
+  - API: alta y borrado de vinculos, los de una tarea y la propuesta de cascada
+    (`GET /api/tasks/{id}/cascade?delta_days=N`), que no modifica nada.
+  - El feed del diagrama lleva los vinculos y las violaciones por tarea.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

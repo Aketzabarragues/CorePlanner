@@ -2451,3 +2451,33 @@ Un agente puede consultar la capacidad del equipo sin saber nada del dominio. El
 - **Enviar notificaciones o push**: el protocolo no lo pide y la aplicacion no tiene avisos.
 - **Estado entre llamadas**: cada tool es una consulta independiente; no hay sesion ni memoria.
 - **Servir el MCP por HTTP**: el transporte es stdio, que es lo que usan los clientes de escritorio.
+
+## 59. Dependencias entre tareas
+
+Hoy las tareas no saben nada unas de otras: el diagrama es una vista de barras y el plan se puede contradecir sin que nadie lo note. Con las dependencias, el diagrama dice que una tarea espera a otra, y la aplicacion avisa cuando el plan no lo respeta.
+
+### Que entra
+
+- `task_dependencies`: la tarea **dependiente**, la tarea **requisito** y el tipo del vinculo.
+- **Dos tipos**: `precedes` (el requisito tiene que terminar antes de que empiece la dependiente; es la unica que afecta a la planificacion) y `relates` (vinculo sin efecto de orden, para dibujar una linea discontinua).
+- Las dependencias son **dentro del mismo proyecto**: al crear un vinculo, las dos tareas tienen que ser del mismo.
+- Un modulo puro, `backend/services/task_dependencies.py`, con cinco operaciones: la deteccion de ciclos, las violaciones de orden, el orden topologico (con `graphlib.TopologicalSorter` de la biblioteca estandar), la **cascada propuesta** y la **ruta critica**.
+- La API: alta y borrado de vinculos, los requisitos y las dependientes de una tarea, y la consulta de la cascada propuesta.
+- El feed del diagrama lleva los vinculos y, por tarea, si viola alguna dependencia: el Gantt los necesita para dibujar las flechas y marcar los choques.
+
+### Decisiones tomadas
+
+1. **Dos tipos, no seis**: los inversos de OpenProject (`follows`, `blocked`) son la misma arista vista del otro lado, y guardarlos duplica la informacion. Se guarda la arista en un sentido y la interfaz ofrece el otro.
+2. **El ciclo se rechaza al crear el vinculo** (422), no se detecta despues: un grafo con ciclos no tiene orden topologico, y dejar que se formara dejaria el diagrama en un estado que nadie puede explicar.
+3. **La violation**: la dependiente empieza antes de que el requisito termine. **El mismo dia no es violacion**: las fechas son inclusivas, asi que una tarea puede empezar el dia que termina la anterior.
+4. **La cascada es una propuesta, nunca se aplica sola**: mover el Gantt de alguien sin avisar es la forma mas rapida de perder su confianza. La aplicacion propone y la persona acepta.
+5. **La ruta critica es la cadena mas larga medida en dias de calendario**, con un desempate determinista. Es la lectura util de un grafo de dependencias; no un reloj de horas, porque aqui no hay horas por dia.
+6. **Solo `precedes` cierra ciclos**: un vinculo `relates` no restringe nada, asi que no puede crear un ciclo.
+
+### Que no entra
+
+- **Dependencias entre proyectos**: el diagrama es por proyecto y la planificacion se decide dentro de el.
+- **El reloj**: la duracion de una tarea son sus dias de calendario, no sus horas.
+- **La reprogramacion automatica**: la cascada se propone.
+- **Dependencias blandas** ("si puedes", "dependencia fuerte"): el tipo ya dice si el vinculo manda o no.
+- **El camino critico dibujado**: la ruta critica es un dato que se consulta; el diagrama dibuja las flechas, no una linea de camino.

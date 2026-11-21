@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    # Limite de intentos fallidos de login por correo dentro de la ventana.
+    login_max_attempts: int = 5
+    login_attempt_window_minutes: int = 15
+
 
 @lru_cache
 def get_settings() -> Settings:

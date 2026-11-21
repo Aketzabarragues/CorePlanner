@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -16,8 +17,21 @@ from backend.auth import (
     hash_password,
     verify_password,
 )
-from backend.database import create_engine
-from backend.models import Base, Project, ProjectMember, Role, Task, TaskStatus, User
+from backend.config import get_settings
+from backend.database import create_engine, get_db
+from backend.main import app
+from backend.models import (
+    Base,
+    CompanyRole,
+    LoginAttempt,
+    Project,
+    ProjectMember,
+    Role,
+    Task,
+    TaskStatus,
+    User,
+)
+from backend.services import login_attempts
 
 
 @pytest.fixture
@@ -162,3 +176,145 @@ def test_access_token_rejects_expired():
     token = create_access_token(user, expires_delta=timedelta(seconds=-10))
     with pytest.raises(TokenError):
         decode_access_token(token)
+
+
+EMAIL = "ana@example.com"
+PASSWORD = "clave-de-prueba"
+
+
+async def _intentos(session, cantidad: int, hace: timedelta, email: str = EMAIL) -> None:
+    """Intentos fallidos con la marca de tiempo indicada, hacia atras desde ahora."""
+    ahora = datetime.now(UTC)
+    session.add_all(
+        LoginAttempt(email=email, created_at=ahora - hace - timedelta(seconds=i))
+        for i in range(cantidad)
+    )
+    await session.commit()
+
+
+async def test_purga_quita_solo_lo_que_sale_de_la_ventana(session):
+    ventana = get_settings().login_attempt_window_minutes
+    await _intentos(session, 2, timedelta(minutes=ventana + 10))
+    await _intentos(session, 1, timedelta(minutes=1))
+    await login_attempts.purgar_intentos_viejos(session)
+    rows = (await session.execute(select(LoginAttempt))).scalars().all()
+    assert len(rows) == 1
+
+
+async def test_segundos_bloqueo_con_el_limite_de_intentos(session):
+    ahora = datetime.now(UTC)
+    settings = get_settings()
+    await _intentos(session, settings.login_max_attempts - 1, timedelta(minutes=1))
+    assert await login_attempts.segundos_bloqueo(session, EMAIL, ahora=ahora) == 0
+
+    await login_attempts.registrar_intento_fallido(session, EMAIL)
+    espera = await login_attempts.segundos_bloqueo(session, EMAIL, ahora=ahora)
+    assert espera > 0
+    # El bloqueo dura hasta que el intento mas antiguo salga de la ventana.
+    assert espera <= settings.login_attempt_window_minutes * 60
+
+    # Con el tiempo, el intento mas antiguo expira y el bloqueo se acaba.
+    mas_late = ahora + timedelta(
+        minutes=settings.login_attempt_window_minutes + 5
+    )
+    assert (
+        await login_attempts.segundos_bloqueo(session, EMAIL, ahora=mas_late) == 0
+    )
+
+
+async def test_login_correcto_borra_los_intentos(session):
+    await _intentos(session, 3, timedelta(minutes=1))
+    await login_attempts.limpiar_intentos(session, EMAIL)
+    assert (
+        await login_attempts.intentos_recientes(session, EMAIL)
+    ) == 0
+
+
+@pytest.fixture
+async def client():
+    engine = create_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def override_get_db():
+        async with factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with factory() as session:
+            session.add(
+                User(
+                    name="Ana",
+                    email=EMAIL,
+                    hashed_password=hash_password(PASSWORD),
+                    company_role=CompanyRole.GERENTE.value,
+                )
+            )
+            await session.commit()
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+            yield http
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        await engine.dispose()
+
+
+async def test_login_bloquea_tras_el_limite_de_intentos(client):
+    settings = get_settings()
+    for _ in range(settings.login_max_attempts):
+        response = await client.post(
+            "/api/auth/login", json={"email": EMAIL, "password": "mala"}
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Credenciales inválidas"
+
+    response = await client.post(
+        "/api/auth/login", json={"email": EMAIL, "password": "mala"}
+    )
+    assert response.status_code == 429
+    assert response.json()["detail"] == (
+        "Demasiados intentos de acceso. Intentalo de nuevo en unos minutos."
+    )
+    assert int(response.headers["Retry-After"]) > 0
+
+    # Bloqueado: ni siquiera con la contrasena correcta.
+    response = await client.post(
+        "/api/auth/login", json={"email": EMAIL, "password": PASSWORD}
+    )
+    assert response.status_code == 429
+
+    # Un correo sin intentos no se ve afectado.
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": "nadie@example.com", "password": "mala"},
+    )
+    assert response.status_code == 401
+
+
+async def test_login_correcto_desbloquea_tras_el_limite(client):
+    settings = get_settings()
+    for _ in range(settings.login_max_attempts - 1):
+        response = await client.post(
+            "/api/auth/login", json={"email": EMAIL, "password": "mala"}
+        )
+        assert response.status_code == 401
+
+    # Falta uno para el bloqueo: el login correcto borra los intentos.
+    response = await client.post(
+        "/api/auth/login", json={"email": EMAIL, "password": PASSWORD}
+    )
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+    # Se pueden volver a fallar todos los intentos sin bloqueo previo.
+    for _ in range(settings.login_max_attempts):
+        response = await client.post(
+            "/api/auth/login", json={"email": EMAIL, "password": "mala"}
+        )
+        assert response.status_code == 401
+    response = await client.post(
+        "/api/auth/login", json={"email": EMAIL, "password": "mala"}
+    )
+    assert response.status_code == 429

@@ -612,3 +612,20 @@ class ActivityLog(Base):
 
     actor: Mapped[User] = relationship()
     project: Mapped[Project] = relationship()
+
+
+class LoginAttempt(Base):
+    """Intento de login fallido, por correo.
+
+    Solo se anaden filas: cada intento fallido se registra con su marca de
+    tiempo y deja de contar cuando sale de la ventana. Un login correcto
+    borra los intentos del correo.
+    """
+
+    __tablename__ = "login_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

@@ -13,25 +13,47 @@ from ..auth import (
 from ..models import User
 from ..schemas import LoginRequest, TokenOut, UserOut
 from ..security import SessionDep
+from ..services.login_attempts import (
+    limpiar_intentos,
+    purgar_intentos_viejos,
+    registrar_intento_fallido,
+    segundos_bloqueo,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenOut)
 async def login(payload: LoginRequest, session: SessionDep) -> TokenOut:
-    """Comprueba las credenciales y devuelve un token de acceso."""
-    result = await session.execute(
-        select(User).where(User.email == payload.email.lower())
-    )
+    """Comprueba las credenciales y devuelve un token de acceso.
+
+    Con el correo bloqueado por intentos fallidos, no se toca la contrasena:
+    el 429 sale antes de comprobar credenciales y con Retry-After, para que
+    el cliente espere en vez de reintentar a tope.
+    """
+    email = payload.email.lower()
+    await purgar_intentos_viejos(session)
+    espera = await segundos_bloqueo(session, email)
+    if espera > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos de acceso. Intentalo de nuevo en unos minutos.",
+            headers={"Retry-After": str(espera)},
+        )
+
+    result = await session.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if user is None or not verify_password(payload.password, user.hashed_password):
+        # El correo y la contrasena fallan igual: no se revela que correos existen.
+        await registrar_intento_fallido(session, email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales inválidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    await limpiar_intentos(session, email)
     projects = await load_user_projects(session, user.id)
     token = create_access_token(user, projects=projects)
     return TokenOut(access_token=token, user=UserOut.model_validate(user))

@@ -22,10 +22,11 @@
  * Al pulsar una tarea se abre su detalle en el mismo panel que usa el Tablero.
  * Quien no puede escribir en ese proyecto lo ve en solo lectura.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { calendarApi, meApi, overviewApi, peopleApi } from '../api/client'
+import { calendarApi, meApi, overviewApi, peopleApi, tasksApi } from '../api/client'
+import { useArrastre } from '../composables/useArrastre'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
@@ -36,9 +37,13 @@ import WeekLanes from '../components/common/WeekLanes.vue'
 import DayDetail from '../components/DayDetail.vue'
 import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import ModalDialog from '../components/ModalDialog.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
+import TaskForm from '../components/TaskForm.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { dateChangePayload, diffDays } from '../utils/ganttScale'
+import { moveRange } from '../utils/ganttLayout'
 import {
   currentMonthKey,
   localDateKey,
@@ -53,6 +58,7 @@ import {
   currentWeekKey,
   isoWeekKey,
   shiftWeek,
+  weekDays,
   weekRangeLabel,
   weekWorkdays,
 } from '../utils/weeks'
@@ -77,6 +83,11 @@ const loading = ref(true)
 const scope = ref(null)
 /** Tarea abierta en el panel de detalle. */
 const selectedTaskId = ref(null)
+/** Proyecto abierto en el alta del dia, con la fecha del dia. */
+const altaDelDia = ref(null)
+const saving = ref(false)
+/** Aviso que no tapa el calendario: un rechazo del servidor al guardar. */
+const aviso = ref(null)
 
 const query = computed(() => route.query ?? {})
 
@@ -115,12 +126,18 @@ const departmentFilter = computed({
   set: (value) => updateQuery({ department: value }),
 })
 
-/** Lo que se lee encima del calendario: con filtro, solo sale ese proyecto. */
-const subtitle = computed(() =>
-  projectFilter.value
-    ? 'Las tareas del proyecto que filtra, día a día.'
-    : 'Las tareas de los proyectos visibles, día a día.',
-)
+/**
+ * Lo que se lee encima del calendario.
+ *
+ * El alta de tarea de un dia necesita un proyecto fijo: la ruta o el filtro
+ * de la URL. Sin el, el detalle de dia no crea nada y lo dice aqui.
+ */
+const subtitle = computed(() => {
+  if (!projectFilter.value) {
+    return 'Las tareas de los proyectos visibles, día a día. Sin proyecto en contexto no se pueden crear tareas en el día.'
+  }
+  return 'Las tareas del proyecto que filtra, día a día.'
+})
 
 /** Clase de cada pestana del conmutador de vista. */
 const monthTabClass = computed(() =>
@@ -234,6 +251,116 @@ const canEditSelected = computed(() => {
   return editable.includes(Number(selectedTask.value.project_id))
 })
 
+/** Proyectos en los que quien entra puede escribir, para las barras y el alto. */
+const editableProjects = computed(() => scope.value?.editable_project_ids ?? [])
+
+/**
+ * Si quien entra puede escribir en el proyecto del dia.
+ *
+ * Es el mismo criterio que las barras: el proyecto del filtro entre los
+ * editables. Sin proyecto en contexto no se crea tarea en parte ninguna y
+ * sin permiso no hay edicion inline: la vista de dia se ve en solo lectura.
+ */
+const dayCanEdit = computed(() => {
+  const editable = scope.value?.editable_project_ids
+  if (!editable || !projectFilter.value) return false
+  return editable.includes(Number(projectFilter.value))
+})
+
+/**
+ * Arrastrar una barra a otro dia: la tarea se mueve a ese dia conservando su
+ * duracion, y se guarda con el mismo PATCH que el Gantt al mover una barra.
+ *
+ * La soltura se resuelve contra la tabla en pantalla: con `table-fixed` las
+ * siete columnas de dia tienen el mismo ancho, de modo que el dia destino es
+ * el que cae bajo el puntero, medido desde el borde de la columna de nombres.
+ * La semana destino la da la altura del puntero: cada semana del mes es un
+ * <tbody> con su `data-semana`, y en la vista semanal el unico <tbody> es la
+ * semana de la vista.
+ */
+function diaBajoPuntero(x, y) {
+  const tabla = document.querySelector(
+    '[data-testid="calendar-month-table"], [data-testid="week-grid"] table',
+  )
+  if (!tabla) return null
+  const caja = tabla.getBoundingClientRect()
+  if (x < caja.left || x > caja.right || y < caja.top || y > caja.bottom) return null
+  const nombre = tabla.querySelector('th')
+  const anchoNombre = nombre ? nombre.getBoundingClientRect().right - caja.left : 0
+  const anchoDia = (caja.right - caja.left - anchoNombre) / 7
+  const columnas = Math.min(6, Math.max(0, Math.floor((x - caja.left - anchoNombre) / anchoDia)))
+  // La semana es la del <tbody> que contiene la altura del puntero: la fila de
+  // cabecera de dias pertenece a su <tbody>, asi que soltar sobre ella cae en
+  // esa semana.
+  const cuerpos = [...tabla.querySelectorAll('tbody')]
+  const cuerpo = cuerpos.find((tbody) => {
+    const recta = tbody.getBoundingClientRect()
+    return y >= recta.top && y <= recta.bottom
+  })
+  if (!cuerpo) return null
+  return { columnas, semana: Number(cuerpo.dataset.semana) }
+}
+
+/** Fecha concreta al que cae el puntero: el dia sobre la semana soltada. */
+function diaDestino(pendiente, event) {
+  const destino = diaBajoPuntero(event.clientX, event.clientY)
+  if (!destino) return null
+  const semana =
+    view.value === 'week'
+      ? weekDays(week.value)
+      : semanasDelMes.value[destino.semana] ?? null
+  if (!semana) return null
+  return semana[destino.columnas]?.date ?? null
+}
+
+/** Dia de la semana en pantalla que queda bajo el puntero, para sombrearlo. */
+const hoverDay = ref(null)
+
+function fantasmaDe(pendiente, event) {
+  return { x: event.clientX, y: event.clientY, tarea: pendiente.datos.tarea }
+}
+
+function alMover(pendiente, event) {
+  hoverDay.value = diaDestino(pendiente, event)
+}
+
+/**
+ * Soltar la barra: la tarea pasa a los nuevos dias y se guarda con el mismo
+ * PATCH que el Gantt al mover una barra. Si el puntero no cae sobre una
+ * columna de dia, `dentroDe` deja que el esqueleto tumbe el gesto.
+ */
+async function alSoltar(pendiente, event) {
+  hoverDay.value = null
+  const destino = diaDestino(pendiente, event)
+  const tarea = pendiente.datos.tarea
+  if (!destino || destino === tarea.start) return
+  const nuevo = moveRange(tarea.start, tarea.end, diffDays(tarea.start, destino))
+  try {
+    await tasksApi.update(auth.token, tarea.id, dateChangePayload(nuevo.start, nuevo.end))
+  } catch (err) {
+    aviso.value = `No se ha podido mover la tarea: ${err.message}`
+  }
+  await load()
+}
+
+function alAnular() {
+  hoverDay.value = null
+}
+
+const drag = useArrastre({
+  fantasmaDe,
+  alMover,
+  alConfirmar: alSoltar,
+  dentroDe: (pendiente, event) => diaBajoPuntero(event.clientX, event.clientY) !== null,
+  alAnular,
+})
+const fantasma = drag.fantasma
+
+/** Agarrar una barra: el destino de la soltura lo resuelve la vista. */
+function onBarDragStart({ tarea, event }) {
+  drag.empezarArrastre({ contexto: { tarea }, event })
+}
+
 /**
  * Semanas del mes, con sus siete dias.
  *
@@ -266,6 +393,9 @@ async function load() {
     // Los proyectos y los departamentos de los filtros son opcionales: si no
     // se pueden leer, el calendario sigue en pie.
     await store.ensureProjects(token).catch(() => [])
+    // Los miembros del proyecto filtran el desplegable del responsable del
+    // detalle de dia y el alta: sin proyecto no hay que pedirlos.
+    if (projectFilter.value) await store.ensureMembers(token, projectFilter.value).catch(() => [])
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -316,9 +446,64 @@ function openDay(date) {
   view.value = 'day'
 }
 
-/** Abre el detalle de una tarea. */
+/**
+ * Abre el detalle de una tarea.
+ *
+ * El clic que sigue a un arrastre no abre nada: la barra ya se movio.
+ */
 function openTask(taskId) {
+  if (drag.movido()) return
   selectedTaskId.value = taskId
+}
+
+/**
+ * Abre el alta de tarea del dia con la lista de miembros del proyecto.
+ *
+ * El proyecto es el que fija la vista: la ruta o el filtro de la URL. Sin el
+ * no se abre, y sin permiso de escritura tampoco.
+ */
+async function openCreacion(date) {
+  if (!dayCanEdit.value) return
+  error.value = null
+  const token = await auth.ensureSession()
+  await store.ensureMembers(token, projectFilter.value)
+  altaDelDia.value = { proyecto: projectFilter.value, fecha: date }
+}
+
+/** Guarda la tarea del alta del dia y recarga el calendario. */
+async function guardarAlta(payload) {
+  saving.value = true
+  error.value = null
+  try {
+    await tasksApi.create(auth.token, altaDelDia.value.proyecto, payload)
+    altaDelDia.value = null
+    store.notifyTasksChanged()
+    await load()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/**
+ * Guarda un cambio inline del dia: horas, responsable o estado.
+ *
+ * El PATCH es parcial: solo viajan los campos que cambian, y el `null`
+ * explicito de `assigned_to` es la desasignacion, no la ausencia del campo.
+ */
+async function cambiarTarea({ tarea, cambios }) {
+  aviso.value = null
+  saving.value = true
+  try {
+    await tasksApi.update(auth.token, tarea.id, cambios)
+    store.notifyTasksChanged()
+    await load()
+  } catch (err) {
+    aviso.value = `No se ha podido guardar la tarea: ${err.message}`
+  } finally {
+    saving.value = false
+  }
 }
 
 /** Cierra el panel de detalle y vuelve a pintar el calendario. */
@@ -341,6 +526,7 @@ async function reintentar() {
 
 onMounted(load)
 useTaskReload(load)
+onBeforeUnmount(() => drag.anular())
 
 // El proyecto cambia con la ruta del proyecto o con el filtro de la URL.
 watch(
@@ -437,6 +623,17 @@ watch(
       </template>
     </PageHeader>
 
+    <AlertBanner
+      v-if="aviso"
+      variant="warning"
+      class="mb-2"
+      data-testid="calendar-warning"
+      dismissible
+      @dismiss="aviso = null"
+    >
+      {{ aviso }}
+    </AlertBanner>
+
     <AsyncState
       :loading="loading"
       :error="error"
@@ -517,8 +714,12 @@ watch(
               :people="personasVisibles"
               :tasks="visibleTasks"
               :non-working-days="nonWorkingDays"
+              :editable-project-ids="editableProjects"
+              :hover-day="hoverDay"
+              :semana-indice="indice"
               @open-day="openDay"
               @open-task="openTask"
+              @drag-start="onBarDragStart"
             />
           </template>
         </table>
@@ -530,8 +731,11 @@ watch(
         :people="personasVisibles"
         :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
+        :editable-project-ids="editableProjects"
+        :hover-day="hoverDay"
         @open-day="openDay"
         @open-task="openTask"
+        @drag-start="onBarDragStart"
       />
 
       <DayDetail
@@ -540,7 +744,11 @@ watch(
         :people="personasVisibles"
         :tasks="visibleTasks"
         :non-working-days="nonWorkingDays"
+        :members="store.members"
+        :can-edit="dayCanEdit"
         @open-task="openTask"
+        @cambiar="cambiarTarea"
+        @crear="openCreacion"
       />
 
       <p class="mt-3 text-xs text-slate-500">
@@ -561,5 +769,61 @@ watch(
       @saved="load"
       @deleted="onTaskDeleted"
     />
+
+    <!--
+      Alta de tarea del dia: abre desde el detalle de dia con las fechas del
+      dia precargadas. El proyecto es el que fija la vista, no se elige aqui.
+    -->
+    <ModalDialog
+      :open="altaDelDia !== null"
+      title="Nueva tarea"
+      size="md"
+      @close="altaDelDia = null"
+    >
+      <TaskForm
+        v-if="altaDelDia"
+        :task="{ start_date: altaDelDia.fecha, end_date: altaDelDia.fecha }"
+        :members="store.members"
+        form-id="calendar-new-task"
+        @save="guardarAlta"
+      />
+      <template #footer="{ submit }">
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          @click="altaDelDia = null"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="submit"
+          :disabled="saving"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        >
+          {{ saving ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </template>
+    </ModalDialog>
+
+    <!--
+      Copia de la barra que se arrastra: sigue al cursor mientras dura el
+      gesto y deja ver a que dia va a caer. No intercepta el raton, para que
+      la columna de destino se siga calculando por debajo.
+    -->
+    <div
+      v-if="fantasma"
+      data-testid="calendar-drag-ghost"
+      class="pointer-events-none fixed z-50 max-w-64 select-none rounded border border-siemens-500 bg-white p-2 shadow-lg"
+      :style="{
+        left: `${fantasma.x}px`,
+        top: `${fantasma.y}px`,
+      }"
+    >
+      <p class="truncate text-sm font-medium text-slate-900">{{ fantasma.tarea.title }}</p>
+      <p class="mt-1 text-xs text-slate-500">
+        {{ fantasma.tarea.start }} → {{ fantasma.tarea.end }}
+      </p>
+    </div>
   </div>
 </template>

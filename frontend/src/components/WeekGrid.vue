@@ -20,9 +20,13 @@ const props = defineProps({
   tasks: { type: Array, default: () => [] },
   /** Dias no laborables. */
   nonWorkingDays: { type: Array, default: () => [] },
+  /** Proyectos en los que quien entra puede escribir: con esa barra, arrastre. */
+  editableProjectIds: { type: Array, default: () => [] },
+  /** Dia bajo el puntero mientras dura el arrastre, para sombrearlo. */
+  hoverDay: { type: String, default: null },
 })
 
-const emit = defineEmits(['open-day', 'open-task'])
+const emit = defineEmits(['open-day', 'open-task', 'drag-start'])
 
 /** Los siete dias de la semana, de lunes a domingo. */
 const days = computed(() => weekDays(props.weekKey))
@@ -36,8 +40,11 @@ const days = computed(() => weekDays(props.weekKey))
         :people="people"
         :tasks="tasks"
         :non-working-days="nonWorkingDays"
+        :editable-project-ids="editableProjectIds"
+        :hover-day="hoverDay"
         @open-day="emit('open-day', $event)"
         @open-task="emit('open-task', $event)"
+        @drag-start="emit('drag-start', $event)"
       />
     </table>
   </div>

@@ -22,6 +22,12 @@
  *
  * Al pulsar una barra se emite su identificador con `open-task`. Al pulsar un
  * dia de la cabecera, `open-day`.
+ *
+ * La barra se agarra con `mousedown` y el arrastre lo resuelve quien lo usa:
+ * si el proyecto de la tarea esta entre los editables, la barra se puede
+ * arrastrar y emite `drag-start` con la tarea y el evento; si no, solo se
+ * puede pulsar. Cada celda de dia lleva su `data-day` con el primer dia que
+ * cubre, para que la soltura se resuelva contra el cuerpo de la tabla.
  */
 import { computed } from 'vue'
 
@@ -38,9 +44,18 @@ const props = defineProps({
   tasks: { type: Array, default: () => [] },
   /** Dias no laborables. */
   nonWorkingDays: { type: Array, default: () => [] },
+  /** Proyectos en los que quien entra puede escribir: con esa barra, arrastre. */
+  editableProjectIds: { type: Array, default: () => [] },
+  /**
+   * Semana que ocupa esta rejilla dentro del mes. Marca el <tbody> con
+   * `data-semana`, de modo que la soltura del arrastre sepa en que semana cae.
+   */
+  semanaIndice: { type: Number, default: 0 },
+  /** Dia bajo el puntero mientras dura el arrastre, para sombrearlo. */
+  hoverDay: { type: String, default: null },
 })
 
-const emit = defineEmits(['open-day', 'open-task'])
+const emit = defineEmits(['open-day', 'open-task', 'drag-start'])
 
 const NOMBRES_DIA = weekdayNames()
 
@@ -216,10 +231,31 @@ function tituloTarea(tarea) {
   const estado = tarea.status ? ` · ${columnLabel(tarea.status)}` : ''
   return `${tarea.title}${estado} · ${tarea.project_name} · ${tarea.start} - ${tarea.end}`
 }
+
+/**
+ * Si la barra se puede arrastrar: el proyecto de la tarea esta entre los
+ * editables de quien entra, el mismo criterio que el Gantt por barra. Sin
+ * permiso no hay arrastre, pero el clic sigue abriendo la tarea.
+ */
+function esEditable(tarea) {
+  return props.editableProjectIds.includes(Number(tarea.project_id))
+}
+
+/** Agarrar una barra: el destino de la soltura lo resuelve quien usa los carriles. */
+function onBarMousedown(celda, event) {
+  if (event.button !== 0) return
+  if (event.target.closest('select, button, input, a')) return
+  const tarea = celda.barra.tarea
+  if (!esEditable(tarea)) return
+  // Sin esto el navegador sigue con su seleccion de texto mientras se arrastra
+  // y el resaltado azul compite con el gesto.
+  event.preventDefault()
+  emit('drag-start', { tarea, event })
+}
 </script>
 
 <template>
-  <tbody data-testid="week-lanes">
+  <tbody data-testid="week-lanes" :data-semana="semanaIndice">
     <tr class="bg-slate-100" data-testid="week-lane-header">
       <th
         class="w-40 border-b border-slate-200 px-2 py-1.5 text-left align-top"
@@ -234,7 +270,13 @@ function tituloTarea(tarea) {
         v-for="dia in days"
         :key="dia.date"
         class="border-b border-l border-slate-200 px-2 py-1.5 text-left align-top"
-        :class="esFinDeSemana(dia.weekday) ? 'bg-slate-50' : ''"
+        :class="
+          esFinDeSemana(dia.weekday)
+            ? 'bg-slate-50'
+            : hoverDay === dia.date
+              ? 'bg-amber-50'
+              : ''
+        "
         scope="col"
         :data-testid="`week-lane-head-${dia.date}`"
       >
@@ -309,12 +351,20 @@ function tituloTarea(tarea) {
           v-for="celda in celdasDe(carril)"
           :key="`${celda.tipo}-${celda.inicio}`"
           class="border-l border-slate-100 p-0.5 align-middle"
-          :class="esFinDeSemana(celda.inicio) ? 'bg-slate-50' : ''"
+          :class="
+            esFinDeSemana(celda.inicio)
+              ? 'bg-slate-50'
+              : hoverDay === days[celda.inicio]?.date
+                ? 'bg-amber-50'
+                : ''
+          "
           :colspan="celda.span"
+          :data-day="days[celda.inicio]?.date"
         >
           <div
             v-if="celda.tipo === 'barra'"
-            class="flex min-w-0 cursor-pointer flex-col justify-center overflow-hidden rounded px-1.5 py-0.5 text-white"
+            class="flex min-w-0 flex-col justify-center overflow-hidden rounded px-1.5 py-0.5 text-white"
+            :class="esEditable(celda.barra.tarea) ? 'cursor-grab' : 'cursor-pointer'"
             :style="{ backgroundColor: celda.barra.tarea.project_color }"
             :title="tituloTarea(celda.barra.tarea)"
             :data-task-id="celda.barra.tarea.id"
@@ -322,6 +372,7 @@ function tituloTarea(tarea) {
             :data-inicio="celda.inicio"
             :data-columnas="celda.span"
             data-testid="week-task"
+            @mousedown="onBarMousedown(celda, $event)"
             @click="emit('open-task', celda.barra.tarea.id)"
           >
             <span class="truncate text-[11px] font-medium leading-tight">

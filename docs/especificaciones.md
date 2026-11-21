@@ -2185,6 +2185,7 @@ Hoy `KanbanView.vue` (353 lineas) tiene columnas por estado, arrastre propio (ev
 
 - **Alta inline**: un campo de nueva tarea al pie de cada columna, con el minimo (titulo, horas, responsable) y creacion al confirmar; el dialogo completo sigue disponible para el resto de campos.
 - **Edicion inline**: editar titulo, horas y responsable desde la tarjeta sin abrir el dialogo; el dialogo es para descripcion, checklist, comentarios y actividad.
+- **El alta inline precarga las fechas de hoy**: el backend exige `start_date` y `end_date`, asi que la tarea nace con las de hoy y el usuario las cambia despues en el dialogo.
 - **Arrastre**: el actual se conserva y se completa: indicador de posicion al soltar, animacion del ghost, y la tarea cae donde se suelta, no en el principio de la columna.
 - **Contadores por columna** (tareas y horas), coherentes con la escala de carga de la app. **Los totales los calcula el backend** con `Decimal` y llegan en el feed del tablero: el frontend no suma horas.
 - **El orden se guarda**: `tasks.position` es la posicion dentro de la columna (proyecto + estado). Sin ella, una tarjeta no puede caer donde se suelta, porque el tablero se ordenaba por `(start_date, id)`.
@@ -2242,6 +2243,7 @@ Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tabl
 ### El contrato comun
 
 - **Toda interaccion es la operacion que ya existe**: soltar una tarjeta es cambiar el estado; mover una barra o redimensionar un borde es cambiar las fechas; arrastrar una tarea a un dia del calendario es cambiar sus fechas. Mismo endpoint, mismos permisos, misma bitacora. Ninguna vista inventa una operacion propia.
+- **El gesto de arrastre se construye una vez**: `frontend/src/composables/useArrastre.js` tiene el esqueleto (umbral de 5 px, fantasma, `Escape`, el clic que sigue a un arrastre no cuenta) y el destino lo resuelve quien lo invoca: una columna en el Kanban, un desplazamiento en dias en el Gantt.
 - **El arrastre se parece en las tres**: el mismo umbral de 5 px para distinguir pulsar de arrastrar (que el Kanban ya usa), el mismo ghost con previsualizacion de donde cae, el mismo anular con `Escape` o soltar fuera de objetivo, y la misma recarga de la vista al soltar: los datos los recalcula el backend, el cliente no calcula.
 - **Crear y editar son los mismos en las tres**: doble clic (o el control de alta de la vista) crea con el minimo; clic en la tarea abre el `TaskDetailDialog` que ya existe. La edicion inline de una vista solo toca los campos que esa vista muestra (titulo, horas, responsable, fechas, estado), y el resto sigue en el dialogo.
 - **El acabado premium es coherencia**: el color de la persona o del proyecto es el dato guardado (la paleta de §50), la escala de carga es la de la app, el dialogo es el `ModalDialog` unico. No entra ningun nuevo sistema de diseno ni ningun color nuevo.

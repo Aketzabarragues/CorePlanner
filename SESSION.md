@@ -2,12 +2,13 @@
 
 ## Objetivo actual
 
-Motor de Gantt propio (bloque B de `docs/especificaciones.md` §51), sobre el
-contrato comun de interaccion de la §52 y el contrato del motor de la §53.
-Fases 0 a 4 hechas y auditadas (nucleo puro, render, arrastre, alta y
-edicion); `frappe-gantt` fuera del `package.json`. El bloque B queda cerrado
-en codigo: solo falta la revision visual en navegador, que esta sesion no
-puede hacer.
+Bloques B (Gantt) y A (Kanban) del §51, sobre el contrato comun de
+interaccion de la §52. Los dos quedan cerrados en codigo: motor de Gantt
+propio (fases 0 a 4) y Kanban con orden persistido, contadores, alta y
+edicion inline, y el gesto de arrastre compartido. Sigue el bloque C
+(Calendario) y despues las funcionalidades post-v1 (G2, G1, G3, G5, G4).
+Pendiente en todas partes: la revision visual en navegador, que esta sesion
+no puede hacer.
 
 ## Cambios realizados
 
@@ -54,6 +55,21 @@ puede hacer.
   - `frontend/package.json`: fuera `frappe-gantt`.
   - Tests nuevos: `GanttChart.spec.js`, `useGanttDrag.spec.js` y el
     `GanttView.spec.js` reescrito (sin el mock de la libreria).
+- Bloque A (Kanban), backend:
+  - `tasks.position`: la posicion dentro de la columna (proyecto + estado),
+    con migracion idempotente y backfill que no reordena nada.
+  - `PUT /api/projects/{id}/tasks/order`: mueve y reordena en una transaccion,
+    con bitacora. La columna affected queda con posiciones 0..n-1.
+  - El feed del tablero trae `task_count` y `estimated_hours` por columna
+    (los calcula el backend con `Decimal`).
+- Bloque A (Kanban), frontend:
+  - `frontend/src/composables/useArrastre.js` (nuevo): el esqueleto del gesto,
+    compartido por el Kanban y el Gantt. `useGanttDrag.js` se reescribio
+    encima, con su contrato publico intacto.
+  - `KanbanView.vue` reescrito: contadores del feed, arrastre con indice de
+    insercion, alta inline al pie de columna, edicion inline de titulo, horas
+    y responsable, y el selector de estado pasando por el endpoint de orden.
+  - `tasksApi.reorder` en `frontend/src/api/client.js`.
 - Motor de Gantt, fase 4: alta y edicion.
   - El doble clic en el hueco de una fila abre el alta (`ModalDialog` +
     `TaskForm`, el patron del desglose de celda), con las fechas precargadas

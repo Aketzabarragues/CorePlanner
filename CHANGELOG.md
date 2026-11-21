@@ -27,6 +27,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 - **frontend**: el cuerpo del diagrama no se traslada al desplazar: el scroll lo
   hace el panel. Antes las barras se separaban de la columna de nombres al
   desplazarse.
+- **frontend**: el Kanban pasa al contrato comun de interaccion. Contadores por
+  columna con tareas y horas (los totales los calcula el backend), arrastre
+  con posicion dentro de la columna, alta inline al pie de cada columna y
+  edicion inline del titulo, las horas y el responsable. Mover y reordenar
+  usan `PUT /projects/{id}/tasks/order`.
+- **frontend**: el gesto de arrastre vive en `composables/useArrastre.js`, que
+  usan el Kanban y el Gantt. El destino (una columna o un desplazamiento en
+  dias) lo resuelve quien invoca el composable.
+- **frontend**: el fantasma del arrastre del Gantt se developaba en la
+  plantilla como una referencia anidada, que no se desarrolla sola: el cuadro
+  del fantasma se veia siempre. Ahora las referencias van en primer nivel.
 - **frontend**: todos los dialogos de la aplicacion pasan por `ModalDialog`:
   altas y ediciones (tarea, persona, competencia, departamento, proyecto,
   miembro y dia no laborable), detalle de tarea y ficha de persona. El

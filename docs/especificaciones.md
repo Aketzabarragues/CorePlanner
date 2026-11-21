@@ -2365,3 +2365,33 @@ La aplicacion sabe lo planificado. No sabe lo hecho. Toda la categoria (Float, R
 - **Facturacion, coste yWidget**: el coste por hora no es de este producto.
 - **Comparar el real con el plan en la celda de la matriz**: la celda ya es densa; la lectura va en el desglose.
 - **Corregir el plan a posteriori**: si el real se desvía, el plan se corrige en la tarea, como hasta ahora.
+
+## 56. La politica de capacidad
+
+La celda se pone roja cuando alguien supera su capacidad: eso informa, pero no gobierna. Con la politica, la celda lleva ademas una regla con dos umbrales: uno de aviso y otro que exige aprobacion.
+
+### Que entra
+
+- `capacity_policies`: el ambito (una persona o un departamento), el umbral de aviso y el umbral que exige aprobacion, y si esta activa. Es configuracion de la empresa, no de un proyecto: la define el gerente.
+- El motor puro `backend/services/capacity_policy.py`: evalua las politicas sobre las celdas y devuelve el veredicto de cada persona y semana.
+- El informe de capacidad lleva por celda el veredicto (`policy_verdict`) y la politica que se aplico.
+- Una pestana nueva **"Politica de capacidad"** en la pantalla de Configuracion, con la lista de politicas y su alta y edicion.
+- La celda de la matriz lleva una marca del veredicto y el detalle de celda explica el porque.
+
+### Decisiones tomadas
+
+1. **El ambito es la persona o el departamento**, no el proyecto: la celda de la matriz es persona x semana, y una politica de proyecto no se podria evaluar en esa celda sin inventarle una capacidad al proyecto.
+2. **El limite de referencia es la capacidad de esa persona en esa semana**, el mismo numero que ya usa la sobrecarga. La politica dice "avisa al 80 % y exige aprobacion al 100 %" sobre ese numero; no hay importes absolutos.
+3. **Sin politica aplicable no hay veredicto**: la celda se comporta como hasta ahora.
+4. **La mas especifica gana**: la politica de la persona manda sobre la del departamento.
+5. **La comparacion es de enteros**: `carga * 100 >= capacidad * porcentaje`. Ni coma flotante ni Decimal de mas.
+6. **El veredicto es ortogonal al estado de carga**: una celda al 85 % esta en "carga media" y en "aviso" a la vez. El fondo de la celda no cambia (el color es el del estado); el veredicto anade una marca discreta y el detalle explica el motivo.
+7. **El umbral duro no es una alerta**: abre un incidente que alguien tiene que resolver, y se abre en la misma transaccion que el cambio que lo provoco. El informe solo lee.
+
+### Que no entra
+
+- **El ambito de proyecto**, por lo dicho en el punto 1.
+- **Umbrales como importe absoluto**: el limite es la capacidad.
+- **Un color nuevo**: la marca del veredicto es discreta y no altera el fondo.
+- **Avisos por correo o notificaciones**: no hay sistema de avisos en la aplicacion.
+- **Reprogramar el plan al rechazar una aprobacion**: la reprogramacion se propone, nunca se aplica sola.

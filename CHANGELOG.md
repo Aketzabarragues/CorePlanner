@@ -67,6 +67,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: la politica de capacidad. La tabla `capacity_policies` define, para una
+  persona o un departamento, el umbral de aviso y el que exige aprobacion; el
+  motor puro `capacity_policy.py` evalua las politicas sobre las celdas y el
+  informe de capacidad lleva por celda el veredicto (`policy_verdict`) y la
+  politica aplicada. Sin politica no hay veredicto y la celda se comporta como
+  hasta ahora.
 - **backend**: horas reales. La tabla `time_entries` registra, por persona, tarea
   y dia, las horas imputadas; el informe de capacidad lleva `hours_actual` por
   celda, que es `null` cuando nadie ha imputado (un cero afirmaria algo que el

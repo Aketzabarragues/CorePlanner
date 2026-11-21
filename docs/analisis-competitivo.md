@@ -77,7 +77,7 @@ Inspección directa de los ficheros `LICENSE*` de la raíz de cada repo.
 - **Las ideas, los algoritmos, los modelos de datos y las arquitecturas no están protegidos por copyright.** Solo lo está su expresión concreta (el texto del código). Reimplementar desde cero es lícito y es la vía correcta con AGPL/GPL.
 - **Copiar código de AGPL/GPL/Planka/Focalboard está prohibido.** No es una cuestión de "atribución": es una obligación de publicar la obra derivada.
 - Por tanto: **referencia conceptual sí, Simultaneidad de código no.** Cuando una idea venga de un repo AGPL, reescribirla con nuestras propias palabras y nuestras propias tablas.
-- **Falta la licencia de CorePlanner.** El repo no tiene fichero `LICENSE`. Sin licencia, por defecto "todos los derechos reservados" (que es lo que probablemente quieres para un producto propio), pero conviene hacerlo explícito: si la intención es mantenerlo cerrado, un `LICENSE` propietario; si la intención es abrirlo, elegir MIT y publicarlo.
+- **CorePlanner esta bajo licencia MIT** (fichero `LICENSE`, decidido el 2026-11-21). Es coherente con las tres referencias reutilizables: Paperclip, Kanboard y Kaneo tambien son MIT. Al abrir el codigo no se arrastra copyleft, porque no se ha copiado codigo de AGPL/GPL: todo lo que se ha reimplementado.
 - **Paperclip, Kanboard y Kaneo son MIT**: son las tres únicas fuentes de código realmente reutilizable. Con el modelo de `budget_policies` de Paperclip y el `ical.ts` de Kaneo se puede trabajar directamente.
 
 ---

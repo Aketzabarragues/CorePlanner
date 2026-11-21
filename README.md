@@ -1,5 +1,9 @@
 # CorePlanner
 
+![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-blue.svg)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+![Vue 3](https://img.shields.io/badge/vue-3.5-42b883.svg)
+
 Gestor ligero de capacidad para equipos de ingenieria. Sustituye las hojas de
 Excel de gestion con dos piezas centrales:
 
@@ -39,11 +43,19 @@ que el rol del usuario en ese proyecto incluye el permiso.
 | Situacion | Respuesta |
 | --- | --- |
 | Sin token o token invalido | 401 |
+| Credenciales incorrectas | 401, con el mismo mensaje exista el correo o no |
+| Cinco intentos fallidos en quince minutos | 429, con `Retry-After` |
 | Administrador global | Acceso a cualquier proyecto |
 | Miembro con el permiso | Acceso |
 | No miembro, pero con tareas asignadas en el proyecto | Lectura (`capacity.read`, `gantt.read`); escritura 403 |
 | Miembro sin el permiso, o sin vinculo con el proyecto | 403 |
 | Proyecto inexistente | 404 |
+
+El login limita los intentos: con cinco fallos en quince minutos el correo
+queda bloqueado y la respuesta es 429 con `Retry-After`, antes incluso de
+comprobar la contrasena. Un login correcto borra los intentos de ese correo.
+Los limites se ajustan con `COREPLANNER_LOGIN_MAX_ATTEMPTS` y
+`COREPLANNER_LOGIN_ATTEMPT_WINDOW_MINUTES`.
 
 El token lleva la identidad de la persona (su identificador y su rol de
 empresa), pero **los permisos por proyecto se consultan en la base de datos en
@@ -1270,3 +1282,12 @@ Tres conclusiones que condicionan el trabajo:
   `useTaskReload` y recarga sus datos. Asi la vista conserva sus filtros, su
   pestana activa y su desplazamiento.
 
+## Licencia
+
+MIT. El fichero [`LICENSE`](LICENSE) lleva el texto completo. El codigo es
+de cualquiera que quiera usarlo, modificarlo o redistribuirlo, conservando el
+aviso de copyright.
+
+Los diagramas de Gantt, el Kanban y el Calendario los dibuja un motor propio
+del frontend, sin librerias de terceros: no hay dependencia externa que
+mantener ni licencia heredada que arrastrar.

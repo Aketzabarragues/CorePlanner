@@ -1365,6 +1365,33 @@ describe('WeekLanes', () => {
     esperaColor(barra, '#1f6feb')
   })
 
+  it('la barra de un proyecto provisional va de contorno, sin relleno', () => {
+    const wrapper = mount(WeekLanes, {
+      props: {
+        days: dias,
+        people: personas,
+        tasks: [
+          tarea(1, 'Firme', '2026-11-02', '2026-11-04', 2),
+          {
+            ...tarea(2, 'Provisional', '2026-11-02', '2026-11-04', 2),
+            project_id: 2,
+            project_name: 'Proyecto en estudio',
+            is_provisional: true,
+          },
+        ],
+        nonWorkingDays: [],
+      },
+    })
+
+    const [firme, provisional] = wrapper.findAll('[data-testid="week-task"]')
+    expect(firme.classes()).toContain('text-white')
+    esperaColor(firme, '#1f6feb')
+    // Sin relleno, con el contorno punteado y la nota en el aviso.
+    expect(provisional.classes().join(' ')).toContain('border-dashed')
+    expect(provisional.attributes('style')).toContain('background-color: transparent')
+    expect(provisional.attributes('title')).toContain('(provisional)')
+  })
+
   it('marca los dias no laborables de la semana', () => {
     const wrapper = mount(WeekLanes, {
       props: {

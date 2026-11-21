@@ -80,7 +80,7 @@ async def _seed(session) -> dict[str, int]:
         email="outsider@example.com",
         hashed_password=hash_password(PASSWORD),
     )
-    project = Project(name="Linea 1", status="active")
+    project = Project(name="Linea 1", status="active", is_provisional=True)
     session.add_all([admin, engineer, reader, outsider, project])
     await session.flush()
 
@@ -200,6 +200,17 @@ async def test_el_gantt_avisa_de_las_tareas_sin_fechas(client: AsyncClient):
     data = response.json()
     assert data["undated_task_ids"] == [client.ids["undated"]]
     assert all(barra["id"] != client.ids["undated"] for barra in data["tasks"])
+
+
+async def test_el_gantt_marca_las_barras_de_un_proyecto_provisional(client: AsyncClient):
+    headers = await _auth(client, "engineer@example.com")
+
+    response = await client.get(f"/api/projects/{client.ids['project']}/gantt", headers=headers)
+
+    assert response.status_code == 200, response.text
+    barras = response.json()["tasks"]
+    assert len(barras) == 1
+    assert barras[0]["is_provisional"] is True
 
 
 async def test_el_gantt_incluye_el_color_de_cada_persona(client: AsyncClient):

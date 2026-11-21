@@ -331,6 +331,52 @@ async def test_la_celda_desglosa_las_horas_por_proyecto(session):
     ]
 
 
+async def test_el_informe_distingue_la_carga_de_un_proyecto_provisional(session):
+    """La carga del proyecto provisional va aparte y no marca sobrecarga."""
+    _ana, luis, project = await _seed(session)
+    provisional = Project(name="Linea 2", is_provisional=True)
+    session.add(provisional)
+    await session.flush()
+    role = (await session.execute(select(Role))).scalars().one()
+    session.add(ProjectMember(user_id=luis.id, project_id=provisional.id, role_id=role.id))
+    session.add(
+        Task(
+            project_id=provisional.id,
+            assigned_to=luis.id,
+            title="Montaje provisional",
+            status=TaskStatus.BACKLOG.value,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 6),
+            estimated_hours=60,
+        )
+    )
+    await session.commit()
+
+    report = await load_capacity_for_projects(
+        session, [project.id, provisional.id]
+    )
+
+    # Luis no tiene carga firmada: sus 60 h provisionales pasan de la
+    # capacidad sin marcar sobrecarga.
+    luis = next(r for r in report.rows if r.name == "Luis")
+    celda = luis.cells[0]
+    assert luis.total_hours == Decimal("0.00")
+    assert luis.total_hours_provisional == Decimal("60.00")
+    assert celda.hours == Decimal("0.00")
+    assert celda.provisional_hours == Decimal("60.00")
+    assert celda.is_overloaded is False
+    assert luis.has_overload is False
+    # El desglose lleva la marca del proyecto.
+    assert [(p.project_id, p.provisional) for p in celda.projects] == [
+        (provisional.id, True)
+    ]
+    # Ana sigue con su carga confirmada, y la semana de sobrecarga sigue marcada.
+    ana = next(r for r in report.rows if r.name == "Ana")
+    celdas_ana = {cell.week: cell for cell in ana.cells}
+    assert celdas_ana["2026-W10"].is_overloaded is True
+    assert ana.total_hours_provisional == Decimal("0.00")
+
+
 async def test_las_horas_de_una_tarea_son_las_de_su_semana(session):
     """Una tarea que cruza semanas aporta horas distintas en cada una."""
     _ana, _luis, project = await _seed(session)

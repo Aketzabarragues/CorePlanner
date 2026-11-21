@@ -5,6 +5,7 @@ import {
   isOverloaded,
   loadAspect,
   loadBarWidth,
+  loadFree,
   loadLabel,
   loadRatio,
   loadRatioText,
@@ -88,6 +89,24 @@ describe('escala de carga', () => {
     expect(loadBarWidth(20, 40)).toBe(50)
     expect(loadBarWidth(60, 40)).toBe(100)
     expect(loadBarWidth(30, null)).toBe(0)
+  })
+
+  it('las horas libres son la capacidad menos la carga', () => {
+    expect(loadFree(24, 40)).toBe(16)
+    expect(loadFree(40, 40)).toBe(0)
+    expect(loadFree(24.25, 40)).toBe(15.75)
+    expect(loadFree(16.4, 32)).toBe(15.6)
+  })
+
+  it('si la carga pasa de la capacidad, las libres salen negativas', () => {
+    expect(loadFree(46, 40)).toBe(-6)
+    expect(loadFree(60, 40)).toBe(-20)
+  })
+
+  it('sin capacidad conocida no hay horas libres que calcular', () => {
+    expect(loadFree(30, null)).toBeNull()
+    expect(loadFree(30, undefined)).toBeNull()
+    expect(loadFree(30, 0)).toBeNull()
   })
 })
 

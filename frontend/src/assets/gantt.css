@@ -107,6 +107,17 @@
 }
 
 /*
+ * Barra de un proyecto provisional: sin relleno y con el contorno punteado,
+ * el mismo slate-500 de la matriz y del calendario para que se lea igual.
+ */
+.gantt__barra--provisional .gantt__barra-cuerpo {
+  fill: #fff;
+  stroke: #64748b;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/*
  * La barra cae en su sitio al soltar: el atributo SVG no se transiciona, la
  * propiedad transform si. El foco es instantaneo, sin transicion.
  */

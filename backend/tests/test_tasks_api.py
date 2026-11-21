@@ -428,7 +428,9 @@ async def test_la_capacidad_desglosa_las_horas_por_proyecto(client: AsyncClient)
     data = response.json()
     fila = next(row for row in data["rows"] if row["name"] == "Engineer")
     celda = next(cell for cell in fila["cells"] if cell["week"] == "2026-W10")
-    assert celda["projects"] == [{"project_id": 1, "hours": 16.0}]
+    assert celda["projects"] == [
+        {"project_id": 1, "hours": 16.0, "provisional": False}
+    ]
 
 
 async def test_listar_tareas_filtradas_por_persona(client: AsyncClient):

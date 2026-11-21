@@ -79,6 +79,8 @@ class ProjectOut(BaseModel):
     color: str | None = None
     """Color propio del proyecto, uno de la paleta."""
     status: str
+    is_provisional: bool
+    """Proyecto provisional: su carga no cuenta como sobrecarga."""
     parent_id: int | None = None
     department_id: int | None = None
     owner_id: int | None = None
@@ -272,6 +274,8 @@ class ProjectCreate(BaseModel):
     color: str | None = None
     """Color propio. Si no viene, el backend elige el de la paleta que menos se use."""
     status: str = ProjectStatus.PLANNING.value
+    is_provisional: bool = False
+    """Provisional: su carga se muestra aparte y no cuenta como sobrecarga."""
     department_id: int | None = None
     owner_id: int | None = None
 
@@ -297,6 +301,10 @@ class ProjectUpdate(BaseModel):
     color: str | None = None
     """Color propio. No se puede quedar vacio: el color siempre esta puesto."""
     status: str | None = None
+    is_provisional: bool | None = None
+    """Provisional. En este PATCH parcial, `null` explicito significa 'absente':
+    el campo no se toca. `false` si se aplica; solo el campo ausente deja el
+    valor anterior, de modo que la marca no se puede quitar con null."""
     department_id: int | None = None
     owner_id: int | None = None
 
@@ -626,6 +634,7 @@ class GanttTaskOut(BaseModel):
     project_color: str
     project_id: int
     project_name: str
+    is_provisional: bool = False
     title: str = ""
     assigned_to: int | None = None
     assigned_name: str | None = None

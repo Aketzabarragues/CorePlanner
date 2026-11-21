@@ -229,7 +229,8 @@ function esFinDeSemana(indice) {
 /** Titulo con todos los datos de una tarea, para el aviso al pasar el raton. */
 function tituloTarea(tarea) {
   const estado = tarea.status ? ` · ${columnLabel(tarea.status)}` : ''
-  return `${tarea.title}${estado} · ${tarea.project_name} · ${tarea.start} - ${tarea.end}`
+  const provisional = tarea.is_provisional ? ' (provisional)' : ''
+  return `${tarea.title}${estado} · ${tarea.project_name}${provisional} · ${tarea.start} - ${tarea.end}`
 }
 
 /**
@@ -363,9 +364,17 @@ function onBarMousedown(celda, event) {
         >
           <div
             v-if="celda.tipo === 'barra'"
-            class="flex min-w-0 flex-col justify-center overflow-hidden rounded px-1.5 py-0.5 text-white"
-            :class="esEditable(celda.barra.tarea) ? 'cursor-grab' : 'cursor-pointer'"
-            :style="{ backgroundColor: celda.barra.tarea.project_color }"
+            class="flex min-w-0 flex-col justify-center overflow-hidden rounded px-1.5 py-0.5"
+            :class="[
+              celda.barra.tarea.is_provisional
+                ? 'border border-dashed border-slate-500 text-slate-700'
+                : 'text-white',
+              esEditable(celda.barra.tarea) ? 'cursor-grab' : 'cursor-pointer',
+            ]"
+            :style="{
+              backgroundColor:
+                celda.barra.tarea.is_provisional ? 'transparent' : celda.barra.tarea.project_color,
+            }"
             :title="tituloTarea(celda.barra.tarea)"
             :data-task-id="celda.barra.tarea.id"
             :data-lane="celda.barra.carril"

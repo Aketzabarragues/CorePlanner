@@ -146,6 +146,20 @@ export function loadRatio(hours, capacity) {
   return Math.round((valor / Number(capacity)) * 100)
 }
 
+/**
+ * Capacidad libre de una celda.
+ *
+ * Lo que queda de la capacidad una vez descontada la carga: `capacidad -
+ * horas`. Sigue la cadena del ratio y del estado: sin capacidad conocida no
+ * hay capacidad libre que calcular, y se devuelve null en vez de un limite
+ * inventado. Si la carga pasa de la capacidad, el resultado sale negativo: el
+ * exceso se ve con su signo.
+ */
+export function loadFree(hours, capacity) {
+  if (capacity === null || capacity === undefined || Number(capacity) <= 0) return null
+  return Math.round((Number(capacity) - Number(hours ?? 0)) * 100) / 100
+}
+
 /** Porcentaje de uso con un decimal, para textos que lo llevan. */
 export function loadRatioText(hours, capacity) {
   const ratio = loadRatio(hours, capacity)

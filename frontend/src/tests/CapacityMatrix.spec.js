@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
+import CellBreakdown from '../components/CellBreakdown.vue'
 import { weeksBetween } from '../utils/weeks'
 
 const members = [
@@ -1166,5 +1167,200 @@ describe('CapacityMatrix', () => {
     expect(post).toBeDefined()
     expect(post.url).toContain('/api/projects/1/tasks')
     expect(JSON.parse(post.body).title).toBe('Tarea nueva')
+  })
+})
+
+/**
+ * Informe con carga provisional: las 36 h de Sebastian en W46 son del
+ * proyecto 2, que no esta comprometido.
+ */
+const reportConProvisional = {
+  ...capacityReport,
+  rows: capacityReport.rows.map((row) => ({
+    ...row,
+    cells: row.cells.map((cell) =>
+      cell.week === '2026-W46'
+        ? {
+            ...cell,
+            hours: 12,
+            hours_provisional: 36,
+            is_overloaded: false,
+            projects: [
+              { project_id: 1, hours: 12, provisional: false },
+              { project_id: 2, hours: 36, provisional: true },
+            ],
+          }
+        : cell,
+    ),
+  })),
+}
+
+function setupFetchConProvisional() {
+  return setupFetch({
+    '/api/capacity': () => jsonResponse(reportConProvisional),
+  })
+}
+
+describe('capacidad libre', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  it('la celda enseña las horas libres: capacidad menos carga', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // Ana W45: 10 h de 40.
+    expect(wrapper.get('[data-testid="cell-1-2026-W45"] [data-testid="cell-libre"]').text()).toContain(
+      'libre 30 h',
+    )
+  })
+
+  it('si la carga pasa de la capacidad, las libres salen negativas', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // Sebastian W46: 48 h de 40.
+    expect(
+      wrapper.get('[data-testid="cell-2-2026-W46"] [data-testid="cell-libre"]').text(),
+    ).toContain('libre -8 h')
+  })
+
+  it('sin capacidad conocida no enseña horas libres', async () => {
+    setupFetch({
+      '/api/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          rows: capacityReport.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((cell) => ({ ...cell, capacity: null })),
+          })),
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.get('[data-testid="cell-1-2026-W45"]').find('[data-testid="cell-libre"]').exists()).toBe(false)
+  })
+})
+
+describe('provisional', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  it('sin carga provisional en el informe no hay interruptor', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.find('[data-testid="provisional-filter"]').exists()).toBe(false)
+  })
+
+  it('con carga provisional el interruptor esta apagado y la celda lee solo lo confirmado', async () => {
+    setupFetchConProvisional()
+    const wrapper = await mountMatrix()
+
+    const interruptor = wrapper.get('[data-testid="provisional-filter"]')
+    expect(interruptor.attributes('aria-checked')).toBe('false')
+
+    // 12 h confirmadas de 40: el provisional no se lee sin el interruptor.
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.text()).toContain('12/40')
+    expect(celda.text()).not.toContain('48')
+    expect(celda.text()).toContain('libre 28 h')
+  })
+
+  it('con el interruptor, la celda lee confirmada mas provisional y cambia de estado', async () => {
+    setupFetchConProvisional()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="provisional-filter"]').trigger('click')
+    await flushPromises()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    // 12 + 36 = 48 h de 40: sobrecarga.
+    expect(celda.text()).toContain('48/40')
+    expect(celda.text()).toContain('120 %')
+    expect(celda.text()).toContain('libre -8 h')
+    expect(celda.classes()).toContain('bg-red-200')
+    // Lo que se esta leyendo incluye lo provisional: contorno punteado.
+    expect(celda.classes().join(' ')).toContain('border-dashed')
+    // El estado queda en la URL.
+    expect(router.currentRoute.value.query.provisional).toBe('1')
+  })
+
+  it('una celda con solo carga provisional deja la capacidad libre y entrega el provisional al detalle', async () => {
+    // Un proyecto entero sin firmar: no hay carga confirmada, solo provisional.
+    const reportSoloProvisional = {
+      ...capacityReport,
+      rows: capacityReport.rows.map((row) => ({
+        ...row,
+        cells: row.cells.map((cell) =>
+          cell.week === '2026-W46'
+            ? {
+                ...cell,
+                hours: 0,
+                hours_provisional: 36,
+                is_overloaded: false,
+                projects: [{ project_id: 2, hours: 36, provisional: true }],
+              }
+            : cell,
+        ),
+      })),
+    }
+    setupFetch({ '/api/capacity': () => jsonResponse(reportSoloProvisional) })
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    // Sin carga confirmada, toda la capacidad de la semana queda libre.
+    expect(celda.text()).toContain('libre 40 h')
+
+    await celda.trigger('click')
+    await flushPromises()
+
+    const detalle = wrapper.findComponent(CellBreakdown)
+    expect(detalle.props('cell').hours_provisional).toBe(36)
+  })
+
+  it('el estado provisional se lee desde la URL y apagar el interruptor lo quita', async () => {
+    setupFetchConProvisional()
+    const wrapper = await mountMatrix({ provisional: '1' })
+
+    const interruptor = wrapper.get('[data-testid="provisional-filter"]')
+    expect(interruptor.attributes('aria-checked')).toBe('true')
+    expect(wrapper.get('[data-testid="cell-2-2026-W46"]').text()).toContain('48/40')
+
+    await interruptor.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.provisional).toBeUndefined()
+    expect(wrapper.get('[data-testid="cell-2-2026-W46"]').text()).toContain('12/40')
+  })
+
+  it('el interruptor no refresa el informe: cambia la lectura, no los datos', async () => {
+    const calls = setupFetchConProvisional()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="provisional-filter"]').trigger('click')
+    await flushPromises()
+
+    expect(capacityCalls(calls)).toHaveLength(1)
+  })
+
+  it('el modo de proyectos marca los chips de los proyectos provisionales', async () => {
+    setupFetchConProvisional()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await flushPromises()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    const chips = celda.findAll('[data-testid="cell-project"]')
+    expect(chips).toHaveLength(2)
+    // El 2 es el provisional: contorno punteado y nota en el titulo.
+    expect(chips[0].classes().join(' ')).not.toContain('border-dashed')
+    expect(chips[1].classes().join(' ')).toContain('border-dashed')
+    expect(chips[1].attributes('title')).toContain('(provisional)')
   })
 })

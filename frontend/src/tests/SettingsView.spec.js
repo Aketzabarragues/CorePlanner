@@ -56,6 +56,15 @@ const projects = [
     owner_id: 1,
     color: '#1a7f37',
   },
+  {
+    id: 2,
+    name: 'Ampliacion linea 2',
+    status: 'planning',
+    department_id: 2,
+    owner_id: 2,
+    color: '#0a3d91',
+    is_provisional: true,
+  },
 ]
 
 const companyRoles = [
@@ -140,7 +149,11 @@ function setupFetch(overrides = {}) {
     }
     if (url.endsWith('/departments')) return jsonResponse(departments)
     if (url.endsWith('/projects') && options.method === 'POST') {
-      return jsonResponse({ ...projects[0], id: 2 }, true, 201)
+      return jsonResponse({ ...projects[0], id: 3 }, true, 201)
+    }
+    if (url.match(/\/projects\/\d+$/) && options.method === 'PATCH') {
+      const id = Number(url.slice(-1))
+      return jsonResponse({ ...projects.find((project) => project.id === id), id })
     }
     if (url.endsWith('/projects')) return jsonResponse(projects)
     if (url.endsWith('/roles/project')) return jsonResponse(projectRoles)
@@ -408,6 +421,65 @@ describe('SettingsView', () => {
     expect(wrapper.get('[data-testid="color-swatch-#1a7f37"]').attributes('aria-checked')).toBe(
       'true',
     )
+  })
+
+  it('la lista de proyectos marca los provisionales', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+
+    const etiqueta = wrapper.find('[data-testid="project-provisional-label"]')
+    expect(etiqueta.exists()).toBe(true)
+    expect(etiqueta.text()).toContain('Provisional')
+    // La etiqueta va en la fila del proyecto provisional, no en la otra.
+    expect(etiqueta.element.closest('tr').textContent).toContain('Ampliacion linea 2')
+  })
+
+  it('el alta de proyecto guarda el interruptor provisional', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="new-project"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('#form-proyecto input').setValue('Linea nueva')
+    await wrapper.get('[data-testid="project-provisional-switch"]').trigger('click')
+    await wrapper.find('#form-proyecto').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) => url.endsWith('/projects') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toMatchObject({
+      name: 'Linea nueva',
+      is_provisional: true,
+    })
+  })
+
+  it('la edicion de proyecto guarda el interruptor provisional', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === 'Editar').trigger('click')
+    await flushPromises()
+
+    // El proyecto 1 no es provisional: el interruptor parte apagado.
+    expect(wrapper.get('[data-testid="project-provisional-switch"]').attributes('aria-checked')).toBe(
+      'false',
+    )
+    await wrapper.get('[data-testid="project-provisional-switch"]').trigger('click')
+    await wrapper.find('#form-proyecto').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) => url.endsWith('/projects/1') && options.method === 'PATCH',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toMatchObject({ is_provisional: true })
   })
 
   it('el catalogo de roles explica el alcance de cada rol', async () => {

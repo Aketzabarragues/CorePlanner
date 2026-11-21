@@ -17,7 +17,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
-import { loadAspect, loadLabel, loadRatio, loadState } from '../utils/load'
+import { loadAspect, loadFree, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekWorkdays } from '../utils/weeks'
 import ModalDialog from './ModalDialog.vue'
 import TaskForm from './TaskForm.vue'
@@ -53,6 +53,13 @@ const projectName = computed(() => {
   return (task) => names[task.project_id] ?? ''
 })
 
+/** Los proyectos provisionales se marcan en el desglose con un contorno punteado. */
+const provisionalIds = computed(() => new Set(
+  props.projects
+    .filter((project) => project.is_provisional)
+    .map((project) => project.id),
+))
+
 /**
  * A quien se puede reasignar la tarea.
  *
@@ -79,14 +86,11 @@ const percentage = computed(() => (ratio.value === null ? '—' : `${ratio.value
 /**
  * Horas que le quedan a la persona antes de pasarse de su capacidad.
  *
- * Se redondea a centimas porque el motor cuenta en centimas: sin redondear,
- * 32 - 16.4 sale 15.600000000000001.
+ * Es `capacidad - horas` de la celda, con las mismas reglas que la matriz:
+ * sin capacidad conocida no hay libres que calcular (null), y si la carga
+ * pasa de la capacidad el numero sale negativo.
  */
-const free = computed(() => {
-  const capacidad = Number(props.cell.capacity ?? 0)
-  const usadas = Number(props.cell.hours ?? 0)
-  return Math.max(0, Math.round((capacidad - usadas) * 100) / 100)
-})
+const free = computed(() => loadFree(props.cell.hours, props.cell.capacity))
 
 /**
  * Notas de la celda: la jornada reducida y los dias no laborables.
@@ -173,9 +177,16 @@ function onKeydown(task, event) {
   <div class="space-y-4">
     <div class="space-y-2">
       <div class="flex items-baseline justify-between gap-2">
-        <p class="flex items-baseline gap-2">
+        <p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span class="text-3xl font-semibold tabular-nums">{{ cell.hours }} h</span>
           <span class="text-sm text-slate-500">de {{ cell.capacity ?? '—' }} h</span>
+          <span
+            v-if="free !== null"
+            class="text-sm font-medium tabular-nums text-slate-700"
+            data-testid="cell-free"
+          >
+            libre {{ free }} h
+          </span>
         </p>
         <span
           class="rounded-full px-3 py-1 text-xs font-semibold"
@@ -230,7 +241,7 @@ function onKeydown(task, event) {
 
     <div v-if="tasks.length === 0" class="rounded border border-dashed border-slate-300 p-3">
       <p class="text-sm font-semibold">Semana libre</p>
-      <p class="mt-1 text-xs text-slate-500">
+      <p v-if="free !== null && free > 0" class="mt-1 text-xs text-slate-500">
         Puedes asignar hasta {{ free }} h a esta persona sin sobrecargarla.
       </p>
       <button
@@ -248,7 +259,8 @@ function onKeydown(task, event) {
       <li
         v-for="task in tasks"
         :key="task.id"
-        class="rounded border border-slate-200 bg-white p-3"
+        class="rounded border bg-white p-3"
+        :class="provisionalIds.has(task.project_id) ? 'border-dashed border-slate-500' : 'border-slate-200'"
         tabindex="0"
         draggable="true"
         data-testid="breakdown-task"
@@ -265,6 +277,7 @@ function onKeydown(task, event) {
                 class="rounded bg-slate-100 px-1 py-px text-[11px] font-medium text-slate-600"
               >
                 {{ projectName(task) }}
+                <span v-if="provisionalIds.has(task.project_id)">(provisional)</span>
               </span>
               {{ taskRange(task) }} ·
               {{ task.assigned_to ? memberName[task.assigned_to] ?? 'Desconocido' : 'Sin asignar' }}

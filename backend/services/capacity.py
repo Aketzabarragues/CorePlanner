@@ -102,11 +102,14 @@ class CellProject:
     """Proyecto del que salen las horas de una celda.
 
     El desglose sale del mismo reparto que da las horas de la celda, de modo
-    que los proyectos siempre suman las horas de la celda.
+    que los proyectos siempre suman las horas de la celda. provisional marca
+    que las horas del proyecto vienen de un proyecto provisional: no cuentan
+    como carga comprometida.
     """
 
     project_id: int
     units: int
+    provisional: bool = False
 
     @property
     def hours(self) -> Decimal:
@@ -141,6 +144,8 @@ class WeekLoad:
     modo que la aritmetica no pasa por coma flotante. La capacidad es None
     cuando la persona no tiene ninguna definida.
     Los proyectos son el desglose de esas horas por proyecto.
+    units es la carga confirmada; provisional_units es la carga de proyectos
+    provisionales, que no cuenta para la sobrecarga porque no esta firmada.
     """
 
     week: str
@@ -148,10 +153,15 @@ class WeekLoad:
     capacity_units: int | None
     is_overloaded: bool
     projects: tuple[CellProject, ...] = ()
+    provisional_units: int = 0
 
     @property
     def hours(self) -> Decimal:
         return from_units(self.units)
+
+    @property
+    def provisional_hours(self) -> Decimal:
+        return from_units(self.provisional_units)
 
     @property
     def capacity(self) -> Decimal | None:
@@ -162,7 +172,11 @@ class WeekLoad:
 
 @dataclass(frozen=True, slots=True)
 class UserLoad:
-    """Carga de una persona en el conjunto de semanas del informe."""
+    """Carga de una persona en el conjunto de semanas del informe.
+
+    total_units y total_hours son la carga confirmada; total_provisional_units
+    es la carga de proyectos provisionales, aparte.
+    """
 
     user_id: int
     name: str
@@ -180,6 +194,14 @@ class UserLoad:
     @property
     def total_hours(self) -> Decimal:
         return from_units(self.total_units)
+
+    @property
+    def total_provisional_units(self) -> int:
+        return sum(cell.provisional_units for cell in self.cells)
+
+    @property
+    def total_hours_provisional(self) -> Decimal:
+        return from_units(self.total_provisional_units)
 
     @property
     def has_overload(self) -> bool:
@@ -225,6 +247,9 @@ class CapacityReport:
                         else None
                     ),
                     "total_hours": hours_to_json(row.total_hours),
+                    "total_hours_provisional": hours_to_json(
+                        row.total_hours_provisional
+                    ),
                     "has_overload": row.has_overload,
                     "department_id": row.department_id,
                     "department_name": row.department_name,
@@ -234,6 +259,9 @@ class CapacityReport:
                         {
                             "week": cell.week,
                             "hours": hours_to_json(cell.hours),
+                            "hours_provisional": hours_to_json(
+                                cell.provisional_hours
+                            ),
                             "capacity": (
                                 hours_to_json(cell.capacity)
                                 if cell.capacity is not None
@@ -244,6 +272,7 @@ class CapacityReport:
                                 {
                                     "project_id": project.project_id,
                                     "hours": hours_to_json(project.hours),
+                                    "provisional": project.provisional,
                                 }
                                 for project in cell.projects
                             ],
@@ -438,6 +467,7 @@ def build_capacity_report(
     *,
     weeks: Sequence[str] | None = None,
     holidays: Sequence[Holiday] = (),
+    provisional_projects: frozenset[int] = frozenset(),
 ) -> CapacityReport:
     """Construye la matriz de ocupacion a partir de personas y tareas.
 
@@ -451,9 +481,16 @@ def build_capacity_report(
     no laborables de su persona: valen cero horas y se listan aparte.
     La capacidad de cada celda sale del horario vigente de la persona en esa
     semana.
+
+    provisional_projects son los ids de proyectos provisionales: las horas de
+    sus tareas se imputan aparte (hours_provisional) y no cuentan para la
+    sobrecarga, porque no son carga firmada. El reparto de cada tarea sigue
+    siendo exacto: la parte confirmada mas la provisional suman las horas de
+    la tarea.
     """
     by_id = {person.user_id: person for person in people}
     loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
+    provisional_loads: dict[int, dict[str, int]] = {}
     project_loads: dict[tuple[int, str], dict[int, int]] = {}
     weeks_seen: set[str] = set()
     fixed_weeks = tuple(weeks) if weeks is not None else None
@@ -488,8 +525,12 @@ def build_capacity_report(
         weeks_seen.update(week_units)
         target = loads.setdefault(task.assigned_to, {})
         project_id = getattr(task, "project_id", None)
+        provisional = project_id is not None and project_id in provisional_projects
         for key, units in week_units.items():
             target[key] = target.get(key, 0) + units
+            if provisional:
+                prov_target = provisional_loads.setdefault(task.assigned_to, {})
+                prov_target[key] = prov_target.get(key, 0) + units
             if project_id is None:
                 continue
             by_project = project_loads.setdefault((task.assigned_to, key), {})
@@ -499,9 +540,12 @@ def build_capacity_report(
     rows: list[UserLoad] = []
     for person in people:
         user_load = loads.get(person.user_id, {})
+        provisional_week = provisional_loads.get(person.user_id, {})
         cells: list[WeekLoad] = []
         for week in ordered_weeks:
             units = user_load.get(week, 0)
+            provisional_units = provisional_week.get(week, 0)
+            confirmed_units = units - provisional_units
             capacity = capacity_units_for_week(
                 person.schedules,
                 person.weekly_base_hours,
@@ -512,13 +556,20 @@ def build_capacity_report(
             cells.append(
                 WeekLoad(
                     week=week,
-                    units=units,
+                    units=confirmed_units,
                     capacity_units=capacity,
-                    is_overloaded=capacity is not None and units > capacity,
+                    # La sobrecarga la marca la carga firmada: lo provisional
+                    # no se cuenta, porque no esta comprometido.
+                    is_overloaded=capacity is not None and confirmed_units > capacity,
                     projects=tuple(
-                        CellProject(project_id=project_id, units=project_units)
+                        CellProject(
+                            project_id=project_id,
+                            units=project_units,
+                            provisional=project_id in provisional_projects,
+                        )
                         for project_id, project_units in sorted(by_project.items())
                     ),
+                    provisional_units=provisional_units,
                 )
             )
         rows.append(

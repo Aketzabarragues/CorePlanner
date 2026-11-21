@@ -27,6 +27,7 @@ COLUMN_ADDITIONS = (
     ("tasks", "description", "TEXT NULL"),
     ("departments", "color", "VARCHAR(7) NULL"),
     ("projects", "color", "VARCHAR(7) NULL"),
+    ("projects", "is_provisional", "BOOLEAN NOT NULL DEFAULT 0"),
     ("tasks", "position", "INTEGER NULL"),
 )
 

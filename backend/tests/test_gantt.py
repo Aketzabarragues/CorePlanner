@@ -56,12 +56,14 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "project_color",
         "project_id",
         "project_name",
+        "is_provisional",
         "title",
         "assigned_to",
         "assigned_name",
         "status",
         "estimated_hours",
     }
+    assert barra["is_provisional"] is False
     assert barra["id"] == 7
     assert barra["start"] == "2026-11-05"
     assert barra["end"] == "2026-11-11"
@@ -201,6 +203,22 @@ def test_la_barra_toma_el_color_guardado_de_su_proyecto():
     barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
     assert barras[1]["project_color"] == COLORES[2]
     assert barras[2]["project_color"] == COLORES[2]
+
+
+def test_el_flag_provisional_marca_solo_las_barras_de_aquel_proyecto():
+    """Las barras de un proyecto no firmado salen marcadas; las del resto, no."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=1),
+        Tarea(id=2, title="B", assigned_to=2, project_id=2),
+    ]
+
+    feed = build_gantt_feed(
+        PERSONAS, tareas, PROYECTOS, COLORES, provisional_projects=frozenset({2})
+    )
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    assert barras[1]["is_provisional"] is False
+    assert barras[2]["is_provisional"] is True
 
 
 def test_dos_proyectos_con_colores_distintos_dan_barras_de_colores_distintos():

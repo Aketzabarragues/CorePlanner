@@ -117,6 +117,7 @@ export function buildLayout({ items, groupMode, scale, start, end, nonWorkingDay
       label: task.title ?? task.name ?? '',
       color: task.custom_class ?? '',
       projectColor: task.project_color ?? null,
+      provisional: task.is_provisional === true,
       status: task.status ?? null,
       title: task.title ?? task.name ?? '',
       startIso: toIsoDate(inicio),

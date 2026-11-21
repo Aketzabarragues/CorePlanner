@@ -256,6 +256,7 @@ async def create_project(session: AsyncSession, payload: ProjectCreate) -> Proje
         name=payload.name,
         color=color,
         status=payload.status,
+        is_provisional=payload.is_provisional,
         department_id=payload.department_id,
         owner_id=payload.owner_id,
     )
@@ -280,6 +281,7 @@ async def update_project(
         "name": project.name,
         "color": project.color,
         "status": project.status,
+        "is_provisional": project.is_provisional,
         "department_id": project.department_id,
         "owner_id": project.owner_id,
     }
@@ -290,6 +292,8 @@ async def update_project(
         project.color = payload.color
     if "status" in changed and payload.status is not None:
         project.status = payload.status
+    if "is_provisional" in changed and payload.is_provisional is not None:
+        project.is_provisional = payload.is_provisional
     if "department_id" in changed:
         if payload.department_id is not None:
             await _department_or_404(session, payload.department_id)

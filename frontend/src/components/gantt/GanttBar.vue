@@ -72,6 +72,7 @@ function empezarArrastre(event) {
       {
         'gantt__barra--previsualizada': previsualizada,
         'gantt__barra--solo-lectura': !editable,
+        'gantt__barra--provisional': barra.provisional === true,
       },
     ]"
     @mousedown.prevent="empezarArrastre"

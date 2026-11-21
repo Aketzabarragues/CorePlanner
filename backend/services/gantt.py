@@ -98,6 +98,7 @@ class GanttTask:
     assigned_name: str | None = None
     status: str = ""
     estimated_hours: Decimal = Decimal("0")
+    is_provisional: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -111,6 +112,7 @@ class GanttTask:
             "project_color": self.project_color,
             "project_id": self.project_id,
             "project_name": self.project_name,
+            "is_provisional": self.is_provisional,
             "title": self.title,
             "assigned_to": self.assigned_to,
             "assigned_name": self.assigned_name,
@@ -142,6 +144,7 @@ def build_gantt_feed(
     tasks: list[TaskLike],
     project_names: Mapping[int, str],
     project_colors: Mapping[int, str],
+    provisional_projects: frozenset[int] = frozenset(),
 ) -> GanttFeed:
     """Construye el diagrama a partir de las personas y las tareas.
 
@@ -149,6 +152,9 @@ def build_gantt_feed(
     cada una. Cada barra guarda el proyecto al que pertenece, de modo que el
     diagrama global puede agrupar las barras por proyecto. El color del
     proyecto es el que tiene guardado en la base de datos.
+
+    provisional_projects son los ids de los proyectos no firmados: su carga
+    no cuenta como firmada y el frontend lo pinta en contorno.
     """
     members = tuple(
         GanttMember(
@@ -191,6 +197,7 @@ def build_gantt_feed(
                 assigned_name=assignee,
                 status=task.status,
                 estimated_hours=task.estimated_hours,
+                is_provisional=task.project_id in provisional_projects,
             )
         )
 

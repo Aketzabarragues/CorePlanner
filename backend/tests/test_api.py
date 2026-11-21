@@ -203,6 +203,65 @@ async def test_la_matriz_marca_la_semana_sobrecargada(client: AsyncClient):
     assert cells["2026-W11"]["is_overloaded"] is False
 
 
+async def test_la_carga_provisional_va_aparte_en_la_matriz(client: AsyncClient):
+    """Las horas de un proyecto provisional salen aparte y no son firmadas."""
+    token = await _token(client, "admin@example.com")
+    auth = {"Authorization": f"Bearer {token}"}
+
+    creado = await client.post(
+        "/api/projects", json={"name": "Linea 2", "is_provisional": True}, headers=auth
+    )
+    assert creado.status_code == 201, creado.text
+    provisional = creado.json()
+    assert provisional["is_provisional"] is True
+    proyecto = provisional["id"]
+
+    usuarios = await client.get("/api/users", headers=auth)
+    assert usuarios.status_code == 200, usuarios.text
+    ana = next(
+        user for user in usuarios.json() if user["email"] == "ana@example.com"
+    )
+    alta_miembro = await client.post(
+        f"/api/projects/{proyecto}/members",
+        json={"user_id": ana["id"], "role_id": 1},
+        headers=auth,
+    )
+    assert alta_miembro.status_code == 201, alta_miembro.text
+
+    alta_tarea = await client.post(
+        f"/api/projects/{proyecto}/tasks",
+        json={
+            "title": "Montaje",
+            "assigned_to": ana["id"],
+            "start_date": "2026-03-05",
+            "end_date": "2026-03-11",
+            "estimated_hours": 20,
+        },
+        headers=auth,
+    )
+    assert alta_tarea.status_code == 201, alta_tarea.text
+
+    response = await client.get(f"/api/projects/{proyecto}/capacity", headers=auth)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    fila = next(row for row in data["rows"] if row["name"] == "Ana")
+    # La tarea del proyecto provisional no es carga firmada: va aparte.
+    assert fila["total_hours"] == 0.0
+    assert fila["total_hours_provisional"] == 20.0
+    celdas = {cell["week"]: cell for cell in fila["cells"]}
+    assert celdas["2026-W10"]["hours"] == 0.0
+    assert celdas["2026-W10"]["hours_provisional"] == 8.0
+    assert celdas["2026-W11"]["hours"] == 0.0
+    assert celdas["2026-W11"]["hours_provisional"] == 12.0
+    assert celdas["2026-W10"]["is_overloaded"] is False
+    assert celdas["2026-W11"]["is_overloaded"] is False
+    assert [
+        (p["project_id"], p["hours"], p["provisional"])
+        for p in celdas["2026-W11"]["projects"]
+    ] == [(proyecto, 12.0, True)]
+
+
 async def test_listado_de_proyectos_filtra_por_membership(client: AsyncClient):
     token_admin = await _token(client, "admin@example.com")
     token_ana = await _token(client, "ana@example.com")

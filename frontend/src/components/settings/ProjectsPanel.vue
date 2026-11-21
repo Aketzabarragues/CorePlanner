@@ -39,6 +39,7 @@ const empty = () => ({
   department_id: '',
   owner_id: '',
   color: PALETTE[0].hex,
+  is_provisional: false,
 })
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
@@ -88,6 +89,7 @@ function edit(project) {
     owner_id:
       project.owner_id === null || project.owner_id === undefined ? '' : String(project.owner_id),
     color: project.color ?? PALETTE[0].hex,
+    is_provisional: project.is_provisional === true,
   }
   error.value = null
   formOpen.value = true
@@ -104,6 +106,7 @@ async function save() {
       department_id:
         form.value.department_id === '' ? null : Number(form.value.department_id),
       owner_id: form.value.owner_id === '' ? null : Number(form.value.owner_id),
+      is_provisional: form.value.is_provisional === true,
     }
     if (editing.value) {
       await configApi.updateProject(token, form.value.id, {
@@ -163,6 +166,13 @@ async function save() {
               :data-testid="`project-color-${project.id}`"
             ></span>
             {{ project.name }}
+            <span
+              v-if="project.is_provisional"
+              class="ml-1 text-[10px] font-medium text-slate-500"
+              data-testid="project-provisional-label"
+            >
+              Provisional
+            </span>
           </td>
           <td class="px-2 py-2 text-slate-600">{{ departmentName(project.department_id) }}</td>
           <td class="px-2 py-2 text-slate-600">{{ personName(project.owner_id) }}</td>
@@ -236,6 +246,27 @@ async function save() {
         </div>
 
         <ColorPicker v-if="editing" v-model="form.color" class="mt-3" />
+
+        <label class="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600">
+          <span>Provisional</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="form.is_provisional"
+            data-testid="project-provisional-switch"
+            class="relative h-5 w-9 rounded-full transition-colors"
+            :class="form.is_provisional ? 'bg-siemens-900' : 'bg-slate-300'"
+            @click="form.is_provisional = !form.is_provisional"
+          >
+            <span
+              class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+              :class="form.is_provisional ? 'left-[18px]' : 'left-0.5'"
+            ></span>
+          </button>
+        </label>
+        <p class="text-xs text-slate-500">
+          Proyecto en estudio: sus horas solo se cuentan con «Contar lo provisional».
+        </p>
 
         <AlertBanner v-if="error" variant="error" class="mt-3">
           {{ error }}

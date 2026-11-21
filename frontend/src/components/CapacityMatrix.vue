@@ -28,6 +28,7 @@ import {
   isOverloaded,
   loadAspect,
   loadBarWidth,
+  loadFree,
   loadLabel,
   loadRatio,
   loadState,
@@ -105,6 +106,13 @@ const breakdownHolidays = computed(() => {
 
 /** El alta de tareas solo tiene sentido con un proyecto delante. */
 const canCreate = computed(() => project.value !== null)
+
+/** Si el informe trae carga provisional: solo entonces el interruptor existe. */
+const hayProvisional = computed(() =>
+  rows.value.some((row) =>
+    (row.cells ?? []).some((cell) => Number(cell.hours_provisional ?? 0) > 0),
+  ),
+)
 
 /** Enlace al Gantt: con el proyecto que filtra, o el de toda la organizacion. */
 const ganttLink = computed(() =>
@@ -237,6 +245,19 @@ async function updateQuery(patch, recargarAhora = true) {
 const mode = computed({
   get: () => query.value.mode ?? MODE.HOURS,
   set: (value) => updateQuery({ mode: value === MODE.HOURS ? undefined : value }, false),
+})
+
+/**
+ * Contar lo provisional.
+ *
+ * Cambia la lectura de la matriz, no los datos: el informe trae siempre la
+ * carga confirmada y la provisional por separado, y el interruptor decide
+ * con cual se leen las celdas. Por eso no pide el informe de nuevo.
+ */
+const countProvisional = computed({
+  get: () => query.value.provisional === '1',
+  set: (value) =>
+    updateQuery({ provisional: value ? '1' : undefined }, false),
 })
 
 /** Proyecto que fija la ruta, cuando la vista esta en el espacio del proyecto. */
@@ -385,41 +406,75 @@ function previewOf(row, week) {
 }
 
 /**
+ * Carga de una celda segun el interruptor "Contar lo provisional".
+ *
+ * El informe trae la carga confirmada y la provisional por separado; lo que
+ * cuenta en la vista depende del interruptor.
+ */
+function cargaDe(cell) {
+  const provisional = Number(cell.hours_provisional ?? 0)
+  const horas = Number(cell.hours ?? 0)
+  return {
+    horas,
+    provisional,
+    aplicables: countProvisional.value ? centimas(horas + provisional) : horas,
+  }
+}
+
+/**
  * Como se ve una celda: cifras, estado de carga y clases.
  *
  * El estado lo decide la escala de carga, con la capacidad que da el backend.
  * Una celda sin horas muestra un punto; con capacidad desconocida muestra las
  * horas y nada mas: no se sabe si esta libre ni sobrecargada.
+ *
+ * La carga que cuenta depende del interruptor "Contar lo provisional": sin
+ * el, la confirmada; con el, confirmada mas provisional. Estado, porcentaje y
+ * horas libres se calculan con esa carga, no con la confirmada a secas.
  */
 function cellView(row, week) {
   const cell = cellOf(row, week)
-  const state = loadState(cell.hours, cell.capacity)
+  const { horas, provisional, aplicables: horasAplicables } = cargaDe(cell)
+  const state = loadState(horasAplicables, cell.capacity)
   const aspect = loadAspect(state)
-  const ratio = loadRatio(cell.hours, cell.capacity)
-  const vacia = !(cell.hours > 0)
+  const ratio = loadRatio(horasAplicables, cell.capacity)
+  // Una celda no esta vacia si tiene carga de cualquier tipo: un proyecto
+  // entero sin firmar sigue siendo carga, aunque sea provisional.
+  const vacia = !(horas > 0) && !(provisional > 0)
   const preview = previewOf(row, week)
 
   return {
     week,
     state,
     etiqueta: loadLabel(state),
-    sobrecargada: isOverloaded(state) || cell.is_overloaded === true,
-    principal: vacia ? '·' : cell.hours,
+    sobrecargada: isOverloaded(state),
+    principal: vacia ? '·' : horasAplicables,
     capacidad: vacia ? '' : ratio === null ? 'sin capacidad' : `/${cell.capacity}`,
     porcentaje: vacia || ratio === null ? '' : `${ratio} %`,
     horasCapacidad:
-      vacia || ratio === null ? '' : `${cell.hours}/${cell.capacity} h`,
-    anchoBarra: loadBarWidth(cell.hours, cell.capacity),
+      vacia || ratio === null ? '' : `${horasAplicables}/${cell.capacity} h`,
+    libre: vacia ? '' : loadFree(horasAplicables, cell.capacity),
+    anchoBarra: loadBarWidth(horasAplicables, cell.capacity),
     preview,
     clases: preview
       ? preview.clases
-      : [aspect.cell, aspect.text, aspect.border].filter(Boolean).join(' '),
+      : [
+          aspect.cell,
+          aspect.text,
+          aspect.border,
+          // La carga que se esta leyendo incluye lo provisional: contorno.
+          ...(provisional > 0 && countProvisional.value ? [PREVIEW_BORDER] : []),
+        ]
+          .filter(Boolean)
+          .join(' '),
     claseBarra: aspect.bar,
     muestraBarra: !vacia && ratio !== null,
+    provisional: provisional > 0,
     proyectos: (cell.projects ?? []).map((item) => ({
       id: item.project_id,
       nombre: projectNames.value.get(item.project_id) ?? `Proyecto ${item.project_id}`,
       horas: item.hours,
+      provisional: item.provisional === true,
     })),
   }
 }
@@ -513,13 +568,14 @@ function cellAria(row, week) {
   }
 
   const cell = cellOf(row, week)
+  const { horas, aplicables } = cargaDe(cell)
   const partes = [`${row.name}, semana ${weekTitle(week)}`]
-  if (!(cell.hours > 0)) {
+  if (!(horas > 0)) {
     partes.push('sin horas')
     return partes.join(', ')
   }
-  partes.push(`${cell.hours} h`)
-  const ratio = loadRatio(cell.hours, cell.capacity)
+  partes.push(`${aplicables} h`)
+  const ratio = loadRatio(aplicables, cell.capacity)
   if (ratio === null) {
     partes.push('capacidad desconocida')
   } else {
@@ -596,10 +652,27 @@ function handleError(err) {
 function syncBreakdownCell() {
   const row = rows.value.find((r) => r.user_id === breakdown.value.user_id)
   if (!row) return
-  const cell = cellOf(row, breakdown.value.week)
   breakdown.value = {
     ...breakdown.value,
-    hours: cell.hours,
+    ...detalleCelda(row, breakdown.value.week),
+  }
+}
+
+/**
+ * El desglose de la celda abierta, con la carga que la matriz esta leyendo.
+ *
+ * Las horas que llegan son las que se ven en la celda (confirmadas, o con
+ * lo provisional si el interruptor lo cuenta) y las horas provisionales de
+ * la celda, para que el panel marque sus proyectos.
+ */
+function detalleCelda(row, week) {
+  const cell = cellOf(row, week)
+  const { aplicables } = cargaDe(cell)
+  return {
+    hours: aplicables,
+    // La carga provisional viaja aunque no haya carga confirmada: una celda
+    // con un proyecto entero sin firmar es justamente el caso que hay que ver.
+    hours_provisional: Number(cell.hours_provisional ?? 0),
     capacity: cell.capacity,
     weekly_base_hours: row.weekly_base_hours,
     is_overloaded: cell.is_overloaded,
@@ -613,15 +686,11 @@ function syncBreakdownCell() {
  * abierto en la misma celda.
  */
 async function openCell(row, week) {
-  const cell = cellOf(row, week)
   breakdown.value = {
     user_id: row.user_id,
     name: row.name,
     week,
-    hours: cell.hours,
-    capacity: cell.capacity,
-    weekly_base_hours: row.weekly_base_hours,
-    is_overloaded: cell.is_overloaded,
+    ...detalleCelda(row, week),
   }
   await loadBreakdownTasks()
   await updateQuery({ cell: `${row.user_id}-${week}` }, false)
@@ -642,15 +711,11 @@ async function openCellFromUrl() {
   const week = resto.join('-')
   const row = rows.value.find((item) => String(item.user_id) === userId)
   if (!row || !week) return
-  const cell = cellOf(row, week)
   breakdown.value = {
     user_id: row.user_id,
     name: row.name,
     week,
-    hours: cell.hours,
-    capacity: cell.capacity,
-    weekly_base_hours: row.weekly_base_hours,
-    is_overloaded: cell.is_overloaded,
+    ...detalleCelda(row, week),
   }
   await loadBreakdownTasks()
 }
@@ -1172,6 +1237,28 @@ watch(
         @mostrar-todos="mostrarTodos"
       />
 
+      <label
+        v-if="hayProvisional"
+        class="flex items-center gap-2 text-xs font-medium text-slate-600"
+        data-testid="provisional-filter-label"
+      >
+        <span>Contar lo provisional</span>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="countProvisional"
+          data-testid="provisional-filter"
+          class="relative h-5 w-9 rounded-full transition-colors"
+          :class="countProvisional ? 'bg-siemens-900' : 'bg-slate-300'"
+          @click="countProvisional = !countProvisional"
+        >
+          <span
+            class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+            :class="countProvisional ? 'left-[18px]' : 'left-0.5'"
+          ></span>
+        </button>
+      </label>
+
       <div class="flex items-center gap-1">
         <button
           type="button"
@@ -1358,6 +1445,13 @@ watch(
                       {{ celda.porcentaje }}
                     </span>
                     <span
+                      v-if="celda.libre !== null && celda.libre !== ''"
+                      class="text-[10px] tabular-nums opacity-80"
+                      data-testid="cell-libre"
+                    >
+                      libre {{ celda.libre }} h
+                    </span>
+                    <span
                       v-if="celda.muestraBarra"
                       class="block h-1 w-3/4 rounded bg-slate-900/10"
                     >
@@ -1384,7 +1478,8 @@ watch(
                       v-for="proyecto in celda.proyectos"
                       :key="proyecto.id"
                       class="block max-w-full truncate rounded bg-slate-900/10 px-1 text-[10px] font-medium"
-                      :title="`${proyecto.nombre}: ${proyecto.horas} h`"
+                      :class="proyecto.provisional ? PREVIEW_BORDER : ''"
+                      :title="`${proyecto.nombre}: ${proyecto.horas} h${proyecto.provisional ? ' (provisional)' : ''}`"
                       data-testid="cell-project"
                     >
                       {{ proyecto.nombre }} · {{ proyecto.horas }} h

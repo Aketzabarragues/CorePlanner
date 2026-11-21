@@ -274,6 +274,9 @@ class Project(Base):
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default=ProjectStatus.PLANNING.value
     )
+    is_provisional: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     department_id: Mapped[int | None] = mapped_column(
         ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, index=True
     )

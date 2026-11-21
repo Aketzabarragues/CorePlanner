@@ -252,6 +252,11 @@ const miembrosVisibles = computed(() => {
   return miembros.filter((member) => !ocultoPara(member.user_id))
 })
 
+/** Si alguna barra visible es de un proyecto provisional: la leyenda lo marca. */
+const hayProvisional = computed(() =>
+  (layout.value?.bars ?? []).some((barra) => barra.provisional === true),
+)
+
 /** Rango completo: sin desde ni hasta en la URL. */
 const rangoCompleto = computed(() => !rangoDesde.value && !rangoHasta.value)
 
@@ -948,7 +953,7 @@ useTaskReload(load)
       <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
 
       <ul
-        v-if="miembrosVisibles.length"
+        v-if="miembrosVisibles.length || hayProvisional"
         class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"
         data-testid="gantt-legend"
       >
@@ -959,6 +964,12 @@ useTaskReload(load)
         >
           <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
           {{ member.name }}
+        </li>
+        <li v-if="hayProvisional" class="flex items-center gap-1.5" data-testid="gantt-legend-provisional">
+          <span
+            class="inline-block h-3 w-3 rounded-sm border border-dashed border-slate-500 bg-white"
+          />
+          Provisional
         </li>
       </ul>
 

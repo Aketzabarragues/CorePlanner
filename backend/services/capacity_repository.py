@@ -17,6 +17,7 @@ from ..models import (
     NonWorkingDay,
     NonWorkingDayScope,
     PersonSkill,
+    Project,
     ProjectMember,
     Task,
     User,
@@ -282,10 +283,21 @@ async def load_capacity_for_projects(
     proyectos: las filas siguen siendo las del informe entero, de modo que una
     persona sin trabajo en ese proyecto sale con la celda vacia. Sin ese
     parametro cuentan todos los proyectos del informe.
+    Los proyectos provisionales se marcan en el informe: sus horas van aparte
+    y no cuentan para la sobrecarga.
     """
     ids = {int(project_id) for project_id in project_ids}
     if not ids:
         return build_capacity_report([], [], weeks=weeks)
+
+    provisional_rows = (
+        await session.execute(
+            select(Project.id).where(
+                Project.id.in_(ids), Project.is_provisional.is_(True)
+            )
+        )
+    ).scalars().all()
+    provisional_projects = frozenset(provisional_rows)
 
     memberships = (
         await session.execute(
@@ -335,7 +347,13 @@ async def load_capacity_for_projects(
     else:
         hours_ids = {int(project_id) for project_id in hours_project_ids}
         cell_tasks = [task for task in tasks if task.project_id in hours_ids]
-    return build_capacity_report(people, cell_tasks, weeks=weeks, holidays=global_days)
+    return build_capacity_report(
+        people,
+        cell_tasks,
+        weeks=weeks,
+        holidays=global_days,
+        provisional_projects=provisional_projects,
+    )
 
 
 async def load_project_capacity(

@@ -299,3 +299,39 @@ async def test_la_migracion_de_color_es_idempotente(tmp_path):
     assert primera == segunda
     assert all(color in PALETTE_COLORS for color in segunda.values())
     await engine.dispose()
+
+
+async def _columna_is_provisional(engine) -> bool:
+    """Si la tabla de proyectos tiene la columna is_provisional."""
+    async with engine.begin() as conn:
+        filas = (await conn.execute(text("PRAGMA table_info('projects')"))).all()
+    return any(fila[1] == "is_provisional" for fila in filas)
+
+
+async def _provisional(engine) -> dict[int, bool]:
+    async with engine.begin() as conn:
+        filas = (
+            await conn.execute(
+                text("SELECT id, is_provisional FROM projects ORDER BY id")
+            )
+        ).all()
+    return {fila.id: bool(fila.is_provisional) for fila in filas}
+
+
+async def test_la_migracion_anade_is_provisional_y_lo_rellena_en_falso(tmp_path):
+    """Una base sin la columna la recibe y sus filas quedan no provisionales."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'vieja.sqlite'}")
+    await _crear_tablas(engine, con_color=False)
+    await _insertar(
+        engine, "projects", [(1, "Linea 1", None), (2, "Linea 2", None)], con_color=False
+    )
+
+    await apply_migrations(engine)
+
+    assert await _columna_is_provisional(engine) is True
+    assert await _provisional(engine) == {1: False, 2: False}
+    # Aplicarla otra vez no toca la columna ni los valores.
+    await apply_migrations(engine)
+    assert await _columna_is_provisional(engine) is True
+    assert await _provisional(engine) == {1: False, 2: False}
+    await engine.dispose()

@@ -33,8 +33,9 @@ async def load_gantt_for_projects(
     ids = {project.id for project in projects}
     names = {project.id: project.name for project in projects}
     colors = {project.id: project.color for project in projects}
+    provisional = frozenset(p.id for p in projects if p.is_provisional)
     if not ids:
-        return build_gantt_feed([], [], names, colors)
+        return build_gantt_feed([], [], names, colors, provisional)
 
     member_ids = (
         await session.execute(
@@ -66,7 +67,7 @@ async def load_gantt_for_projects(
             task.id,
         ),
     )
-    return build_gantt_feed(ordered, ordered_tasks, names, colors)
+    return build_gantt_feed(ordered, ordered_tasks, names, colors, provisional)
 
 
 async def load_project_gantt(session: AsyncSession, project: Project) -> GanttFeed:

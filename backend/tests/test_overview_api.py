@@ -351,6 +351,63 @@ async def test_el_filtro_de_proyecto_no_amplia_el_ambito(client: AsyncClient):
     assert _row(data, client.ids["jorge"])["total_hours"] == 10
 
 
+async def test_la_capacidad_global_separa_la_carga_provisional(client: AsyncClient):
+    """El proyecto provisional sale en la matriz, pero su carga no es firmada."""
+    headers = await _auth(client, "admin@example.com")
+
+    creado = await client.post(
+        "/api/projects",
+        json={"name": "Lote futuro", "is_provisional": True},
+        headers=headers,
+    )
+    assert creado.status_code == 201, creado.text
+    proyecto = creado.json()["id"]
+
+    roles = await client.get("/api/roles/project", headers=headers)
+    assert roles.status_code == 200, roles.text
+    alta_miembro = await client.post(
+        f"/api/projects/{proyecto}/members",
+        json={"user_id": client.ids["ana"], "role_id": roles.json()[0]["id"]},
+        headers=headers,
+    )
+    assert alta_miembro.status_code == 201, alta_miembro.text
+
+    alta_tarea = await client.post(
+        f"/api/projects/{proyecto}/tasks",
+        json={
+            "title": "Reserva de montaje",
+            "assigned_to": client.ids["ana"],
+            "start_date": "2026-11-02",
+            "end_date": "2026-11-04",
+            "estimated_hours": 12,
+        },
+        headers=headers,
+    )
+    assert alta_tarea.status_code == 201, alta_tarea.text
+
+    response = await client.get("/api/capacity", headers=headers)
+
+    assert response.status_code == 200, response.text
+    ana = _row(response.json(), client.ids["ana"])
+    # Sus 12 h firmadas (linea y cruzada) no se tocan; las 12 provisionales
+    # del lote salen aparte: visibles, sin firmar, sin sobrecarga.
+    assert ana["total_hours"] == 12
+    assert ana["total_hours_provisional"] == 12
+    celda = ana["cells"][0]
+    assert celda["week"] == "2026-W45"
+    assert celda["hours"] == 12
+    assert celda["hours_provisional"] == 12
+    assert celda["is_overloaded"] is False
+    assert [
+        (p["project_id"], p["hours"], p["provisional"])
+        for p in celda["projects"]
+    ] == [
+        (client.ids["linea"], 8, False),
+        (client.ids["tuberias"], 4, False),
+        (proyecto, 12, True),
+    ]
+
+
 async def test_un_proyecto_que_no_se_ve_es_404(client: AsyncClient):
     headers = await _auth(client, "jorge@example.com")
 

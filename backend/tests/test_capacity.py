@@ -296,6 +296,84 @@ def test_informe_no_marca_sobrecarga_en_el_limite_exacto():
     assert report.rows[0].cells[0].is_overloaded is False
 
 
+def test_el_provisional_va_aparte_y_no_sobrecarga():
+    """La carga de un proyecto provisional no esta firmada: se muestra, no sobrecarga.
+
+    El reparto sigue siendo exacto: la parte confirmada y la provisional
+    suman las horas de la tarea, y la suma por celdas cuadra con los totales.
+    """
+    user = person(1, "Ana")
+    firmada = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+    provisional = FakeTask(2, 1, date(2026, 3, 2), date(2026, 3, 11), 20, project_id=9)
+
+    report = build_capacity_report(
+        [user], [firmada, provisional], provisional_projects=frozenset({9})
+    )
+
+    celdas = {cell.week: cell for cell in report.rows[0].cells}
+    celda10 = celdas["2026-W10"]
+    celda11 = celdas["2026-W11"]
+    # W10: 30 h firmadas + 12,5 h provisionales (5 de los 8 dias laborables).
+    assert celda10.hours == H("30.00")
+    assert celda10.provisional_hours == H("12.50")
+    # W11: 7,5 h provisionales (los 3 dias restantes), sin carga firmada.
+    assert celda11.hours == H("0.00")
+    assert celda11.provisional_hours == H("7.50")
+    # W10 lleva 42,5 h en total, por encima de la capacidad de 40 h, pero la
+    # sobrecarga solo la marca lo firmado.
+    assert celda10.is_overloaded is False
+    assert celda11.is_overloaded is False
+    assert report.rows[0].has_overload is False
+    # Los totales cuadran con el reparto de cada tarea.
+    assert report.rows[0].total_hours == H("30.00")
+    assert report.rows[0].total_hours_provisional == H("20.00")
+    assert sum(
+        cell.units + cell.provisional_units for cell in report.rows[0].cells
+    ) == to_units(Decimal("50.00"))
+    # El desglose por proyecto lleva la marca y sigue sumando la celda.
+    assert [(p.project_id, p.provisional) for p in celda10.projects] == [
+        (7, False),
+        (9, True),
+    ]
+    assert sum(p.units for p in celda10.projects) == celda10.units + celda10.provisional_units
+
+
+def test_la_carga_confirmada_sobrecarga_aunque_haya_provisional():
+    user = person(1, "Ana")
+    firmada = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 60, project_id=7)
+    provisional = FakeTask(2, 1, date(2026, 3, 2), date(2026, 3, 6), 20, project_id=9)
+
+    report = build_capacity_report(
+        [user], [firmada, provisional], provisional_projects=frozenset({9})
+    )
+
+    celda = report.rows[0].cells[0]
+    assert celda.hours == H("60.00")
+    assert celda.provisional_hours == H("20.00")
+    assert celda.is_overloaded is True
+    assert report.rows[0].has_overload is True
+
+
+def test_el_provisional_se_muestra_en_el_diccionario_del_informe():
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 20, project_id=9)
+
+    data = build_capacity_report(
+        [user], [tarea], provisional_projects=frozenset({9})
+    ).to_dict()
+
+    fila = data["rows"][0]
+    celda = fila["cells"][0]
+    assert fila["total_hours"] == 0.0
+    assert fila["total_hours_provisional"] == 20.0
+    assert celda["hours"] == 0.0
+    assert celda["hours_provisional"] == 20.0
+    assert celda["is_overloaded"] is False
+    assert celda["projects"] == [
+        {"project_id": 9, "hours": 20.0, "provisional": True}
+    ]
+
+
 def test_informe_suma_varias_tareas_de_la_misma_persona():
     user = person(1, "Ana")
     tasks = [
@@ -518,7 +596,7 @@ def test_el_informe_serializa_el_desglose_por_proyecto():
     data = build_capacity_report([user], [tarea]).to_dict()
 
     assert data["rows"][0]["cells"][0]["projects"] == [
-        {"project_id": 7, "hours": 30.0}
+        {"project_id": 7, "hours": 30.0, "provisional": False}
     ]
 
 

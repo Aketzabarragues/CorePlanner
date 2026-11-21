@@ -83,6 +83,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   celda, que es `null` cuando nadie ha imputado (un cero afirmaria algo que el
   dato no sostiene). Cada persona imputa sobre si misma y las mutaciones van a
   la bitacora.
+- **frontend**: el panel global lleva un bloque "Necesitan aprobacion" con los
+  incidentes pendientes: quien es, la semana, la carga frente a la capacidad y
+  el umbral superado. Aprobar y rechazar, con nota opcional, y solo si quien
+  entra puede resolverlos.
 - **frontend**: la politica de capacidad se configura en una pestana nueva de
   Configuracion (solo el gerente) y la matriz marca el veredicto de cada celda
   con un simbolo y un texto, no solo con color. El fondo de la celda no

@@ -9,10 +9,9 @@ inline, Calendario con arrastre entre dias, alta y edicion en la vista de
 dia, y el gesto de arrastre compartido.
 
 Pendiente: la exportacion `.ics` (la unica funcionalidad de la v1 que sigue
-abierta), las funcionalidades post-v1 (G1 horas reales, G3 politica de
-capacidad, G5 MCP, G4 dependencias) y la revision visual en navegador, que
-esta sesion no puede hacer. G2 (capacidad libre y modo provisional) queda
-cerrada en codigo.
+abierta, y el usuario la ha dejado para el final), las funcionalidades post-v1
+(G5 MCP y G4 dependencias) y la revision visual en navegador, que esta sesion
+no puede hacer. G1, G2 y G3 quedan cerradas en codigo.
 
 ## Cambios realizados
 
@@ -96,6 +95,19 @@ cerrada en codigo.
     imputaciones), con la bitacora en la misma transaccion.
   - El motor lleva `actual_units` por celda y el informe manda `hours_actual`,
     que es `null` si nadie ha imputado.
+- G3 (politica de capacidad), backend y frontend:
+  - `capacity_policies`: ambito (persona o departamento), umbral de aviso y
+    umbral que exige aprobacion. Configuracion de la empresa, del gerente.
+  - `backend/services/capacity_policy.py`: motor puro que evalua las politicas
+    y devuelve el veredicto por persona y semana. Persona gana a departamento;
+    la comparacion es de enteros.
+  - El informe lleva `policy_verdict` y la politica aplicada por celda.
+  - `capacity_incidents`: el umbral duro abre un incidente, en la misma
+    transaccion que el cambio de tarea que lo provoco. Uno por politica, persona
+    y semana; uno resuelto no se reabre.
+  - Interfaz: pestana "Politica de capacidad" en Configuracion, marca del
+    veredicto en la celda (simbolo y texto, el fondo no cambia) y bloque
+    "Necesitan aprobacion" en el panel global.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

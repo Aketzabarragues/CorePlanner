@@ -226,6 +226,17 @@ export const panelApi = {
   list: (token) => apiFetch('/panel', { token }),
 }
 
+/** Incidentes de capacidad: los que tocan a quien entra y su resolucion. */
+export const capacityIncidentsApi = {
+  list: (token) => apiFetch('/capacity-incidents', { token }),
+  resolve: (token, incidentId, payload) =>
+    apiFetch(`/capacity-incidents/${incidentId}/resolve`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+}
+
 /** Politicas de capacidad de la empresa: umbrales de aviso y de aprobacion. */
 export const capacityPoliciesApi = {
   list: (token) => apiFetch('/capacity-policies', { token }),

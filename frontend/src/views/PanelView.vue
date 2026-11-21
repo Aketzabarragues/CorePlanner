@@ -12,9 +12,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
-import { panelApi } from '../api/client'
+import { capacityIncidentsApi, meApi, panelApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AsyncState from '../components/common/AsyncState.vue'
+import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
 import { useAuthStore } from '../stores/auth'
@@ -38,6 +39,74 @@ const projectStatuses = computed(() =>
   Object.entries(panel.value?.projects_by_status ?? {}),
 )
 const taskStatuses = computed(() => Object.entries(panel.value?.tasks_by_status ?? {}))
+
+const scope = ref(null)
+const incidents = ref([])
+const resolving = ref(null)
+const resolvingNote = ref('')
+const resolvingError = ref(null)
+
+/** Incidentes pendientes: los resueltos no se reabren ni se repiten. */
+const pendingIncidents = computed(() => incidents.value.filter((item) => item.state === 'pendiente'))
+
+/**
+ * El bloque de aprobaciones: solo los pendientes.
+ *
+ * La lista del servidor ya esta acotada al ambito de quien entra (el
+ * gerente ve todos, el jefe los de su departamento y el tecnico los suyos),
+ * de modo que basta con que haya algo pendiente. Sin pendientes el bloque
+ * se esconde: no hay historia de resueltos aqui.
+ */
+const showIncidentBlock = computed(() => pendingIncidents.value.length > 0)
+
+/** Puede resolver: el jefe del departamento de la persona o el gerente. */
+function puedeResolver(incident) {
+  const user = scope.value?.user
+  if (!user) return false
+  if (user.is_global_admin || user.company_role === 'gerente') return true
+  return (
+    user.company_role === 'jefe_departamento' &&
+    user.department_id !== null &&
+    incident.department_id === user.department_id
+  )
+}
+
+/** Abre el dialogo para aprobar o rechazar un incidente, con su nota. */
+function abrirResolucion(incident) {
+  resolving.value = incident
+  resolvingNote.value = ''
+  resolvingError.value = null
+}
+
+function cerrarResolucion() {
+  resolving.value = null
+  resolvingError.value = null
+}
+
+async function resolver(decision) {
+  const incident = resolving.value
+  if (!incident) return
+  resolvingError.value = null
+  try {
+    const token = await auth.ensureSession()
+    const nota = resolvingNote.value.trim() || null
+    await capacityIncidentsApi.resolve(token, incident.id, { decision, note: nota })
+    // La lista vuelve del servidor: el resuelto sale de los pendientes y la
+    // carga que se muestra es la actual, no la del momento de abrir.
+    incidents.value = await capacityIncidentsApi.list(token)
+    resolving.value = null
+  } catch (err) {
+    resolvingError.value = err.message
+  }
+}
+
+/** Fecha corta para "abierto el": "12 mar". */
+function fechaCortada(iso) {
+  if (!iso) return ''
+  const fecha = new Date(iso)
+  if (Number.isNaN(fecha.getTime())) return ''
+  return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+}
 
 /** Proyectos que estan en marcha. */
 const activeProjects = computed(() => projects.value.filter((item) => item.status === 'active'))
@@ -135,7 +204,14 @@ function problemPill(problem) {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    panel.value = await panelApi.list(token)
+    const [panelData, scopeData, incidentData] = await Promise.all([
+      panelApi.list(token),
+      meApi.get(token),
+      capacityIncidentsApi.list(token),
+    ])
+    panel.value = panelData
+    scope.value = scopeData
+    incidents.value = incidentData
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -326,6 +402,80 @@ useTaskReload(load)
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section
+        v-if="showIncidentBlock"
+        aria-label="Necesitan aprobación"
+        class="mb-4 rounded border border-slate-200 bg-white p-4"
+        data-testid="panel-incidents"
+      >
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-sm font-semibold text-siemens-900">Necesitan aprobación</h2>
+          <span class="text-xs text-slate-500">
+            {{ pendingIncidents.length }}
+            {{ pendingIncidents.length === 1 ? 'incidente' : 'incidentes' }} por encima del
+            umbral de aprobación
+          </span>
+        </div>
+        <div role="list" class="flex flex-col">
+          <div
+            v-for="incident in pendingIncidents"
+            :key="incident.id"
+            role="listitem"
+            class="flex flex-wrap items-center gap-3 border-t border-slate-100 py-2 first:border-t-0"
+            :data-testid="`panel-incident-${incident.id}`"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-slate-800">
+                {{ incident.user_name }}
+                <span v-if="incident.department_name" class="font-normal text-slate-500">
+                  · {{ incident.department_name }}
+                </span>
+              </p>
+              <p class="text-xs text-slate-500">
+                Semana {{ weekNumber(incident.week) }} ·
+                {{ formatHours(incident.hours) }} de
+                {{
+                  incident.capacity === null || incident.capacity === undefined
+                    ? 'capacidad desconocida'
+                    : formatHours(incident.capacity)
+                }}
+                · abierto {{ fechaCortada(incident.created_at) }}
+              </p>
+            </div>
+            <span
+              class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+              :class="
+                incident.hours !== null &&
+                incident.capacity !== null &&
+                incident.hours > incident.capacity
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-amber-100 text-amber-800'
+              "
+            >
+              umbral de aprobación {{ incident.requires_approval_percent }} %
+            </span>
+            <template v-if="puedeResolver(incident)">
+              <button
+                type="button"
+                class="rounded border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700"
+                :data-testid="`panel-incident-approve-${incident.id}`"
+                @click="abrirResolucion(incident)"
+              >
+                Aprobar
+              </button>
+              <button
+                type="button"
+                class="rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700"
+                :data-testid="`panel-incident-reject-${incident.id}`"
+                @click="abrirResolucion(incident)"
+              >
+                Rechazar
+              </button>
+            </template>
+          </div>
         </div>
       </section>
 
@@ -523,5 +673,63 @@ useTaskReload(load)
         </section>
       </div>
     </AsyncState>
+
+    <ModalDialog
+      :open="resolving !== null"
+      title="Resolver incidente de capacidad"
+      :subtitle="
+        resolving
+          ? `${resolving.user_name}, semana ${weekNumber(resolving.week)}`
+          : ''
+      "
+      size="sm"
+      @close="cerrarResolucion"
+    >
+      <p class="text-sm text-slate-600">
+        Esta acción registra la decisión sobre la carga actual de la persona.
+      </p>
+      <label class="mt-3 block text-sm font-medium">
+        Nota (opcional)
+        <textarea
+          v-model="resolvingNote"
+          rows="2"
+          maxlength="2000"
+          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          data-testid="incident-note"
+        ></textarea>
+      </label>
+      <p
+        v-if="resolvingError"
+        class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        data-testid="incident-error"
+      >
+        {{ resolvingError }}
+      </p>
+      <template #footer>
+        <button
+          type="button"
+          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          @click="cerrarResolucion"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
+          data-testid="incident-reject-submit"
+          @click="resolver('rechazada')"
+        >
+          Rechazar
+        </button>
+        <button
+          type="button"
+          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          data-testid="incident-approve-submit"
+          @click="resolver('aprobada')"
+        >
+          Aprobar
+        </button>
+      </template>
+    </ModalDialog>
   </div>
 </template>

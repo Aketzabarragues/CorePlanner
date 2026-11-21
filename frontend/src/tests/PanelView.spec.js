@@ -119,8 +119,58 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch(payload = panel) {
-  global.fetch = vi.fn(async (url) => {
+const gerenteScope = {
+  is_manager: true,
+  user: {
+    id: 1,
+    name: 'Ivan',
+    email: 'ivan@example.com',
+    is_global_admin: false,
+    company_role: 'gerente',
+    weekly_base_hours: 40,
+    department_id: null,
+  },
+}
+
+const incident = {
+  id: 11,
+  policy_id: 1,
+  user_id: 3,
+  user_name: 'Sebastian',
+  department_id: 4,
+  department_name: 'Alimentación',
+  week: '2026-W46',
+  state: 'pendiente',
+  hours: 48,
+  capacity: 40,
+  warn_percent: 90,
+  requires_approval_percent: 100,
+  note: null,
+  created_at: '2026-11-16T10:00:00Z',
+  resolved_at: null,
+  resolved_by: null,
+}
+
+function scopeFor(role, user = {}) {
+  return {
+    is_manager: role === 'gerente',
+    user: {
+      id: 1,
+      name: 'Ivan',
+      email: 'ivan@example.com',
+      is_global_admin: false,
+      company_role: role,
+      weekly_base_hours: 40,
+      department_id: null,
+      ...user,
+    },
+  }
+}
+
+function setupFetch(payload = panel, options = {}) {
+  const { incidents = [], scope = gerenteScope } = options
+  const estado = [...incidents]
+  global.fetch = vi.fn(async (url, fetchOptions = {}) => {
     if (url.endsWith('/auth/login')) {
       return jsonResponse({
         access_token: 'tok',
@@ -129,6 +179,25 @@ function setupFetch(payload = panel) {
       })
     }
     if (url.endsWith('/panel')) return jsonResponse(payload)
+    if (url.endsWith('/me')) return jsonResponse(scope)
+    const resolveMatch = url.match(/\/capacity-incidents\/(\d+)\/resolve$/)
+    if (resolveMatch) {
+      const body = JSON.parse(fetchOptions.body ?? '{}')
+      const id = Number(resolveMatch[1])
+      const index = estado.findIndex((item) => item.id === id)
+      const actual = index === -1 ? incident : estado[index]
+      const resuelto = {
+        ...actual,
+        id,
+        state: body.decision,
+        note: body.note ?? null,
+        resolved_at: '2026-11-16T12:00:00Z',
+        resolved_by: scope.user?.name ?? null,
+      }
+      if (index !== -1) estado[index] = resuelto
+      return jsonResponse(resuelto)
+    }
+    if (url.endsWith('/capacity-incidents')) return jsonResponse(estado.map((item) => ({ ...item })))
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
 }
@@ -307,5 +376,112 @@ describe('PanelView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="panel-error"]').text()).toContain('Fallo del servidor')
+  })
+
+  it('lista los incidentes pendientes con la persona, la semana y la carga', async () => {
+    setupFetch(panel, { incidents: [incident] })
+
+    const wrapper = await mountView()
+
+    const bloque = wrapper.find('[data-testid="panel-incidents"]')
+    expect(bloque.exists()).toBe(true)
+    expect(bloque.text()).toContain('1 incidente por encima del umbral de aprobación')
+    const fila = wrapper.find('[data-testid="panel-incident-11"]')
+    expect(fila.text()).toContain('Sebastian')
+    expect(fila.text()).toContain('Alimentación')
+    expect(fila.text()).toContain('Semana 46')
+    expect(fila.text()).toContain('48 h de 40 h')
+    expect(fila.text()).toContain('umbral de aprobación 100 %')
+  })
+
+  it('aprobar un incidente envía la decisión con la nota y la lista se recarga', async () => {
+    setupFetch(panel, { incidents: [incident] })
+
+    const wrapper = await mountView()
+    await wrapper.find('[data-testid="panel-incident-approve-11"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="incident-note"]').setValue('Cubierto en proyecto B')
+    await wrapper.find('[data-testid="incident-approve-submit"]').trigger('click')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url.endsWith('/capacity-incidents/11/resolve') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toEqual({
+      decision: 'aprobada',
+      note: 'Cubierto en proyecto B',
+    })
+    expect(wrapper.find('[data-testid="panel-incident-11"]').exists()).toBe(false)
+  })
+
+  it('rechazar un incidente envía la decisión de rechazo', async () => {
+    setupFetch(panel, { incidents: [incident] })
+
+    const wrapper = await mountView()
+    await wrapper.find('[data-testid="panel-incident-reject-11"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="incident-reject-submit"]').trigger('click')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url.endsWith('/capacity-incidents/11/resolve') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toEqual({ decision: 'rechazada', note: null })
+  })
+
+  it('el jefe de otro departamento ve el incidente pero no puede resolverlo', async () => {
+    setupFetch(panel, {
+      incidents: [incident],
+      scope: scopeFor('jefe_departamento', { department_id: 99 }),
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-incident-11"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-incident-approve-11"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="panel-incident-reject-11"]').exists()).toBe(false)
+  })
+
+  it('el jefe del departamento ve los botones de aprobar y rechazar', async () => {
+    setupFetch(panel, {
+      incidents: [incident],
+      scope: scopeFor('jefe_departamento', { department_id: 4 }),
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-incident-approve-11"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-incident-reject-11"]').exists()).toBe(true)
+  })
+
+  it('el tecnico ve el incidente de su propia carga pero no lo resuelve', async () => {
+    setupFetch(panel, { incidents: [incident], scope: scopeFor('tecnico', { id: 3 }) })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-incident-11"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="panel-incident-approve-11"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="panel-incident-reject-11"]').exists()).toBe(false)
+  })
+
+  it('sin incidentes pendientes no aparece el bloque, resueltos incluidos', async () => {
+    setupFetch(panel, {
+      incidents: [
+        {
+          ...incident,
+          state: 'aprobada',
+          resolved_at: '2026-11-16T12:00:00Z',
+          resolved_by: 'Ivan',
+        },
+      ],
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="panel-incidents"]').exists()).toBe(false)
   })
 })

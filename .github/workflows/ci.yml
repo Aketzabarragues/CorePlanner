@@ -15,7 +15,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Instalar dependencias
-        run: pip install -e ".[dev]"
+        # El extra `mcp` instala el SDK del protocolo: sin el, los tests del
+        # servidor MCP no se pueden ni importar.
+        run: pip install -e ".[dev,mcp]"
       - name: Lint
         run: ruff check backend
       - name: Pruebas

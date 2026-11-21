@@ -17,6 +17,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { formatHours } from '../utils/kanban'
 import { loadAspect, loadFree, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekWorkdays } from '../utils/weeks'
 import ModalDialog from './ModalDialog.vue'
@@ -91,6 +92,21 @@ const percentage = computed(() => (ratio.value === null ? '—' : `${ratio.value
  * pasa de la capacidad el numero sale negativo.
  */
 const free = computed(() => loadFree(props.cell.hours, props.cell.capacity))
+
+/**
+ * Diferencia entre lo registrado y lo planificado, en centimas.
+ *
+ * Es `registrado - plan`, con el signo: negativo cuando se registro menos de
+ * lo planificado. Sin horas registradas no hay diferencia.
+ */
+const diffReal = computed(() => {
+  const raw = props.cell.hours_actual
+  // Null no es cero: es que nadie ha imputado, y no se pinta como registro.
+  if (raw === null || raw === undefined) return null
+  const real = Number(raw)
+  if (!Number.isFinite(real)) return null
+  return Math.round((real - Number(props.cell.hours)) * 100) / 100
+})
 
 /**
  * Notas de la celda: la jornada reducida y los dias no laborables.
@@ -186,6 +202,26 @@ function onKeydown(task, event) {
             data-testid="cell-free"
           >
             libre {{ free }} h
+          </span>
+          <!--
+            Lo real contra el plan. `hours_actual` null no es cero: nadie ha
+            imputado horas en la semana, no que se hayan trabajado cero.
+          -->
+          <span
+            v-if="diffReal !== null"
+            class="text-sm font-medium tabular-nums text-slate-700"
+            data-testid="cell-real"
+          >
+            registrado {{ formatHours(cell.hours_actual) }} · plan {{ formatHours(cell.hours) }} · {{
+              (diffReal >= 0 ? '+' : '') + diffReal
+            }} h
+          </span>
+          <span
+            v-else-if="cell.hours_actual === null"
+            class="text-sm text-slate-500"
+            data-testid="cell-real"
+          >
+            sin imputar
           </span>
         </p>
         <span

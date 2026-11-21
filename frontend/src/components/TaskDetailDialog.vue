@@ -19,7 +19,7 @@ import AsyncState from './common/AsyncState.vue'
 import ModalDialog from './ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { actionLabel, relativeTime } from '../utils/activity'
-import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
+import { KANBAN_COLUMNS, columnLabel, formatHours } from '../utils/kanban'
 
 const props = defineProps({
   open:    { type: Boolean, default: false },
@@ -29,12 +29,26 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved', 'deleted'])
 
+/** Fecha de hoy en `YYYY-MM-DD`, con el huso local del navegador. */
+function hoy() {
+  const ahora = new Date()
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(
+    ahora.getDate(),
+  ).padStart(2, '0')}`
+}
+
+/** Redondea a centimas de hora, como cuenta el motor: sin decimales de ruido. */
+function centimas(value) {
+  return Math.round(Number(value ?? 0) * 100) / 100
+}
+
 const auth = useAuthStore()
 
 const task           = ref(null)
 const members        = ref([])
 const comments       = ref([])
 const checklist      = ref([])
+const timeEntries    = ref([])
 const activity       = ref([])
 const loading        = ref(false)
 const saving         = ref(false)
@@ -44,6 +58,12 @@ const notice         = ref(null)
 const newComment     = ref('')
 /** Texto del punto de la lista que se esta escribiendo. */
 const newItem        = ref('')
+/** Fecha de la imputacion que se esta escribiendo; por defecto, hoy. */
+const entryDate      = ref(hoy())
+/** Horas de la imputacion que se esta escribiendo. */
+const entryHours     = ref('')
+/** Nota opcional de la imputacion. */
+const entryNote      = ref('')
 /** Pedir confirmacion antes de borrar la tarea. */
 const confirmingDelete = ref(false)
 
@@ -87,6 +107,20 @@ const changes = computed(() => {
 
 const hasChanges = computed(() => Object.keys(changes.value).length > 0)
 
+/** La suma de las horas imputadas de la tarea, en texto. */
+const totalHoras = computed(() =>
+  centimas(timeEntries.value.reduce((suma, entry) => suma + Number(entry.hours ?? 0), 0)),
+)
+
+/**
+ * Si la imputacion es de quien esta delante.
+ *
+ * Solo las propias se pueden borrar: el backend responde 403 a las ajenas.
+ */
+function esPropria(entry) {
+  return auth.user?.id !== null && Number(entry.user_id) === Number(auth.user?.id)
+}
+
 function fillForm(tarea) {
   task.value = tarea
   form.value = {
@@ -124,6 +158,14 @@ async function loadChecklist() {
   checklist.value  = (await tasksApi.checklist.list(token, props.taskId)) ?? []
 }
 
+/** Pide las imputaciones de horas de la tarea. */
+async function loadTimeEntries() {
+  const token = await auth.ensureSession()
+  const lista = await tasksApi.listTimeEntries(token, props.taskId)
+  // La respuesta de la API es un array; cualquier otra forma no es una lista.
+  timeEntries.value = Array.isArray(lista) ? lista : []
+}
+
 /**
  * Pide todo lo que enseña el dialogo.
  *
@@ -140,7 +182,7 @@ async function load() {
     fillForm(tarea)
     const equipo   = await projectsApi.members(token, tarea.project_id).catch(() => [])
     members.value  = equipo ?? []
-    await Promise.all([loadComments(), loadChecklist(), loadActivity()])
+    await Promise.all([loadComments(), loadChecklist(), loadTimeEntries(), loadActivity()])
   } catch (err) {
     error.value = err.message
   } finally {
@@ -246,6 +288,47 @@ async function quitarItem(item) {
     await tasksApi.checklist.remove(token, props.taskId, item.id)
     await Promise.all([loadChecklist(), loadActivity()])
     emit('saved')
+  } catch (err) {
+    error.value = err.message
+  }
+}
+
+/**
+ * Guarda una imputacion de horas de la tarea.
+ *
+ * No emite `saved`: la tarea no cambia, solo su lista de imputaciones, que
+ * se recarga.
+ */
+async function imputar() {
+  const horas = Number.parseFloat(entryHours.value)
+  if (!entryDate.value || !Number.isFinite(horas) || horas <= 0) return
+  saving.value = true
+  error.value  = null
+  try {
+    const token = await auth.ensureSession()
+    await tasksApi.addTimeEntry(token, props.taskId, {
+      work_date: entryDate.value,
+      hours: horas.toFixed(2),
+      note: entryNote.value.trim() || null,
+    })
+    entryDate.value  = hoy()
+    entryHours.value = ''
+    entryNote.value  = ''
+    await loadTimeEntries()
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/** Borra una imputacion propia. */
+async function borrarImputacion(entry) {
+  error.value = null
+  try {
+    const token = await auth.ensureSession()
+    await tasksApi.deleteTimeEntry(token, entry.id)
+    await loadTimeEntries()
   } catch (err) {
     error.value = err.message
   }
@@ -476,6 +559,74 @@ watch(
                 Comentar
               </button>
             </div>
+          </form>
+        </section>
+
+        <section class="border-t border-slate-200 pt-4">
+          <h3 class="text-sm font-semibold text-siemens-900">
+            Horas imputadas
+            <span class="font-normal text-slate-500">· total {{ totalHoras }} h</span>
+          </h3>
+
+          <ul v-if="timeEntries.length" class="mt-2 space-y-2" data-testid="time-entries">
+            <li
+              v-for="entry in timeEntries"
+              :key="entry.id"
+              class="flex items-center gap-2 text-sm"
+              data-testid="time-entry"
+            >
+              <span class="tabular-nums">{{ entry.work_date }}</span>
+              <span class="font-medium tabular-nums">{{ formatHours(entry.hours) }}</span>
+              <span class="text-slate-500">
+                <span class="font-medium text-slate-700">{{ entry.user_name }}</span>
+              </span>
+              <span v-if="entry.note" class="min-w-0 truncate text-xs text-slate-500">
+                · {{ entry.note }}
+              </span>
+              <button
+                v-if="canEdit && esPropria(entry)"
+                type="button"
+                class="ml-auto shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+                data-testid="time-entry-remove"
+                @click="borrarImputacion(entry)"
+              >
+                Borrar
+              </button>
+            </li>
+          </ul>
+          <p v-else class="mt-2 text-xs text-slate-500">Todavía no hay horas imputadas.</p>
+
+          <form v-if="canEdit" class="mt-2 flex flex-wrap items-center gap-2" @submit.prevent="imputar">
+            <input
+              v-model="entryDate"
+              type="date"
+              class="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="time-entry-date"
+            />
+            <input
+              v-model="entryHours"
+              type="number"
+              min="0"
+              step="0.25"
+              placeholder="Horas"
+              class="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="time-entry-hours"
+            />
+            <input
+              v-model="entryNote"
+              type="text"
+              placeholder="Nota (opcional)"
+              class="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="time-entry-note"
+            />
+            <button
+              type="submit"
+              :disabled="saving"
+              class="shrink-0 rounded bg-siemens-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              data-testid="time-entry-add"
+            >
+              Imputar
+            </button>
           </form>
         </section>
 

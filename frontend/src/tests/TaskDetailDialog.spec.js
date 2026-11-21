@@ -39,6 +39,29 @@ const checklist = [
   { id: 5, task_id: 1, label: 'Revisar el programa', done: false, position: 1 },
 ]
 
+const imputaciones = [
+  {
+    id: 1,
+    task_id: 1,
+    user_id: 9,
+    user_name: 'Admin',
+    work_date: '2026-11-05',
+    hours: '6.50',
+    note: 'Montaje y prueba',
+    created_at: haceMinutos(0),
+  },
+  {
+    id: 2,
+    task_id: 1,
+    user_id: 2,
+    user_name: 'Sebastian',
+    work_date: '2026-11-06',
+    hours: '3.00',
+    note: null,
+    created_at: haceMinutos(0),
+  },
+]
+
 const entradas = [
   {
     id: 9,
@@ -60,7 +83,12 @@ const entradas = [
  * El estado de comentarios, checklist y actividad se guarda en variables, de
  * modo que lo que se anade se ve en la siguiente lectura, como en el servidor.
  */
-function setupFetch({ comments = [...comentarios], items = [...checklist], activity = [...entradas] } = {}) {
+function setupFetch({
+  comments = [...comentarios],
+  items = [...checklist],
+  activity = [...entradas],
+  timeEntries = [...imputaciones],
+} = {}) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method ?? 'GET'
@@ -127,6 +155,30 @@ function setupFetch({ comments = [...comentarios], items = [...checklist], activ
     }
     if (url.endsWith('/checklist')) {
       return { ok: true, status: 200, json: async () => items }
+    }
+    if (url.includes('/time-entries') && method === 'DELETE') {
+      const id = Number(url.split('/').pop())
+      const indice = timeEntries.findIndex((entry) => entry.id === id)
+      timeEntries.splice(indice, 1)
+      return { ok: true, status: 204, json: async () => null }
+    }
+    if (url.includes('/time-entries') && method === 'POST') {
+      const cuerpo = JSON.parse(options.body)
+      timeEntries.push({
+        id: timeEntries.length + 1,
+        task_id: 1,
+        user_id: 9,
+        user_name: 'Admin',
+        work_date: cuerpo.work_date,
+        hours: cuerpo.hours,
+        note: cuerpo.note ?? null,
+        created_at: haceMinutos(0),
+      })
+      return { ok: true, status: 201, json: async () => timeEntries[timeEntries.length - 1] }
+    }
+    if (url.includes('/time-entries')) {
+      // Como el servidor: cada respuesta trae su propia copia del array.
+      return { ok: true, status: 200, json: async () => timeEntries.map((entry) => ({ ...entry })) }
     }
     if (url.endsWith('/members')) {
       return { ok: true, status: 200, json: async () => equipo }
@@ -290,5 +342,71 @@ describe('TaskDetailDialog', () => {
     expect(wrapper.find('[data-testid="comment-new"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="checklist-new"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="task-delete"]').exists()).toBe(false)
+  })
+
+  it('la seccion de horas lista las imputaciones con su total', async () => {
+    setupFetch()
+    const wrapper = await mountPanel()
+
+    const items = wrapper.findAll('[data-testid="time-entry"]')
+    expect(items).toHaveLength(2)
+    expect(items[0].text()).toContain('2026-11-05')
+    expect(items[0].text()).toContain('6.50 h')
+    expect(items[0].text()).toContain('Admin')
+    expect(items[0].text()).toContain('Montaje y prueba')
+    expect(items[1].text()).toContain('Sebastian')
+    // 6.5 + 3 = 9.5 h.
+    expect(wrapper.text()).toContain('total 9.5 h')
+  })
+
+  it('imputar manda el POST con fecha y horas y recarga la lista', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountPanel()
+
+    await wrapper.find('[data-testid="time-entry-date"]').setValue('2026-11-10')
+    await wrapper.find('[data-testid="time-entry-hours"]').setValue('4')
+    await wrapper.find('[data-testid="time-entry-note"]').setValue('Pruebas en planta')
+    await wrapper.find('[data-testid="time-entry-add"]').trigger('submit')
+    await flushPromises()
+
+    const post = calls.find(
+      (call) => call.method === 'POST' && call.url.includes('/time-entries'),
+    )
+    expect(JSON.parse(post.body)).toEqual({
+      work_date: '2026-11-10',
+      hours: '4.00',
+      note: 'Pruebas en planta',
+    })
+    expect(wrapper.findAll('[data-testid="time-entry"]')).toHaveLength(3)
+    expect(wrapper.text()).toContain('total 13.5 h')
+  })
+
+  it('la imputacion propia se puede borrar y la ajena no trae boton', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountPanel()
+
+    const items = wrapper.findAll('[data-testid="time-entry"]')
+    expect(items[0].find('[data-testid="time-entry-remove"]').exists()).toBe(true)
+    expect(items[1].find('[data-testid="time-entry-remove"]').exists()).toBe(false)
+
+    await items[0].find('[data-testid="time-entry-remove"]').trigger('click')
+    await flushPromises()
+
+    const deleteCall = calls.find(
+      (call) => call.method === 'DELETE' && call.url.includes('/time-entries/'),
+    )
+    expect(deleteCall.url).toContain('/api/time-entries/1')
+    expect(wrapper.findAll('[data-testid="time-entry"]')).toHaveLength(1)
+    expect(wrapper.text()).toContain('total 3 h')
+  })
+
+  it('sin permiso de escritura la seccion de horas va en solo lectura', async () => {
+    setupFetch()
+
+    const wrapper = await mountPanel({ canEdit: false })
+
+    expect(wrapper.findAll('[data-testid="time-entry"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="time-entry-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="time-entry-remove"]').exists()).toBe(false)
   })
 })

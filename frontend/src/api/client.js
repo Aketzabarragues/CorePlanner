@@ -245,6 +245,22 @@ export const tasksApi = {
     return apiFetch(`/tasks${query ? `?${query}` : ''}`, { token })
   },
   detail: (token, taskId) => apiFetch(`/tasks/${taskId}`, { token }),
+  /** Imputaciones de horas reales de una tarea. */
+  listTimeEntries: (token, taskId) => apiFetch(`/tasks/${taskId}/time-entries`, { token }),
+  addTimeEntry: (token, taskId, payload) =>
+    apiFetch(`/tasks/${taskId}/time-entries`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  /** Cambia una imputacion propia; el backend rechaza las ajenas con 403. */
+  updateTimeEntry: (token, id, changes) =>
+    apiFetch(`/time-entries/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+  deleteTimeEntry: (token, id) => apiFetch(`/time-entries/${id}`, { method: 'DELETE', token }),
   create: (token, projectId, task) =>
     apiFetch(`/projects/${projectId}/tasks`, {
       method: 'POST',

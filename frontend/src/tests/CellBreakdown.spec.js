@@ -72,6 +72,38 @@ describe('CellBreakdown', () => {
     expect(wrapper.text()).toContain('Puedes asignar hasta 40 h a esta persona sin sobrecargarla.')
   })
 
+  it('con horas registradas salen el registro, el plan y la diferencia', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 12, capacity: 40 }),
+      hours_actual: '6.50',
+    })
+
+    const real = wrapper.get('[data-testid="cell-real"]').text()
+    expect(real).toContain('registrado 6.50 h')
+    expect(real).toContain('plan 12 h')
+    // 6.5 - 12 = -5.5: la diferencia sale con su signo.
+    expect(real).toContain('-5.5 h')
+  })
+
+  it('si se registro mas que el plan, la diferencia sale positiva', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 12, capacity: 40 }),
+      hours_actual: 14,
+    })
+
+    expect(wrapper.get('[data-testid="cell-real"]').text()).toContain('+2 h')
+  })
+
+  it('sin horas registradas dice sin imputar y no un cero', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 12, capacity: 40 }),
+      hours_actual: null,
+    })
+
+    expect(wrapper.get('[data-testid="cell-real"]').text()).toBe('sin imputar')
+    expect(wrapper.text()).not.toContain('registrado 0')
+  })
+
   it('las tareas de un proyecto provisional van de contorno con su nota', async () => {
     const wrapper = await mountBreakdown(celda({ hours: 24, capacity: 40 }), [
       tarea(10, 1),

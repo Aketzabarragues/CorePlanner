@@ -29,8 +29,8 @@ const capacityReport = {
       total_hours: 10,
       has_overload: false,
       cells: [
-        { week: '2026-W45', hours: 10, capacity: 40, is_overloaded: false, projects: [{ project_id: 1, hours: 10 }] },
-        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false, projects: [] },
+        { week: '2026-W45', hours: 10, capacity: 40, is_overloaded: false, hours_actual: null, projects: [{ project_id: 1, hours: 10 }] },
+        { week: '2026-W46', hours: 0, capacity: 40, is_overloaded: false, hours_actual: null, projects: [] },
       ],
     },
     {
@@ -44,8 +44,8 @@ const capacityReport = {
       total_hours: 72,
       has_overload: true,
       cells: [
-        { week: '2026-W45', hours: 24, capacity: 40, is_overloaded: false, projects: [{ project_id: 1, hours: 24 }] },
-        { week: '2026-W46', hours: 48, capacity: 40, is_overloaded: true, projects: [{ project_id: 1, hours: 48 }] },
+        { week: '2026-W45', hours: 24, capacity: 40, is_overloaded: false, hours_actual: '24.00', projects: [{ project_id: 1, hours: 24 }] },
+        { week: '2026-W46', hours: 48, capacity: 40, is_overloaded: true, hours_actual: '30.00', projects: [{ project_id: 1, hours: 48 }] },
       ],
     },
   ],
@@ -934,6 +934,32 @@ describe('CapacityMatrix', () => {
     expect(wrapper.text()).toContain('48 h')
     expect(wrapper.get('[data-testid="cell-state"]').text()).toContain('Sobrecarga alta')
     expect(wrapper.get('[data-testid="cell-state"]').text()).toContain('120 %')
+  })
+
+  it('el desglose lleva las horas registradas de la celda con su diferencia', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    // 30 h registradas contra 48 h planificadas: -18 h.
+    const real = wrapper.get('[data-testid="cell-real"]').text()
+    expect(real).toContain('registrado 30 h')
+    expect(real).toContain('plan 48 h')
+    expect(real).toContain('-18 h')
+  })
+
+  it('el desglose dice sin imputar cuando nadie ha registrado horas', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // Ana en W45 tiene 10 h planificadas pero nadie ha imputado: null, no cero.
+    await wrapper.get('[data-testid="cell-1-2026-W45"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="cell-real"]').text()).toBe('sin imputar')
+    expect(wrapper.text()).not.toContain('registrado 0')
   })
 
   it('el panel avisa de los dias no laborables de la semana', async () => {

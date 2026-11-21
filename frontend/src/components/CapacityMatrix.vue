@@ -673,6 +673,9 @@ function detalleCelda(row, week) {
     // La carga provisional viaja aunque no haya carga confirmada: una celda
     // con un proyecto entero sin firmar es justamente el caso que hay que ver.
     hours_provisional: Number(cell.hours_provisional ?? 0),
+    // Lo real contra el plan: las horas registradas en la semana, o null si
+    // nadie ha imputado. Null no es cero.
+    hours_actual: cell.hours_actual ?? null,
     capacity: cell.capacity,
     weekly_base_hours: row.weekly_base_hours,
     is_overloaded: cell.is_overloaded,

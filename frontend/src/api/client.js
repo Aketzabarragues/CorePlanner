@@ -257,6 +257,12 @@ export const tasksApi = {
       token,
       body: JSON.stringify(changes),
     }),
+  reorder: (token, projectId, payload) =>
+    apiFetch(`/projects/${projectId}/tasks/order`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(payload),
+    }),
   remove: (token, taskId) =>
     apiFetch(`/tasks/${taskId}`, { method: 'DELETE', token }),
   comments: {

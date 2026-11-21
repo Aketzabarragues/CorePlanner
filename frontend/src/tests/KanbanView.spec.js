@@ -4,11 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import KanbanView from '../views/KanbanView.vue'
+import { localDateKey } from '../utils/month'
 
+/**
+ * Tablero de prueba: dos columnas con una sola tarjeta y dos con dos, para
+ * que el indice de insercion se pueda distinguir por la y de la soltura.
+ * Los contadores y las horas son los del feed: el frontend no los calcula.
+ */
 const board = {
   columns: [
     {
       status: 'backlog',
+      task_count: 1,
+      estimated_hours: 10,
       tasks: [
         {
           id: 1,
@@ -24,6 +32,8 @@ const board = {
     },
     {
       status: 'in_progress',
+      task_count: 1,
+      estimated_hours: 40,
       tasks: [
         {
           id: 2,
@@ -37,18 +47,78 @@ const board = {
         },
       ],
     },
-    { status: 'testing', tasks: [] },
-    { status: 'done', tasks: [] },
+    {
+      status: 'testing',
+      task_count: 2,
+      estimated_hours: 7,
+      tasks: [
+        {
+          id: 3,
+          title: 'Pruebas FAT',
+          status: 'testing',
+          assigned_to: 1,
+          assigned_name: 'Ana',
+          estimated_hours: 4,
+          start_date: '2026-11-12',
+          end_date: '2026-11-14',
+        },
+        {
+          id: 4,
+          title: 'Pruebas SAT',
+          status: 'testing',
+          assigned_to: 2,
+          assigned_name: 'Sebastian',
+          estimated_hours: 3,
+          start_date: '2026-11-15',
+          end_date: '2026-11-16',
+        },
+      ],
+    },
+    {
+      status: 'done',
+      task_count: 2,
+      estimated_hours: 6,
+      tasks: [
+        {
+          id: 5,
+          title: 'Revision de requisitos',
+          status: 'done',
+          assigned_to: 3,
+          assigned_name: 'Lucia',
+          estimated_hours: 2,
+          start_date: '2026-10-26',
+          end_date: '2026-10-28',
+        },
+        {
+          id: 6,
+          title: 'Informe de entrega',
+          status: 'done',
+          assigned_to: null,
+          assigned_name: null,
+          estimated_hours: 4,
+          start_date: '2026-10-29',
+          end_date: '2026-10-30',
+        },
+      ],
+    },
   ],
 }
+
+const miembros = [
+  { user_id: 1, name: 'Ana' },
+  { user_id: 2, name: 'Sebastian' },
+  { user_id: 3, name: 'Lucia' },
+]
 
 /**
  * Monta el tablero.
  *
  * `editable` son los proyectos en los que quien entra puede escribir: el
  * tablero se ve en solo lectura si el proyecto no esta entre ellos.
+ * `failOrder` y `failPatch` hacen fallar la peticion de orden o el PATCH,
+ * para ver el aviso en el banner.
  */
-function setupFetch({ editable = [1], failPatch = false } = {}) {
+function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {}) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -95,7 +165,18 @@ function setupFetch({ editable = [1], failPatch = false } = {}) {
       }
     }
     if (url.endsWith('/members')) {
-      return { ok: true, status: 200, json: async () => [{ user_id: 1, name: 'Ana' }] }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => JSON.parse(JSON.stringify(miembros)),
+      }
+    }
+    if (options.method === 'PUT' && failOrder) {
+      return {
+        ok: false,
+        status: 500,
+        json: async () => ({ detail: 'No se pudo mover' }),
+      }
     }
     if (options.method === 'PATCH' && failPatch) {
       return {
@@ -131,13 +212,44 @@ function stubColumns(wrapper) {
   })
 }
 
+/**
+ * Coloca cada tarjeta en un bloque fijo de 40 px dentro de su columna.
+ *
+ * Con bloques fijos, la y de la soltura decide el hueco: por debajo del
+ * punto medio de una tarjeta, la soltura cae tras ella.
+ */
+function stubCards(wrapper) {
+  wrapper
+    .findAll('article[data-testid="kanban-card"]')
+    .forEach((card, index) => {
+      card.element.getBoundingClientRect = () => ({
+        left: 0,
+        right: 100,
+        top: index * 40,
+        bottom: index * 40 + 40,
+      })
+    })
+}
+
+/**
+ * Arrastra la tarjeta primera vez que se la agarra: mousedown sobre ella y
+ * el resto del gesto en la ventana, como el raton real.
+ */
+async function arrastrar(wrapper, moverX, moverY, soltarX, soltarY, indice = 0) {
+  const tarjeta = wrapper.findAll('article')[indice]
+  await tarjeta.trigger('mousedown', { clientX: 0, clientY: 0 })
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: moverX, clientY: moverY }))
+  window.dispatchEvent(new MouseEvent('mouseup', { clientX: soltarX, clientY: soltarY }))
+  await flushPromises()
+}
+
 describe('KanbanView', () => {
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())
   })
 
-  it('pide el tablero al endpoint del proyecto', async () => {
+  it('pide el tablero al endpoint del proyecto y a los miembros', async () => {
     const calls = setupFetch()
 
     await mountKanban()
@@ -145,9 +257,10 @@ describe('KanbanView', () => {
     const call = calls.find((c) => c.url.includes('/kanban'))
     expect(call).toBeDefined()
     expect(call.url).toBe('/api/projects/1/kanban')
+    expect(calls.find((c) => c.url === '/api/projects/1/members')).toBeDefined()
   })
 
-  it('dibuja las cuatro columnas con su etiqueta y su contador', async () => {
+  it('cada columna muestra el contador y las horas del feed', async () => {
     setupFetch()
 
     const wrapper = await mountKanban()
@@ -156,10 +269,10 @@ describe('KanbanView', () => {
       .findAll('section h2')
       .map((h) => h.text().replace(/\s+/g, ' ').trim())
     expect(cabeceras).toEqual([
-      'Backlog 1',
-      'En Desarrollo 1',
-      'Pruebas (FAT/SAT) 0',
-      'Completado 0',
+      'Backlog 1 tareas · 10 h',
+      'En Desarrollo 1 tareas · 40 h',
+      'Pruebas (FAT/SAT) 2 tareas · 7 h',
+      'Completado 2 tareas · 6 h',
     ])
   })
 
@@ -175,36 +288,72 @@ describe('KanbanView', () => {
     expect(texto).toContain('2026-11-02')
   })
 
-  it('cambiar el estado en el desplegable guarda la tarea', async () => {
+  it('cambiar el estado en el desplegable ordena la tarea al final de la columna destino', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()
 
-    const select = wrapper.findAll('select')[0]
+    // El segundo select de la tarjeta es el de estado.
+    const select = wrapper.findAll('article')[0].findAll('select')[1]
     await select.setValue('done')
     await flushPromises()
 
-    const patch = calls.find((c) => c.method === 'PATCH')
-    expect(patch).toBeDefined()
-    expect(patch.url).toBe('/api/tasks/1')
-    expect(JSON.parse(patch.body)).toEqual({ status: 'done' })
+    const put = calls.find((c) => c.method === 'PUT')
+    expect(put).toBeDefined()
+    expect(put.url).toBe('/api/projects/1/tasks/order')
+    // La tarjeta va tras las que ya estaban en la columna destino.
+    expect(JSON.parse(put.body)).toEqual({
+      task_id: 1,
+      status: 'done',
+      task_ids: [5, 6, 1],
+    })
+    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
   })
 
-  it('arrastrar una tarjeta a otra columna guarda el estado', async () => {
+  it('arrastrar una tarjeta a otra columna la guarda en el orden de la soltura', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+    stubColumns(wrapper)
+    stubCards(wrapper)
+
+    // x=250 cae en la tercera columna y y=120 esta entre los puntos medios de
+    // sus dos tarjetas (100 y 140), tras la primera.
+    await arrastrar(wrapper, 250, 120, 250, 120)
+
+    const put = calls.find((c) => c.method === 'PUT')
+    expect(put).toBeDefined()
+    expect(put.url).toBe('/api/projects/1/tasks/order')
+    expect(JSON.parse(put.body)).toEqual({
+      task_id: 1,
+      status: 'testing',
+      task_ids: [3, 1, 4],
+    })
+  })
+
+  it('soltar la tarjeta en su propia columna la reordena', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()
     stubColumns(wrapper)
 
-    const tarjeta = wrapper.findAll('article')[0]
-    await tarjeta.trigger('mousedown', { clientX: 10, clientY: 10 })
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 10 }))
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 10 }))
-    await flushPromises()
+    // La tarjeta de backlog va tras la de in_progress: al arrastrar, su
+    // bloque se mide tras el de la primera tarjeta del tablero.
+    wrapper.findAll('article')[0].element.getBoundingClientRect = () => ({
+      left: 0,
+      right: 100,
+      top: 80,
+      bottom: 120,
+    })
 
-    const patch = calls.find((c) => c.method === 'PATCH')
-    expect(patch).toBeDefined()
-    expect(patch.url).toBe('/api/tasks/1')
-    // x=250 cae en la tercera columna.
-    expect(JSON.parse(patch.body)).toEqual({ status: 'testing' })
+    // y=90 esta tras el punto medio de la tarjeta de la columna, asi que va
+    // al final de la lista de su columna.
+    await arrastrar(wrapper, 50, 90, 50, 90)
+
+    const put = calls.find((c) => c.method === 'PUT')
+    expect(put).toBeDefined()
+    expect(JSON.parse(put.body)).toEqual({
+      task_id: 1,
+      status: 'backlog',
+      task_ids: [1],
+    })
   })
 
   it('el arrastre cancela la seleccion de texto del navegador', async () => {
@@ -252,25 +401,11 @@ describe('KanbanView', () => {
     expect(wrapper.find('[data-testid="kanban-drag-ghost"]').exists()).toBe(false)
   })
 
-  it('soltar la tarjeta en su propia columna no guarda nada', async () => {
-    const calls = setupFetch()
-    const wrapper = await mountKanban()
-    stubColumns(wrapper)
-
-    const tarjeta = wrapper.findAll('article')[0]
-    await tarjeta.trigger('mousedown', { clientX: 10, clientY: 10 })
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 10 }))
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 50, clientY: 10 }))
-    await flushPromises()
-
-    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
-  })
-
   it('sin permiso de escritura el desplegable esta deshabilitado', async () => {
     setupFetch({ editable: [] })
     const wrapper = await mountKanban()
 
-    const select = wrapper.findAll('select')[0]
+    const select = wrapper.findAll('article')[0].findAll('select')[1]
     expect(select.attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('Solo lectura')
   })
@@ -288,13 +423,9 @@ describe('KanbanView', () => {
     const wrapper = await mountKanban()
     stubColumns(wrapper)
 
-    const tarjeta = wrapper.findAll('article')[0]
-    await tarjeta.trigger('mousedown', { clientX: 10, clientY: 10 })
-    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 10 }))
-    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 250, clientY: 10 }))
-    await flushPromises()
+    await arrastrar(wrapper, 250, 10, 250, 10)
 
-    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+    expect(calls.find((c) => c.method === 'PUT' || c.method === 'PATCH')).toBeUndefined()
   })
 
   it('sin permiso de escritura el cambio de estado no sale al servidor', async () => {
@@ -303,27 +434,175 @@ describe('KanbanView', () => {
 
     // El desplegable esta deshabilitado, de modo que el cambio no se dispara
     // y no sale nada al servidor.
-    const select = wrapper.findAll('select')[0]
+    const select = wrapper.findAll('article')[0].findAll('select')[1]
     expect(select.attributes('disabled')).toBeDefined()
 
     await select.setValue('done')
     await flushPromises()
 
-    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+    expect(calls.find((c) => c.method === 'PUT' || c.method === 'PATCH')).toBeUndefined()
   })
 
-  it('si el servidor rechaza el cambio, el aviso se ve', async () => {
-    setupFetch({ failPatch: true })
+  it('si el servidor rechaza la orden, el aviso se ve', async () => {
+    setupFetch({ failOrder: true })
     const wrapper = await mountKanban()
 
-    await wrapper.findAll('select')[0].setValue('done')
+    const select = wrapper.findAll('article')[0].findAll('select')[1]
+    await select.setValue('done')
     await flushPromises()
 
     // El aviso no lo tapa la recarga que viene despues del intento.
     const aviso = wrapper.find('[data-testid="kanban-warning"]')
     expect(aviso.exists()).toBe(true)
     expect(aviso.text()).toContain('No se ha podido mover la tarea')
-    expect(aviso.text()).toContain('No se pudo guardar')
+    expect(aviso.text()).toContain('No se pudo mover')
+  })
+
+  it('alta inline: crea la tarea en la columna del formulario con las fechas de hoy', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const form = wrapper.findAll('[data-testid="kanban-new-task"]')[2]
+    await form.find('input[type="text"]').setValue('Nueva tarea FAT')
+    await form.find('input[type="number"]').setValue('8')
+    await form.findAll('select')[0].setValue('2')
+    await form.trigger('submit')
+    await flushPromises()
+
+    const hoy = localDateKey()
+    const post = calls.find((c) => c.url === '/api/projects/1/tasks')
+    expect(post).toBeDefined()
+    expect(post.method).toBe('POST')
+    expect(JSON.parse(post.body)).toEqual({
+      title: 'Nueva tarea FAT',
+      assigned_to: 2,
+      estimated_hours: '8.00',
+      start_date: hoy,
+      end_date: hoy,
+    })
+  })
+
+  it('alta inline: sin titulo no crea nada', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const form = wrapper.findAll('[data-testid="kanban-new-task"]')[0]
+    await form.find('input[type="text"]').setValue('  ')
+    await form.trigger('submit')
+    await flushPromises()
+
+    expect(calls.find((c) => c.url === '/api/projects/1/tasks')).toBeUndefined()
+  })
+
+  it('reordenar en la propia columna no cuenta la tarjeta arrastrada', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+    stubColumns(wrapper)
+
+    // La tarjeta arrastrada sigue en el DOM mientras dura el gesto, asi que
+    // el test la mide explicitamente: su punto medio esta en y=180, y el de
+    // la otra tarjeta de la columna en y=220.
+    const [tarjeta, otra] = [wrapper.findAll('article')[2], wrapper.findAll('article')[3]]
+    tarjeta.element.getBoundingClientRect = () => ({
+      left: 0,
+      right: 100,
+      top: 160,
+      bottom: 200,
+    })
+    otra.element.getBoundingClientRect = () => ({
+      left: 0,
+      right: 100,
+      top: 200,
+      bottom: 240,
+    })
+
+    // Soltar en y=190 esta tras el punto medio de la arrastrada y por encima
+    // del de la otra tarjeta: la lista final conserva el orden relativo y la
+    // arrastrada cae en su hueco. Con el bug, la arrastrada contaba al medir
+    // y la lista salia [4, 3].
+    await arrastrar(wrapper, 240, 190, 250, 190, 2)
+
+    const put = calls.find((c) => c.method === 'PUT')
+    expect(put).toBeDefined()
+    expect(JSON.parse(put.body)).toEqual({
+      task_id: 3,
+      status: 'testing',
+      task_ids: [3, 4],
+    })
+  })
+
+  it('doble clic en el titulo lo edita in situ y Intro lo guarda con un PATCH parcial', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.find('p').trigger('dblclick')
+    await flushPromises()
+
+    const input = tarjeta.find('input[type="text"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('Esquemas EPLAN revisados')
+    await input.trigger('keyup', { key: 'Enter' })
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(patch.url).toBe('/api/tasks/1')
+    expect(JSON.parse(patch.body)).toEqual({ title: 'Esquemas EPLAN revisados' })
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
+  })
+
+  it('Escape cancela la edicion del titulo sin guardar', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.find('p').trigger('dblclick')
+    await flushPromises()
+
+    const input = tarjeta.find('input[type="text"]')
+    await input.setValue('Titulo abandonado')
+    await input.trigger('keyup', { key: 'Escape' })
+    await flushPromises()
+
+    expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+    expect(tarjeta.text()).toContain('Esquemas EPLAN')
+  })
+
+  it('el doble clic en las horas las edita in situ y Intro las guarda', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const tarjeta = wrapper.findAll('article')[0]
+    // El badge de horas es el span de la fila de controles.
+    const badge = tarjeta.findAll('span').find((s) => s.text().includes('h'))
+    await badge.trigger('dblclick')
+    await flushPromises()
+
+    const input = tarjeta.find('input[type="number"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('12')
+    await input.trigger('keyup', { key: 'Enter' })
+    await flushPromises()
+
+    const patch = calls.find((c) => c.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body)).toEqual({ estimated_hours: '12.00' })
+  })
+
+  it('el clic que termina una edicion inline no abre el detalle', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    const tarjeta = wrapper.findAll('article')[0]
+    await tarjeta.find('p').trigger('dblclick')
+    await flushPromises()
+
+    const input = tarjeta.find('input[type="text"]')
+    await input.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
   })
 
   it('un clic en la tarjeta abre su detalle', async () => {
@@ -342,7 +621,8 @@ describe('KanbanView', () => {
     setupFetch()
     const wrapper = await mountKanban()
 
-    await wrapper.findAll('select')[0].trigger('click')
+    const select = wrapper.findAll('article')[0].findAll('select')[1]
+    await select.trigger('click')
     await flushPromises()
 
     expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)

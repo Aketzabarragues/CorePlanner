@@ -11,11 +11,14 @@
  * pasa la caja del diagrama y, si el punto de soltado no cae dentro, no hay
  * PATCH.
  *
+ * El esqueleto del gesto vive en `useArrastre`; aqui solo vive lo del Gantt:
+ * la escala de pixeles por dia, el redondeo a dias y la caja del diagrama.
  * El composable no toca el DOM ni el servidor: devuelve el estado del gesto
  * y llama al callback de confirmacion, que es quien hace el PATCH.
  */
-import { getCurrentInstance, onBeforeUnmount, ref } from 'vue'
+import { ref } from 'vue'
 
+import { useArrastre } from './useArrastre'
 import { GANTT_METRICS } from '../utils/ganttMetrics'
 import { moveRange, resizeRange, snapDelta } from '../utils/ganttLayout'
 
@@ -30,27 +33,37 @@ import { moveRange, resizeRange, snapDelta } from '../utils/ganttLayout'
  */
 export function useGanttDrag({ pxPerDayDe, alConfirmar }) {
   /** Barra en juego: la copia fantasma y el destino van de ella. */
-  const fantasma = ref(null)
+  const barraActiva = ref(null)
   /** Rango previsualizado, o null si el gesto no ha pasado el umbral. */
   const previsualizacion = ref(null)
-  /** Barra que se esta arrastrando: la del 60 % de opacidad. */
-  const barraActiva = ref(null)
 
-  let gesto = null
+  /** Rango del arrastre para la barra dada, con su zona y la escala vigente. */
+  function rangoDe(pendiente, clientX) {
+    const { barra, zona, pxPerDay } = pendiente.datos
+    const delta = snapDelta(clientX - pendiente.inicio.x, pxPerDay)
+    return zona === 'body'
+      ? moveRange(barra.startIso, barra.endIso, delta)
+      : resizeRange(barra.startIso, barra.endIso, zona, delta)
+  }
 
-  function onMove(event) {
-    if (!gesto) return
-    const { barra, zona, inicio, pxPerDay } = gesto
-    if (!gesto.moved && !pasadoUmbral(event)) return
-    gesto.moved = true
+  /** Previsualiza el destino del arrastre: el rango nuevo de la barra. */
+  function alMover(pendiente, event) {
+    const { barra } = pendiente.datos
     barraActiva.value = barra.taskId
-    const delta = snapDelta(event.clientX - inicio.x, pxPerDay)
-    const rango =
-      zona === 'body'
-        ? moveRange(barra.startIso, barra.endIso, delta)
-        : resizeRange(barra.startIso, barra.endIso, zona, delta)
+    const rango = rangoDe(pendiente, event.clientX)
     previsualizacion.value = { taskId: barra.taskId, start: rango.start, end: rango.end }
-    fantasma.value = {
+  }
+
+  /** Lo que el gesto deja de previsualizar al anularse o terminar. */
+  function limpiarPrevisualizacion() {
+    previsualizacion.value = null
+    barraActiva.value = null
+  }
+
+  function fantasmaDe(pendiente, event) {
+    const { barra } = pendiente.datos
+    const rango = rangoDe(pendiente, event.clientX)
+    return {
       x: event.clientX + 12,
       y: event.clientY - 12,
       etiqueta: barra.title,
@@ -59,70 +72,34 @@ export function useGanttDrag({ pxPerDayDe, alConfirmar }) {
     }
   }
 
-  function onUp(event) {
-    limpiar()
-    const pendiente = gesto
-    gesto = null
-    fantasma.value = null
-    previsualizacion.value = null
-    barraActiva.value = null
-    if (!pendiente) return
-    if (!pendiente.moved) return
-    if (event && (event.clientX === undefined || event.clientY === undefined)) return
-    if (!dentroDeDiagrama(event.clientX, event.clientY, pendiente)) {
-      // Soltar fuera del diagrama anula el gesto, como un Escape (§8.5).
-      return
-    }
-    const { barra, pxPerDay } = pendiente
-    const delta = snapDelta(event.clientX - pendiente.inicio.x, pxPerDay)
-    const rango =
-      pendiente.zona === 'body'
-        ? moveRange(barra.startIso, barra.endIso, delta)
-        : resizeRange(barra.startIso, barra.endIso, pendiente.zona, delta)
-    alConfirmar({ taskId: barra.taskId, start: rango.start, end: rango.end })
-  }
-
-  function onTecla(event) {
-    if (event.key === 'Escape') {
-      eventoAnular()
-    }
-  }
-
-  /** Escape o soltar fuera del diagrama: la barra vuelve a su sitio. */
-  function eventoAnular() {
-    if (!gesto) return
-    limpiar()
-    gesto = null
-    fantasma.value = null
-    previsualizacion.value = null
-    barraActiva.value = null
-  }
-
-  function limpiar() {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    window.removeEventListener('keydown', onTecla)
-  }
-
-  function pasadoUmbral(event) {
-    return (
-      Math.abs(event.clientX - gesto.inicio.x) > GANTT_METRICS.dragThreshold ||
-      Math.abs(event.clientY - gesto.inicio.y) > GANTT_METRICS.dragThreshold
-    )
-  }
-
   /** Punto de soltado dentro de la caja del diagrama; sin caja, no se confirma. */
-  function dentroDeDiagrama(clientX, clientY, pendiente) {
-    const caja = pendiente.dentro?.value
+  function dentroDe(pendiente, event) {
+    const caja = pendiente.datos.dentro?.value
     if (!caja || typeof caja.getBoundingClientRect !== 'function') return false
     const rect = caja.getBoundingClientRect()
     return (
-      clientX >= rect.left &&
-      clientX <= rect.right &&
-      clientY >= rect.top &&
-      clientY <= rect.bottom
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom
     )
   }
+
+  function alConfirmarGesto(pendiente, event) {
+    const { barra } = pendiente.datos
+    const rango = rangoDe(pendiente, event.clientX)
+    limpiarPrevisualizacion()
+    alConfirmar({ taskId: barra.taskId, start: rango.start, end: rango.end })
+  }
+
+  const { empezarArrastre: empezar, fantasma, anular: anularGesto } = useArrastre({
+    fantasmaDe,
+    alMover,
+    alConfirmar: alConfirmarGesto,
+    dentroDe,
+    umbral: GANTT_METRICS.dragThreshold,
+    alAnular: limpiarPrevisualizacion,
+  })
 
   /**
    * Empieza un gesto de arrastre sobre una barra.
@@ -132,21 +109,16 @@ export function useGanttDrag({ pxPerDayDe, alConfirmar }) {
    * cae fuera de su caja, el gesto se anula y no hay PATCH.
    */
   function empezarArrastre({ barra, zona, event, dentro }) {
-    eventoAnular()
-    gesto = {
-      barra,
-      zona,
-      inicio: { x: event.clientX, y: event.clientY },
-      pxPerDay: pxPerDayDe(barra.taskId),
-      moved: false,
-      dentro,
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    window.addEventListener('keydown', onTecla)
+    empezar({
+      contexto: {
+        barra,
+        zona,
+        dentro,
+        pxPerDay: pxPerDayDe(barra.taskId),
+      },
+      event,
+    })
   }
 
-  if (getCurrentInstance()) onBeforeUnmount(limpiar)
-
-  return { empezarArrastre, fantasma, previsualizacion, barraActiva, anular: eventoAnular }
+  return { empezarArrastre, fantasma, previsualizacion, barraActiva, anular: anularGesto }
 }

@@ -71,6 +71,12 @@ const drag = useGanttDrag({
   },
 })
 
+// El fantasma y la previsualizacion se declaran en primer nivel para que la
+// plantilla los desarrole: una referencia anidada en un objeto plano no se
+// desarrolla sola y el v-if quedaria siempre en true.
+const fantasma = drag.fantasma
+const previsualizacion = drag.previsualizacion
+
 function alAbrirBarra(id) {
   if (arrastradaRecien) {
     arrastradaRecien = false
@@ -192,7 +198,7 @@ function alDobleClicFondo(event) {
               :y="fila.rowIndex * GANTT_ROW_HEIGHT"
               :editable="editableDe(fila.barra.taskId)"
               :seleccionada="barraEnfocada === fila.barra.taskId"
-              :previsualizada="drag.previsualizacion && drag.previsualizacion.taskId === fila.barra.taskId"
+              :previsualizada="previsualizacion && previsualizacion.taskId === fila.barra.taskId"
               :etiqueta-aria="etiquetaDe(fila.barra.taskId)"
               @empezar-arrastrar="alEmpezarArrastre"
               @abrir="alAbrirBarra"
@@ -203,7 +209,7 @@ function alDobleClicFondo(event) {
 
           <!-- Banda de destino del arrastre: el rango que va a caer. -->
           <rect
-            v-if="drag.previsualizacion && xDestino !== null"
+            v-if="previsualizacion && xDestino !== null"
             :x="xDestino"
             y="0"
             :width="layout.width"
@@ -235,15 +241,15 @@ function alDobleClicFondo(event) {
 
     <!-- Fantasma del arrastre: mismo patron que el del Kanban. -->
     <div
-      v-if="drag.fantasma"
+      v-if="fantasma"
       class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded border border-siemens-500 bg-white pl-1.5 pr-2 shadow-lg"
-      :style="{ left: `${drag.fantasma.x}px`, top: `${drag.fantasma.y}px` }"
+      :style="{ left: `${fantasma.x}px`, top: `${fantasma.y}px` }"
       data-testid="gantt-drag-ghost"
     >
-      <span class="h-4 w-1 shrink-0 rounded-sm" :style="{ backgroundColor: drag.fantasma.color }" />
-      <span class="text-[11px] font-medium text-slate-900">{{ drag.fantasma.etiqueta }}</span>
+      <span class="h-4 w-1 shrink-0 rounded-sm" :style="{ backgroundColor: fantasma.color }" />
+      <span class="text-[11px] font-medium text-slate-900">{{ fantasma.etiqueta }}</span>
       <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-        {{ drag.fantasma.rango }}
+        {{ fantasma.rango }}
       </span>
     </div>
   </div>

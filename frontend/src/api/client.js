@@ -71,6 +71,20 @@ export const departmentsApi = {
   list: (token) => apiFetch('/departments', { token }),
 }
 
+/** Dependencias entre tareas: vinculos dentro de un mismo proyecto. */
+export const dependenciesApi = {
+  listProject: (token, projectId) => apiFetch(`/projects/${projectId}/dependencies`, { token }),
+  add: (token, projectId, payload) =>
+    apiFetch(`/projects/${projectId}/dependencies`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  remove: (token, taskId, dependsOnId) =>
+    apiFetch(`/tasks/${taskId}/dependencies/${dependsOnId}`, { method: 'DELETE', token }),
+  task: (token, taskId) => apiFetch(`/tasks/${taskId}/dependencies`, { token }),
+}
+
 /** Ambito de la persona que entra: rol, departamento y proyectos editables. */
 export const meApi = {
   get: (token) => apiFetch('/me', { token }),

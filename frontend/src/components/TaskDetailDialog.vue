@@ -14,7 +14,8 @@
  */
 import { computed, ref, watch } from 'vue'
 
-import { activityApi, projectsApi, tasksApi } from '../api/client'
+import { activityApi, dependenciesApi, projectsApi, tasksApi } from '../api/client'
+import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
 import ModalDialog from './ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
@@ -66,6 +67,18 @@ const entryHours     = ref('')
 const entryNote      = ref('')
 /** Pedir confirmacion antes de borrar la tarea. */
 const confirmingDelete = ref(false)
+/** Requisitos de la tarea: las que tienen que terminar antes de que empiece. */
+const requisitos = ref([])
+/** Dependientes de la tarea: las que dependen de que esta termine. */
+const dependientes = ref([])
+/** Tareas del proyecto para el selector del vinculo nuevo. */
+const tareasProyecto = ref([])
+/** Tarea elegida como requisito en el vinculo nuevo; vacio hasta que se elija. */
+const newDependsOn = ref('')
+/** Tipo del vinculo nuevo. */
+const newDepType = ref('precedes')
+/** Error de la seccion de dependencias; el del dialogo va por la suya. */
+const depError = ref(null)
 
 /** Copia de la tarea que se esta editando. */
 const form = ref({
@@ -167,6 +180,83 @@ async function loadTimeEntries() {
 }
 
 /**
+ * Pide los vinculos de la tarea y las tareas del proyecto.
+ *
+ * Las tareas del proyecto son para el selector del vinculo nuevo: todo el
+ * mundo del proyecto menos la propia tarea.
+ */
+async function loadDependencias() {
+  const token = await auth.ensureSession()
+  const [deps, tareas] = await Promise.all([
+    dependenciesApi.task(token, props.taskId),
+    projectsApi.tasks(token, task.value.project_id),
+  ])
+  // Cualquier respuesta que no sea la lista esperada se trata como lista
+  // vacia, como hacen el resto de las cargas del dialogo.
+  requisitos.value = Array.isArray(deps?.requirements) ? deps.requirements : []
+  dependientes.value = Array.isArray(deps?.dependents) ? deps.dependents : []
+  tareasProyecto.value = Array.isArray(tareas) ? tareas : []
+}
+
+/** El tipo del vinculo en texto: `precedes` ordena, `relates` no. */
+function tipoLabel(tipo) {
+  return tipo === 'precedes' ? 'debe terminar antes' : 'relacion'
+}
+
+/** Titulo de una tarea del proyecto por su identificador. */
+function tituloTarea(id) {
+  return tareasProyecto.value.find((tarea) => tarea.id === id)?.title ?? ''
+}
+
+/** Tareas del proyecto para el selector, menos la propia. */
+const tareasParaElSelector = computed(() =>
+  tareasProyecto.value.filter((tarea) => tarea.id !== props.taskId),
+)
+
+/** Crea el vinculo nuevo y recarga la seccion. */
+async function anadirDependencia() {
+  const requisito = Number(newDependsOn.value)
+  if (!requisito) return
+  depError.value = null
+  saving.value = true
+  try {
+    const token = await auth.ensureSession()
+    await dependenciesApi.add(token, task.value.project_id, {
+      task_id: props.taskId,
+      depends_on_id: requisito,
+      type: newDepType.value,
+    })
+    newDependsOn.value = ''
+    newDepType.value = 'precedes'
+    await loadDependencias()
+  } catch (err) {
+    depError.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/**
+ * Quita un requisito, por el par.
+ *
+ * El vinculo se quita desde la tarea dependiente: las dependientes no llevan
+ * boton.
+ */
+async function quitarRequisito(req) {
+  depError.value = null
+  saving.value = true
+  try {
+    const token = await auth.ensureSession()
+    await dependenciesApi.remove(token, props.taskId, req.depends_on_id)
+    await loadDependencias()
+  } catch (err) {
+    depError.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+/**
  * Pide todo lo que enseña el dialogo.
  *
  * Los miembros del proyecto hacen falta para el desplegable de responsable:
@@ -182,7 +272,13 @@ async function load() {
     fillForm(tarea)
     const equipo   = await projectsApi.members(token, tarea.project_id).catch(() => [])
     members.value  = equipo ?? []
-    await Promise.all([loadComments(), loadChecklist(), loadTimeEntries(), loadActivity()])
+    await Promise.all([
+      loadComments(),
+      loadChecklist(),
+      loadTimeEntries(),
+      loadActivity(),
+      loadDependencias(),
+    ])
   } catch (err) {
     error.value = err.message
   } finally {
@@ -626,6 +722,92 @@ watch(
               data-testid="time-entry-add"
             >
               Imputar
+            </button>
+          </form>
+        </section>
+
+        <section class="border-t border-slate-200 pt-4" data-testid="deps-section">
+          <h3 class="text-sm font-semibold text-siemens-900">Dependencias</h3>
+
+          <AlertBanner v-if="depError" variant="error" class="mt-2">
+            {{ depError }}
+          </AlertBanner>
+
+          <div class="mt-2">
+            <p class="text-xs font-medium text-slate-500">Requisitos</p>
+            <ul v-if="requisitos.length" class="mt-1 space-y-1" data-testid="deps-requisitos">
+              <li
+                v-for="req in requisitos"
+                :key="req.id"
+                class="flex items-center gap-2 text-sm"
+                data-testid="dep-requisito"
+              >
+                <span class="min-w-0 flex-1 truncate">{{ tituloTarea(req.depends_on_id) }}</span>
+                <span class="shrink-0 text-xs text-slate-500" data-testid="dep-tipo">
+                  {{ tipoLabel(req.type) }}
+                </span>
+                <button
+                  v-if="canEdit"
+                  type="button"
+                  class="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+                  data-testid="dep-quitar"
+                  @click="quitarRequisito(req)"
+                >
+                  Quitar
+                </button>
+              </li>
+            </ul>
+            <p v-else class="mt-1 text-xs text-slate-500">
+              Esta tarea no depende de ninguna otra.
+            </p>
+          </div>
+
+          <div class="mt-3">
+            <p class="text-xs font-medium text-slate-500">Dependientes</p>
+            <ul v-if="dependientes.length" class="mt-1 space-y-1" data-testid="deps-dependientes">
+              <li
+                v-for="dep in dependientes"
+                :key="dep.id"
+                class="flex items-center gap-2 text-sm"
+                data-testid="dep-dependiente"
+              >
+                <span class="min-w-0 flex-1 truncate">{{ tituloTarea(dep.task_id) }}</span>
+                <span class="shrink-0 text-xs text-slate-500">{{ tipoLabel(dep.type) }}</span>
+              </li>
+            </ul>
+            <p v-else class="mt-1 text-xs text-slate-500">
+              Ninguna tarea depende de esta.
+            </p>
+          </div>
+
+          <form v-if="canEdit" class="mt-3 flex flex-wrap items-center gap-2" @submit.prevent="anadirDependencia">
+            <select
+              v-model="newDependsOn"
+              class="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="dep-new-task"
+            >
+              <option value="" disabled>
+                Tarea que esta depende de...
+              </option>
+              <option v-for="tarea in tareasParaElSelector" :key="tarea.id" :value="tarea.id">
+                {{ tarea.title }}
+              </option>
+            </select>
+            <select
+              v-model="newDepType"
+              class="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              data-testid="dep-new-type"
+            >
+              <option value="precedes">Debe terminar antes</option>
+              <option value="relates">Relacion</option>
+            </select>
+            <button
+              type="submit"
+              :disabled="!newDependsOn || saving"
+              class="shrink-0 rounded bg-siemens-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              data-testid="dep-add"
+            >
+              Añadir
             </button>
           </form>
         </section>

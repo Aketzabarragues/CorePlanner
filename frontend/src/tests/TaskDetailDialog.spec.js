@@ -62,6 +62,20 @@ const imputaciones = [
   },
 ]
 
+const tareasProyecto = [
+  { id: 1, project_id: 1, title: 'Revision del PLC', status: 'in_progress', estimated_hours: 8 },
+  { id: 2, project_id: 1, title: 'Diseño del HMI', status: 'backlog', estimated_hours: 4 },
+  { id: 3, project_id: 1, title: 'Montaje eléctrico', status: 'backlog', estimated_hours: 6 },
+]
+
+/** Estado de los vinculos de la tarea, como lo mantendria el servidor. */
+function estadoDeps() {
+  return {
+    requisitos: [{ id: 10, task_id: 1, depends_on_id: 2, type: 'precedes' }],
+    dependientes: [{ id: 11, task_id: 3, depends_on_id: 1, type: 'relates' }],
+  }
+}
+
 const entradas = [
   {
     id: 9,
@@ -88,6 +102,9 @@ function setupFetch({
   items = [...checklist],
   activity = [...entradas],
   timeEntries = [...imputaciones],
+  deps = estadoDeps(),
+  tareas = [...tareasProyecto],
+  depFail = null,
 } = {}) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
@@ -179,6 +196,35 @@ function setupFetch({
     if (url.includes('/time-entries')) {
       // Como el servidor: cada respuesta trae su propia copia del array.
       return { ok: true, status: 200, json: async () => timeEntries.map((entry) => ({ ...entry })) }
+    }
+    if (url.endsWith('/api/tasks/1/dependencies')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ requirements: deps.requisitos, dependents: deps.dependientes }),
+      }
+    }
+    if (url.endsWith('/api/projects/1/tasks')) {
+      return { ok: true, status: 200, json: async () => tareas }
+    }
+    if (url.endsWith('/api/projects/1/dependencies') && method === 'POST') {
+      if (depFail) {
+        return { ok: false, status: 422, json: async () => ({ detail: depFail }) }
+      }
+      const cuerpo = JSON.parse(options.body)
+      deps.requisitos.push({
+        id: deps.requisitos.length + 10,
+        task_id: cuerpo.task_id,
+        depends_on_id: cuerpo.depends_on_id,
+        type: cuerpo.type,
+      })
+      return { ok: true, status: 201, json: async () => deps.requisitos[deps.requisitos.length - 1] }
+    }
+    if (url.includes('/api/tasks/1/dependencies/') && method === 'DELETE') {
+      const dependsOnId = Number(url.split('/').pop())
+      const indice = deps.requisitos.findIndex((req) => req.depends_on_id === dependsOnId)
+      deps.requisitos.splice(indice, 1)
+      return { ok: true, status: 204, json: async () => null }
     }
     if (url.endsWith('/members')) {
       return { ok: true, status: 200, json: async () => equipo }
@@ -408,5 +454,85 @@ describe('TaskDetailDialog', () => {
     expect(wrapper.findAll('[data-testid="time-entry"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="time-entry-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="time-entry-remove"]').exists()).toBe(false)
+  })
+
+  it('la seccion de dependencias lista requisitos y dependientes con su tipo', async () => {
+    setupFetch()
+    const wrapper = await mountPanel()
+
+    const requisitos = wrapper.findAll('[data-testid="dep-requisito"]')
+    expect(requisitos).toHaveLength(1)
+    expect(requisitos[0].text()).toContain('Diseño del HMI')
+    expect(requisitos[0].text()).toContain('debe terminar antes')
+
+    const dependientes = wrapper.findAll('[data-testid="dep-dependiente"]')
+    expect(dependientes).toHaveLength(1)
+    expect(dependientes[0].text()).toContain('Montaje eléctrico')
+    expect(dependientes[0].text()).toContain('relacion')
+  })
+
+  it('el formulario anade un vinculo con el tipo elegido y recarga la lista', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountPanel()
+
+    await wrapper.find('[data-testid="dep-new-task"]').setValue('2')
+    await wrapper.find('[data-testid="dep-new-type"]').setValue('relates')
+    await wrapper.find('[data-testid="dep-add"]').trigger('submit')
+    await flushPromises()
+
+    const post = calls.find(
+      (call) => call.method === 'POST' && call.url.includes('/projects/1/dependencies'),
+    )
+    expect(JSON.parse(post.body)).toEqual({ task_id: 1, depends_on_id: 2, type: 'relates' })
+    expect(wrapper.findAll('[data-testid="dep-requisito"]')).toHaveLength(2)
+  })
+
+  it('quitar un requisito manda el DELETE por el par y recarga la lista', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountPanel()
+
+    await wrapper.find('[data-testid="dep-quitar"]').trigger('click')
+    await flushPromises()
+
+    const del = calls.find(
+      (call) => call.method === 'DELETE' && call.url.includes('/api/tasks/1/dependencies/'),
+    )
+    expect(del.url).toBe('/api/tasks/1/dependencies/2')
+    expect(wrapper.findAll('[data-testid="dep-requisito"]')).toHaveLength(0)
+  })
+
+  it('un 422 del servidor se muestra en el banner de la seccion', async () => {
+    setupFetch({ depFail: 'El vinculo cerraria un ciclo en las dependencias' })
+    const wrapper = await mountPanel()
+
+    await wrapper.find('[data-testid="dep-new-task"]').setValue('2')
+    await wrapper.find('[data-testid="dep-add"]').trigger('submit')
+    await flushPromises()
+
+    const seccion = wrapper.find('[data-testid="deps-section"]')
+    const banner = seccion.find('[role="alert"]')
+    expect(banner.exists()).toBe(true)
+    expect(banner.text()).toContain('El vinculo cerraria un ciclo en las dependencias')
+    expect(wrapper.findAll('[data-testid="dep-requisito"]')).toHaveLength(1)
+  })
+
+  it('el selector de tareas no ofrece la propia tarea', async () => {
+    setupFetch()
+    const wrapper = await mountPanel()
+
+    const opciones = Array.from(wrapper.find('[data-testid="dep-new-task"]').element.options)
+      .filter((opcion) => !opcion.disabled)
+    expect(opciones.map((opcion) => opcion.value)).toEqual(['2', '3'])
+  })
+
+  it('sin permiso de escritura la seccion de dependencias va en solo lectura', async () => {
+    setupFetch()
+
+    const wrapper = await mountPanel({ canEdit: false })
+
+    expect(wrapper.findAll('[data-testid="dep-requisito"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="dep-dependiente"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="dep-new-task"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="dep-quitar"]').exists()).toBe(false)
   })
 })

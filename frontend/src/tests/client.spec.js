@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { authApi, projectsApi, setSessionRefresher } from '../api/client'
+import { authApi, dependenciesApi, projectsApi, setSessionRefresher } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 
 describe('cliente HTTP', () => {
@@ -107,6 +107,45 @@ describe('cliente HTTP', () => {
       status: 401,
     })
     setSessionRefresher(null)
+  })
+})
+
+describe('dependenciesApi', () => {
+  beforeEach(() => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    }))
+  })
+
+  it('lista los vinculos del proyecto', async () => {
+    await dependenciesApi.listProject('tkn', 3)
+    const [url, options] = global.fetch.mock.calls[0]
+    expect(url).toBe('/api/projects/3/dependencies')
+    expect(options.method).toBeUndefined()
+    expect(options.headers.Authorization).toBe('Bearer tkn')
+  })
+
+  it('crea el vinculo con el par de tareas en el cuerpo', async () => {
+    await dependenciesApi.add('tkn', 3, { task_id: 1, depends_on_id: 2, type: 'precedes' })
+    const [url, options] = global.fetch.mock.calls[0]
+    expect(url).toBe('/api/projects/3/dependencies')
+    expect(options.method).toBe('POST')
+    expect(JSON.parse(options.body)).toEqual({ task_id: 1, depends_on_id: 2, type: 'precedes' })
+  })
+
+  it('borra el vinculo por el par de tareas', async () => {
+    await dependenciesApi.remove('tkn', 1, 2)
+    const [url, options] = global.fetch.mock.calls[0]
+    expect(url).toBe('/api/tasks/1/dependencies/2')
+    expect(options.method).toBe('DELETE')
+  })
+
+  it('lee los requisitos y dependientes de una tarea', async () => {
+    await dependenciesApi.task('tkn', 1)
+    const [url] = global.fetch.mock.calls[0]
+    expect(url).toBe('/api/tasks/1/dependencies')
   })
 })
 

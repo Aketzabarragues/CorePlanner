@@ -67,6 +67,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt dibuja las flechas de dependencia (del fin del
+  requisito al inicio de la dependiente; los vinculos `relates` van discontinuos
+  y sin punta) y marca las barras que violan el orden. Al arrastrar una barra, si
+  el movimiento arrastra otras tareas, se propone la cascada y se decide: nada
+  se guarda solo.
 - **frontend**: el detalle de una tarea lleva una seccion "Dependencias" con sus
   requisitos y sus dependientes, y un formulario para anadir un vinculo (el
   selector ofrece las tareas del proyecto menos la propia). Un ciclo rechazado

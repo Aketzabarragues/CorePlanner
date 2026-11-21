@@ -1,9 +1,11 @@
 /*
- * Estilos del diagrama de Gantt.
+ * Estilos del diagrama de Gantt, del motor propio.
  *
- * La libreria trae sus propios estilos en SCSS, que se compilan junto con
- * su codigo. Este archivo se importa el ultimo para que sus reglas ganen a
- * las de la libreria cuando coinciden en especificidad.
+ * Este archivo se importa el ultimo, despues de las utilidades de Tailwind,
+ * para que sus reglas ganen a las del resto cuando coinciden. Todo lo que
+ * vive dentro del SVG va aqui, porque las clases de utilidad no llegan a la
+ * geometria del SVG; lo demas (columna de nombres, botonera, fantasma) usa
+ * clases de Tailwind en la plantilla.
  */
 
 /*
@@ -20,30 +22,138 @@
 .persona-4 { --persona-color: #cf222e; background-color: var(--persona-color); }
 .persona-5 { --persona-color: #57606a; background-color: var(--persona-color); }
 
-.gantt .bar-wrapper .bar {
-  fill: var(--persona-color, #b8c2cc);
+/*
+ * Anatomia del diagrama: capas del SVG y de la columna de nombres.
+ *
+ * El estilo lo ponen Tailwind (HTML) y los atributos SVG inline (geometria,
+ * relleno, trazo). Estas reglas existen para que las clases de la plantilla
+ * esten en el bundle y para fijar lo minimo que no puede salir de la
+ * plantilla sin romperse.
+ */
+
+/* Panel que hace scroll: no encadena el scroll a la pagina. */
+.gantt__diagrama {
+  overscroll-behavior: contain;
 }
 
-.gantt .bar-wrapper:hover .bar,
-.gantt .bar-wrapper.active .bar {
-  fill: var(--persona-color, #a9b5c1);
+/* El SVG es un bloque: sin el hueco inline de los elementos remplazo. */
+.gantt__svg {
+  display: block;
 }
 
-.gantt .bar-wrapper .bar-progress,
-.gantt .bar-wrapper:hover .bar-progress,
-.gantt .bar-wrapper.active .bar-progress {
-  fill: rgba(0, 0, 0, 0.28);
+/* Rejilla y bandas: decoracion que no debe capturar el puntero. */
+.gantt__rejilla line,
+.gantt__bandas rect {
+  pointer-events: none;
+}
+
+/* Cuerpo y eje: capas que se trasladan con el scroll del diagrama. */
+.gantt__cuerpo,
+.gantt__eje {
+  will-change: transform;
+}
+
+/* Linea de hoy: no interfiere con las barras que hay debajo. */
+.gantt__hoy {
+  pointer-events: none;
 }
 
 /*
- * Franja divisoria de los grupos.
- *
- * La libreria solo dibuja barras, asi que el separador de cada grupo es una
- * linea horizontal sobre el SVG, en el borde superior de la primera fila del
- * grupo.
+ * Columna de nombres: no hace scroll propio; su pista interior se traslada
+ * con el scroll del diagrama (translateY en la plantilla).
  */
-.gantt .grupo-linea {
-  stroke: #94a3b8;
-  stroke-width: 2;
+.gantt__nombres {
+  position: relative;
+}
+.gantt__nombres-cuerpo {
+  overflow: hidden;
+}
+.gantt__nombres-pista {
+  will-change: transform;
 }
 
+/*
+ * Interior de la barra. El relleno y el trazo los da la plantilla (atributos
+ * SVG inline); estas reglas solo fijan el comportamiento del puntero.
+ */
+
+/* Avance: segmento oscuro sobre el cuerpo; no captura el puntero. */
+.gantt__barra-avance {
+  pointer-events: none;
+}
+
+/* Etiqueta: se pinta sobre la barra pero no captura el puntero. */
+.gantt__barra-etiqueta {
+  pointer-events: none;
+}
+
+/*
+ * Asas de redimension: zona de agarre transparente de 8 px en cada extremo.
+ * Los dos modificadores son el mismo agarre, uno por extremo.
+ */
+.gantt__asa,
+.gantt__asa--inicio,
+.gantt__asa--fin {
+  fill: transparent;
+}
+
+/*
+ * Cuerpo de la barra: el color de la persona, o el gris de reserva si la
+ * tarea no lleva persona. La clase llega en el grupo de la barra, nunca
+ * concatenada en la plantilla.
+ */
+.gantt__barra-cuerpo {
+  fill: var(--persona-color, #b8c2cc);
+}
+
+/*
+ * La barra cae en su sitio al soltar: el atributo SVG no se transiciona, la
+ * propiedad transform si. El foco es instantaneo, sin transicion.
+ */
+.gantt__barra {
+  transition: transform 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gantt__barra {
+    transition: none;
+  }
+}
+
+/*
+ * Foco y seleccion: el anillo exterior siemens-700, para que el color de la
+ * barra (que es informacion) no se toque.
+ */
+.gantt__barra:focus,
+.gantt__barra[aria-current="true"] {
+  outline: 2px solid #004a89;
+  outline-offset: 2px;
+}
+
+/*
+ * Solo cuando el puntero es fino: en tactil el cursor de agarre es ruido.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .gantt__barra:not(.gantt__barra--solo-lectura):hover .gantt__barra-cuerpo {
+    stroke: #94a3b8;
+    stroke-width: 1;
+  }
+  .gantt__barra:not(.gantt__barra--solo-lectura) .gantt__barra-cuerpo {
+    cursor: grab;
+  }
+}
+
+/*
+ * Barra en previsualizacion (arrastre o teclado): baja a 60 % y no se toca.
+ */
+.gantt__barra--previsualizada {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/*
+ * Sin permiso de escritura: no se puede agarrar y no hay asas.
+ */
+.gantt__barra--solo-lectura .gantt__barra-cuerpo {
+  cursor: default;
+}

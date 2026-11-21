@@ -2464,6 +2464,7 @@ Hoy las tareas no saben nada unas de otras: el diagrama es una vista de barras y
 - Un modulo puro, `backend/services/task_dependencies.py`, con cinco operaciones: la deteccion de ciclos, las violaciones de orden, el orden topologico (con `graphlib.TopologicalSorter` de la biblioteca estandar), la **cascada propuesta** y la **ruta critica**.
 - La API: alta y borrado de vinculos, los requisitos y las dependientes de una tarea, y la consulta de la cascada propuesta.
 - El feed del diagrama lleva los vinculos y, por tarea, si viola alguna dependencia: el Gantt los necesita para dibujar las flechas y marcar los choques.
+- **En el detalle de la tarea** hay una seccion "Dependencias": los requisitos (con su tipo y un boton para quitar el vinculo) y las dependientes. Anadir un vinculo es un formulario con el selector de las tareas del proyecto (menos la propia) y el tipo. El 422 de un ciclo se muestra en el banner de la seccion, no se traga. Sin permiso de escritura, la seccion se lee pero no se edita.
 
 ### Decisiones tomadas
 

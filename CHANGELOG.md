@@ -67,6 +67,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el detalle de una tarea lleva una seccion "Dependencias" con sus
+  requisitos y sus dependientes, y un formulario para anadir un vinculo (el
+  selector ofrece las tareas del proyecto menos la propia). Un ciclo rechazado
+  por el backend se ve en el banner de la seccion.
 - **backend**: dependencias entre tareas. La tabla `task_dependencies` une una tarea
   dependiente con su requisito (`precedes`, que restringe, o `relates`, que no).
   Un modulo puro resuelve el ciclo, las violaciones de orden, el orden topologico

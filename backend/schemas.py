@@ -759,6 +759,44 @@ class TaskUpdate(BaseModel):
         return self.model_fields_set
 
 
+class TimeEntryCreate(BaseModel):
+    """Imputacion de horas reales: el dia en que se trabajo y las horas.
+
+    La tarea sale de la ruta y la persona es quien registra: no vienen en el
+    cuerpo.
+    """
+
+    work_date: date
+    hours: Decimal = Field(ge=0, max_digits=8, decimal_places=2)
+    note: str | None = Field(default=None, max_length=4000)
+
+
+class TimeEntryUpdate(BaseModel):
+    """Correccion de una imputacion. Solo se aplican los campos presentes."""
+
+    work_date: date | None = None
+    hours: Decimal | None = Field(default=None, ge=0, max_digits=8, decimal_places=2)
+    note: str | None = Field(default=None, max_length=4000)
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class TimeEntryOut(BaseModel):
+    """Imputacion de horas reales, con quien la registro."""
+
+    id: int
+    task_id: int
+    user_id: int
+    user_name: str
+    work_date: date
+    hours: Hours
+    note: str | None = None
+    created_at: datetime
+    """Momento de la imputacion, en UTC y con zona."""
+
+
 class ScheduleOut(BaseModel):
     """Version de horario de una persona.
 

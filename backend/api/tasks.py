@@ -7,11 +7,12 @@ lectura de la tarea suelta, que es lo que necesita el panel de detalle.
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 
-from ..models import Task, TaskChecklistItem
+from ..models import Task, TaskChecklistItem, TimeEntry, User
 from ..schemas import (
     ChecklistItemCreate,
     ChecklistItemOut,
@@ -22,6 +23,9 @@ from ..schemas import (
     TaskOrder,
     TaskOut,
     TaskUpdate,
+    TimeEntryCreate,
+    TimeEntryOut,
+    TimeEntryUpdate,
 )
 from ..security import (
     CurrentUser,
@@ -30,6 +34,7 @@ from ..security import (
     require_project_permission,
     require_task_permission,
 )
+from ..services.activity import log_activity
 from ..services.capacity_repository import load_task_week_hours
 from ..services.dates import as_utc
 from ..services.task_details import (
@@ -43,6 +48,7 @@ from ..services.task_details import (
     update_checklist_item,
 )
 from ..services.tasks import (
+    _require_member,
     create_task,
     delete_task,
     list_project_tasks,
@@ -50,6 +56,7 @@ from ..services.tasks import (
     order_project_tasks,
     update_task,
 )
+from ..services.units import hours_to_json
 
 router = APIRouter(tags=["tasks"])
 
@@ -315,3 +322,203 @@ async def delete_checklist_item(
     """Quita un punto de la lista de comprobacion."""
     item = await _checklist_item_or_404(session, task_id, item_id)
     await remove_checklist_item(session, task, item, user)
+
+
+async def _time_entry_or_404(session: SessionDep, entry_id: int) -> TimeEntry:
+    """La imputacion, o 404 si no existe."""
+    entry = await session.get(TimeEntry, entry_id)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Imputacion no encontrada",
+        )
+    return entry
+
+
+def _entry_out(entry: TimeEntry, user: User) -> TimeEntryOut:
+    return TimeEntryOut(
+        id=entry.id,
+        task_id=entry.task_id,
+        user_id=entry.user_id,
+        user_name=user.name,
+        work_date=entry.work_date,
+        hours=entry.hours,
+        note=entry.note,
+        created_at=as_utc(entry.created_at),
+    )
+
+
+def _cambio_json(valor) -> object:
+    """Un valor de imputacion para la bitacora: fechas ISO, horas como numero."""
+    if isinstance(valor, Decimal):
+        return hours_to_json(valor)
+    if isinstance(valor, date):
+        return valor.isoformat()
+    return valor
+
+
+@router.post(
+    "/tasks/{task_id}/time-entries", response_model=TimeEntryOut, status_code=201
+)
+async def add_time_entry(
+    task_id: int,
+    payload: TimeEntryCreate,
+    session: SessionDep,
+    user: CurrentUser,
+    task: Task = Depends(require_task_permission("task.write")),
+) -> TimeEntryOut:
+    """Imputa horas reales trabajadas sobre la tarea.
+
+    Quien imputa es quien registra, sobre si misma: hay que ser miembro del
+    proyecto de la tarea y la fecha no puede ser futura.
+    """
+    await _require_member(session, task.project_id, user.id)
+    if payload.work_date > date.today():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="La fecha de trabajo no puede ser futura",
+        )
+    entry = TimeEntry(
+        task_id=task.id,
+        user_id=user.id,
+        work_date=payload.work_date,
+        hours=payload.hours,
+        note=payload.note,
+    )
+    session.add(entry)
+    await session.flush()
+    await log_activity(
+        session,
+        user,
+        "time_entry.created",
+        "time_entry",
+        entry.id,
+        task.project_id,
+        {
+            "task_id": task.id,
+            "work_date": payload.work_date.isoformat(),
+            "hours": hours_to_json(payload.hours),
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return _entry_out(entry, user)
+
+
+@router.get("/tasks/{task_id}/time-entries", response_model=list[TimeEntryOut])
+async def read_time_entries(
+    task_id: int,
+    session: SessionDep,
+    _task: Task = Depends(require_task_permission("capacity.read")),
+) -> list[TimeEntryOut]:
+    """Imputaciones de horas reales de la tarea, del dia mas antiguo al mas reciente."""
+    entries = (
+        await session.execute(
+            select(TimeEntry)
+            .where(TimeEntry.task_id == task_id)
+            .order_by(TimeEntry.work_date, TimeEntry.id)
+        )
+    ).scalars().all()
+    names: dict[int, str] = {}
+    outs: list[TimeEntryOut] = []
+    for entry in entries:
+        if entry.user_id not in names:
+            author = await session.get(User, entry.user_id)
+            names[entry.user_id] = author.name if author is not None else ""
+        outs.append(
+            TimeEntryOut(
+                id=entry.id,
+                task_id=entry.task_id,
+                user_id=entry.user_id,
+                user_name=names[entry.user_id],
+                work_date=entry.work_date,
+                hours=entry.hours,
+                note=entry.note,
+                created_at=as_utc(entry.created_at),
+            )
+        )
+    return outs
+
+
+@router.patch("/time-entries/{entry_id}", response_model=TimeEntryOut)
+async def edit_time_entry(
+    entry_id: int,
+    payload: TimeEntryUpdate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> TimeEntryOut:
+    """Corrige una imputacion: solo quien la imputo puede tocarla."""
+    entry = await _time_entry_or_404(session, entry_id)
+    if entry.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo quien imputo puede corregir la imputacion",
+        )
+    changed = payload.changed_fields()
+    before = {"work_date": entry.work_date, "hours": entry.hours, "note": entry.note}
+    if "work_date" in changed and payload.work_date is not None:
+        if payload.work_date > date.today():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="La fecha de trabajo no puede ser futura",
+            )
+        entry.work_date = payload.work_date
+    if "hours" in changed and payload.hours is not None:
+        entry.hours = payload.hours
+    if "note" in changed:
+        entry.note = payload.note
+    cambios = {
+        campo: {"from": before[campo], "to": getattr(entry, campo)}
+        for campo in changed
+        if getattr(entry, campo) != before[campo]
+    }
+    if cambios:
+        task = await session.get(Task, entry.task_id)
+        await log_activity(
+            session,
+            user,
+            "time_entry.updated",
+            "time_entry",
+            entry.id,
+            task.project_id if task is not None else 0,
+            {
+                "changes": {
+                    campo: {
+                        "from": _cambio_json(valor["from"]),
+                        "to": _cambio_json(valor["to"]),
+                    }
+                    for campo, valor in cambios.items()
+                }
+            },
+        )
+    await session.commit()
+    await session.refresh(entry)
+    author = await session.get(User, entry.user_id)
+    return _entry_out(entry, author if author is not None else user)
+
+
+@router.delete("/time-entries/{entry_id}", status_code=204)
+async def delete_time_entry(
+    entry_id: int,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Borra una imputacion: solo quien la imputo puede borrarla."""
+    entry = await _time_entry_or_404(session, entry_id)
+    if entry.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo quien imputo puede borrar la imputacion",
+        )
+    task = await session.get(Task, entry.task_id)
+    await log_activity(
+        session,
+        user,
+        "time_entry.deleted",
+        "time_entry",
+        entry.id,
+        task.project_id if task is not None else 0,
+        {"work_date": entry.work_date.isoformat(), "hours": hours_to_json(entry.hours)},
+    )
+    await session.delete(entry)
+    await session.commit()

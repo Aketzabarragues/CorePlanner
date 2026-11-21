@@ -20,6 +20,7 @@ from ..models import (
     Project,
     ProjectMember,
     Task,
+    TimeEntry,
     User,
     WorkingSchedule,
 )
@@ -30,6 +31,7 @@ from .capacity import (
     build_capacity_report,
     compute_task_week_units,
     from_units,
+    iso_week_key,
 )
 from .schedule import (
     ScheduleVersion,
@@ -38,6 +40,7 @@ from .schedule import (
     schedule_version,
     week_start_from_key,
 )
+from .units import to_units
 from .work_calendar import department_names
 
 
@@ -344,15 +347,35 @@ async def load_capacity_for_projects(
     )
     if hours_project_ids is None:
         cell_tasks = tasks
+        hours_ids = ids
     else:
         hours_ids = {int(project_id) for project_id in hours_project_ids}
         cell_tasks = [task for task in tasks if task.project_id in hours_ids]
+
+    # El real se cuenta con el mismo alcance que el plan: solo las imputaciones
+    # de tareas de los proyectos de la celda, para que plan y real sean
+    # comparables.
+    actual_rows = (
+        await session.execute(
+            select(TimeEntry).where(
+                TimeEntry.task_id.in_(
+                    select(Task.id).where(Task.project_id.in_(hours_ids))
+                )
+            )
+        )
+    ).scalars().all()
+    actual_units: dict[tuple[int, str], int] = {}
+    for entry in actual_rows:
+        key = (entry.user_id, iso_week_key(entry.work_date))
+        actual_units[key] = actual_units.get(key, 0) + to_units(entry.hours)
+
     return build_capacity_report(
         people,
         cell_tasks,
         weeks=weeks,
         holidays=global_days,
         provisional_projects=provisional_projects,
+        actual_units_by_person_week=actual_units,
     )
 
 

@@ -607,3 +607,81 @@ def test_una_tarea_sin_proyecto_no_ensucia_el_desglose():
     report = build_capacity_report([user], [tarea])
 
     assert report.rows[0].cells[0].projects == ()
+
+
+def test_la_celda_lleva_las_horas_reales_imputadas_en_centimas():
+    """Lo imputado entra en centimas enteras y sale como Decimal de horas."""
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+
+    report = build_capacity_report(
+        [user],
+        [tarea],
+        actual_units_by_person_week={(1, "2026-W10"): 650},
+    )
+
+    celda = report.rows[0].cells[0]
+    assert celda.actual_units == 650
+    assert celda.hours_actual == H("6.50")
+    assert report.to_dict()["rows"][0]["cells"][0]["hours_actual"] == 6.5
+
+
+def test_sin_imputaciones_la_celda_lleva_horas_reales_nulas():
+    """Nadie imputo: la celda dice None, no cero. Cero afirmaria trabajo nulo."""
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+
+    report = build_capacity_report([user], [tarea])
+
+    celda = report.rows[0].cells[0]
+    assert celda.actual_units is None
+    assert celda.hours_actual is None
+    assert report.to_dict()["rows"][0]["cells"][0]["hours_actual"] is None
+
+
+def test_el_real_se_cuadra_con_el_alcance_de_la_celda():
+    """El real entra ya acotado por el repositorio, con el alcance del plan.
+
+    El motor no inventa imputaciones: solo cuenta lo que le llega con la
+    clave de la persona y la semana de la celda; la imputacion de otra
+    semana no se cuela en esta celda.
+    """
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+
+    sin_imputar = build_capacity_report([user], [tarea], weeks=("2026-W10",))
+    assert sin_imputar.rows[0].cells[0].hours_actual is None
+
+    otra_semana = build_capacity_report(
+        [user],
+        [tarea],
+        weeks=("2026-W10",),
+        actual_units_by_person_week={(1, "2026-W11"): 650},
+    )
+    assert otra_semana.rows[0].cells[0].hours_actual is None
+
+    con_imputar = build_capacity_report(
+        [user],
+        [tarea],
+        weeks=("2026-W10",),
+        actual_units_by_person_week={(1, "2026-W10"): 650},
+    )
+    assert con_imputar.rows[0].cells[0].hours_actual == H("6.50")
+
+
+def test_la_suma_de_la_celda_coincide_con_las_imputaciones_en_centimas():
+    """Dos imputaciones del mismo dia y persona suman en centimas enteras."""
+    user = person(1, "Ana")
+    tarea = FakeTask(1, 1, date(2026, 3, 2), date(2026, 3, 6), 30, project_id=7)
+
+    imputado = to_units(Decimal("6.50")) + to_units(Decimal("3.50"))
+    report = build_capacity_report(
+        [user],
+        [tarea],
+        actual_units_by_person_week={(1, "2026-W10"): imputado},
+    )
+
+    celda = report.rows[0].cells[0]
+    assert celda.actual_units == 1000
+    assert celda.hours_actual == H("10.00")
+    assert report.to_dict()["rows"][0]["cells"][0]["hours_actual"] == 10.0

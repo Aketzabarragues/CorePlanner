@@ -497,3 +497,108 @@ async def test_crear_tarea_cambia_el_informe_de_capacidad(client: AsyncClient):
     engineer_antes = next(r for r in antes.json()["rows"] if r["name"] == "Engineer")
     engineer_despues = next(r for r in despues.json()["rows"] if r["name"] == "Engineer")
     assert engineer_antes["total_hours"] < engineer_despues["total_hours"]
+
+
+async def test_imputar_horas_reales_de_si_mismo(client: AsyncClient):
+    headers = await _auth(client, "engineer@example.com")
+
+    response = await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "6.50", "note": "Montaje PLC"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert data["task_id"] == client.ids["task"]
+    assert data["user_id"] == client.ids["engineer"]
+    assert data["user_name"] == "Engineer"
+    assert data["work_date"] == "2026-03-05"
+    assert data["hours"] == 6.5
+    assert data["note"] == "Montaje PLC"
+
+
+async def test_dos_imputaciones_del_mismo_dia_suman_en_el_informe(client: AsyncClient):
+    """Dos imputaciones de la misma persona el mismo dia suman en la celda."""
+    headers = await _auth(client, "engineer@example.com")
+
+    await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "6.50"},
+        headers=headers,
+    )
+    await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "3.50"},
+        headers=headers,
+    )
+    informe = await client.get("/api/projects/1/capacity", headers=headers)
+
+    fila = next(row for row in informe.json()["rows"] if row["name"] == "Engineer")
+    celda = next(cell for cell in fila["cells"] if cell["week"] == "2026-W10")
+    assert celda["hours_actual"] == 10.0
+
+
+async def test_no_se_puede_imputar_por_otra_persona(client: AsyncClient):
+    """Corregir o borrar una imputacion de otro usuario da 403."""
+    engineer = await _auth(client, "engineer@example.com")
+    manager = await _auth(client, "manager@example.com")
+
+    created = await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "4.00"},
+        headers=engineer,
+    )
+    entry_id = created.json()["id"]
+
+    patch = await client.patch(
+        f"/api/time-entries/{entry_id}", json={"hours": "5.00"}, headers=manager
+    )
+    delete = await client.delete(f"/api/time-entries/{entry_id}", headers=manager)
+
+    assert patch.status_code == 403
+    assert delete.status_code == 403
+
+
+async def test_no_miembro_no_imputa_en_el_proyecto(client: AsyncClient):
+    """Un no miembro ni siquiera ve la tarea: el permiso del proyecto manda."""
+    headers = await _auth(client, "outsider@example.com")
+
+    response = await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "4.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
+async def test_no_se_puede_imputar_con_fecha_futura(client: AsyncClient):
+    headers = await _auth(client, "engineer@example.com")
+
+    response = await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2099-01-01", "hours": "4.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "futura" in response.json()["detail"]
+
+
+async def test_borrar_la_tarea_borra_sus_imputaciones(client: AsyncClient):
+    """Las imputaciones cuelgan de la tarea: borrarla las borra."""
+    engineer = await _auth(client, "engineer@example.com")
+    manager = await _auth(client, "manager@example.com")
+
+    await client.post(
+        "/api/tasks/1/time-entries",
+        json={"work_date": "2026-03-05", "hours": "4.00"},
+        headers=engineer,
+    )
+
+    borrado = await client.delete("/api/tasks/1", headers=manager)
+    listado = await client.get("/api/tasks/1/time-entries", headers=engineer)
+
+    assert borrado.status_code == 204
+    assert listado.status_code == 404

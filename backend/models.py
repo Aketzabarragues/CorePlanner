@@ -407,6 +407,9 @@ class Task(Base):
         cascade="all, delete-orphan",
         order_by="TaskChecklistItem.position",
     )
+    time_entries: Mapped[list[TimeEntry]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
 
 
 class TaskComment(Base):
@@ -461,6 +464,37 @@ class TaskChecklistItem(Base):
     task: Mapped[Task] = relationship(back_populates="checklist_items")
 
     __table_args__ = (Index("ix_task_checklist_items_task_position", "task_id", "position"),)
+
+
+class TimeEntry(Base):
+    """Imputacion de horas reales de una persona en una tarea, por dia.
+
+    Quien imputa es quien registra: user_id es la persona que trabajo, que
+    se imputa sobre si misma. La fecha es el dia en que se trabajo, no la
+    semana a la que se atribuye: el desglose semanal lo hace el informe.
+    """
+
+    __tablename__ = "time_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    work_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    hours: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0.00"), server_default="0"
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (CheckConstraint("hours >= 0", name="hours_positive"),)
+
+    task: Mapped[Task] = relationship(back_populates="time_entries")
 
 
 class WorkingSchedule(Base):

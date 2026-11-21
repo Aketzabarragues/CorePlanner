@@ -146,6 +146,8 @@ class WeekLoad:
     Los proyectos son el desglose de esas horas por proyecto.
     units es la carga confirmada; provisional_units es la carga de proyectos
     provisionales, que no cuenta para la sobrecarga porque no esta firmada.
+    actual_units es la carga real imputada en la semana; None significa que
+    nadie ha imputado, que no es lo mismo que cero horas.
     """
 
     week: str
@@ -154,10 +156,15 @@ class WeekLoad:
     is_overloaded: bool
     projects: tuple[CellProject, ...] = ()
     provisional_units: int = 0
+    actual_units: int | None = None
 
     @property
     def hours(self) -> Decimal:
         return from_units(self.units)
+
+    @property
+    def hours_actual(self) -> Decimal | None:
+        return None if self.actual_units is None else from_units(self.actual_units)
 
     @property
     def provisional_hours(self) -> Decimal:
@@ -265,6 +272,11 @@ class CapacityReport:
                             "capacity": (
                                 hours_to_json(cell.capacity)
                                 if cell.capacity is not None
+                                else None
+                            ),
+                            "hours_actual": (
+                                hours_to_json(cell.hours_actual)
+                                if cell.hours_actual is not None
                                 else None
                             ),
                             "is_overloaded": cell.is_overloaded,
@@ -468,6 +480,7 @@ def build_capacity_report(
     weeks: Sequence[str] | None = None,
     holidays: Sequence[Holiday] = (),
     provisional_projects: frozenset[int] = frozenset(),
+    actual_units_by_person_week: Mapping[tuple[int, str], int] | None = None,
 ) -> CapacityReport:
     """Construye la matriz de ocupacion a partir de personas y tareas.
 
@@ -487,6 +500,10 @@ def build_capacity_report(
     sobrecarga, porque no son carga firmada. El reparto de cada tarea sigue
     siendo exacto: la parte confirmada mas la provisional suman las horas de
     la tarea.
+
+    actual_units_by_person_week lleva las horas reales imputadas, en centimas,
+    por persona y semana ISO: la clave es (user_id, semana). Lo que no este
+    en el mapa no se imputo: la celda sale con horas reales None, no cero.
     """
     by_id = {person.user_id: person for person in people}
     loads: dict[int, dict[str, int]] = {person.user_id: {} for person in people}
@@ -570,6 +587,11 @@ def build_capacity_report(
                         for project_id, project_units in sorted(by_project.items())
                     ),
                     provisional_units=provisional_units,
+                    actual_units=(
+                        actual_units_by_person_week.get((person.user_id, week))
+                        if actual_units_by_person_week is not None
+                        else None
+                    ),
                 )
             )
         rows.append(

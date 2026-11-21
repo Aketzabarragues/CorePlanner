@@ -467,3 +467,114 @@ async def test_el_filtro_de_horas_acota_las_celdas_y_no_las_filas(session):
     assert ana.total_hours == 0
     luis_row = next(r for r in report.rows if r.name == "Luis")
     assert luis_row.total_hours == Decimal("40.00")
+
+
+async def test_el_informe_lleva_las_horas_reales_imputadas(session):
+    """El real entra desde la base de datos, celda a celda, en centimas."""
+    from backend.models import TimeEntry
+
+    ana, luis, project = await _seed(session)
+    tareas = (
+        (
+            await session.execute(
+                select(Task).where(Task.project_id == project.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    montaje = next(t for t in tareas if t.title == "Montaje")
+    session.add_all(
+        [
+            TimeEntry(
+                task_id=montaje.id,
+                user_id=ana.id,
+                work_date=date(2026, 3, 5),
+                hours=Decimal("6.50"),
+            ),
+            TimeEntry(
+                task_id=montaje.id,
+                user_id=ana.id,
+                work_date=date(2026, 3, 6),
+                hours=Decimal("3.50"),
+            ),
+        ]
+    )
+    await session.commit()
+
+    report = await load_project_capacity(session, project.id)
+
+    ana_row = next(r for r in report.rows if r.user_id == ana.id)
+    celdas = {cell.week: cell for cell in ana_row.cells}
+    assert celdas["2026-W10"].actual_units == 1000
+    assert celdas["2026-W10"].hours_actual == Decimal("10.00")
+    assert celdas["2026-W11"].hours_actual is None
+    # Quien no imputa no se le pone un cero: la celda sale sin real.
+    luis_row = next(r for r in report.rows if r.user_id == luis.id)
+    assert all(cell.hours_actual is None for cell in luis_row.cells)
+    data = report.to_dict()
+    celda_json = next(
+        c
+        for row in data["rows"]
+        if row["user_id"] == ana.id
+        for c in row["cells"]
+        if c["week"] == "2026-W10"
+    )
+    assert celda_json["hours_actual"] == 10.0
+
+
+async def test_el_real_se_acota_a_las_mismas_horas_que_el_plan(session):
+    """Con hours_project_ids el real solo cuenta esas imputaciones."""
+    from backend.models import TimeEntry
+
+    ana, luis, project = await _seed(session)
+    otro = Project(name="Linea 2")
+    session.add(otro)
+    await session.flush()
+    role = (await session.execute(select(Role).where(Role.name == "Ingeniero"))).scalars().one()
+    session.add(ProjectMember(user_id=luis.id, project_id=otro.id, role_id=role.id))
+    montaje_otro = Task(
+        project_id=otro.id,
+        assigned_to=luis.id,
+        title="Montaje de la otra linea",
+        status=TaskStatus.BACKLOG.value,
+        start_date=date(2026, 3, 5),
+        end_date=date(2026, 3, 11),
+        estimated_hours=40,
+    )
+    session.add(montaje_otro)
+    await session.flush()
+    montaje_linea1 = (
+        (await session.execute(select(Task).where(Task.title == "Montaje"))).scalars().one()
+    )
+    session.add_all(
+        [
+            TimeEntry(
+                task_id=montaje_linea1.id,
+                user_id=ana.id,
+                work_date=date(2026, 3, 5),
+                hours=Decimal("4.00"),
+            ),
+            TimeEntry(
+                task_id=montaje_otro.id,
+                user_id=luis.id,
+                work_date=date(2026, 3, 5),
+                hours=Decimal("7.25"),
+            ),
+        ]
+    )
+    await session.commit()
+
+    report = await load_capacity_for_projects(
+        session,
+        [project.id, otro.id],
+        hours_project_ids=[otro.id],
+    )
+
+    # El plan de la celda es solo la otra linea: el real de Ana, de la linea 1,
+    # no se cuenta; el de Luis si.
+    ana_row = next(r for r in report.rows if r.name == "Ana")
+    assert all(cell.hours_actual is None for cell in ana_row.cells)
+    luis_row = next(r for r in report.rows if r.name == "Luis")
+    celda_luis = next(c for c in luis_row.cells if c.week == "2026-W10")
+    assert celda_luis.hours_actual == Decimal("7.25")

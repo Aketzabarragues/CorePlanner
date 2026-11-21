@@ -1080,6 +1080,17 @@ useTaskReload(load)
     >
       <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
 
+      <!-- Fallo de la cascada: avisa sin bloquear; la tarea arrastrada se
+           guardo igualmente. -->
+      <AlertBanner
+        v-if="cascadaFallo"
+        variant="warning"
+        class="mb-3"
+        data-testid="cascada-fallo"
+      >
+        {{ cascadaFallo }}
+      </AlertBanner>
+
       <ul
         v-if="miembrosVisibles.length || hayProvisional"
         class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"

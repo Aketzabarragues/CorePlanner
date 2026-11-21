@@ -1023,14 +1023,19 @@ describe('GanttView', () => {
     expect(wrapper.text()).toContain('Fechas actualizadas')
   })
 
-  it('si la consulta de cascada falla se guarda la arrastrada de todos modos', async () => {
+  it('si la consulta de cascada falla se guarda la arrastrada y se avisa', async () => {
     setupFetch(feed, [], [1, 2], null, false)
 
     const { wrapper } = await mountGantt()
 
     await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
 
+    // La tarea arrastrada se guarda igual y el fallo de la cascada se avisa
+    // sin bloquear.
     expect(wrapper.text()).toContain('Fechas actualizadas')
     expect(wrapper.find('[data-testid="cascada-aceptar"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="cascada-fallo"]').text()).toContain(
+      'No se pudo consultar la cascada',
+    )
   })
 })

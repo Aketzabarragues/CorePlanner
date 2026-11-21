@@ -109,6 +109,31 @@ const diffReal = computed(() => {
 })
 
 /**
+ * Lo que el veredicto de la politica obliga a hacer.
+ *
+ * La celda lleva el veredicto y la politica aplicada; esta linea dice que
+ * umbral se ha superado, sobre que capacidad, y que hace falta. Sin politica
+ * no hay nada que decir.
+ */
+const policyLine = computed(() => {
+  const policy = props.cell.policy
+  if (!policy) return null
+  const veredicto = props.cell.policy_verdict
+  if (veredicto === 'aviso') {
+    return `Supera el ${policy.warn_percent} % de su capacidad (${props.cell.capacity} h): avisa al jefe de departamento`
+  }
+  if (veredicto === 'aprobacion') {
+    return `Supera el ${policy.requires_approval_percent} % de su capacidad (${props.cell.capacity} h): requiere aprobacion`
+  }
+  return null
+})
+
+/** Color del texto de la linea: rojo para aprobacion, ambar para aviso. */
+const policyClass = computed(() =>
+  props.cell.policy_verdict === 'aprobacion' ? 'text-red-700' : 'text-amber-800',
+)
+
+/**
  * Notas de la celda: la jornada reducida y los dias no laborables.
  *
  * Son las dos cosas que hacen que una semana tenga menos horas de las que
@@ -239,6 +264,14 @@ function onKeydown(task, event) {
           :style="{ width: `${Math.min(100, ratio ?? 0)}%` }"
         ></span>
       </span>
+      <p
+        v-if="policyLine"
+        class="text-xs font-medium"
+        :class="policyClass"
+        data-testid="cell-policy-line"
+      >
+        {{ policyLine }}
+      </p>
       <p v-if="notes.length" class="text-xs text-slate-500" data-testid="cell-notes">
         {{ notes.join(' · ') }}
       </p>

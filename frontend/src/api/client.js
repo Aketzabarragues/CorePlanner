@@ -226,6 +226,24 @@ export const panelApi = {
   list: (token) => apiFetch('/panel', { token }),
 }
 
+/** Politicas de capacidad de la empresa: umbrales de aviso y de aprobacion. */
+export const capacityPoliciesApi = {
+  list: (token) => apiFetch('/capacity-policies', { token }),
+  create: (token, payload) =>
+    apiFetch('/capacity-policies', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  update: (token, id, changes) =>
+    apiFetch(`/capacity-policies/${id}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+  remove: (token, id) => apiFetch(`/capacity-policies/${id}`, { method: 'DELETE', token }),
+}
+
 /** Bitacora de cambios: lo que ha pasado en los proyectos visibles. */
 export const activityApi = {
   list: (token, params = {}) => {

@@ -87,6 +87,18 @@ const skills = [
   { id: 2, name: 'SCADA', person_count: 1 },
 ]
 
+const policies = [
+  {
+    id: 1,
+    scope_type: 'persona',
+    scope_id: 2,
+    warn_percent: 80,
+    requires_approval_percent: 100,
+    active: true,
+    created_at: '2026-11-01T00:00:00Z',
+  },
+]
+
 const informeLaboral = {
   days: [
     {
@@ -160,6 +172,12 @@ function setupFetch(overrides = {}) {
     if (url.endsWith('/roles')) return jsonResponse(companyRoles)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.endsWith('/api/skills')) return jsonResponse(skills)
+    if (url.endsWith('/capacity-policies')) {
+      if (options.method === 'POST') {
+        return jsonResponse({ ...policies[0], id: 7 }, true, 201)
+      }
+      return jsonResponse(policies)
+    }
     if (url.includes('/work-calendar')) return jsonResponse(informeLaboral)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
@@ -681,5 +699,90 @@ describe('SettingsView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="labor-delete-day"]').exists()).toBe(false)
+  })
+
+  it('la pestaña de politica de capacidad la ve el gerente y no el tecnico', async () => {
+    const gerente = await mountView()
+    expect(gerente.find('[data-testid="tab-policies"]').exists()).toBe(true)
+
+    setupFetch({ manager: false })
+    const tecnico = await mountView()
+    expect(tecnico.find('[data-testid="tab-policies"]').exists()).toBe(false)
+    expect(tecnico.text()).not.toContain('Politica de capacidad')
+  })
+
+  it('la lista de politicas muestra el ambito, a quien aplica y los umbrales', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-policies"]').trigger('click')
+    await flushPromises()
+
+    const tabla = wrapper.find('[data-testid="capacity-policies-table"]')
+    expect(tabla.exists()).toBe(true)
+    const fila = wrapper.find('[data-testid="policy-row-1"]')
+    expect(fila.exists()).toBe(true)
+    expect(fila.text()).toContain('Persona')
+    // La politica se aplica a la persona 2: sale su nombre, no su id.
+    expect(fila.text()).toContain('Sebastián')
+    expect(fila.text()).toContain('80 %')
+    expect(fila.text()).toContain('100 %')
+    expect(fila.find('[data-testid="policy-active-1"]').text()).toBe('Activa')
+  })
+
+  it('el alta de politica guarda con POST el cuerpo correcto', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-policies"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="new-capacity-policy"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="policy-scope-type"]').setValue('departamento')
+    await wrapper.find('[data-testid="policy-scope"]').setValue('2')
+    await wrapper.find('[data-testid="policy-warn-percent"]').setValue('70')
+    await wrapper.find('[data-testid="policy-approval-percent"]').setValue('90')
+    await wrapper.find('#form-politica-capacidad').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) => url.endsWith('/capacity-policies') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toEqual({
+      scope_type: 'departamento',
+      scope_id: 2,
+      warn_percent: 70,
+      requires_approval_percent: 90,
+      active: true,
+    })
+  })
+
+  it('el 422 de la alta se muestra en el banner del formulario', async () => {
+    const base = global.fetch
+    global.fetch = vi.fn(async (url, options = {}) => {
+      if (url.endsWith('/capacity-policies') && options.method === 'POST') {
+        return jsonResponse(
+          { detail: 'El umbral de aprobacion no puede estar por debajo del de aviso' },
+          false,
+          422,
+        )
+      }
+      return base(url, options)
+    })
+
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-policies"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="new-capacity-policy"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="policy-scope"]').setValue('2')
+    await wrapper.find('[data-testid="policy-warn-percent"]').setValue('90')
+    await wrapper.find('[data-testid="policy-approval-percent"]').setValue('80')
+    await wrapper.find('#form-politica-capacidad').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('El umbral de aprobacion no puede estar por debajo del de aviso')
   })
 })

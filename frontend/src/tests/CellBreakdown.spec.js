@@ -120,3 +120,57 @@ describe('CellBreakdown', () => {
     expect(items[1].text()).toContain('Ampliacion linea 2 (provisional)')
   })
 })
+
+describe('veredicto de politica de capacidad', () => {
+  const policy = {
+    scope_type: 'persona',
+    scope_id: 2,
+    warn_percent: 80,
+    requires_approval_percent: 100,
+    active: true,
+  }
+
+  it('un veredicto de aviso explica el umbral superado y su consecuencia', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 36, capacity: 40 }),
+      policy_verdict: 'aviso',
+      policy,
+    })
+
+    const linea = wrapper.get('[data-testid="cell-policy-line"]')
+    expect(linea.text()).toContain('80 %')
+    expect(linea.text()).toContain('40 h')
+    expect(linea.text()).toContain('avisa al jefe de departamento')
+    // Ambar, para distinguirlo de la aprobacion sin depender del texto.
+    expect(linea.classes().join(' ')).toContain('text-amber-800')
+  })
+
+  it('un veredicto de aprobacion explica el umbral y que hay que aprobar', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 48, capacity: 40 }),
+      policy_verdict: 'aprobacion',
+      policy,
+    })
+
+    const linea = wrapper.get('[data-testid="cell-policy-line"]')
+    expect(linea.text()).toContain('100 %')
+    expect(linea.text()).toContain('requiere aprobacion')
+    expect(linea.classes().join(' ')).toContain('text-red-700')
+  })
+
+  it('sin politica no hay linea de veredicto', async () => {
+    const wrapper = await mountBreakdown(celda({ hours: 48, capacity: 40 }))
+
+    expect(wrapper.find('[data-testid="cell-policy-line"]').exists()).toBe(false)
+  })
+
+  it('con politica pero sin umbral superado no hay linea de veredicto', async () => {
+    const wrapper = await mountBreakdown({
+      ...celda({ hours: 20, capacity: 40 }),
+      policy_verdict: null,
+      policy,
+    })
+
+    expect(wrapper.find('[data-testid="cell-policy-line"]').exists()).toBe(false)
+  })
+})

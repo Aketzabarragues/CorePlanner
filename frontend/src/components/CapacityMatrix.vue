@@ -149,6 +149,17 @@ const MODE_INACTIVE = 'border border-slate-300 bg-white text-slate-700'
 
 /** Aspecto de una celda mientras se arrastra una tarea. */
 const PREVIEW_BORDER = 'border-2 border-dashed border-slate-500'
+
+/**
+ * Marca del veredicto de la politica de capacidad.
+ *
+ * Es ortogonal al estado de carga: el fondo sigue siendo el del estado y el
+ * veredicto anade su distintivo, con su simbolo para que se lea sin color.
+ */
+const VERDICT_BADGE = {
+  aviso: 'border-amber-700 bg-amber-200 text-amber-900',
+  aprobacion: 'border-red-700 bg-red-200 text-red-900',
+}
 const PREVIEW_BLOCKED =
   'border-2 border-dashed border-slate-400 cp-striped text-slate-500 cursor-not-allowed'
 
@@ -456,6 +467,12 @@ function cellView(row, week) {
     libre: vacia ? '' : loadFree(horasAplicables, cell.capacity),
     anchoBarra: loadBarWidth(horasAplicables, cell.capacity),
     preview,
+    // El veredicto de la politica, si la hay: la marca de la celda.
+    veredicto: cell.policy_verdict ?? null,
+    claseVeredicto:
+      cell.policy_verdict === 'aviso'
+        ? VERDICT_BADGE.aviso
+        : VERDICT_BADGE.aprobacion,
     clases: preview
       ? preview.clases
       : [
@@ -583,6 +600,8 @@ function cellAria(row, week) {
     partes.push(`${ratio} %`)
   }
   if (cell.is_overloaded) partes.push('sobrecarga')
+  if (cell.policy_verdict === 'aviso') partes.push('aviso de politica')
+  if (cell.policy_verdict === 'aprobacion') partes.push('requiere aprobacion')
   return partes.join(', ')
 }
 
@@ -679,6 +698,10 @@ function detalleCelda(row, week) {
     capacity: cell.capacity,
     weekly_base_hours: row.weekly_base_hours,
     is_overloaded: cell.is_overloaded,
+    // El veredicto y la politica aplicada explican el umbral superado en el
+    // desglose, aunque la celda no lo marque en la matriz.
+    policy_verdict: cell.policy_verdict ?? null,
+    policy: cell.policy ?? null,
   }
 }
 
@@ -1488,6 +1511,18 @@ watch(
                       {{ proyecto.nombre }} · {{ proyecto.horas }} h
                     </span>
                   </template>
+
+                  <span
+                    v-if="celda.veredicto"
+                    class="flex items-center gap-0.5 rounded-full border px-1 text-[10px] font-semibold leading-tight"
+                    :class="celda.claseVeredicto"
+                    :data-testid="`cell-policy-${celda.veredicto}`"
+                  >
+                    <span class="h-2.5 w-2.5 shrink-0">
+                      <AppIcon :name="celda.veredicto === 'aviso' ? 'warning' : 'error'" />
+                    </span>
+                    {{ celda.veredicto === 'aviso' ? 'aviso' : 'aprobación' }}
+                  </span>
                 </button>
               </td>
               <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">

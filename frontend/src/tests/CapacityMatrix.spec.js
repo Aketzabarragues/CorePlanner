@@ -1390,3 +1390,118 @@ describe('provisional', () => {
     expect(chips[1].attributes('title')).toContain('(provisional)')
   })
 })
+
+/**
+ * Informe con veredictos de politica: Sebastian W46 requiere aprobacion y
+ * Ana W46 esta en aviso. El resto del informe es el normal.
+ */
+function reportConPolitica() {
+  const politicaSebastian = {
+    scope_type: 'persona',
+    scope_id: 2,
+    warn_percent: 80,
+    requires_approval_percent: 100,
+    active: true,
+  }
+  const politicaDepartamento = {
+    scope_type: 'departamento',
+    scope_id: 1,
+    warn_percent: 80,
+    requires_approval_percent: 100,
+    active: true,
+  }
+  return {
+    ...capacityReport,
+    rows: capacityReport.rows.map((row) => ({
+      ...row,
+      cells: row.cells.map((cell) =>
+        cell.week === '2026-W46'
+          ? {
+              ...cell,
+              hours: row.user_id === 1 ? 20 : cell.hours,
+              policy_verdict: row.user_id === 2 ? 'aprobacion' : 'aviso',
+              policy: row.user_id === 2 ? politicaSebastian : politicaDepartamento,
+            }
+          : { ...cell, policy_verdict: null, policy: null },
+      ),
+    })),
+  }
+}
+
+describe('veredicto de politica de capacidad', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  it('una celda en aviso lleva la marca ambar con su simbolo y texto', async () => {
+    setupFetch({ '/api/capacity': () => jsonResponse(reportConPolitica()) })
+    const wrapper = await mountMatrix()
+
+    const marca = wrapper.get('[data-testid="cell-policy-aviso"]')
+    expect(marca.attributes('data-testid')).toBe('cell-policy-aviso')
+    expect(marca.classes().join(' ')).toContain('bg-amber-200')
+    expect(marca.classes().join(' ')).toContain('text-amber-900')
+    // Simbolo y texto: la marca se lee sin color.
+    expect(marca.find('svg').exists()).toBe(true)
+    expect(marca.text()).toContain('aviso')
+  })
+
+  it('una celda en aprobacion lleva la marca roja con su simbolo y texto', async () => {
+    setupFetch({ '/api/capacity': () => jsonResponse(reportConPolitica()) })
+    const wrapper = await mountMatrix()
+
+    const marca = wrapper.get('[data-testid="cell-policy-aprobacion"]')
+    expect(marca.classes().join(' ')).toContain('bg-red-200')
+    expect(marca.classes().join(' ')).toContain('text-red-900')
+    expect(marca.find('svg').exists()).toBe(true)
+    expect(marca.text()).toContain('aprobación')
+  })
+
+  it('sin veredicto no hay marca en ninguna celda', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    expect(wrapper.find('[data-testid="cell-policy-aviso"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cell-policy-aprobacion"]').exists()).toBe(false)
+  })
+
+  it('el veredicto no cambia el fondo: manda el estado de carga', async () => {
+    setupFetch({ '/api/capacity': () => jsonResponse(reportConPolitica()) })
+    const wrapper = await mountMatrix()
+
+    // 48 h de 40 h: sobrecarga alta, con o sin veredicto.
+    const sobrecargada = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(sobrecargada.classes()).toContain('bg-red-200')
+    expect(sobrecargada.classes()).toContain('text-red-900')
+    // 20 h de 40 h: carga media, con su aviso de politica.
+    const media = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    expect(media.classes()).toContain('bg-slate-100')
+    // El ambar de la marca es de la insignia, no del fondo de la celda.
+    expect(media.classes().join(' ')).not.toContain('bg-amber-200')
+  })
+
+  it('la celda en aviso se lee en voz alta con su veredicto', async () => {
+    setupFetch({ '/api/capacity': () => jsonResponse(reportConPolitica()) })
+    const wrapper = await mountMatrix()
+
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.attributes('aria-label')).toContain('requiere aprobacion')
+    expect(wrapper.get('[data-testid="cell-1-2026-W46"]').attributes('aria-label')).toContain(
+      'aviso de politica',
+    )
+  })
+
+  it('el detalle de la celda lleva el veredicto y la politica aplicada', async () => {
+    setupFetch({ '/api/capacity': () => jsonResponse(reportConPolitica()) })
+    const wrapper = await mountMatrix()
+
+    await wrapper.get('[data-testid="cell-2-2026-W46"]').trigger('click')
+    await flushPromises()
+
+    const celda = wrapper.findComponent(CellBreakdown).props('cell')
+    expect(celda.policy_verdict).toBe('aprobacion')
+    expect(celda.policy.warn_percent).toBe(80)
+    expect(celda.policy.requires_approval_percent).toBe(100)
+  })
+})

@@ -16,8 +16,16 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { configApi, departmentsApi, meApi, projectsApi, skillsApi } from '../api/client'
+import {
+  capacityPoliciesApi,
+  configApi,
+  departmentsApi,
+  meApi,
+  projectsApi,
+  skillsApi,
+} from '../api/client'
 import AsyncState from '../components/common/AsyncState.vue'
+import CapacityPolicyPanel from '../components/settings/CapacityPolicyPanel.vue'
 import DepartmentsPanel from '../components/settings/DepartmentsPanel.vue'
 import LaborCalendarPanel from '../components/settings/LaborCalendarPanel.vue'
 import MembersPanel from '../components/settings/MembersPanel.vue'
@@ -36,6 +44,7 @@ const TABS = [
   { name: 'members', label: 'Miembros' },
   { name: 'roles', label: 'Roles' },
   { name: 'skills', label: 'Competencias' },
+  { name: 'policies', label: 'Politica de capacidad' },
 ]
 
 /** El calendario laboral se lee desde cualquier rol; el resto es del gerente. */
@@ -57,6 +66,7 @@ const companyRoles = ref([])
 const projectRoles = ref([])
 const membersByProject = ref({})
 const skills = ref([])
+const policies = ref([])
 
 /** Pestanas que puede ver quien entra. */
 const visibleTabs = computed(() => (isManager.value ? TABS : READER_TABS))
@@ -107,7 +117,7 @@ async function load() {
       // El calendario laboral se lee solo: no hacen falta datos de referencia.
       return
     }
-    const [peopleData, departmentsData, projectsData, companyRolesData, projectRolesData, skillsData] =
+    const [peopleData, departmentsData, projectsData, companyRolesData, projectRolesData, skillsData, policiesData] =
       await Promise.all([
         configApi.people(token),
         departmentsApi.list(token),
@@ -115,6 +125,7 @@ async function load() {
         configApi.companyRoles(token),
         configApi.projectRoles(token),
         skillsApi.catalog(token),
+        capacityPoliciesApi.list(token),
       ])
     people.value = peopleData
     departments.value = departmentsData
@@ -122,6 +133,7 @@ async function load() {
     companyRoles.value = companyRolesData
     projectRoles.value = projectRolesData
     skills.value = skillsData
+    policies.value = policiesData
     await loadMembers(token)
   } catch (err) {
     error.value = err.message
@@ -226,6 +238,13 @@ watch(
         :project-roles="projectRoles"
       />
       <SkillsPanel v-else-if="currentTab.name === 'skills'" :skills="skills" @saved="load" />
+      <CapacityPolicyPanel
+        v-else-if="currentTab.name === 'policies'"
+        :policies="policies"
+        :departments="departments"
+        :people="people"
+        @saved="load"
+      />
     </AsyncState>
   </div>
 </template>

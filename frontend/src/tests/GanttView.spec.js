@@ -143,7 +143,7 @@ const feedVisibilidad = {
   unassigned_task_ids: [13],
 }
 
-function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true) {
+function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true, calendarText = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', calendarOk = true) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -153,6 +153,14 @@ function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada
         status: 200,
         json: async () => ({ access_token: 'tok', user: { id: 9, name: 'Admin' } }),
       }
+    }
+    if (url.includes('/calendar.ics')) {
+      // El calendario se pide como texto, no como JSON: por eso el mock
+      // devuelve `text` y no `json`.
+      if (!calendarOk) {
+        return { ok: false, status: 500, json: async () => ({ detail: 'Sin calendario' }) }
+      }
+      return { ok: true, status: 200, text: async () => calendarText }
     }
     if (url.includes('/cascade')) {
       // Propuesta de cascada de la barra soltada; sin configurar no arrastra
@@ -1037,5 +1045,81 @@ describe('GanttView', () => {
     expect(wrapper.get('[data-testid="cascada-fallo"]').text()).toContain(
       'No se pudo consultar la cascada',
     )
+  })
+
+  it('con proyecto en contexto ofrece el boton Exportar .ics', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ project: '1' })
+
+    const boton = wrapper.get('[data-testid="gantt-export-ics"]')
+    expect(boton.text()).toBe('Exportar .ics')
+  })
+
+  it('en la vista global, sin proyecto en contexto, no ofrece el boton', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    expect(wrapper.find('[data-testid="gantt-export-ics"]').exists()).toBe(false)
+  })
+
+  it('al pulsar Exportar .ics pide el calendario y lo descarga', async () => {
+    const calls = setupFetch()
+    const { wrapper } = await mountGantt({ project: '1' })
+
+    // jsdom no implementa object URLs ni la descarga del ancla: se definen y
+    // espian para capturar el blob creado y el nombre de descarga.
+    let blobCreado = null
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: (blob) => {
+        blobCreado = blob
+        return 'blob:test'
+      },
+      configurable: true,
+      writable: true,
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      value: () => {},
+      configurable: true,
+      writable: true,
+    })
+    let anclaPulsada = null
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function () {
+        anclaPulsada = this
+      })
+
+    await wrapper.get('[data-testid="gantt-export-ics"]').trigger('click')
+    await flushPromises()
+
+    // El pedido va al endpoint del proyecto, como texto.
+    const call = calls.find((c) => c.url === '/api/projects/1/calendar.ics')
+    expect(call).toBeDefined()
+    // El blob se crea y el ancla se pulsa con la URL del blob, el nombre del
+    // fichero y se libera despues.
+    expect(blobCreado).not.toBeNull()
+    expect(anclaPulsada).not.toBeNull()
+    expect(anclaPulsada.href).toBe('blob:test')
+    expect(anclaPulsada.download).toBe('coreplanner-1.ics')
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Calendario exportado: coreplanner-1.ics.')
+    clickSpy.mockRestore()
+  })
+
+  it('si el pedido del calendario falla se avisa sin bloquear el diagrama', async () => {
+    setupFetch(feed, [], [1, 2], null, true, 'BEGIN:VCALENDAR', false)
+
+    const { wrapper } = await mountGantt({ project: '1' })
+
+    await wrapper.get('[data-testid="gantt-export-ics"]').trigger('click')
+    await flushPromises()
+
+    const fallo = wrapper.get('[data-testid="gantt-export-ics-fallo"]')
+    expect(fallo.text()).toContain('No se pudo exportar el calendario')
+    // El boton vuelve a estar activo y el diagrama se queda pintado.
+    expect(wrapper.get('[data-testid="gantt-export-ics"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
   })
 })

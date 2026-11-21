@@ -23,14 +23,21 @@ function extractErrorDetail(payload, status) {
   return `Error ${status}`
 }
 
-export async function apiFetch(path, { token, ...options } = {}) {
+/**
+ * Peticion cruda con token, auto-refresh en 401 y error con estado.
+ *
+ * `apiFetch` y `apiFetchText` se montan sobre ella: el primero decodifica
+ * JSON y el segundo devuelve el cuerpo como texto, para archivos como el
+ * calendario iCal del proyecto.
+ */
+async function fetchApi(path, { token, ...options } = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers ?? {}) }
   if (token) headers.Authorization = `Bearer ${token}`
 
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (response.status === 401 && refreshSession && path !== '/auth/login') {
     const fresh = await refreshSession().catch(() => null)
-    if (fresh) return apiFetch(path, { ...options, token: fresh })
+    if (fresh) return fetchApi(path, { ...options, token: fresh })
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
@@ -40,7 +47,17 @@ export async function apiFetch(path, { token, ...options } = {}) {
     error.status = response.status
     throw error
   }
+  return response
+}
+
+export async function apiFetch(path, options) {
+  const response = await fetchApi(path, options)
   return response.status === 204 ? null : response.json()
+}
+
+export async function apiFetchText(path, options) {
+  const response = await fetchApi(path, options)
+  return response.text()
 }
 
 export const authApi = {
@@ -65,6 +82,8 @@ export const projectsApi = {
     const query = new URLSearchParams(params).toString()
     return apiFetch(`/projects/${projectId}/tasks${query ? `?${query}` : ''}`, { token })
   },
+  /** Calendario iCal del proyecto, como texto: el descargado se hace a mano. */
+  calendar: (token, projectId) => apiFetchText(`/projects/${projectId}/calendar.ics`, { token }),
 }
 
 export const departmentsApi = {

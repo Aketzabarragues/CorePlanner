@@ -1,8 +1,10 @@
-"""Endpoints de proyecto: listado y matriz de capacidad."""
+"""Endpoints de proyecto: listado, matriz de capacidad y calendario iCal."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 
 from ..models import Project, User
@@ -23,6 +25,8 @@ from ..security import (
 )
 from ..services.capacity_repository import load_project_capacity
 from ..services.configuration import create_project, update_project
+from ..services.ical import format_calendar
+from ..services.ical_repository import load_project_calendar_events
 from ..services.project_summary import load_project_summaries
 from ..services.schedule import current_week_key
 from ..services.units import from_units
@@ -163,3 +167,28 @@ async def project_capacity(
         min_level=min_level,
     )
     return report.to_dict()
+
+
+@router.get("/{project_id}/calendar.ics", response_class=Response)
+async def project_calendar(
+    project_id: int,
+    session: SessionDep,
+    _project=Depends(require_project_permission("capacity.read")),
+) -> Response:
+    """Calendario iCal (RFC 5545) de las tareas con fechas del proyecto.
+
+    Solo entran las tareas con fecha: las sin fecha no se pueden situar en un
+    calendario y se quedan fuera. La persona asignada va como ATTENDEE y el
+    responsable del proyecto como ORGANIZER.
+    """
+    events = await load_project_calendar_events(session, _project)
+    body = format_calendar(events, datetime.now(UTC))
+    filename = f"coreplanner-{project_id}.ics"
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )

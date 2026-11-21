@@ -75,6 +75,10 @@ const altaMiembros = ref([])
 const cascada = ref(null)
 /** Fallo de la consulta de cascada: se avisa sin bloquear el guardado. */
 const cascadaFallo = ref(null)
+/** Exportacion iCal en curso: el boton se queda desactivado hasta que llega. */
+const exportandoIcs = ref(false)
+/** Fallo de la exportacion iCal: se avisa sin tocar el estado del diagrama. */
+const falloIcs = ref(null)
 
 /** Miembros por proyecto ya pedidos: una sola peticion por proyecto. */
 const miembrosCache = new Map()
@@ -606,6 +610,37 @@ function goCompleto() {
 }
 
 /**
+ * Descarga el calendario iCal del proyecto de contexto.
+ *
+ * El texto se pide por el cliente con token (no con un enlace, que no lleva
+ * cabecera) y se convierte en un blob que el navegador guarda. El fallo no
+ * toca el estado del diagrama: se avisa con su propio banner.
+ */
+async function exportarIcs() {
+  exportandoIcs.value = true
+  falloIcs.value = null
+  try {
+    const token = await auth.ensureSession()
+    const idProyecto = Number(projectFilter.value)
+    const texto = await projectsApi.calendar(token, idProyecto)
+    const blob = new Blob([texto], { type: 'text/calendar' })
+    const url = URL.createObjectURL(blob)
+    const ancla = document.createElement('a')
+    ancla.href = url
+    ancla.download = `coreplanner-${idProyecto}.ics`
+    document.body.appendChild(ancla)
+    ancla.click()
+    ancla.remove()
+    URL.revokeObjectURL(url)
+    notice.value = `Calendario exportado: coreplanner-${idProyecto}.ics.`
+  } catch (err) {
+    falloIcs.value = `No se pudo exportar el calendario: ${err.message}`
+  } finally {
+    exportandoIcs.value = false
+  }
+}
+
+/**
  * Guarda las fechas nuevas cuando se mueve o redimensiona una barra.
  *
  * Optimista, como el Kanban: primero el PATCH y, aunque el servidor lo
@@ -950,6 +985,16 @@ useTaskReload(load)
     <PageHeader title="Gantt" :subtitle="subtitle">
       <template #actions>
         <button
+          v-if="projectFilter"
+          type="button"
+          class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          :disabled="exportandoIcs"
+          data-testid="gantt-export-ics"
+          @click="exportarIcs"
+        >
+          {{ exportandoIcs ? 'Exportando...' : 'Exportar .ics' }}
+        </button>
+        <button
           v-for="mode in GANTT_VIEW_MODES"
           :key="mode.id"
           type="button"
@@ -969,6 +1014,16 @@ useTaskReload(load)
 
     <AlertBanner v-if="notice" variant="success" class="mb-2">
       {{ notice }}
+    </AlertBanner>
+
+    <!-- Fallo de la exportacion iCal: se avisa sin bloquear el diagrama. -->
+    <AlertBanner
+      v-if="falloIcs"
+      variant="warning"
+      class="mb-2"
+      data-testid="gantt-export-ics-fallo"
+    >
+      {{ falloIcs }}
     </AlertBanner>
 
     <div class="mb-3 flex flex-wrap items-end gap-3" data-testid="gantt-filters">

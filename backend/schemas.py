@@ -388,6 +388,8 @@ class TaskOut(BaseModel):
     """Puntos que tiene la lista de comprobacion de la tarea."""
     checklist_done: int = 0
     """Puntos de esa lista que estan hechos."""
+    position: int | None = None
+    """Posicion de la tarea dentro de su columna de tablero; None si no la tiene."""
 
 
 class TaskCommentOut(BaseModel):
@@ -658,13 +660,37 @@ class KanbanTaskOut(BaseModel):
     estimated_hours: Hours
     start_date: date | None = None
     end_date: date | None = None
+    position: int | None = None
 
 
 class KanbanColumnOut(BaseModel):
-    """Columna del tablero, con las tarjetas de un estado."""
+    """Columna del tablero, con las tarjetas de un estado y sus totales."""
 
     status: str
     tasks: list[KanbanTaskOut]
+    task_count: int
+    """Numero de tareas de la columna, calculado por el backend."""
+    estimated_hours: Hours
+    """Suma de las horas estimadas de las tarjetas de la columna."""
+
+
+class TaskOrder(BaseModel):
+    """Cambio de orden del tablero: mueve una tarea y deja su columna en el
+    orden de la lista de identificadores.
+
+    Los identificadores que no vengan en la lista quedan detras, en su orden
+    actual. La lista no puede llevar identificadores repetidos.
+    """
+
+    task_id: int
+    status: TaskStatus
+    task_ids: list[int] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _sin_repetidos(self) -> TaskOrder:
+        if len(set(self.task_ids)) != len(self.task_ids):
+            raise ValueError("Los identificadores de la lista se repiten")
+        return self
 
 
 class KanbanOut(BaseModel):

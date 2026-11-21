@@ -11,11 +11,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import ProjectMember, Task, TaskStatus, User
-from ..schemas import TaskCreate, TaskUpdate
+from ..schemas import TaskCreate, TaskOrder, TaskUpdate
 from ..services.activity import log_activity
 from ..services.capacity import business_days, iso_week_key
 from ..services.schedule import week_start_from_key
@@ -214,6 +214,100 @@ async def update_task(
             {"title": task.title, "changes": cambios},
         )
 
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+async def order_project_tasks(
+    session: AsyncSession,
+    project_id: int,
+    payload: TaskOrder,
+    actor: User,
+) -> Task:
+    """Mueve una tarea a una columna y deja la columna en el orden pedido.
+
+    La columna afectada queda con posiciones 0..n-1, sin huecos ni repeticiones:
+    los identificadores de la peticion ocupan su orden y los que no vienen en
+    la lista van detras, en su orden actual. La operacion es atomica: la tarea,
+    la columna y la bitacora cambian juntos o no cambian.
+    """
+    task = await session.get(Task, payload.task_id)
+    if task is None or task.project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tarea no encontrada",
+        )
+
+    estado = payload.status.value
+    ids_solicitados = set(payload.task_ids)
+
+    # La columna afectada, entera y con las tareas completas: se comprueba
+    # que todos los ids pedidos son suyos y se deja el orden actual de los
+    # que no vengan en la lista. Una sola consulta, sin carga por tarjeta.
+    filas = list(
+        (
+            await session.execute(
+                select(Task)
+                .where(
+                    Task.project_id == project_id,
+                    Task.status == estado,
+                )
+                .order_by(
+                    case((Task.position.is_(None), 1), else_=0),
+                    Task.position,
+                    Task.start_date,
+                    Task.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    # Todo id de la lista debe estar ya en la columna de destino, salvo la
+    # tarea que se mueve: los demas son de otro proyecto o no existen.
+    ids_en_columna = {tarea.id for tarea in filas}
+    desconocidos = ids_solicitados - ids_en_columna
+    desconocidos.discard(task.id)
+    if desconocidos:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="La lista de identificadores incluye tareas de otro proyecto",
+        )
+
+    cola = [tarea.id for tarea in filas if tarea.id not in ids_solicitados]
+
+    antes = task.status
+    antes_position = task.position
+    orden_final = list(payload.task_ids)
+    orden_final.extend(cola)
+
+    por_id = {tarea.id: tarea for tarea in filas}
+    por_id[task.id] = task
+    for indice, tarea_id in enumerate(orden_final):
+        tarea = por_id[tarea_id]
+        tarea.status = estado
+        tarea.position = indice
+
+    cambios = {}
+    if antes != estado:
+        cambios["status"] = {"from": antes, "to": estado}
+    if antes_position != task.position:
+        cambios["position"] = {"from": antes_position, "to": task.position}
+
+    await log_activity(
+        session,
+        actor,
+        "task.ordered",
+        "task",
+        task.id,
+        project_id,
+        {
+            "title": task.title,
+            "changes": cambios,
+        },
+    )
     await session.commit()
     await session.refresh(task)
     return task

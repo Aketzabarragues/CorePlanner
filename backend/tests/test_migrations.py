@@ -158,6 +158,131 @@ async def test_el_backfill_no_toca_las_filas_que_ya_tienen_color(tmp_path):
     await engine.dispose()
 
 
+async def _crear_tasks(engine, con_position: bool) -> None:
+    """Crea la tabla de tareas, con o sin la columna de posicion."""
+    extra = ", position INTEGER NULL" if con_position else ""
+
+    def _crear(sync_conn):
+        sync_conn.execute(
+            text(
+                "CREATE TABLE tasks (id INTEGER PRIMARY KEY, "
+                f"project_id INTEGER NOT NULL, status VARCHAR(32) NOT NULL,"
+                f" start_date DATE NULL{extra})"
+            )
+        )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(_crear)
+
+
+def _fila_tarea(
+    id_: int, project_id: int, estado: str, fecha: str, position: int | None
+):
+    return {"id": id_, "pid": project_id, "status": estado, "fecha": fecha, "position": position}
+
+
+async def _insertar_tasks(engine, filas: list[dict], con_position: bool) -> None:
+    """Inserta las filas; sin `con_position` la tabla no tiene la columna."""
+    if con_position:
+        sql = (
+            "INSERT INTO tasks "
+            "(id, project_id, status, start_date, position) "
+            "VALUES (:id, :pid, :status, :fecha, :position)"
+        )
+    else:
+        sql = "INSERT INTO tasks (id, project_id, status, start_date) "
+        sql += "VALUES (:id, :pid, :status, :fecha)"
+
+    def _insertar(sync_conn):
+        for fila in filas:
+            sync_conn.execute(text(sql), fila)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(_insertar)
+
+
+async def _posiciones(engine) -> dict[int, int | None]:
+    async with engine.begin() as conn:
+        filas = (await conn.execute(text("SELECT id, position FROM tasks ORDER BY id"))).all()
+    return {fila.id: fila.position for fila in filas}
+
+
+async def test_la_migracion_anade_la_columna_de_posicion_y_la_rellena_por_columna(tmp_path):
+    """Una base sin `position` la recibe y cada columna se rellena desde 0
+    en el orden (start_date, id), sin tocar las demas columnas."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'vieja.sqlite'}")
+    await _crear_tasks(engine, con_position=False)
+    await _insertar_tasks(
+        engine,
+        [
+            _fila_tarea(1, 1, "backlog", "2026-03-05", None),
+            _fila_tarea(2, 1, "backlog", "2026-03-02", None),
+            _fila_tarea(3, 1, "done", "2026-03-01", None),
+            _fila_tarea(4, 2, "backlog", "2026-03-09", None),
+        ],
+        con_position=False,
+    )
+
+    await apply_migrations(engine)
+
+    assert await _posiciones(engine) == {
+        # En el proyecto 1, backlog, manda start_date: la 2 va antes que la 1.
+        2: 0,
+        1: 1,
+        # Cada columna cuenta desde 0, de modo que done empieza de nuevo.
+        3: 0,
+        # El otro proyecto no ve las columnas de este.
+        4: 0,
+    }
+    await engine.dispose()
+
+
+async def test_el_backfill_de_posicion_continua_desde_el_maximo_existente(tmp_path):
+    """Una columna que ya tiene posiciones recibe las nuevas tras su maximo,
+    y la fila ya posicionada no se toca."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'vieja.sqlite'}")
+    await _crear_tasks(engine, con_position=True)
+    await _insertar_tasks(
+        engine,
+        [
+            _fila_tarea(1, 1, "backlog", "2026-03-01", 5),
+            _fila_tarea(2, 1, "backlog", "2026-03-02", 7),
+            _fila_tarea(3, 1, "backlog", "2026-03-03", None),
+            _fila_tarea(4, 1, "backlog", "2026-03-04", None),
+        ],
+        con_position=True,
+    )
+
+    await apply_migrations(engine)
+
+    assert await _posiciones(engine) == {1: 5, 2: 7, 3: 8, 4: 9}
+    await engine.dispose()
+
+
+async def test_el_backfill_de_posicion_es_idempotente(tmp_path):
+    """Aplicar la migracion dos veces no cambia ni reordena las posiciones."""
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'vieja.sqlite'}")
+    await _crear_tasks(engine, con_position=False)
+    await _insertar_tasks(
+        engine,
+        [
+            _fila_tarea(1, 1, "backlog", "2026-03-05", None),
+            _fila_tarea(2, 1, "backlog", "2026-03-02", None),
+            _fila_tarea(3, 1, "done", "2026-03-01", None),
+        ],
+        con_position=False,
+    )
+
+    await apply_migrations(engine)
+    primera = await _posiciones(engine)
+    await apply_migrations(engine)
+    segunda = await _posiciones(engine)
+
+    assert primera == {2: 0, 1: 1, 3: 0}
+    assert primera == segunda
+    await engine.dispose()
+
+
 async def test_la_migracion_de_color_es_idempotente(tmp_path):
     """Aplicarla dos veces no cambia los colores ya repartidos."""
     engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'vieja.sqlite'}")

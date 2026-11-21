@@ -6,7 +6,7 @@ base de datos.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Protocol
@@ -30,6 +30,7 @@ class TaskLike(Protocol):
     estimated_hours: Decimal
     start_date: date | None
     end_date: date | None
+    position: int | None
 
 
 class UserLike(Protocol):
@@ -49,6 +50,7 @@ class KanbanCard:
     estimated_hours: Decimal
     start_date: date | None
     end_date: date | None
+    position: int | None
 
     def to_dict(self) -> dict:
         return {
@@ -60,20 +62,25 @@ class KanbanCard:
             "estimated_hours": self.estimated_hours,
             "start_date": self.start_date,
             "end_date": self.end_date,
+            "position": self.position,
         }
 
 
 @dataclass(frozen=True, slots=True)
 class KanbanColumn:
-    """Columna de un estado, con sus tarjetas."""
+    """Columna de un estado, con sus tarjetas y sus totales."""
 
     status: str
     cards: tuple[KanbanCard, ...]
+    task_count: int = 0
+    estimated_hours: Decimal = field(default_factory=lambda: Decimal("0.00"))
 
     def to_dict(self) -> dict:
         return {
             "status": self.status,
             "tasks": [card.to_dict() for card in self.cards],
+            "task_count": self.task_count,
+            "estimated_hours": self.estimated_hours,
         }
 
 
@@ -81,7 +88,9 @@ def build_kanban(tasks: list[TaskLike], users: list[UserLike]) -> list[KanbanCol
     """Agrupa las tareas por estado, con las cuatro columnas siempre presentes.
 
     La persona asignada se resuelve por su identificador: puede ser de otro
-    departamento, de modo que en la tarjeta se ve quien la lleva.
+    departamento, de modo que en la tarjeta se ve quien la lleva. El orden de
+    las tarjetas dentro de cada columna es el que llegan: la consulta que
+    trae las tareas ya las ordena.
     """
     name_by_user = {user.id: user.name for user in users}
     grouped: dict[str, list[KanbanCard]] = {status.value: [] for status in KANBAN_ORDER}
@@ -101,10 +110,21 @@ def build_kanban(tasks: list[TaskLike], users: list[UserLike]) -> list[KanbanCol
                 estimated_hours=task.estimated_hours,
                 start_date=task.start_date,
                 end_date=task.end_date,
+                position=task.position,
             )
         )
 
-    return [
-        KanbanColumn(status=status.value, cards=tuple(grouped[status.value]))
-        for status in KANBAN_ORDER
-    ]
+    columnas = []
+    for status in KANBAN_ORDER:
+        cards = tuple(grouped[status.value])
+        columnas.append(
+            KanbanColumn(
+                status=status.value,
+                cards=cards,
+                task_count=len(cards),
+                estimated_hours=sum(
+                    (card.estimated_hours for card in cards), Decimal("0.00")
+                ),
+            )
+        )
+    return columnas

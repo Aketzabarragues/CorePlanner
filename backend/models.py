@@ -365,6 +365,12 @@ class Task(Base):
     estimated_hours: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=Decimal("0.00"), server_default="0"
     )
+    position: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    """Posicion dentro de su columna de tablero (proyecto + estado).
+
+    None significa sin posicion: la tarjeta se ordena al final de la columna,
+    detras de las que ya tienen posicion, por (start_date, id).
+    """
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

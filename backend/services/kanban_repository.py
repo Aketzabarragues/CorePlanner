@@ -6,11 +6,25 @@ a datos.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Task, User
 from .kanban import KanbanColumn, build_kanban
+
+
+def _orden_lectura():
+    """Orden del tablero: primero las que tienen posicion, en su orden; las
+    que no, al final.
+
+    El desempate dentro de cada grupo es (start_date, id). Se monta con `case`
+    porque el orden de los nulos no es portable entre SQLite y PostgreSQL:
+    aqui el nulo va explicitamente al final.
+    """
+    return case(
+        (Task.position.is_(None), 1),
+        else_=0,
+    ), Task.position, Task.start_date, Task.id
 
 
 async def load_project_kanban(
@@ -21,7 +35,7 @@ async def load_project_kanban(
         await session.execute(
             select(Task)
             .where(Task.project_id == project_id)
-            .order_by(Task.start_date, Task.id)
+            .order_by(*_orden_lectura())
         )
     ).scalars().all()
 

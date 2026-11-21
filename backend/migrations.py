@@ -27,6 +27,7 @@ COLUMN_ADDITIONS = (
     ("tasks", "description", "TEXT NULL"),
     ("departments", "color", "VARCHAR(7) NULL"),
     ("projects", "color", "VARCHAR(7) NULL"),
+    ("tasks", "position", "INTEGER NULL"),
 )
 
 COLOR_TABLES = ("departments", "projects")
@@ -80,6 +81,41 @@ def _migrate_non_working_days(sync_conn, tables: set[str], inspector) -> None:
         )
 
 
+def _backfill_task_positions(sync_conn) -> None:
+    """Rellena `tasks.position` solo en las filas que no la tienen.
+
+    A cada columna de tablero (proyecto + estado) se le asignan los indices
+    libres, continuando desde el maximo que ya tiene, y las filas se visitan
+    en el orden (start_date, id). La operacion es idempotente: las filas que
+    ya tienen posicion no se tocan ni se reordenan, de modo que reejecutar la
+    migracion no mueve nada.
+    """
+    rows = sync_conn.execute(
+        text(
+            "SELECT id, project_id, status, position, start_date FROM tasks "
+            "ORDER BY project_id, status, start_date, id"
+        )
+    ).all()
+
+    proximo = {}
+    for row in rows:
+        if row.position is None:
+            continue
+        columna = (row.project_id, row.status)
+        proximo[columna] = max(proximo.get(columna, -1), row.position) + 1
+
+    for row in rows:
+        if row.position is not None:
+            continue
+        columna = (row.project_id, row.status)
+        indice = proximo.get(columna, 0)
+        proximo[columna] = indice + 1
+        sync_conn.execute(
+            text("UPDATE tasks SET position = :position WHERE id = :id"),
+            {"position": indice, "id": row.id},
+        )
+
+
 def _backfill_colors(sync_conn, table: str) -> None:
     """Reparte la paleta entre las filas de `table` que aun no tienen color.
 
@@ -124,6 +160,8 @@ async def apply_migrations(engine: AsyncEngine) -> None:
         for table in COLOR_TABLES:
             if table in tables and "color" in columnas[table]:
                 _backfill_colors(sync_conn, table)
+        if "tasks" in tables and "position" in columnas["tasks"]:
+            _backfill_task_positions(sync_conn)
         _migrate_non_working_days(sync_conn, tables, inspector)
 
     async with engine.begin() as conn:

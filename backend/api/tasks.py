@@ -19,6 +19,7 @@ from ..schemas import (
     TaskCommentCreate,
     TaskCommentOut,
     TaskCreate,
+    TaskOrder,
     TaskOut,
     TaskUpdate,
 )
@@ -46,6 +47,7 @@ from ..services.tasks import (
     delete_task,
     list_project_tasks,
     list_tasks_for_projects,
+    order_project_tasks,
     update_task,
 )
 
@@ -165,6 +167,23 @@ async def add_task(
 ) -> Task:
     """Crea una tarea en el proyecto."""
     return await create_task(session, project_id, payload, user)
+
+
+@router.put("/projects/{project_id}/tasks/order", response_model=TaskOut)
+async def order_tasks(
+    project_id: int,
+    payload: TaskOrder,
+    session: SessionDep,
+    user: CurrentUser,
+    _project=Depends(require_project_permission("task.write")),
+) -> Task:
+    """Mueve una tarea a una columna del tablero y reordena esa columna.
+
+    El cuerpo lleva la tarea a mover, la columna de destino y el orden
+    definitivo de la columna: los identificadores no listados quedan detras,
+    en su orden actual.
+    """
+    return await order_project_tasks(session, project_id, payload, user)
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskOut)

@@ -67,6 +67,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: los incidentes de capacidad. El umbral que exige aprobacion no es una
+  alerta: abre un incidente que alguien tiene que resolver, en la misma
+  transaccion que el cambio de tarea que lo provoco. Uno por politica, persona
+  y semana, y uno resuelto no se reabre. El gerente ve todos, el jefe de
+  departamento los de su departamento y el tecnico solo los suyos.
 - **backend**: la politica de capacidad. La tabla `capacity_policies` define, para una
   persona o un departamento, el umbral de aviso y el que exige aprobacion; el
   motor puro `capacity_policy.py` evalua las politicas sobre las celdas y el

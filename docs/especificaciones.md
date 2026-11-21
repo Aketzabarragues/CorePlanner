@@ -2395,3 +2395,30 @@ La celda se pone roja cuando alguien supera su capacidad: eso informa, pero no g
 - **Un color nuevo**: la marca del veredicto es discreta y no altera el fondo.
 - **Avisos por correo o notificaciones**: no hay sistema de avisos en la aplicacion.
 - **Reprogramar el plan al rechazar una aprobacion**: la reprogramacion se propone, nunca se aplica sola.
+
+## 57. Los incidentes de capacidad
+
+El umbral que exige aprobacion no es una alerta: es una obligacion. Cada vez que una persona lo supera, se abre un incidente que alguien tiene que resolver.
+
+### Que entra
+
+- `capacity_incidents`: la politica que se incumple, la persona, la semana, el estado (`pendiente`, `aprobada`, `rechazada`), la nota, cuando se abrio, cuando se resolvio y quien lo resolvio.
+- **El incidente se abre en la misma transaccion que el cambio que lo provoco** (el alta, el cambio de fechas, la reasignacion o el borrado de una tarea). Si la mutacion falla, no hay incidente. El informe de capacidad no abre nada: solo lee el veredicto.
+- **Uno por politica, persona y semana**: si ya hay un incidente para esa combinacion, no se abre otro. Uno resuelto **no se reabre**: fue un hecho que hubo que aprobar, no un estado que se recalcula.
+- **Quien resuelve** es el jefe del departamento de la persona o el gerente. **Quien ve** el incidente: el gerente ve todos, el jefe de departamento los de su departamento y el tecnico solo los suyos.
+- El incidente lleva **el estado actual** de la carga y la capacidad de esa semana, no el del momento en que se abrio: quien decide, decide viendo como esta ahora.
+- Los incidentes llevan su propio rastro (estado, nota, quien y cuando): la bitacora de proyecto exige un proyecto y un incidente es de la empresa.
+- En el **panel global** hay un bloque **"Necesitan aprobacion"** con la lista de los pendientes y la accion de aprobar o rechazar.
+
+### Decisiones tomadas
+
+1. **El aviso no abre nada**: solo el umbral que exige aprobacion abre incidente. Un aviso es un dato; una aprobacion es unadecision que alguien tiene que tomar.
+2. **La carga que cuenta es la confirmada**: la provisional no abre incidentes, porque un trabajo sin firmar no se aprueba.
+3. **Borrar una tarea no cierra el incidente**: el hecho occurred. Quien lo resuelve ve el estado actual y decide.
+4. **No hay aviso por correo ni notificacion**: la aplicacion no tiene sistema de avisos, y no se introduce uno para esto.
+
+### Que no entra
+
+- **Reprogramar el plan al rechazar**: la reprogramacion se propone, nunca se aplica sola.
+- **Historial de incidentes resueltos en el panel**: la consulta devuelve los pendientes; los resueltos se ven en la ficha del incidente.
+- **Notificar a la persona cuya carga se rechaza**: no hay canal de aviso.

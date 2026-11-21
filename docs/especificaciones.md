@@ -2484,3 +2484,30 @@ Hoy las tareas no saben nada unas de otras: el diagrama es una vista de barras y
 - **La reprogramacion automatica**: la cascada se propone.
 - **Dependencias blandas** ("si puedes", "dependencia fuerte"): el tipo ya dice si el vinculo manda o no.
 - **El camino critico dibujado**: la ruta critica es un dato que se consulta; el diagrama dibuja las flechas, no una linea de camino.
+
+## 60. La exportacion a calendario (.ics)
+
+El calendario del proyecto se puede bajar como un fichero `.ics` para importarlo en Google Calendar, Outlook o similar. Es la ultima pieza de la v1.
+
+### Que entra
+
+- Un formateador puro, `backend/services/ical.py`, que escribe el calendario segun RFC 5545.
+- El endpoint `GET /api/projects/{id}/calendar.ics`, con `text/calendar` y descarga como fichero adjunto.
+- Un boton **"Exportar .ics"** en el diagrama del proyecto, que baja el fichero. En la vista global (sin proyecto) el boton no aparece: la exportacion es por proyecto.
+
+### Decisiones tomadas
+
+1. **`DTEND` es exclusivo**: se escribe la fecha del ultimo dia de la tarea MAS UN DIA. Sin esa regla, el calendario muestra cada tarea un dia menos de lo que dura.
+2. **El plegado cuenta octetos, no caracteres**: una linea no pasa de 75 bytes UTF-8, y el espacio de continuacion cuenta para el limite. Un titulo con acentos o con un emoji ocupa mas de un byte por caracter, asi que contar caracteres dejaria lineas demasiado largas.
+3. **El `UID` es estable por tarea**: reimportar el fichero actualiza el evento en vez de duplicarlo.
+4. **El fin de linea es CRLF**, como manda el formato.
+5. **El texto se escapa**: barra invertida, punto y coma, coma y saltos de linea.
+6. **La descarga lleva la cabecera de autorizacion**: el boton no puede ser un enlace, porque el navegador no manda el token. El frontend pide el calendario y lo baja como un fichero.
+7. **Las tareas sin fechas no se exportan**: no hay fecha que poner en un calendario. Se quedan fuera, sin mas.
+
+### Que no entra
+
+- **Suscripciones**: el calendario se descarga, no se publica. Un `.ics` por URL con token seria un endpoint sin proteger.
+- **Alarmas y recordatorios**: losCalendarios los ponen.
+- **Tareas recurrentes**: no hay recurrencia en el modelo.
+- **Cambios en el calendario sobre el estado**: el `.ics` es una foto; las horas y las dependencias no viajan en el formato.

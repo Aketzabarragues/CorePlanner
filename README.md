@@ -25,7 +25,8 @@ y toca lo que ese rol permite.
 | Base de datos | SQLite (desarrollo) · PostgreSQL (previsto, sin probar), SQLAlchemy 2.0 ORM |
 | Backend | FastAPI asincrono, Uvicorn, JWT (PyJWT) |
 | Frontend | Vue 3 Composition API, Vite, Tailwind CSS, Pinia, Vue Router |
-| Gantt | Motor propio en el frontend (SVG, sin libreria). La exportacion `.ics` esta pendiente |
+| Gantt | Motor propio en el frontend (SVG, sin libreria) |
+| Calendario | Exportacion `.ics` del proyecto (RFC 5545) |
 
 El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
 lo que hace el cambio de motor mucho menos painful. **PostgreSQL no se ha
@@ -1188,8 +1189,9 @@ Las pantallas personales ya no son listas de tablas:
 - **El calendario laboral** vive en la primera pestana de la configuracion, con
   el mes navegable, el detalle del dia y el impacto en la capacidad.
 - **En movil** el menu lateral sale como un cajon y las tarjetas se apilan.
-
-Pendiente de implementar: la exportacion `.ics`.
+- **La exportacion a calendario** (`.ics`) sale del diagrama del proyecto, con
+  el boton "Exportar .ics". El fichero sigue RFC 5545: `DTEND` exclusivo, `UID`
+  estable por tarea, plegado a 75 octetos y fin de linea CRLF.
 
 ### Especificaciones
 

@@ -67,6 +67,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: la exportacion `.ics` del proyecto. Un formateador puro escribe el
+  calendario segun RFC 5545 (`DTEND` exclusivo, `UID` estable por tarea,
+  plegado a 75 octetos contando bytes UTF-8, escapado del texto y fin de linea
+  CRLF) y el endpoint `GET /api/projects/{id}/calendar.ics` lo sirve como
+  fichero adjunto. Las tareas sin fechas no se exportan.
 - **frontend**: el diagrama de Gantt dibuja las flechas de dependencia (del fin del
   requisito al inicio de la dependiente; los vinculos `relates` van discontinuos
   y sin punta) y marca las barras que violan el orden. Al arrastrar una barra, si

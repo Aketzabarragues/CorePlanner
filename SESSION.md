@@ -8,10 +8,9 @@ de Gantt propio, Kanban con orden persistido, contadores, alta y edicion
 inline, Calendario con arrastre entre dias, alta y edicion en la vista de
 dia, y el gesto de arrastre compartido.
 
-Pendiente: la exportacion `.ics` (la unica funcionalidad de la v1 que sigue
-abierta, y el usuario la ha dejado para el final), G4 (dependencias entre
-tareas, la mas cara) y la revision visual en navegador, que esta sesion no puede
-hacer. G1, G2, G3 y G5 quedan cerradas en codigo.
+Pendiente: solo la revision visual en navegador, que esta sesion no puede
+hacer. La v1 queda cerrada entera (con la exportacion `.ics`), y con ella G1,
+G2, G3, G4 y G5: todo el plan, en codigo.
 
 ## Cambios realizados
 
@@ -117,14 +116,23 @@ hacer. G1, G2, G3 y G5 quedan cerradas en codigo.
   - El paquete se llama `mcp_server` y no `mcp`: con `backend/` en el
     `sys.path` (pytest desde `backend/`), un paquete `mcp` ensombrece el SDK.
   - El catalogo es un contrato: un test fija la lista exacta de tools.
-- G4 (dependencias entre tareas), backend:
-  - `task_dependencies` (dependiente, requisito, tipo) con `ON DELETE` explicito
-    y sin vinculos duplicados; las dependencias son del mismo proyecto.
-  - `backend/services/task_dependencies.py`: deteccion de ciclos, violaciones,
-    orden topologico, cascada propuesta y ruta critica. Puro, sin base de datos.
-  - API: alta y borrado de vinculos, los de una tarea y la propuesta de cascada
+- G4 (dependencias entre tareas), backend y frontend:
+  - `task_dependencies` (dependiente, requisito, tipo `precedes`|`relates`), con
+    `ON DELETE` explicito y sin duplicados; del mismo proyecto.
+  - `backend/services/task_dependencies.py`: ciclos, violaciones, orden topologico
+    (`graphlib` de la stdlib), cascada propuesta y ruta critica. Puro.
+  - API: alta y borrado de vinculos, los de una tarea y la cascada propuesta
     (`GET /api/tasks/{id}/cascade?delta_days=N`), que no modifica nada.
-  - El feed del diagrama lleva los vinculos y las violaciones por tarea.
+  - Seccion "Dependencias" en el detalle de tarea.
+  - El Gantt dibuja las flechas (las `relates` discontinuas y sin punta), marca
+    las barras que violan el orden y, al arrastrar, PROPONE la cascada: nada se
+    guarda hasta que se acepta.
+- Exportacion `.ics` (cierra la v1):
+  - `backend/services/ical.py`: formateador puro RFC 5545. `DTEND` exclusivo,
+    `UID` estable, plegado a 75 octetos (bytes UTF-8), escapado y CRLF.
+  - `GET /api/projects/{id}/calendar.ics` con `text/calendar` y descarga.
+  - Boton "Exportar .ics" en el diagrama del proyecto: el frontend pide el
+    calendario con su token y lo baja como fichero.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

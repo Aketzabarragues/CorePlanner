@@ -72,6 +72,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   celda, que es `null` cuando nadie ha imputado (un cero afirmaria algo que el
   dato no sostiene). Cada persona imputa sobre si misma y las mutaciones van a
   la bitacora.
+- **frontend**: se imputan horas desde el detalle de la tarea (seccion "Horas
+  imputadas", con la lista, el total y el formulario) y el desglose de celda
+  lee el plan contra el real: "registrado 6 h · plan 12 h · -6 h", o "sin
+  imputar" cuando nadie ha registrado, que no es lo mismo que cero.
 - **backend**: `projects.is_provisional`: un proyecto se puede marcar como no
   firmado. El informe de capacidad separa la carga confirmada de la
   provisional (la celda lleva `hours` y `hours_provisional`, y el desglose por

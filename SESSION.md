@@ -84,6 +84,12 @@ cerrada en codigo.
     interruptor "Contar lo provisional" en la URL (`?provisional=1`).
   - El formulario de proyecto lleva el interruptor "Provisional" y el feed del
     Gantt lleva el flag, para pintar sus barras en contorno.
+- G1 (horas reales), frontend:
+  - `client.js`: los cuatro metodos de imputacion.
+  - `TaskDetailDialog.vue`: seccion "Horas imputadas" con la lista, el total y
+    el formulario; borrar solo las propias, y en solo lectura sin permiso.
+  - `CellBreakdown.vue` y `CapacityMatrix.vue`: el plan contra el real, con
+    "sin imputar" cuando no hay dato.
 - G1 (horas reales), backend:
   - `time_entries` (tarea, persona, dia, horas, nota) con `ON DELETE` explicito.
   - API: alta, listado por tarea, edicion y borrado (solo las propias

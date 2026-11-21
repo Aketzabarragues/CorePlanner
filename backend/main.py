@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import (
     activity,
     auth,
+    capacity_incidents,
     capacity_policies,
     departments,
     gantt,
@@ -58,6 +59,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(capacity_incidents.router, prefix=settings.api_prefix)
 app.include_router(capacity_policies.router, prefix=settings.api_prefix)
 app.include_router(me.router, prefix=settings.api_prefix)
 app.include_router(users.router, prefix=settings.api_prefix)

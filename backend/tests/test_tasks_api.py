@@ -15,7 +15,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from backend.auth import hash_password
 from backend.database import create_engine, get_db
 from backend.main import app
-from backend.models import Base, Project, ProjectMember, Role, Task, TaskStatus, User
+from backend.models import (
+    Base,
+    CapacityPolicy,
+    Project,
+    ProjectMember,
+    Role,
+    Task,
+    TaskStatus,
+    User,
+)
 
 PASSWORD = "clave-de-prueba"
 
@@ -112,6 +121,16 @@ async def _seed(session) -> dict[str, int]:
         estimated_hours=40,
     )
     session.add(task)
+    # La politica del ingeniero permite comprobar los incidentes de
+    # capacidad desde los endpoints de tarea.
+    session.add(
+        CapacityPolicy(
+            scope_type="persona",
+            scope_id=engineer.id,
+            warn_percent=80,
+            requires_approval_percent=100,
+        )
+    )
     await session.flush()
 
     ids.update(
@@ -602,3 +621,55 @@ async def test_borrar_la_tarea_borra_sus_imputaciones(client: AsyncClient):
 
     assert borrado.status_code == 204
     assert listado.status_code == 404
+
+
+async def test_crear_tarea_que_supera_el_umbral_abre_incidente(client: AsyncClient):
+    """Una mutacion que deja al ingeniero al 100 % abre un incidente."""
+    manager = await _auth(client, "manager@example.com")
+    engineer = await _auth(client, "engineer@example.com")
+
+    # Semana 2026-W12, sin carga previa del ingeniero en ella.
+    alta = await client.post(
+        "/api/projects/1/tasks",
+        json={
+            "title": "Sobrecarga",
+            "assigned_to": client.ids["engineer"],
+            "start_date": "2026-03-16",
+            "end_date": "2026-03-20",
+            "estimated_hours": "40.00",
+        },
+        headers=manager,
+    )
+    assert alta.status_code == 201, alta.text
+
+    listado = await client.get("/api/capacity-incidents", headers=engineer)
+    assert listado.status_code == 200
+    items = listado.json()
+    assert len(items) == 1
+    assert items[0]["user_id"] == client.ids["engineer"]
+    assert items[0]["week"] == "2026-W12"
+    assert items[0]["state"] == "pendiente"
+    assert items[0]["hours"] == 40
+
+
+async def test_mutacion_que_falla_no_deja_incidente(client: AsyncClient):
+    """Un 422 de validacion no abre incidente: la mutacion no se aplico."""
+    manager = await _auth(client, "manager@example.com")
+    engineer = await _auth(client, "engineer@example.com")
+
+    alta = await client.post(
+        "/api/projects/1/tasks",
+        json={
+            "title": "Sobrecarga",
+            "assigned_to": client.ids["engineer"],
+            "start_date": "2026-03-09",
+            "end_date": "2026-03-07",
+            "estimated_hours": "40.00",
+        },
+        headers=manager,
+    )
+    assert alta.status_code == 422
+
+    listado = await client.get("/api/capacity-incidents", headers=engineer)
+    assert listado.status_code == 200
+    assert listado.json() == []

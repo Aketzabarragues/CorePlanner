@@ -320,6 +320,41 @@ class CapacityPolicyOut(BaseModel):
     created_at: datetime
 
 
+class ResolveIncident(BaseModel):
+    """Resolucion de un incidente de capacidad: aprobar o rechazar."""
+
+    decision: Literal["aprobada", "rechazada"]
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class IncidentOut(BaseModel):
+    """Incidente de capacidad, en el formato de la API.
+
+    Lleva la carga y la capacidad de la semana del incidente, en el momento
+    en que se le: quien resuelve decide viendo el estado actual, no el de
+    cuando se abrio.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    policy_id: int
+    user_id: int
+    user_name: str
+    department_id: int | None = None
+    department_name: str | None = None
+    week: str
+    state: str
+    hours: Hours | None = None
+    capacity: Hours | None = None
+    warn_percent: int
+    requires_approval_percent: int
+    note: str | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+
+
 class ProjectCreate(BaseModel):
     """Alta de proyecto."""
 

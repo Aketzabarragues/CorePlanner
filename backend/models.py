@@ -26,6 +26,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -626,6 +627,59 @@ class CapacityPolicy(Base):
         CheckConstraint(
             "requires_approval_percent >= warn_percent",
             name="approval_above_warn",
+        ),
+    )
+
+
+class CapacityIncident(Base):
+    """Incidente de capacidad abierto por superar el umbral de aprobacion.
+
+    Lo abre la mutacion de tarea que deja a la persona por encima del umbral
+    que exige aprobacion, en la misma transaccion. No se cierra solo: si la
+    carga baja mas tarde, sigue abierto, porque es el hecho de que hubo que
+    aprobar, no un estado que se recalcula.
+    """
+
+    __tablename__ = "capacity_incidents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    policy_id: Mapped[int] = mapped_column(
+        ForeignKey("capacity_policies.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    week: Mapped[str] = mapped_column(String(8), nullable=False)
+    state: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pendiente", server_default="pendiente"
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolved_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('pendiente', 'aprobada', 'rechazada')", name="state"
+        ),
+        # Una sola incidencia abierta por politica, persona y semana. El
+        # indice parcial es portatil: SQLite y PostgreSQL lo declaran igual.
+        Index(
+            "uq_capacity_incidents_abiertos",
+            "policy_id",
+            "user_id",
+            "week",
+            unique=True,
+            sqlite_where=text("state = 'pendiente'"),
+            postgresql_where=text("state = 'pendiente'"),
         ),
     )
 

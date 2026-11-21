@@ -18,6 +18,7 @@ from ..models import ProjectMember, Task, TaskStatus, User
 from ..schemas import TaskCreate, TaskOrder, TaskUpdate
 from ..services.activity import log_activity
 from ..services.capacity import business_days, iso_week_key
+from ..services.capacity_incidents import abrir_incidentes_por_carga
 from ..services.schedule import week_start_from_key
 from ..services.units import hours_to_json
 
@@ -73,6 +74,15 @@ def _validate_dates(start_date: date, end_date: date) -> None:
         )
 
 
+def _semanas_tarea(task: Task) -> list[str]:
+    """Semanas ISO que pisa la tarea, por sus dias laborables."""
+    if task.start_date is None or task.end_date is None:
+        return []
+    return sorted(
+        {iso_week_key(day) for day in business_days(task.start_date, task.end_date)}
+    )
+
+
 async def create_task(
     session: AsyncSession,
     project_id: int,
@@ -110,6 +120,10 @@ async def create_task(
             "estimated_hours": hours_to_json(payload.estimated_hours),
         },
     )
+    if task.assigned_to is not None:
+        await abrir_incidentes_por_carga(
+            session, [task.assigned_to], _semanas_tarea(task)
+        )
     await session.commit()
     await session.refresh(task)
     return task
@@ -213,6 +227,20 @@ async def update_task(
             task.project_id,
             {"title": task.title, "changes": cambios},
         )
+
+    # Si la mutacion toca carga o asignacion, la recarga de incidentes cubre
+    # a la persona afectada, nueva y anterior, en las semanas que pisa la
+    # tarea ya con sus valores nuevos.
+    if set(cambios) & {"start_date", "end_date", "estimated_hours", "assigned_to"}:
+        usuarios = {
+            user_id
+            for user_id in (task.assigned_to, antes["assigned_to"])
+            if user_id is not None
+        }
+        if usuarios:
+            await abrir_incidentes_por_carga(
+                session, usuarios, _semanas_tarea(task)
+            )
 
     await session.commit()
     await session.refresh(task)
@@ -323,6 +351,13 @@ async def delete_task(session: AsyncSession, task: Task, actor: User) -> None:
         task.project_id,
         {"title": task.title},
     )
+    # El borrado solo baja la carga de su persona, asi que esto no abre
+    # nada; la llamada deja el incidente en la misma transaccion que la
+    # mutacion, que es lo que garantiza.
+    if task.assigned_to is not None:
+        await abrir_incidentes_por_carga(
+            session, [task.assigned_to], _semanas_tarea(task)
+        )
     await session.delete(task)
     await session.commit()
 

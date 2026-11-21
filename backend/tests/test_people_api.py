@@ -11,6 +11,7 @@ from datetime import date
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.auth import hash_password
@@ -29,6 +30,7 @@ from backend.models import (
     User,
     WorkingSchedule,
 )
+from backend.services.people import load_people_views
 
 PASSWORD = "clave-de-prueba"
 SEMANA = "2026-W46"
@@ -752,3 +754,59 @@ async def test_el_gerente_quita_una_version_de_horario(client: AsyncClient):
     assert response.status_code == 204, response.text
     ficha = await client.get(f"/api/people/{ana_id}", headers=headers)
     assert ficha.json()["schedule_history"] == []
+
+
+@pytest.fixture
+async def db():
+    engine = create_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as session:
+        yield session
+    await engine.dispose()
+
+
+def _escuchar_consultas(session) -> tuple[list[str], object, object]:
+    """Registra las sentencias que se ejecutan en la base de datos."""
+    statements: list[str] = []
+
+    def guardar(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    engine = session.sync_session.get_bind()
+    event.listen(engine, "before_cursor_execute", guardar)
+    return statements, engine, guardar
+
+
+async def test_el_directorio_no_hace_consultas_por_persona(db):
+    """El directorio carga departamentos, horarios y competencias en consultas fijas:
+    el numero de consultas no crece con el numero de personas."""
+    department = Department(name="Automatizacion")
+    db.add(department)
+    await db.flush()
+    users = [
+        User(
+            name=f"Persona {i:02d}",
+            email=f"persona{i}@example.com",
+            hashed_password=hash_password(PASSWORD),
+            company_role=CompanyRole.TECNICO.value,
+            department_id=department.id,
+        )
+        for i in range(10)
+    ]
+    db.add_all(users)
+    await db.commit()
+
+    statements, engine, guardar = _escuchar_consultas(db)
+    try:
+        views = await load_people_views(db, users, SEMANA, include_load=True)
+    finally:
+        event.remove(engine, "before_cursor_execute", guardar)
+
+    assert len(views) == 10
+    # Un directorio grande no puede costar mas consultas que uno pequeno:
+    # una consulta por fila seria una por persona y creceria con 10.
+    assert len(statements) <= 15
+    # Nadie va a buscar una persona por su identificador, una a una.
+    assert all("WHERE users.id = ?" not in s for s in statements)

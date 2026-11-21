@@ -2198,7 +2198,7 @@ Hoy el diagrama usa `frappe-gantt` (0.6.1) sobre el feed JSON que ya sirve el ba
 - **Arrastre**: mover una barra cambia sus fechas; redimensionar un borde cambia el extremo correspondiente. La operacion es la misma que editar las fechas de la tarea desde la lista: mismo endpoint, mismos permisos, misma bitacora.
 - **Zoom**: semana (por defecto), mes y rango completo; el eje de semanas sigue la convencion ISO de la app.
 - **Lineas**: hoy, festivos (los que el motor ya calcula) y hoy, siempre visibles.
-- **Crear y editar**: doble clic en el eje crea una tarea en ese rango; doble clic en la barra abre el dialogo de detalle (el existente, `TaskDetailDialog`).
+- **Crear y editar**: doble clic en el hueco de una fila crea una tarea en ese rango; clic en la barra abre el dialogo de detalle (el existente, `TaskDetailDialog`). El doble clic sobre una barra no crea nada.
 - **El CSS propio** sustituye a `assets/gantt.css`, que hoy existe solo para ganar a la hoja de estilos de la libreria.
 
 ### Bloque C: calendario
@@ -2240,7 +2240,7 @@ Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tabl
 
 - **Toda interaccion es la operacion que ya existe**: soltar una tarjeta es cambiar el estado; mover una barra o redimensionar un borde es cambiar las fechas; arrastrar una tarea a un dia del calendario es cambiar sus fechas. Mismo endpoint, mismos permisos, misma bitacora. Ninguna vista inventa una operacion propia.
 - **El arrastre se parece en las tres**: el mismo umbral de 5 px para distinguir pulsar de arrastrar (que el Kanban ya usa), el mismo ghost con previsualizacion de donde cae, el mismo anular con `Escape` o soltar fuera de objetivo, y la misma recarga de la vista al soltar: los datos los recalcula el backend, el cliente no calcula.
-- **Crear y editar son los mismos en las tres**: doble clic (o el control de alta de la vista) crea con el minimo; doble clic en la tarea abre el `TaskDetailDialog` que ya existe. La edicion inline de una vista solo toca los campos que esa vista muestra (titulo, horas, responsable, fechas, estado), y el resto sigue en el dialogo.
+- **Crear y editar son los mismos en las tres**: doble clic (o el control de alta de la vista) crea con el minimo; clic en la tarea abre el `TaskDetailDialog` que ya existe. La edicion inline de una vista solo toca los campos que esa vista muestra (titulo, horas, responsable, fechas, estado), y el resto sigue en el dialogo.
 - **El acabado premium es coherencia**: el color de la persona o del proyecto es el dato guardado (la paleta de §50), la escala de carga es la de la app, el dialogo es el `ModalDialog` unico. No entra ningun nuevo sistema de diseno ni ningun color nuevo.
 - **El estado se ve, no se adivina**: cada vista muestra el resultado de la operacion en la misma pantalla (la celda o la barra ya recargada, la tarjeta ya movida), y el error de la operacion sale en el banner de la vista, no en un toast suelto.
 
@@ -2288,6 +2288,10 @@ Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tabl
 11. **El grupo se identifica por identificador, no por nombre.** Agrupar por persona, proyecto o departamento usa el identificador como clave y el nombre como etiqueta visible: dos personas con el mismo nombre son dos grupos.
 12. **Los dias no laborables vienen de una peticion aparte.** El feed del Gantt no lleva festivos; se piden a `/non-working-days` en paralelo, con el rango visible, y solo se sombrean los de alcance global.
 13. **El teclado mueve por unidad del eje.** Un dia en escala Dia, una semana ISO en escala Semana y un mes en escala Mes; `Shift` con las flechas redimensiona el extremo final con la misma unidad, y el rango sale siempre de `moveRange` y `resizeRange`, que recortan al otro extremo.
+14. **Clic simple abre el detalle y doble clic en el hueco abre el alta.** El doble clic sobre una barra no crea nada. Tras un arrastre, el clic que sigue no abre el detalle.
+15. **El alta necesita un proyecto en contexto**: el del filtro (ruta o `?project=`) o el del grupo de la fila cuando se agrupa por proyecto. Sin un solo proyecto no hay alta, y el subtitulo de la vista lo dice. Con el proyecto fijo, tampoco hay alta sin permiso de escritura.
+16. **Las fechas se precargan con el dia del doble clic**; si ese dia no es laborable, con la semana laborable de esa semana, para que el alta nunca falle por rango sin dias laborables.
+17. **Los miembros del proyecto se piden al abrir el alta** y se cachean en la vista por proyecto: una peticion por proyecto, no por alta.
 
 
 ### Que no entra

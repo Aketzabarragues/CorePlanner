@@ -20,6 +20,13 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   fusionan en un mismo grupo.
 - **frontend**: el aviso de tareas sin fechas pasa a un banner con el plural
   correcto.
+- **frontend**: el Gantt abre el alta de tarea con doble clic en el hueco de una
+  fila y el detalle con clic en la barra. El alta usa el mismo `ModalDialog` y
+  `TaskForm` del desglose de celda, con las fechas precargadas, y solo se
+  ofrece cuando hay un proyecto en contexto y permiso de escritura en el.
+- **frontend**: el cuerpo del diagrama no se traslada al desplazar: el scroll lo
+  hace el panel. Antes las barras se separaban de la columna de nombres al
+  desplazarse.
 - **frontend**: todos los dialogos de la aplicacion pasan por `ModalDialog`:
   altas y ediciones (tarea, persona, competencia, departamento, proyecto,
   miembro y dia no laborable), detalle de tarea y ficha de persona. El

@@ -4,9 +4,10 @@
 
 Motor de Gantt propio (bloque B de `docs/especificaciones.md` §51), sobre el
 contrato comun de interaccion de la §52 y el contrato del motor de la §53.
-Fases 0 a 3 hechas y auditadas (nucleo puro, render y arrastre); `frappe-gantt`
-fuera del `package.json`. Sigue el alta y edicion (fase 4) y la revision
-visual en navegador, que esta sesion no puede hacer.
+Fases 0 a 4 hechas y auditadas (nucleo puro, render, arrastre, alta y
+edicion); `frappe-gantt` fuera del `package.json`. El bloque B queda cerrado
+en codigo: solo falta la revision visual en navegador, que esta sesion no
+puede hacer.
 
 ## Cambios realizados
 
@@ -53,6 +54,16 @@ visual en navegador, que esta sesion no puede hacer.
   - `frontend/package.json`: fuera `frappe-gantt`.
   - Tests nuevos: `GanttChart.spec.js`, `useGanttDrag.spec.js` y el
     `GanttView.spec.js` reescrito (sin el mock de la libreria).
+- Motor de Gantt, fase 4: alta y edicion.
+  - El doble clic en el hueco de una fila abre el alta (`ModalDialog` +
+    `TaskForm`, el patron del desglose de celda), con las fechas precargadas
+    y el proyecto destino resuelto (filtro o grupo de la fila).
+  - El clic simple en una barra abre el `TaskDetailDialog` que ya existia.
+  - Los miembros del proyecto se piden al abrir el alta y se cachean.
+  - Corregido un bug de scroll: el cuerpo del diagrama se trasladaba ademas
+    del scroll nativo, de modo que las barras se separaban de la columna de
+    nombres al desplazarse. Ahora solo se traslada el eje (queda clavado
+    arriba) y la pista de la columna de nombres.
 
 ## Decisiones tecnicas
 
@@ -84,8 +95,9 @@ visual en navegador, que esta sesion no puede hacer.
 
 ## Pendientes / Siguiente paso inmediato
 
-- Fase 4 del motor: alta y edicion (doble clic en el eje crea, clic en la barra
-  abre el `TaskDetailDialog`, lista de tareas sin fechas clicable).
+- La lista de tareas sin fechas NO es clicable: el feed solo trae identificadores
+  y la API no tiene filtro de "sin fechas" (habria que tocar el feed, que el
+  §53 declara invariable). Se queda como banner de aviso.
 - La retirada de `frappe-gantt` del `package.json` ya esta hecha (la hizo el
   implementador antes de su turno de revision): el usuario tiene que confirmar
   el cambio de dependencia antes del commit.

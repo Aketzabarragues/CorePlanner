@@ -2422,3 +2422,32 @@ El umbral que exige aprobacion no es una alerta: es una obligacion. Cada vez que
 - **Reprogramar el plan al rechazar**: la reprogramacion se propone, nunca se aplica sola.
 - **Historial de incidentes resueltos en el panel**: la consulta devuelve los pendientes; los resueltos se ven en la ficha del incidente.
 - **Notificar a la persona cuya carga se rechaza**: no hay canal de aviso.
+
+## 58. El servidor MCP
+
+Un agente puede consultar la capacidad del equipo sin saber nada del dominio. El servidor MCP es la puerta: expone un catalogo de tools y responde preguntas que hoy solo se responden mirando la matriz.
+
+### Que entra
+
+- `backend/mcp_server/`: el servidor MCP por stdio, el cliente de la API y el catalogo de tools. El nombre lleva el sufijo `_server` a proposito: un paquete llamado `mcp` dentro de `backend/` ensombreceria el SDK `mcp` en cuanto `backend/` este en el `sys.path`.
+- **El servidor es un cliente de la propia API**: usa un token Bearer y no toca la base de datos. Asi la autorizacion por proyecto y las reglas de visibilidad son **exactamente las de la API**: el agente ve lo que ve la persona de su token, y nada mas. No hay una segunda superficie de permisos que mantener.
+- El token (`COREPLANNER_MCP_TOKEN`) y la URL de la API (`COREPLANNER_API_URL`) vienen del entorno. El token no se escribe en ningun fichero; si falta, el arranque falla con un mensaje claro.
+- **Las tools de solo lectura**: `whoami` (quien es el token), `projects` (los proyectos visibles), `capacity_matrix` (la capacidad del equipo por persona y semana), `overloaded_people` (quien esta sobrecargado y cuanto), `project_capacity` (la capacidad de un proyecto), `actual_hours` (las horas reales registradas) y `tasks` (las tareas de un proyecto).
+- Las tools devuelven un **resumen legible**, no el JSON crudo: el agente no necesita cada campo, y el informe entero le costaria contexto sin decirselo.
+- **El catalogo es un contrato**: un test fija la lista exacta de tools. Anadir, renombrar o quitar una tool rompe el test a proposito.
+- Los errores llegan al agente como un mensaje legible (un 403 dice "no tienes permiso"), sin traza.
+
+### Decisiones tomadas
+
+1. **Cliente de la API, no acceso directo a datos**: duplicar los permisos del backend en el servidor MCP seria una fuente de errores silenciosos, y el error se paga en la peor parte: el agente ve cosas que no deberia.
+2. **Solo lectura primero**. Las tools de escritura (crear o mover una tarea) necesitaran una bandera explicita, porque un agente que escribe tiene que poder pararse.
+3. **El SDK oficial como extra opcional**: la instalacion base no cambia y la CI sigue igual. El protocolo se actualiza con el.
+4. **El token va en el entorno**: el servidor es una pieza mas del despliegue, no un fichero de secretos en el repositorio.
+5. **El resumen antes que el volcado**: las tools dan la respuesta, no la materia prima.
+
+### Que no entra
+
+- **Tools de escritura**: van con su propia bandera y su propio contrato.
+- **Enviar notificaciones o push**: el protocolo no lo pide y la aplicacion no tiene avisos.
+- **Estado entre llamadas**: cada tool es una consulta independiente; no hay sesion ni memoria.
+- **Servir el MCP por HTTP**: el transporte es stdio, que es lo que usan los clientes de escritorio.

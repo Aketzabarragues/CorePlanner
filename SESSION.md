@@ -9,9 +9,9 @@ inline, Calendario con arrastre entre dias, alta y edicion en la vista de
 dia, y el gesto de arrastre compartido.
 
 Pendiente: la exportacion `.ics` (la unica funcionalidad de la v1 que sigue
-abierta, y el usuario la ha dejado para el final), las funcionalidades post-v1
-(G5 MCP y G4 dependencias) y la revision visual en navegador, que esta sesion
-no puede hacer. G1, G2 y G3 quedan cerradas en codigo.
+abierta, y el usuario la ha dejado para el final), G4 (dependencias entre
+tareas, la mas cara) y la revision visual en navegador, que esta sesion no puede
+hacer. G1, G2, G3 y G5 quedan cerradas en codigo.
 
 ## Cambios realizados
 
@@ -108,6 +108,15 @@ no puede hacer. G1, G2 y G3 quedan cerradas en codigo.
   - Interfaz: pestana "Politica de capacidad" en Configuracion, marca del
     veredicto en la celda (simbolo y texto, el fondo no cambia) y bloque
     "Necesitan aprobacion" en el panel global.
+- G5 (servidor MCP):
+  - `backend/mcp_server/`: cliente HTTP de la API + catalogo de tools (solo
+    lectura): `whoami`, `projects`, `capacity_matrix`, `overloaded_people`,
+    `project_capacity`, `actual_hours`, `tasks`, `capacity_incidents`.
+  - El SDK oficial como extra opcional (`pip install -e ".[dev,mcp]"`); la CI
+    lo instala para que los tests corran.
+  - El paquete se llama `mcp_server` y no `mcp`: con `backend/` en el
+    `sys.path` (pytest desde `backend/`), un paquete `mcp` ensombrece el SDK.
+  - El catalogo es un contrato: un test fija la lista exacta de tools.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

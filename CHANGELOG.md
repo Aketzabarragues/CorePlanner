@@ -67,6 +67,13 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: servidor MCP. `backend/mcp_server/` expone la API a un agente por
+  stdio con ocho tools de solo lectura: quien es el token, los proyectos
+  visibles, la matriz de capacidad, quien esta sobrecargado, la capacidad de un
+  proyecto, las horas reales, las tareas de un proyecto y los incidentes que
+  necesitan aprobacion. El servidor es un cliente HTTP de la propia API, asi
+  que el agente ve exactamente lo que ve la persona de su token. El SDK va como
+  extra opcional y el catalogo de tools es un contrato con test.
 - **backend**: los incidentes de capacidad. El umbral que exige aprobacion no es una
   alerta: abre un incidente que alguien tiene que resolver, en la misma
   transaccion que el cambio de tarea que lo provoco. Uno por politica, persona

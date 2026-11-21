@@ -2186,7 +2186,9 @@ Hoy `KanbanView.vue` (353 lineas) tiene columnas por estado, arrastre propio (ev
 - **Alta inline**: un campo de nueva tarea al pie de cada columna, con el minimo (titulo, horas, responsable) y creacion al confirmar; el dialogo completo sigue disponible para el resto de campos.
 - **Edicion inline**: editar titulo, horas y responsable desde la tarjeta sin abrir el dialogo; el dialogo es para descripcion, checklist, comentarios y actividad.
 - **Arrastre**: el actual se conserva y se completa: indicador de posicion al soltar, animacion del ghost, y la tarea cae donde se suelta, no en el principio de la columna.
-- **Contadores por columna** (tareas y horas), coherentes con la escala de carga de la app.
+- **Contadores por columna** (tareas y horas), coherentes con la escala de carga de la app. **Los totales los calcula el backend** con `Decimal` y llegan en el feed del tablero: el frontend no suma horas.
+- **El orden se guarda**: `tasks.position` es la posicion dentro de la columna (proyecto + estado). Sin ella, una tarjeta no puede caer donde se suelta, porque el tablero se ordenaba por `(start_date, id)`.
+- **Mover y reordenar son la misma operacion**: `PUT /api/projects/{id}/tasks/order` mueve la tarjeta a la columna destino y deja esa columna en el orden pedido, en una transaccion, con su entrada en la bitacora. La columna se reindexa sin huecos ni repeticiones.
 
 ### Bloque B: Gantt, con motor propio
 
@@ -2213,6 +2215,7 @@ Hoy `CalendarView.vue` (565 lineas) muestra el mes con los carriles de semana y 
 ### Que no entra (bloques A, B y C)
 
 - **Limites WIP por columna** en el Kanban: no hay caso de uso v1, y es la puerta a un tablero generico.
+- **Editar el orden a mano**: el orden se cambia arrastrando, no con un menu de "mover arriba" o "mover abajo".
 - **Dependencias en el Gantt** (flechas de predecesor, ruta critica): es G4, va aparte y es lo mas caro del conjunto.
 - **Multi-proyecto en el Gantt**: el feed ya es de un proyecto; el Gantt global existe aparte.
 - **Edicion colaborativa ni sincronizacion en tiempo real**: no entra en la v1 ni en esta hoja de ruta.

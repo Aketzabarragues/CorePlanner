@@ -413,6 +413,48 @@ class Task(Base):
     )
 
 
+class DependencyType(enum.StrEnum):
+    """Tipo de vinculo entre tareas.
+
+    precedes restringe la planificacion: la tarea requisito tiene que
+    terminar antes de que empiece la dependiente. relates no restringe
+    nada: es un vinculo de referencia.
+    """
+
+    PRECEDES = "precedes"
+    RELATES = "relates"
+
+
+class TaskDependency(Base):
+    """Vinculo entre dos tareas del mismo proyecto.
+
+    task_id es la tarea dependiente y depends_on_id, la tarea requisito.
+    Las dos claves foraneas cascan: borrar una tarea se lleva sus
+    vinculos. Un par (task_id, depends_on_id) no se repite.
+    """
+
+    __tablename__ = "task_dependencies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    depends_on_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    type: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=DependencyType.PRECEDES.value
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("task_id", "depends_on_id", name="uq_task_dependencies_pair"),
+        CheckConstraint("type IN ('precedes', 'relates')", name="type"),
+    )
+
+
 class TaskComment(Base):
     """Comentario puesto en una tarea.
 

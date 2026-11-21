@@ -19,11 +19,13 @@ permite agruparlas por proyecto.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Protocol
+
+from .task_dependencies import find_violations
 
 PERSONA_CLASSES = (
     "persona-0",
@@ -80,6 +82,22 @@ class GanttMember:
 
 
 @dataclass(frozen=True, slots=True)
+class GanttDependency:
+    """Vinculo entre dos barras del diagrama, para dibujar la flecha."""
+
+    task_id: int
+    depends_on_id: int
+    type: str
+
+    def to_dict(self) -> dict:
+        return {
+            "task_id": self.task_id,
+            "depends_on_id": self.depends_on_id,
+            "type": self.type,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class GanttTask:
     """Tara traducida al formato de la libreria de Gantt."""
 
@@ -99,6 +117,9 @@ class GanttTask:
     status: str = ""
     estimated_hours: Decimal = Decimal("0")
     is_provisional: bool = False
+    violations: tuple[int, ...] = ()
+    """Requisitos que la barra empieza antes de que terminen: el vinculo esta
+    roto y el diagrama lo marca."""
 
     def to_dict(self) -> dict:
         return {
@@ -118,17 +139,19 @@ class GanttTask:
             "assigned_name": self.assigned_name,
             "status": self.status,
             "estimated_hours": self.estimated_hours,
+            "violations": list(self.violations),
         }
 
 
 @dataclass(frozen=True, slots=True)
 class GanttFeed:
-    """Contenido del diagrama: barras, colores y tareas que quedan fuera."""
+    """Contenido del diagrama: barras, colores, vinculos y tareas fuera."""
 
     tasks: tuple[GanttTask, ...]
     members: tuple[GanttMember, ...]
     undated_task_ids: tuple[int, ...] = ()
     unassigned_task_ids: tuple[int, ...] = ()
+    dependencies: tuple[GanttDependency, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -136,6 +159,7 @@ class GanttFeed:
             "members": [member.to_dict() for member in self.members],
             "undated_task_ids": list(self.undated_task_ids),
             "unassigned_task_ids": list(self.unassigned_task_ids),
+            "dependencies": [dep.to_dict() for dep in self.dependencies],
         }
 
 
@@ -145,6 +169,7 @@ def build_gantt_feed(
     project_names: Mapping[int, str],
     project_colors: Mapping[int, str],
     provisional_projects: frozenset[int] = frozenset(),
+    edges: Sequence[tuple[int, int, str]] = (),
 ) -> GanttFeed:
     """Construye el diagrama a partir de las personas y las tareas.
 
@@ -155,6 +180,11 @@ def build_gantt_feed(
 
     provisional_projects son los ids de los proyectos no firmados: su carga
     no cuenta como firmada y el frontend lo pinta en contorno.
+
+    edges son los vinculos entre tareas del proyecto, como
+    (task_id, depends_on_id, tipo). Del grafo salen las flechas del diagrama
+    y las violaciones de cada barra: una barra que empieza antes de que
+    termine su requisito va marcada.
     """
     members = tuple(
         GanttMember(
@@ -166,6 +196,8 @@ def build_gantt_feed(
     )
     class_by_user = {member.user_id: member.css_class for member in members}
     name_by_user = {member.user_id: member.name for member in members}
+    task_by_id = {task.id: task for task in tasks}
+    violations = find_violations(task_by_id, edges)
 
     bars: list[GanttTask] = []
     undated: list[int] = []
@@ -198,6 +230,7 @@ def build_gantt_feed(
                 status=task.status,
                 estimated_hours=task.estimated_hours,
                 is_provisional=task.project_id in provisional_projects,
+                violations=tuple(violations.get(task.id, ())),
             )
         )
 
@@ -206,4 +239,10 @@ def build_gantt_feed(
         members=members,
         undated_task_ids=tuple(undated),
         unassigned_task_ids=tuple(unassigned),
+        dependencies=tuple(
+            GanttDependency(
+                task_id=task_id, depends_on_id=depends_on_id, type=tipo
+            )
+            for task_id, depends_on_id, tipo in edges
+        ),
     )

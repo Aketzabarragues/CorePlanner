@@ -13,6 +13,7 @@ from .api import (
     capacity_incidents,
     capacity_policies,
     departments,
+    dependencies,
     gantt,
     kanban,
     me,
@@ -68,6 +69,7 @@ app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
 app.include_router(my_work.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
+app.include_router(dependencies.router, prefix=settings.api_prefix)
 app.include_router(members.router, prefix=settings.api_prefix)
 app.include_router(gantt.router, prefix=settings.api_prefix)
 app.include_router(kanban.router, prefix=settings.api_prefix)

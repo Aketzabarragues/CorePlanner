@@ -605,6 +605,34 @@ async def test_no_se_puede_imputar_con_fecha_futura(client: AsyncClient):
     assert "futura" in response.json()["detail"]
 
 
+async def test_borrar_la_tarea_borra_sus_vinculos(client: AsyncClient):
+    """Los vinculos cascan con la tarea, por las dos claves foraneas."""
+    manager = await _auth(client, "manager@example.com")
+
+    segunda = await client.post(
+        "/api/projects/1/tasks",
+        json={**NEW_TASK, "assigned_to": client.ids["engineer"]},
+        headers=manager,
+    )
+    alta = await client.post(
+        "/api/projects/1/dependencies",
+        json={
+            "task_id": segunda.json()["id"],
+            "depends_on_id": client.ids["task"],
+            "type": "precedes",
+        },
+        headers=manager,
+    )
+    assert alta.status_code == 201, alta.text
+
+    borrado = await client.delete("/api/tasks/1", headers=manager)
+    listado = await client.get("/api/projects/1/dependencies", headers=manager)
+
+    assert borrado.status_code == 204
+    assert listado.status_code == 200
+    assert listado.json()["dependencies"] == []
+
+
 async def test_borrar_la_tarea_borra_sus_imputaciones(client: AsyncClient):
     """Las imputaciones cuelgan de la tarea: borrarla las borra."""
     engineer = await _auth(client, "engineer@example.com")

@@ -62,7 +62,16 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "assigned_name",
         "status",
         "estimated_hours",
+        "violations",
     }
+    assert set(feed.to_dict()) == {
+        "tasks",
+        "members",
+        "undated_task_ids",
+        "unassigned_task_ids",
+        "dependencies",
+    }
+    assert feed.to_dict()["dependencies"] == []
     assert barra["is_provisional"] is False
     assert barra["id"] == 7
     assert barra["start"] == "2026-11-05"

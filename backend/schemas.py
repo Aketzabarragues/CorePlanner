@@ -728,6 +728,9 @@ class GanttTaskOut(BaseModel):
     assigned_name: str | None = None
     status: str = ""
     estimated_hours: Hours = Decimal("0")
+    violations: list[int] = []
+    """Requisitos que la barra empieza antes de que terminen: el vinculo esta
+    roto y el diagrama lo marca."""
 
 
 class GanttMemberOut(BaseModel):
@@ -738,6 +741,14 @@ class GanttMemberOut(BaseModel):
     css_class: str
 
 
+class GanttDependencyOut(BaseModel):
+    """Vinculo en el feed del diagrama: las flechas del grafo."""
+
+    task_id: int
+    depends_on_id: int
+    type: str
+
+
 class GanttOut(BaseModel):
     """Diagrama de Gantt de un proyecto."""
 
@@ -745,6 +756,71 @@ class GanttOut(BaseModel):
     members: list[GanttMemberOut]
     undated_task_ids: list[int]
     unassigned_task_ids: list[int]
+    dependencies: list[GanttDependencyOut] = []
+    """Vinculos entre tareas del proyecto, para dibujar las flechas."""
+
+
+class TaskDependencyPairOut(BaseModel):
+    """El par de tareas de un vinculo, con su tipo.
+
+    `precedes` restringe la planificacion: la dependiente no puede empezar
+    antes de que termine el requisito. `relates` es de referencia.
+    """
+
+    task_id: int
+    depends_on_id: int
+    type: Literal["precedes", "relates"]
+
+
+class TaskDependencyCreate(TaskDependencyPairOut):
+    """Alta de un vinculo: `task_id` depende de `depends_on_id`."""
+
+
+class TaskDependencyLinkOut(BaseModel):
+    """Vinculo entre dos tareas del mismo proyecto."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    depends_on_id: int
+    type: str
+
+
+class TaskDependencyProjectLinkOut(TaskDependencyLinkOut):
+    """Vinculo del proyecto, con los titulos de las dos tareas."""
+
+    task_title: str = ""
+    depends_on_title: str = ""
+
+
+class TaskDependencyProjectOut(BaseModel):
+    """Vinculos del proyecto, en el orden en que se crearon."""
+
+    dependencies: list[TaskDependencyProjectLinkOut]
+
+
+class TaskTaskDependenciesOut(BaseModel):
+    """Requisitos y dependientes de una tarea."""
+
+    requirements: list[TaskDependencyLinkOut]
+    dependents: list[TaskDependencyLinkOut]
+
+
+class TaskDependencyMoveOut(BaseModel):
+    """Movimiento de una tarea dentro de la propuesta de cascada."""
+
+    task_id: int
+    start_date: date
+    end_date: date
+
+
+class TaskCascadeOut(BaseModel):
+    """Propuesta de cascada si una tarea se moviera: solo se propone."""
+
+    task_id: int
+    delta_days: int
+    moves: list[TaskDependencyMoveOut]
 
 
 class KanbanTaskOut(BaseModel):

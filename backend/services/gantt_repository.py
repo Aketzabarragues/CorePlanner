@@ -13,7 +13,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Project, ProjectMember, Task, User
+from ..models import Project, ProjectMember, Task, TaskDependency, User
 from .gantt import GanttFeed, build_gantt_feed
 
 
@@ -58,6 +58,18 @@ async def load_gantt_for_projects(
         await session.execute(select(User).where(User.id.in_(wanted_ids)))
     ).scalars().all()
 
+    project_task_ids = set(
+        (await session.execute(select(Task.id).where(Task.project_id.in_(ids))))
+        .scalars()
+        .all()
+    )
+    filas = (
+        await session.execute(
+            select(TaskDependency).where(TaskDependency.task_id.in_(project_task_ids))
+        )
+    ).scalars().all()
+    edges = [(fila.task_id, fila.depends_on_id, fila.type) for fila in filas]
+
     ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
     ordered_tasks = sorted(
         tasks,
@@ -67,7 +79,9 @@ async def load_gantt_for_projects(
             task.id,
         ),
     )
-    return build_gantt_feed(ordered, ordered_tasks, names, colors, provisional)
+    return build_gantt_feed(
+        ordered, ordered_tasks, names, colors, provisional, edges
+    )
 
 
 async def load_project_gantt(session: AsyncSession, project: Project) -> GanttFeed:

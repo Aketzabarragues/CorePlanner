@@ -32,6 +32,9 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   con posicion dentro de la columna, alta inline al pie de cada columna y
   edicion inline del titulo, las horas y el responsable. Mover y reordenar
   usan `PUT /projects/{id}/tasks/order`.
+- **frontend**: el formulario de proyecto lleva un interruptor "Provisional" y la
+  lista marca esos proyectos. El feed del Gantt lleva el flag y sus barras se
+  distinguen en contorno.
 - **frontend**: el Calendario pasa al contrato comun. Arrastrar una barra a otro
   dia mueve la tarea conservando la duracion (el mismo PATCH que el Gantt) y
   la semana de destino se resuelve por donde se suelta; la vista de dia
@@ -64,6 +67,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **backend**: `projects.is_provisional`: un proyecto se puede marcar como no
+  firmado. El informe de capacidad separa la carga confirmada de la
+  provisional (la celda lleva `hours` y `hours_provisional`, y el desglose por
+  proyecto lleva `provisional`), y lo provisional no sobrecarga a nadie:
+  `is_overloaded` se calcula con la carga confirmada.
+- **frontend**: la matriz y el detalle de celda muestran la **capacidad libre**
+  como metrica de primera clase, con `loadFree` en la escala de carga. Un
+  interruptor "Contar lo provisional" (que vive en la URL, `?provisional=1`)
+  cambia la lectura de la celda: sin el, solo cuenta lo firmado; con el, toda
+  la carga planificada. Lo provisional se pinta en contorno, no con un color
+  nuevo.
 - **frontend**: `utils/ganttScale.js` (escalas y aritmetica de dias en UTC),
   `utils/ganttLayout.js` (modelo del diagrama y operaciones de arrastre),
   `utils/ganttMetrics.js` (medidas) y `composables/useGanttDrag.js`

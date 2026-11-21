@@ -2307,3 +2307,29 @@ Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tabl
 - **Arrastre tactil**: la primera entrega es de escritorio. En movil el diagrama se desplaza y se consulta, pero no se arrastra.
 - **Colapsar grupos, multi-seleccion y edicion en lote**: no entran.
 - **El backend**: no cambia. `backend/services/gantt.py` sigue igual, con su feed y su color guardado.
+
+## 54. Capacidad libre y modo provisional
+
+La matriz dice si alguien esta sobrecargado. No dice cuanto le queda libre, ni que pasa si se confirma un proyecto que todavia no esta firmado. Eso es lo que aporta el modo provisional.
+
+### Que entra
+
+- `projects.is_provisional`: un proyecto no firmado todavia. Lo marca el gerente en el formulario del proyecto. El estado del proyecto ("planning", "active") es su ciclo de vida y no dice nada de si esta firmado: son dos cosas distintas.
+- El informe de capacidad separa la carga **confirmada** de la **provisional**: la celda lleva `hours` (la confirmada, la que cuenta) y `hours_provisional`, y el desglose por proyecto lleva `provisional` para poder distinguirlo en la vista.
+- **Lo provisional no sobrecarga**: `is_overloaded` se calcula con la carga confirmada, porque un trabajo sin firmar no agota a nadie. El total de la persona lleva `total_hours` (confirmada) y `total_hours_provisional`.
+- **La capacidad libre** se lee en la celda de la matriz y en el detalle de celda: lo que queda de la capacidad de esa persona en esa semana.
+- Un interruptor **"Contar lo provisional"** en los filtros de la matriz, que cambia la lectura: sin el, solo cuenta lo firmado; con el, la celda se lee con todo lo planificado, que es la pregunta "¿y si se confirma?".
+
+### Decisiones tomadas
+
+1. **Lo provisional se marca a nivel de proyecto**, no de tarea: la pregunta es "¿puedo aceptar este proyecto?", y asi se marca el equipo entero de una vez.
+2. **El reparto de horas no se descuadra**: las centimas de una tarea se reparten igual que antes y cada parte va a su acumulador (confirmada o provisional); la suma de las dos es la carga total de la tarea.
+3. **La capacidad libre la calcula el frontend**, con la misma cadena que el ratio y el estado de carga (`utils/load.js`), a partir de la capacidad y la carga que ya llegan en la celda. El backend no manda un campo mas para eso.
+4. **El interruptor vive en la URL**, como el resto del estado de vista: `?provisional=1`.
+5. **La carga provisional se pinta en contorno** (borde discontinuo), no con un color nuevo: el patron de contorno ya existe en la app para el arrastre de la matriz.
+
+### Que no entra
+
+- **La simulacion "¿que pasa si acepto este proyecto?"**: es una vista de escenario con su propio informe, y va aparte.
+- **Otros ejes de provisionalidad** (una tarea suelta, una persona a media jornada): el flag es de proyecto y ya.
+- **Colores nuevos**: lo provisional se distingue por el contorno, no por un tono mas de la escala de carga.

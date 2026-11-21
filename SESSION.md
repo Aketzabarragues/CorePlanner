@@ -9,9 +9,10 @@ inline, Calendario con arrastre entre dias, alta y edicion en la vista de
 dia, y el gesto de arrastre compartido.
 
 Pendiente: la exportacion `.ics` (la unica funcionalidad de la v1 que sigue
-abierta), las funcionalidades post-v1 (G2 capacidad libre, G1 horas reales,
-G3 politica de capacidad, G5 MCP, G4 dependencias) y la revision visual en
-navegador, que esta sesion no puede hacer.
+abierta), las funcionalidades post-v1 (G1 horas reales, G3 politica de
+capacidad, G5 MCP, G4 dependencias) y la revision visual en navegador, que
+esta sesion no puede hacer. G2 (capacidad libre y modo provisional) queda
+cerrada en codigo.
 
 ## Cambios realizados
 
@@ -73,6 +74,16 @@ navegador, que esta sesion no puede hacer.
     insercion, alta inline al pie de columna, edicion inline de titulo, horas
     y responsable, y el selector de estado pasando por el endpoint de orden.
   - `tasksApi.reorder` en `frontend/src/api/client.js`.
+- G2 (capacidad libre y modo provisional):
+  - `projects.is_provisional` con migracion y esquemas: un proyecto no firmado.
+  - El motor de capacidad reparte la carga en confirmada y provisional; lo
+    provisional no sobrecarga. La celda lleva `hours` y `hours_provisional`, y
+    el desglose por proyecto lleva `provisional`.
+  - `loadFree` en la escala de carga: la capacidad libre, con su signo.
+  - La matriz pinta las horas libres y lo provisional en contorno, con el
+    interruptor "Contar lo provisional" en la URL (`?provisional=1`).
+  - El formulario de proyecto lleva el interruptor "Provisional" y el feed del
+    Gantt lleva el flag, para pintar sus barras en contorno.
 - Bloque C (Calendario):
   - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
     entre los editables, cada semana lleva su `data-semana` y el dia bajo el

@@ -6,8 +6,9 @@ Excel de gestion con dos piezas centrales:
 - **Matriz de ocupacion**: cruza el equipo contra las semanas del ano, reparte
   las horas estimadas de cada tarea entre las semanas que abarca y marca en rojo
   a quien supera su capacidad semanal.
-- **Diagrama de Gantt**: vista temporal de las tareas del proyecto, alimentada
-  por `frappe-gantt` y exportable a calendario (`.ics`).
+- **Diagrama de Gantt**: vista temporal de las tareas del proyecto, con un
+  motor propio en el frontend (sin libreria externa) y exportable a
+  calendario (`.ics`).
 
 Todo el acceso a la aplicacion se controla por proyecto: cada persona entra en
 un proyecto con un rol concreto (Project Manager, Ingeniero, Lector) y solo ve
@@ -20,7 +21,7 @@ y toca lo que ese rol permite.
 | Base de datos | SQLite (desarrollo) · PostgreSQL (previsto, sin probar), SQLAlchemy 2.0 ORM |
 | Backend | FastAPI asincrono, Uvicorn, JWT (PyJWT) |
 | Frontend | Vue 3 Composition API, Vite, Tailwind CSS, Pinia, Vue Router |
-| Gantt | `frappe-gantt` (frontend). La exportacion `.ics` esta pendiente |
+| Gantt | Motor propio en el frontend (SVG, sin libreria). La exportacion `.ics` esta pendiente |
 
 El ORM se declara con `Mapped` / `mapped_column` y con `ON DELETE` explicito,
 lo que hace el cambio de motor mucho menos painful. **PostgreSQL no se ha
@@ -176,7 +177,8 @@ coreplanner/
 │       │   │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
-│       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas)
+│       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas) y el motor de Gantt (escala, layout, medidas)
+│       ├── composables/  # useGanttDrag (arrastre de barras) y los demas composables
 │       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Actividad, Kanban, Lista, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
@@ -540,22 +542,35 @@ El formulario no envia campos que no se han tocado: un `PATCH` con
 
 ## Diagrama de Gantt
 
-La vista `/gantt` dibuja una barra por tarea con `frappe-gantt`:
+La vista `/gantt` dibuja una barra por tarea con un motor propio, sin libreria
+externa:
 
-- Cada barra lleva las fechas de la tarea, su avance segun el estado y la
-  persona asignada, que aparece en la etiqueta y en el color de la barra.
+- Cada barra lleva las fechas de la tarea, su avance segun el estado y el
+  color de la persona asignada. El titulo y la persona van en la columna fija
+  de la izquierda; dentro de la barra, solo si cabe.
 - El diagrama es de toda la organizacion; con el filtro `?project=` solo entran
   las barras de ese proyecto.
-- El selector **Dia / Semana / Mes** cambia la escala temporal.
+- El selector **Dia / Semana / Mes** cambia la escala temporal. El eje de
+  semanas es el ISO de la aplicacion (`2026-W53` es la semana del 31 de
+  diciembre de 2026).
+- El rango visible vive en la URL (`?from=` y `?to=`, en fechas ISO) y se mueve
+  con las flechas, se centra con **Hoy** y se abre a todas las barras con
+  **Completo**.
 - Al mover o redimensionar una barra se guardan las fechas con un `PATCH` de
   la tarea, de modo que el diagrama y la matriz de ocupacion cuentan lo mismo.
-- Las tareas sin fechas no tienen sitio en el diagrama: se listan aparte en
-  `undated_task_ids` para que no desaparezcan en silencio.
+  Con el teclado: las flechas mueven la barra, `Shift` con las flechas
+  redimensiona e `Intro` abre el detalle.
+- Los dias no laborables **globales** se sombrean en la rejilla; los de persona
+  o de departamento se ven en la pantalla Calendario laboral.
+- Las tareas sin fechas no tienen sitio en el diagrama: se avisan aparte con un
+  banner, para que no desaparezcan en silencio.
+- Sin permiso de escritura en el proyecto, la barra se ve en solo lectura: sin
+  asas, sin arrastre, y el aviso sale en el subtitulo.
 
-El backend devuelve las barras con el formato que espera la libreria:
-`id`, `name`, `start`, `end`, `progress`, `dependencies` y `custom_class`. Los
-identificadores viajan como texto porque la libreria compara con igualdad
-estricta el identificador de la tarea con el que lee del DOM.
+El backend devuelve el mismo feed que antes: `id`, `start`, `end`, `progress`,
+`custom_class` (el color de la persona) y `project_color`, mas las personas
+(`members`) y las tareas que se quedan fuera (`undated_task_ids`,
+`unassigned_task_ids`). El identificador viaja como numero.
 
 ## Calendario
 

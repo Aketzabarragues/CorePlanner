@@ -7,11 +7,24 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
-- **frontend**: todos los dialogos de la aplicacion pasan por `ModalDialog`: altas
-  y ediciones (tarea, persona, competencia, departamento, proyecto, miembro y dia
-  no laborable), detalle de tarea y ficha de persona. El componente gana `size`,
-  `subtitle` y pie de acciones fijo; el boton del pie envia el formulario del
-  cuerpo con la funcion `submit` que expone el dialogo.
+- **frontend**: el diagrama de Gantt deja de depender de la libreria
+  `frappe-gantt`. Lo dibuja un motor propio (`frontend/src/components/gantt/`:
+  grafico, eje, barra, cabecera de grupo y columna de nombres) sobre el mismo
+  feed del backend, que no cambia. El rango visible pasa a vivir en la URL
+  (`?from=` y `?to=`), el permiso de escritura se resuelve por barra (el del
+  proyecto de cada tarea), los dias no laborables globales se sombrean en la
+  rejilla, el teclado mueve y redimensiona, y soltar una barra fuera del
+  diagrama cancela en vez de guardar.
+- **frontend**: agrupar por persona, proyecto o departamento usa el
+  identificador como clave, no el nombre: dos personas homonimas ya no se
+  fusionan en un mismo grupo.
+- **frontend**: el aviso de tareas sin fechas pasa a un banner con el plural
+  correcto.
+- **frontend**: todos los dialogos de la aplicacion pasan por `ModalDialog`:
+  altas y ediciones (tarea, persona, competencia, departamento, proyecto,
+  miembro y dia no laborable), detalle de tarea y ficha de persona. El
+  componente gana `size`, `subtitle` y pie de acciones fijo; el boton del pie
+  envia el formulario del cuerpo con la funcion `submit` que expone el dialogo.
 - **frontend**: el detalle de tarea pasa de `TaskDetailPanel.vue` a
   `TaskDetailDialog.vue` y la ficha de persona de `PersonDrawer.vue` a
   `PersonDialog.vue`, ambos sobre `ModalDialog`.
@@ -23,13 +36,20 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   unico. `SidePanel` queda documentado como excepcion: la columna lateral no
   modal del desglose de celda de la matriz.
 
-### Removed
-
-- **frontend**: `TaskDetailPanel.vue`, `PersonDrawer.vue` y sus specs, ya sin uso
-  tras la migracion.
-
 ### Added
 
+- **frontend**: `utils/ganttScale.js` (escalas y aritmetica de dias en UTC),
+  `utils/ganttLayout.js` (modelo del diagrama y operaciones de arrastre),
+  `utils/ganttMetrics.js` (medidas) y `composables/useGanttDrag.js`
+  (arrastre y redimension). Todo con tests unitarios.
+- **frontend**: tests de `GanttChart`, `useGanttDrag` y de la vista del Gantt
+  sobre el motor propio.
 - **frontend**: `frontend/src/tests/TaskForm.spec.js` y
   `frontend/src/tests/ModalDialog.spec.js`, con cobertura del formulario de tarea
   y del envio desde el pie del dialogo.
+
+### Removed
+
+- **frontend**: la dependencia `frappe-gantt` del `package.json`.
+- **frontend**: `TaskDetailPanel.vue`, `PersonDrawer.vue` y sus specs, ya sin uso
+  tras la migracion.

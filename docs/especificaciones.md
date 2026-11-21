@@ -2163,3 +2163,137 @@ Hasta ahora el color de un proyecto se calculaba al leer el feed (una paleta de 
 4. **El alta no pide color**: es lo menos intrusivo y lo que menos errores da. El backend elige el color menos usado, el formulario de alta se queda como estaba y el de modificacion trae la fila de circulos. Si el alta pidiera color, el usuario acabaria aceptando el primero de la lista y los colores se repetirian.
 5. **El color no se puede soltar**: en la modificacion un `null` se rechaza. Un departamento o un proyecto sin color no tiene sentido en las vistas.
 6. **El Gantt sigue siendo de personas**: el color del proyecto es para el Calendario y la Capacidad; el diagrama de Gantt no lo cambia.
+
+## 51. Hoja de ruta post-v1
+
+La v1 esta cerrada, salvo la exportacion `.ics`, que sigue pendiente. Esta seccion fija el orden de lo que sigue y el alcance del bloque nuevo de componentes interactivos (Kanban, Gantt y Calendario). El contrato comun de interaccion de las tres vistas esta en la §52. El orden de las funcionalidades post-v1 sale de `docs/comparativa-mercado.md`, que contrasta CorePlanner con OpenProject Enterprise (v17.7: su modulo de Resource management es add-on de pago), EstiMate (complementario: estima horas, no capacidad) y la categoria SaaS de capacity planning (Float, Resource Guru, Runn, Mosaic, Productive, Kantata): ninguna es self-hosted y todas cobran por persona.
+
+### Orden
+
+1. **Cerrar v1**: verificacion visual en navegador (Playwright) del modal unificado y del desglose de celda (que sigue siendo panel lateral); exportacion `.ics` (la unica funcionalidad v1 incompleta); deuda estructural, decidida item a item (CI, `LICENSE`, limite de intentos de login, N+1 de la configuracion).
+2. **Componentes interactivos** (bloques A, B y C de esta seccion).
+3. **Funcional post-v1**, en el orden de la comparativa:
+   - **G2 Capacidad libre / forecast-lite**: capacidad libre por persona y semana como metrica de primera clase (no solo el estado rojo), y un modo contorno para tareas no confirmadas. No toca el esquema: es el informe y una vista.
+   - **G1 Horas reales**: tabla `time_entries` (persona, tarea, fecha, horas) en centimas de hora enteras, con comparacion plan/real en la ventana semanal. Riesgo de adopcion, no tecnico.
+   - **G3 Politica de capacidad**: umbral de aviso, umbral duro como aprobacion obligatoria, incidentes idempotentes por ventana.
+   - **G5 MCP**: tools de solo lectura primero, escrituras despues.
+   - **G4 Dependencias entre tareas**: `task_dependencies`, orden topologico, deteccion de ciclos, reprogramacion en cascada propuesta (nunca aplicada). Es lo mas caro.
+
+### Bloque A: tablero Kanban
+
+Hoy `KanbanView.vue` (353 lineas) tiene columnas por estado, arrastre propio (eventos nativos de raton, sin libreria) y alta/edicion de tarea desde el dialogo.
+
+- **Alta inline**: un campo de nueva tarea al pie de cada columna, con el minimo (titulo, horas, responsable) y creacion al confirmar; el dialogo completo sigue disponible para el resto de campos.
+- **Edicion inline**: editar titulo, horas y responsable desde la tarjeta sin abrir el dialogo; el dialogo es para descripcion, checklist, comentarios y actividad.
+- **Arrastre**: el actual se conserva y se completa: indicador de posicion al soltar, animacion del ghost, y la tarea cae donde se suelta, no en el principio de la columna.
+- **Contadores por columna** (tareas y horas), coherentes con la escala de carga de la app.
+
+### Bloque B: Gantt, con motor propio
+
+Hoy el diagrama usa `frappe-gantt` (0.6.1) sobre el feed JSON que ya sirve el backend (`backend/services/gantt.py`).
+
+- **Se retira `frappe-gantt`**: no queda ninguna dependencia nueva, y el motor propio es el unico sitio donde viven barras, arrastre, zoom, lineas y dependencias.
+- **El feed no cambia**: el componente propio consume el mismo JSON del backend, con el mismo contrato. `project_color` y `custom_class` siguen llegando; lo que se pinta es lo que la vista pinte.
+- **Barras**: por persona y por proyecto (los dos modos que ya hay), con el color guardado de la persona o del proyecto segun el modo.
+- **Arrastre**: mover una barra cambia sus fechas; redimensionar un borde cambia el extremo correspondiente. La operacion es la misma que editar las fechas de la tarea desde la lista: mismo endpoint, mismos permisos, misma bitacora.
+- **Zoom**: semana (por defecto), mes y rango completo; el eje de semanas sigue la convencion ISO de la app.
+- **Lineas**: hoy, festivos (los que el motor ya calcula) y hoy, siempre visibles.
+- **Crear y editar**: doble clic en el eje crea una tarea en ese rango; doble clic en la barra abre el dialogo de detalle (el existente, `TaskDetailDialog`).
+- **El CSS propio** sustituye a `assets/gantt.css`, que hoy existe solo para ganar a la hoja de estilos de la libreria.
+
+### Bloque C: calendario
+
+Hoy `CalendarView.vue` (565 lineas) muestra el mes con los carriles de semana y el detalle del dia.
+
+- **Arrastrar una tarea a un dia** cambia sus fechas a ese dia, conservando la duracion; arrastrar dentro de un dia cambia su hora de inicio si la tarea lleva horas.
+- **Crear en el dia**: un dia con espacio libre permite crear una tarea de un dia en ese dia.
+- **Editar en el dia**: el detalle del dia permite cambiar horas, responsable y estado de la tarea sin salir.
+- **El mes sigue siendo una lista de semanas** (§47): el calendario no inventa una rejilla de dia por dia que contradiga la convencion de la app.
+
+### Que no entra (bloques A, B y C)
+
+- **Limites WIP por columna** en el Kanban: no hay caso de uso v1, y es la puerta a un tablero generico.
+- **Dependencias en el Gantt** (flechas de predecesor, ruta critica): es G4, va aparte y es lo mas caro del conjunto.
+- **Multi-proyecto en el Gantt**: el feed ya es de un proyecto; el Gantt global existe aparte.
+- **Edicion colaborativa ni sincronizacion en tiempo real**: no entra en la v1 ni en esta hoja de ruta.
+- **Campos personalizados ni tipos de tarea a medida** en ninguna de las tres vistas.
+
+### Decisiones tomadas
+
+1. **El orden manda**: cerrar v1 antes que nada, porque deja la base verificada; el bloque de componentes antes que las funcionalidades post-v1, porque G2, G1 y G3 se leen mejor sobre unas vistas ya interactivas; G4 al final, porque es lo que mas cambia al Gantt.
+2. **El Gantt propio consume el feed actual**: no hay API nueva. Lo que cambia es el componente, no el contrato.
+3. **Cada interaccion es la operacion que ya existe**: arrastrar una barra es editar sus fechas; soltar una tarjeta en el Kanban es cambiar su estado; mover una tarea en el calendario es cambiar sus fechas. Mismo endpoint, mismos permisos, misma bitacora. No hay operaciones especiales de vista.
+4. **La barra de "premium" es coherencia, no adorno**: arrastre con previsualizacion, alta/edicion inline, y los colores y la escala de carga que ya usa el resto de la app. No entra ningun nuevo sistema de diseño.
+5. **Lo que no entra se escribe**: los limites WIP, las dependencias y el multi-proyecto quedan fuera de los bloques A, B y C, no de la hoja de ruta: los primeros no entran en la v1, los segundos son G4.
+
+## 52. Interaccion de las tres vistas de trabajo
+
+Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tablero mueve una tarea entre estados, el Gantt la mueve en el tiempo, el calendario la mueve en el dia. Este bloque fija el contrato comun de interaccion para las tres, para que el acabado sea el de un componente unico y no el de tres piezas a medio gas.
+
+### Que es motor y que no lo es
+
+- **El Gantt si tiene motor**: hoy el render de barras lo hace `frappe-gantt`, que no se puede reutilizar por licencia ni por mantenimiento. El motor propio es el render y el arrastre del diagrama, sobre el feed JSON que ya sirve el backend (el contrato no cambia).
+- **Kanban y Calendario no tienen motor que reemplazar**: el tablero ya arrastra con eventos nativos de raton (sin libreria) y el calendario ya se dibuja con los carriles de semana propios. Lo que les falta no es render, es completar el contrato de interaccion de esta seccion.
+- **Lo comun no se repite**: la parte que las tres comparten (arrastre con previsualizacion, confirmar o anular, el dialogo de tarea) se construye una vez y la usan las tres. No hay un "motor de vistas" aparte: es el mismo contrato aplicado a tres renders distintos.
+
+### El contrato comun
+
+- **Toda interaccion es la operacion que ya existe**: soltar una tarjeta es cambiar el estado; mover una barra o redimensionar un borde es cambiar las fechas; arrastrar una tarea a un dia del calendario es cambiar sus fechas. Mismo endpoint, mismos permisos, misma bitacora. Ninguna vista inventa una operacion propia.
+- **El arrastre se parece en las tres**: el mismo umbral de 5 px para distinguir pulsar de arrastrar (que el Kanban ya usa), el mismo ghost con previsualizacion de donde cae, el mismo anular con `Escape` o soltar fuera de objetivo, y la misma recarga de la vista al soltar: los datos los recalcula el backend, el cliente no calcula.
+- **Crear y editar son los mismos en las tres**: doble clic (o el control de alta de la vista) crea con el minimo; doble clic en la tarea abre el `TaskDetailDialog` que ya existe. La edicion inline de una vista solo toca los campos que esa vista muestra (titulo, horas, responsable, fechas, estado), y el resto sigue en el dialogo.
+- **El acabado premium es coherencia**: el color de la persona o del proyecto es el dato guardado (la paleta de §50), la escala de carga es la de la app, el dialogo es el `ModalDialog` unico. No entra ningun nuevo sistema de diseno ni ningun color nuevo.
+- **El estado se ve, no se adivina**: cada vista muestra el resultado de la operacion en la misma pantalla (la celda o la barra ya recargada, la tarjeta ya movida), y el error de la operacion sale en el banner de la vista, no en un toast suelto.
+
+### Por vista: lo que falta sobre el contrato
+
+- **Kanban**: alta inline al pie de columna, edicion inline de titulo/horas/responsable, y que la tarjeta caiga en la posicion donde se suelta, no al principio.
+- **Gantt**: el motor propio (barras, arrastre, resize de bordes, zoom semana/mes/completo, lineas de hoy y festivos, doble clic para crear y editar).
+- **Calendario**: arrastrar una tarea a un dia conservando la duracion, crear en el dia y editar horas/responsable/estado desde el detalle del dia.
+
+### Que no entra
+
+- **Un motor de vistas comun**: lo comun es el contrato de interaccion y el dialogo, no un render compartido. Forzar un render unico para tres vistas con ejes distintos es mas caro que los tres y peor en cada una.
+- **Multi-seleccion ni operaciones en lote**: no hay caso de uso v1.
+- **Sincronizacion en tiempo real ni edicion colaborativa**: fuera de la hoja de ruta.
+
+### Decisiones tomadas
+
+1. **Un contrato, tres vistas**: lo que se disea una vez es el comportamiento (umbral, ghost, anular, confirmar, crear, editar, recarga), no el pixel. El pixel sigue siendo el de cada vista.
+2. **El Gantt es el unico que cambia de motor**; Kanban y Calendario solo completan el contrato. Eso concentra el riesgo del bloque en una sola vista.
+3. **El dialogo de tarea es la unica puerta de edicion completa**: las ediciones inline son atajos de los campos que la vista muestra, no segundas implementaciones.
+
+## 53. Motor de Gantt propio
+
+`frappe-gantt` se retira del frontend. El diagrama lo dibuja un motor propio, que es lo unico que queda en pie del Gantt: barras, arrastre, redimension, escalas, lineas y, mas adelante, dependencias. El feed del backend no cambia de contrato.
+
+### Que entra
+
+- `frontend/src/utils/ganttScale.js` (nuevo): las tres escalas (`Dia` 44 px por dia, `Semana` 14 px, `Mes` 5 px) y la aritmetica de dias.
+- `frontend/src/utils/ganttLayout.js` (nuevo): el modelo del diagrama (eje, filas, barras, sombreado, linea de hoy) y las operaciones de arrastre (`snapDelta`, `moveRange`, `resizeRange`). Funciones puras: no tocan el DOM ni el estado.
+- `frontend/src/components/gantt/`: el componente del diagrama (`GanttChart`), el eje (`GanttAxis`), la barra (`GanttBar`) y la cabecera de grupo (`GanttGroupRow`), mas la columna fija de nombres.
+- `frontend/src/assets/gantt.css`: se queda con los tokens de color de persona; el CSS del diagrama pasa a ser propio.
+
+### Decisiones tomadas
+
+1. **Las fechas del motor son UTC a medianoche.** El feed trae cadenas ISO (`'2026-11-05'`) y se parsean como UTC: leer los campos locales desplazaria el dia segun el desfase horario del cliente. La aritmetica de dias va en enteros de milisegundos.
+2. **La unidad es el dia.** Una barra cubre de `start_date` a `end_date`, ambos inclusive; su ancho es `(fin - inicio + 1) * pxPorDia`. Asi desaparece la ambiguedad del "ultimo instante" con que la libreria entregaba el final de la barra.
+3. **El rango se expande a los limites de la escala**: en escala de dia, el rango de las barras; en la de semana, de lunes a domingo; en la de mes, del dia 1 al ultimo. Asi las celdas del eje no se salen del ancho del diagrama.
+4. **El sombreado de festivos es de alcance global.** Los dias no laborables de persona o de departamento se ven en la pantalla Calendario laboral; en el Gantt solo se sombrean los globales, y los de medio dia con un tono mas suave. Los fines de semana se sombrean siempre.
+5. **El permiso es por barra.** El Gantt global muestra tareas de muchos proyectos, asi que una barra es editable si el proyecto de su tarea esta entre los `editable_project_ids` del ambito de quien entra. Sin permiso no hay asas de redimension ni cursor de arrastre, pero el clic sigue abriendo el detalle.
+6. **Crear solo cuando hay un proyecto en contexto.** El alta de tarea es por proyecto (`POST /projects/{id}/tasks`): se ofrece en el espacio del proyecto, con el filtro `?project=` puesto, o en una fila de grupo de proyecto. Sin un solo proyecto no hay alta.
+7. **El motor no calcula horas ni capacidad.** Solo geometria: fecha, pixel. Al soltar, el backend recalcula y la vista recarga el feed.
+8. **Optimista con recarga.** La barra se mueve al instante y, al terminar, se recarga el feed entero; lo que manda es lo que conteste el servidor. El error sale en el banner de la vista.
+9. **El rango vive en la URL** con `?from=` y `?to=` (fechas ISO), los mismos nombres de parametro que usa la matriz de capacidad. Sin ellos, el rango es "Completo": del primer dia de las barras al ultimo. Los botones de rango mueven una unidad del eje; la escala (Dia, Semana, Mes) sigue siendo estado local de la vista.
+10. **El teclado tiene un solo camino**: las flechas aplican el movimiento y `Shift` con las flechas redimensiona; `Intro` abre el detalle y `Escape` anula. No hay un modo de previsualizacion pendiente que haya que confirmar.
+11. **El grupo se identifica por identificador, no por nombre.** Agrupar por persona, proyecto o departamento usa el identificador como clave y el nombre como etiqueta visible: dos personas con el mismo nombre son dos grupos.
+12. **Los dias no laborables vienen de una peticion aparte.** El feed del Gantt no lleva festivos; se piden a `/non-working-days` en paralelo, con el rango visible, y solo se sombrean los de alcance global.
+13. **El teclado mueve por unidad del eje.** Un dia en escala Dia, una semana ISO en escala Semana y un mes en escala Mes; `Shift` con las flechas redimensiona el extremo final con la misma unidad, y el rango sale siempre de `moveRange` y `resizeRange`, que recortan al otro extremo.
+
+
+### Que no entra
+
+- **Dependencias y ruta critica**: es G4. El feed deja el hueco (`dependencies` sigue vacio) pero el motor no dibuja flechas.
+- **Virtualizacion de filas**: se anade solo si se mide un retraso real con muchas barras; no por preventismo.
+- **Arrastre tactil**: la primera entrega es de escritorio. En movil el diagrama se desplaza y se consulta, pero no se arrastra.
+- **Colapsar grupos, multi-seleccion y edicion en lote**: no entran.
+- **El backend**: no cambia. `backend/services/gantt.py` sigue igual, con su feed y su color guardado.

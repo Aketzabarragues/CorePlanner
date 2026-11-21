@@ -2,45 +2,96 @@
 
 ## Objetivo actual
 
-Unificar los dialogos de la SPA en un unico componente, `ModalDialog`. Cerrado.
+Motor de Gantt propio (bloque B de `docs/especificaciones.md` §51), sobre el
+contrato comun de interaccion de la §52 y el contrato del motor de la §53.
+Fases 0 a 3 hechas y auditadas (nucleo puro, render y arrastre); `frappe-gantt`
+fuera del `package.json`. Sigue el alta y edicion (fase 4) y la revision
+visual en navegador, que esta sesion no puede hacer.
 
 ## Cambios realizados
 
-- `ModalDialog.vue` pasa a ser el unico overlay de la aplicacion: props `open`,
-  `title`, `subtitle` y `size` (`sm`/`md`/`lg`/`xl`), cabecera y pie fijos, cuerpo
-  con scroll propio y slot `footer` con la funcion `submit`.
-- Migrados a `ModalDialog`: alta y edicion de tarea (`AppShell.vue` y
-  `CellBreakdown.vue`), detalle de tarea (`TaskDetailPanel.vue` ->
-  `TaskDetailDialog.vue`), ficha de persona (`PersonDrawer.vue` ->
-  `PersonDialog.vue`) y los formularios de configuracion (competencias,
-  departamentos, proyectos, personas, miembros y dias no laborables).
-- El alta de dia no laborable paso de formulario embebido en la pagina a dialogo.
-- `TaskForm.vue` queda como puro cuerpo de formulario: sin cabecera ni botones,
-  con la prop `formId` para que el pie lo dispare.
-- Borrados `TaskDetailPanel.vue`, `PersonDrawer.vue` y sus specs.
-- `README.md` y `docs/especificaciones.md` actualizados (secciones 19, 26, 27 y 32).
+- `docs/comparativa-mercado.md` (nuevo): comparativa con OpenProject Enterprise
+  (v17.7, ago 2026: su modulo de Resource management es add-on de pago),
+  EstiMate (complementario: estima horas, no capacidad) y la categoria SaaS
+  (Float, Resource Guru, Runn, Mosaic, Productive, Kantata, ...). Ninguna es
+  self-hosted; todas cobran por persona. CorePlanner sigue ocupando el hueco:
+  matriz persona x semana ISO contra capacidad resuelta, local, sin coste por
+  asiento.
+- `docs/especificaciones.md` §51 (nuevo): hoja de ruta post-v1 con el orden,
+  el bloque de componentes interactivos (que entra y que no entra en cada
+  vista) y la decision del motor de Gantt propio.
+- `docs/especificaciones.md` §52 (nuevo): contrato comun de interaccion de
+  Kanban, Gantt y Calendario, y la aclaracion de que solo el Gantt cambia de
+  motor: los otros dos ya arrastran y lo que les falta es el contrato.
+- `docs/especificaciones.md` §53 (nuevo): contrato del motor de Gantt propio
+  (geometria en UTC y dias, escalas, sombreado, permiso por barra, reglas de
+  alta y de recarga).
+- Motor de Gantt, fases 0 a 3:
+  - `frontend/src/utils/ganttScale.js` (nuevo): escalas (`Dia` 44 px/dia,
+    `Semana` 14 px, `Mes` 5 px) y aritmetica de dias en UTC.
+  - `frontend/src/utils/ganttLayout.js` (nuevo): modelo del diagrama (eje,
+    filas, barras, sombreado, linea de hoy) y operaciones de arrastre
+    (`snapDelta`, `moveRange`, `resizeRange`).
+  - `frontend/src/utils/gantt.js`: queda con `GANTT_VIEW_MODES` y el
+    re-export de `dateChangePayload`; `toIsoDate` pasa a `ganttScale.js` en
+    version UTC (la anterior usaba los campos locales y desplazaba el dia).
+  - Tests nuevos: `ganttScale.spec.js` (11) y `ganttLayout.spec.js` (19).
+    `gantt.spec.js` pasa a fechas ISO. `GanttView.spec.js`: el test de
+    arrastre pasa a fechas UTC, que es el contrato real del motor.
+  - `frontend/src/utils/ganttMetrics.js` (nuevo): medidas del diagrama.
+  - `frontend/src/components/gantt/` (nuevo): `GanttChart.vue` (svg unico),
+    `GanttAxis.vue`, `GanttBar.vue`, `GanttGroupRow.vue` y
+    `GanttNamesColumn.vue`.
+  - `frontend/src/composables/useGanttDrag.js` (nuevo): arrastre y
+    redimension con umbral de 5 px, fantasma, `Escape` y cancelacion al
+    soltar fuera.
+  - `frontend/src/views/GanttView.vue`: reescrito sobre el motor propio
+    (filtros, visibilidad, leyenda, rango en la URL, dias no laborables
+    globales, permiso por barra, teclado).
+  - `frontend/src/assets/gantt.css`: se quedan las clases `persona-0..5` y se
+    anaden las del motor; fuera las reglas de la libreria.
+  - `frontend/package.json`: fuera `frappe-gantt`.
+  - Tests nuevos: `GanttChart.spec.js`, `useGanttDrag.spec.js` y el
+    `GanttView.spec.js` reescrito (sin el mock de la libreria).
 
 ## Decisiones tecnicas
 
-- Un solo dialogo en la app. `SidePanel.vue` sobrevive como excepcion: columna
-  lateral NO modal del desglose de celda de la matriz, porque las celdas de al
-  lado tienen que recibir el arrastre de una tarea.
-- El boton del pie vive fuera del `<form>`, asi que no sirve el atributo HTML
-  `form="..."`: jsdom no lo respeta y ningun test pulsaba ese boton, con lo que
-  el mecanismo real quedaba sin verificar. `ModalDialog` expone `submit` en el
-  slot `footer`, localiza el `<form>` del panel y lo envia con `requestSubmit()`
-  (fallback: evento `submit` cancelable).
-- Los ids de accesibilidad se generan con `useId()` por instancia: derivarlos del
-  texto del titulo duplicaba ids entre dialogos con el mismo nombre.
-- El alta y la edicion de tarea dentro del desglose de celda tambien son modal:
-  el formulario en linea rompia la coherencia y perdia el contexto.
-- El boton de guardar se queda deshabilitado mientras `saving` es true, tanto en
-  el pie del dialogo como en el cuerpo del formulario.
+- **Fechas del motor en UTC a medianoche.** El feed trae cadenas ISO y se
+  parsean como UTC: leer los campos locales desplazaria el dia segun el
+  desfase horario del cliente. La `toIsoDate` anterior usaba campos locales y
+  por eso se sustituye.
+- **Unidad = dia.** Una barra cubre `start_date`..`end_date` inclusive; su
+  ancho es `(fin - inicio + 1) * pxPorDia`. Desaparece la ambiguedad del
+  "ultimo instante" con que la libreria entregaba el final.
+- **Semana ISO**: el 31/12/2026 es `2026-W53`. El eje de la escala Semana usa la
+  clave ISO de `utils/weeks.js`, sin reimplementarla.
+- **Permiso por barra**, no por vista: el Gantt global mezcla proyectos, asi
+  que se consulta `ambito.editable_project_ids` de `meApi.get()` y cada barra
+  es editable si su proyecto esta en la lista.
+- **Rango en la URL** con `?from=` y `?to=` (fechas ISO). Sin ellos, el
+  rango es "Completo". La escala (Dia/Semana/Mes) sigue siendo estado local.
+- **Festivos**: solo se sombrean los de alcance global. Los de persona o
+  departamento se ven en la pantalla Calendario laboral.
+- **Arrastre propio del Gantt** (`composables/useGanttDrag.js`). La
+  extraccion a un composable compartido con Kanban y Calendario queda para
+  cuando el Kanban adopte el contrato (§52, bloque A): tocar el Kanban que
+  ya funciona, sin ganancia visible, es riesgo puro.
+- **Teclado con un solo camino**: las flechas aplican el movimiento, `Shift` mas
+  flechas redimensiona, `Intro` abre el detalle, `Escape` anula. Sin modo de
+  previsualizacion pendiente.
+- **Color por persona**, sin selector: lo decide el §50 del proyecto. El color
+  de proyecto queda para la franja del grupo y el `aria-label`.
 
 ## Pendientes / Siguiente paso inmediato
 
-- Verificacion visual en navegador: esta sesion no tenia Playwright. Conviene
-  revisar el modal en movil (caja pegada abajo) y en escritorio, y el desglose
-  de celda de la matriz, que sigue siendo un panel lateral.
-- `SESSION.md` y `CHANGELOG.md` se crean con este cambio: el repositorio no los
-  tenia.
+- Fase 4 del motor: alta y edicion (doble clic en el eje crea, clic en la barra
+  abre el `TaskDetailDialog`, lista de tareas sin fechas clicable).
+- La retirada de `frappe-gantt` del `package.json` ya esta hecha (la hizo el
+  implementador antes de su turno de revision): el usuario tiene que confirmar
+  el cambio de dependencia antes del commit.
+- Revision visual en navegador: esta sesion no tiene Playwright (el catalogo de
+  herramientas lo retiro), asi que no se pudo hacer. Queda pendiente para una
+  sesion con navegador: modal en movil y escritorio, desglose de celda de la
+  matriz y el Gantt nuevo en las tres escalas.
+- Despues del motor: bloque A (Kanban) y bloque C (Calendario) del §51, y
+  luego G2 (capacidad libre), G1 (horas reales), G3 (politica), G5 (MCP).

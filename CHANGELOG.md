@@ -32,6 +32,14 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   con posicion dentro de la columna, alta inline al pie de cada columna y
   edicion inline del titulo, las horas y el responsable. Mover y reordenar
   usan `PUT /projects/{id}/tasks/order`.
+- **frontend**: el Calendario pasa al contrato comun. Arrastrar una barra a otro
+  dia mueve la tarea conservando la duracion (el mismo PATCH que el Gantt) y
+  la semana de destino se resuelve por donde se suelta; la vista de dia
+  permite crear una tarea para ese dia y editar horas, responsable y estado
+  en linea.
+- **backend**: el feed del Gantt, que es tambien el del calendario, incluye las
+  horas estimadas de la tarea. La insignia de horas de la vista de dia salia
+  en "0 h" porque el dato noviaja.
 - **frontend**: el gesto de arrastre vive en `composables/useArrastre.js`, que
   usan el Kanban y el Gantt. El destino (una columna o un desplazamiento en
   dias) lo resuelve quien invoca el composable.

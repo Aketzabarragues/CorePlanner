@@ -2,13 +2,16 @@
 
 ## Objetivo actual
 
-Bloques B (Gantt) y A (Kanban) del §51, sobre el contrato comun de
-interaccion de la §52. Los dos quedan cerrados en codigo: motor de Gantt
-propio (fases 0 a 4) y Kanban con orden persistido, contadores, alta y
-edicion inline, y el gesto de arrastre compartido. Sigue el bloque C
-(Calendario) y despues las funcionalidades post-v1 (G2, G1, G3, G5, G4).
-Pendiente en todas partes: la revision visual en navegador, que esta sesion
-no puede hacer.
+Los tres bloques del §51 (B: Gantt, A: Kanban, C: Calendario) quedan
+cerrados en codigo, sobre el contrato comun de interaccion de la §52: motor
+de Gantt propio, Kanban con orden persistido, contadores, alta y edicion
+inline, Calendario con arrastre entre dias, alta y edicion en la vista de
+dia, y el gesto de arrastre compartido.
+
+Pendiente: la exportacion `.ics` (la unica funcionalidad de la v1 que sigue
+abierta), las funcionalidades post-v1 (G2 capacidad libre, G1 horas reales,
+G3 politica de capacidad, G5 MCP, G4 dependencias) y la revision visual en
+navegador, que esta sesion no puede hacer.
 
 ## Cambios realizados
 
@@ -70,6 +73,18 @@ no puede hacer.
     insercion, alta inline al pie de columna, edicion inline de titulo, horas
     y responsable, y el selector de estado pasando por el endpoint de orden.
   - `tasksApi.reorder` en `frontend/src/api/client.js`.
+- Bloque C (Calendario):
+  - `WeekLanes.vue`: las barras se arrastran si el proyecto de su tarea esta
+    entre los editables, cada semana lleva su `data-semana` y el dia bajo el
+    puntero se resalta. `WeekGrid.vue` reemite el gesto.
+  - `CalendarView.vue`: el arrastre resuelve el dia por la horizontal y la
+    semana por la vertical (la `<y>` del puntero), mueve la tarea conservando
+    la duracion con el mismo PATCH que el Gantt, y monta el alta del dia con
+    `ModalDialog` + `TaskForm`.
+  - `DayDetail.vue`: alta de tarea del dia y edicion inline de horas,
+    responsable y estado (el componente emite; la vista guarda).
+  - `backend/services/gantt.py` y `schemas.py`: el feed del Gantt (que es
+    tambien el del calendario) incluye las horas estimadas de la tarea.
 - Motor de Gantt, fase 4: alta y edicion.
   - El doble clic en el hueco de una fila abre el alta (`ModalDialog` +
     `TaskForm`, el patron del desglose de celda), con las fechas precargadas

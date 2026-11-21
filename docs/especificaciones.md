@@ -2208,10 +2208,11 @@ Hoy el diagrama usa `frappe-gantt` (0.6.1) sobre el feed JSON que ya sirve el ba
 
 Hoy `CalendarView.vue` (565 lineas) muestra el mes con los carriles de semana y el detalle del dia.
 
-- **Arrastrar una tarea a un dia** cambia sus fechas a ese dia, conservando la duracion; arrastrar dentro de un dia cambia su hora de inicio si la tarea lleva horas.
+- **Arrastrar una tarea a un dia** cambia sus fechas a ese dia, conservando la duracion. El calendario es de dia y sin hora: el modelo de tareas tiene fechas, no horas, asi que no hay posicion dentro del dia ni franjas horarias.
 - **Crear en el dia**: un dia con espacio libre permite crear una tarea de un dia en ese dia.
 - **Editar en el dia**: el detalle del dia permite cambiar horas, responsable y estado de la tarea sin salir.
 - **El mes sigue siendo una lista de semanas** (§47): el calendario no inventa una rejilla de dia por dia que contradiga la convencion de la app.
+- **La semana de destino se resuelve por la altura del puntero**: en la vista de mes cada semana es un `<tbody>` de la tabla, con su `data-semana`, y las siete columnas de dia tienen el mismo ancho (`table-fixed`), asi que el dia sale de la coordenada horizontal y la semana de la vertical. La barra se arrastra solo si el proyecto de su tarea esta entre los editables de quien entra.
 
 ### Que no entra (bloques A, B y C)
 

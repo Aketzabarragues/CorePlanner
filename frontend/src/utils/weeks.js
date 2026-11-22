@@ -47,6 +47,33 @@ export function shiftWeek(key, delta) {
   return isoWeekKey(monday)
 }
 
+/**
+ * Semana del rango visible mas cercana a la de referencia que tenga tareas.
+ *
+ * El rango va por claves ISO (`2026-W45`) o `null` para sin limite. Primero
+ * se mira hacia adelante desde la semana de referencia y despues hacia atras:
+ * gana la mas cercana, no la mas temprana. Sin tareas en el rango, `null`.
+ *
+ * Las tareas son las del feed del Gantt, con `start` en fecha ISO: la semana
+ * de una tarea es la de su primer dia.
+ */
+export function weekWithTasksNear(key, tasks, from = null, to = null) {
+  const dentro = (candidata) =>
+    (from === null || candidata >= from) && (to === null || candidata <= to)
+  const semanaDe = (task) => isoWeekKey(new Date(`${task.start}T00:00:00Z`))
+  for (let offset = 0; offset <= 52; offset += 1) {
+    const candidata = shiftWeek(key, offset)
+    if (to !== null && candidata > to) break
+    if (dentro(candidata) && tasks.some((task) => semanaDe(task) === candidata)) return candidata
+  }
+  for (let offset = 1; offset <= 53; offset += 1) {
+    const candidata = shiftWeek(key, -offset)
+    if (from !== null && candidata < from) break
+    if (dentro(candidata) && tasks.some((task) => semanaDe(task) === candidata)) return candidata
+  }
+  return null
+}
+
 /** Etiqueta corta de la semana: "S46". */
 export function weekLabel(key) {
   return `S${key.split('-W')[1]}`

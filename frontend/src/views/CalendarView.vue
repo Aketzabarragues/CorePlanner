@@ -22,7 +22,7 @@
  * Al pulsar una tarea se abre su detalle en el mismo panel que usa el Tablero.
  * Quien no puede escribir en ese proyecto lo ve en solo lectura.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { calendarApi, meApi, overviewApi, peopleApi, tasksApi } from '../api/client'
@@ -54,6 +54,7 @@ import {
   shiftMonth,
 } from '../utils/month'
 import { sortByDepartment } from '../utils/people'
+import { plural } from '../utils/plural'
 import {
   currentWeekKey,
   isoWeekKey,
@@ -61,6 +62,7 @@ import {
   weekDays,
   weekRangeLabel,
   weekWorkdays,
+  weekWithTasksNear,
 } from '../utils/weeks'
 
 const auth = useAuthStore()
@@ -88,6 +90,8 @@ const altaDelDia = ref(null)
 const saving = ref(false)
 /** Aviso que no tapa el calendario: un rechazo del servidor al guardar. */
 const aviso = ref(null)
+/** Contenedor vertical de la tabla del mes, para desplazarlo a la semana con trabajo. */
+const mesScroll = ref(null)
 
 const query = computed(() => route.query ?? {})
 
@@ -268,6 +272,32 @@ const dayCanEdit = computed(() => {
 })
 
 /**
+ * Semana en pantalla sin tareas, para el aviso de la vista semanal.
+ *
+ * Se compara contra los siete dias de la semana, no solo los laborables: una
+ * tarea que solo ocupa el fin de semana tambien cuenta.
+ */
+const semanaSinTareas = computed(() => {
+  const dias = weekDays(week.value)
+  const inicio = dias[0].date
+  const fin = dias[6].date
+  return visibleTasks.value.every((task) => task.start > fin || task.end < inicio)
+})
+
+/**
+ * Semana mas cercana a la de la vista que tenga tareas, dentro del rango visible.
+ *
+ * La siguiente que tenga tareas, o la anterior si no hay ninguna por delante.
+ * Sin ninguna, `null`: el boton de salto no se muestra.
+ */
+const semanaConTrabajo = computed(() => weekWithTasksNear(week.value, visibleTasks.value, null, null))
+
+/** Salta a la semana visible mas cercana con tareas. */
+function irASemanaConTrabajo() {
+  if (semanaConTrabajo.value) week.value = semanaConTrabajo.value
+}
+
+/**
  * Arrastrar una barra a otro dia: la tarea se mueve a ese dia conservando su
  * duracion, y se guarda con el mismo PATCH que el Gantt al mover una barra.
  *
@@ -370,6 +400,25 @@ function onBarDragStart({ tarea, event }) {
  */
 const semanasDelMes = computed(() => weeks.value)
 
+/**
+ * Desplaza la tabla del mes a la primera semana que tenga tareas.
+ *
+ * El mes abre por la primera semana del mes, asi que con trabajo en semanas
+ * posteriores (o sin trabajo en la semana en curso) el calendario se abriria
+ * en un sitio vacio. Sin ninguna tarea en el mes la tabla se queda arriba.
+ */
+function desplazarMesASemanaConTrabajo() {
+  const contenedor = mesScroll.value
+  if (!contenedor) return
+  const indice = semanasDelMes.value.findIndex((dias) =>
+    visibleTasks.value.some((task) => task.start <= dias[6].date && dias[0].date <= task.end),
+  )
+  if (indice < 0) return
+  const cuerpo = contenedor.querySelectorAll('tbody')[indice]
+  if (!cuerpo) return
+  contenedor.scrollTop = cuerpo.offsetTop
+}
+
 async function load() {
   try {
     const token = await auth.ensureSession()
@@ -397,6 +446,12 @@ async function load() {
     // detalle de dia y el alta: sin proyecto no hay que pedirlos.
     if (projectFilter.value) await store.ensureMembers(token, projectFilter.value).catch(() => [])
     error.value = null
+    // El mes abre en la primera semana con trabajo, no en la primera semana
+    // del mes: la semilla de la demo ancla el trabajo en semanas posteriores.
+    if (view.value === 'month') {
+      await nextTick()
+      desplazarMesASemanaConTrabajo()
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -404,7 +459,7 @@ async function load() {
   }
 }
 
-function step(delta) {
+async function step(delta) {
   if (view.value === 'day') {
     day.value = shiftDay(day.value, delta)
     return
@@ -414,6 +469,8 @@ function step(delta) {
     return
   }
   month.value = shiftMonth(month.value, delta)
+  await nextTick()
+  desplazarMesASemanaConTrabajo()
 }
 
 /**
@@ -512,10 +569,14 @@ function onTaskDeleted() {
   load()
 }
 
-function goToday() {
+async function goToday() {
   month.value = currentMonthKey()
   week.value = currentWeekKey()
   day.value = localDateKey()
+  if (view.value === 'month') {
+    await nextTick()
+    desplazarMesASemanaConTrabajo()
+  }
 }
 
 /** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
@@ -696,14 +757,24 @@ watch(
       </AlertBanner>
 
       <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
-        {{ undatedTaskIds.length }} tarea(s) sin fechas no aparecen en el calendario.
+        {{ plural(undatedTaskIds.length, 'tarea', 'tareas') }} sin fechas no aparecen en el calendario.
       </p>
 
       <div
         v-if="view === 'month'"
-        class="overflow-x-auto rounded border border-slate-200 bg-white"
+        class="rounded border border-slate-200 bg-white"
         data-testid="calendar-month-view"
       >
+        <!--
+          Contenedor vertical de la tabla: permite desplazar la rejilla hasta
+          la primera semana con trabajo. El desbordamiento horizontal queda en
+          el marco exterior, como antes.
+        -->
+        <div
+          ref="mesScroll"
+          class="max-h-[80vh] overflow-y-auto overflow-x-auto"
+          data-testid="calendar-month-scroll"
+        >
         <table
           class="w-full min-w-[42rem] table-fixed border-collapse text-sm"
           data-testid="calendar-month-table"
@@ -723,7 +794,30 @@ watch(
             />
           </template>
         </table>
+        </div>
       </div>
+
+      <!--
+        La semana en pantalla no tiene tareas: se dice y se ofrece saltar a la
+        semana visible mas cercana con trabajo, si la hay.
+      -->
+      <AlertBanner
+        v-if="view === 'week' && semanaSinTareas"
+        variant="info"
+        class="mb-3"
+        data-testid="calendar-week-empty"
+      >
+        No hay tareas en esta semana
+        <button
+          v-if="semanaConTrabajo"
+          type="button"
+          class="rounded border border-slate-300 bg-white px-2 py-0.5 text-sm font-normal"
+          data-testid="calendar-goto-busy-week"
+          @click="irASemanaConTrabajo"
+        >
+          Ir a la semana con trabajo
+        </button>
+      </AlertBanner>
 
       <WeekGrid
         v-else-if="view === 'week'"

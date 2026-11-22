@@ -447,7 +447,7 @@ describe('CalendarView', () => {
   it('avisa de las tareas sin fechas', async () => {
     const { wrapper } = await mountView()
 
-    expect(wrapper.text()).toContain('1 tarea(s) sin fechas')
+    expect(wrapper.text()).toContain('1 tarea sin fechas')
   })
 
   it('con filtro de proyecto pide solo las tareas de ese proyecto', async () => {
@@ -480,6 +480,44 @@ describe('CalendarView', () => {
 
     await wrapper.find('[data-testid="calendar-today"]').trigger('click')
     expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Noviembre 2026')
+  })
+
+  it('el mes se desplaza a la primera semana con trabajo, no a la del mes', async () => {
+    const { wrapper } = await mountView()
+
+    const contenedor = wrapper.find('[data-testid="calendar-month-scroll"]')
+    expect(contenedor.exists()).toBe(true)
+    const cuerpos = contenedor.element.querySelectorAll('tbody')
+    expect(cuerpos).toHaveLength(6)
+
+    // jsdom no hace layout: se mide cada semana como la mediria el navegador
+    // y se vuelve a pedir el desplazamiento con un paso de mes.
+    cuerpos.forEach((cuerpo, indice) => {
+      Object.defineProperty(cuerpo, 'offsetTop', { value: (indice + 1) * 200, configurable: true })
+    })
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    await settle()
+
+    // La primera semana del mes (30-31 oct) no tiene tareas: el desplazamiento
+    // cae en la primera con trabajo, la del lunes 2, el segundo tbody.
+    expect(contenedor.element.scrollTop).toBe(400)
+  })
+
+  it('el mes sin ninguna tarea con trabajo se queda arriba', async () => {
+    setupFetch({ payload: { ...feed, tasks: [] } })
+    const { wrapper } = await mountView()
+
+    const contenedor = wrapper.find('[data-testid="calendar-month-scroll"]')
+    const cuerpos = contenedor.element.querySelectorAll('tbody')
+    cuerpos.forEach((cuerpo, indice) => {
+      Object.defineProperty(cuerpo, 'offsetTop', { value: (indice + 1) * 200, configurable: true })
+    })
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-prev"]').trigger('click')
+    await settle()
+
+    expect(contenedor.element.scrollTop).toBe(0)
   })
 
   it('las barras no usan la paleta por persona', async () => {
@@ -608,6 +646,88 @@ describe('CalendarView en modo semanal', () => {
 
     expect(wrapper.find('[data-testid="calendar-month-view"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
+  })
+})
+
+describe('CalendarView: semana sin tareas', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Pasa a la vista semanal y navega hasta la semana pedida. */
+  async function aSemana({ wrapper, delta }) {
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    for (let i = 0; i < Math.abs(delta); i += 1) {
+      await wrapper.find(delta > 0 ? '[data-testid="calendar-next"]' : '[data-testid="calendar-prev"]')
+        .trigger('click')
+      await flushPromises()
+    }
+  }
+
+  it('una semana sin tareas avisa y ofrece saltar a la que tiene trabajo', async () => {
+    const { wrapper } = await mountView()
+
+    // W45 (semana en curso) tiene tarea; W47 no.
+    await aSemana({ wrapper, delta: 2 })
+
+    const aviso = wrapper.find('[data-testid="calendar-week-empty"]')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.text()).toContain('No hay tareas en esta semana')
+
+    // La semana con trabajo mas cercana es la siguiente (W46), no la anterior.
+    await wrapper.find('[data-testid="calendar-goto-busy-week"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W46')
+    expect(wrapper.find('[data-testid="calendar-week-empty"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(1)
+  })
+
+  it('sin semanas por delante salta a la anterior', async () => {
+    const { wrapper } = await mountView()
+
+    // W44: la unica semana con trabajo esta atras (W45).
+    await aSemana({ wrapper, delta: -1 })
+
+    const aviso = wrapper.find('[data-testid="calendar-week-empty"]')
+    expect(aviso.exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-goto-busy-week"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="calendar-goto-busy-week"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
+    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(1)
+  })
+
+  it('una semana con tareas no muestra el aviso', async () => {
+    const { wrapper } = await mountView()
+
+    await aSemana({ wrapper, delta: 0 })
+
+    expect(wrapper.find('[data-testid="calendar-week-empty"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="calendar-goto-busy-week"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="week-task"]')).toHaveLength(1)
+  })
+
+  it('sin ninguna semana con trabajo no hay boton de salto', async () => {
+    setupFetch({ payload: { ...feed, tasks: [] } })
+    const { wrapper } = await mountView()
+
+    await aSemana({ wrapper, delta: 1 })
+
+    const aviso = wrapper.find('[data-testid="calendar-week-empty"]')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.text()).toContain('No hay tareas en esta semana')
+    expect(wrapper.find('[data-testid="calendar-goto-busy-week"]').exists()).toBe(false)
   })
 })
 

@@ -540,6 +540,67 @@ describe('GanttView', () => {
     expect(ultima + 7 * PX_POR_DIA_SEMANA).toBe(ancho)
   })
 
+  it('con el panel sin medir (jsdom) la escala se queda en la natural', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    // Rango 2026-11-02 a 2026-11-15 (14 dias) a 14 px: el panel mide 0 en
+    // jsdom, asi que la escala no sube y el lienzo queda a 196 px.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    expect(svg.attributes('width')).toBe('196')
+    expect(svg.attributes('style')).toContain('min-width: 196px')
+  })
+
+  it('estira la escala al ancho del panel cuando el chart lo informa', async () => {
+    setupFetch()
+
+    const callbacks = []
+    const observerOriginal = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    const descriptorAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 0,
+    })
+
+    try {
+      const { wrapper } = await mountGantt()
+
+      // El panel mide 0 en jsdom: escala natural, 14 dias a 14 px = 196.
+      expect(wrapper.get('[data-testid="gantt-svg"]').attributes('width')).toBe('196')
+
+      // El panel se mide a 2000 px: la escala efectiva sube a
+      // floor(2000 / 14) = 142 px/dia y el lienzo llena el panel.
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 2000 })
+      for (const callback of callbacks) callback()
+      await flushPromises()
+
+      const svg = wrapper.get('[data-testid="gantt-svg"]')
+      expect(svg.attributes('width')).toBe(String(14 * 142))
+      expect(svg.attributes('style')).toContain('min-width: 1988px')
+      // Las barras se repintan a la escala estirada: la de siete dias vale 994.
+      const barra = wrapper
+        .findAll('[data-testid="gantt-bar"]')
+        .find((item) => item.attributes('aria-label').includes('Programacion SCADA'))
+      expect(barra.find('.gantt__barra-cuerpo').attributes('width')).toBe(String(7 * 142))
+    } finally {
+      globalThis.ResizeObserver = observerOriginal
+      if (descriptorAncho) {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', descriptorAncho)
+      } else {
+        delete HTMLElement.prototype.clientWidth
+      }
+    }
+  })
+
   it('ofrece los botones de escala temporal', async () => {
     setupFetch()
 

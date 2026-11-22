@@ -7,6 +7,7 @@ import {
   dateChangePayload,
   dayIndex,
   diffDays,
+  escalaAjustada,
   inclusiveDays,
   parseIsoDate,
   scaleById,
@@ -79,5 +80,46 @@ describe('escala temporal del Gantt', () => {
       start_date: '2026-11-05',
       end_date: '2026-11-11',
     })
+  })
+})
+
+describe('escala ajustada al ancho del panel', () => {
+  const semana = { id: 'Week', label: 'Semana', pxPerDay: 14, header: 'week' }
+  const dia = { id: 'Day', label: 'Día', pxPerDay: 44, header: 'day' }
+  const mes = { id: 'Month', label: 'Mes', pxPerDay: 5, header: 'month' }
+
+  it('sin ancho utilizable devuelve la escala natural sin tocarla', () => {
+    expect(escalaAjustada(semana, 42, 0)).toBe(semana)
+    expect(escalaAjustada(semana, 42, NaN)).toBe(semana)
+    expect(escalaAjustada(semana, 42)).toBe(semana)
+    expect(escalaAjustada(semana, 0, 2000)).toBe(semana)
+  })
+
+  it('con ancho grande sube los pixeles por dia hasta floor(ancho / dias)', () => {
+    // 2000 / 42 = 47.6: floor 47, por encima del natural 14 de Semana.
+    expect(escalaAjustada(semana, 42, 2000).pxPerDay).toBe(47)
+    expect(escalaAjustada(semana, 42, 2000)).toEqual({
+      id: 'Week',
+      label: 'Semana',
+      pxPerDay: 47,
+      header: 'week',
+    })
+  })
+
+  it('con ancho pequeño no baja del pxPerDay natural', () => {
+    // 100 / 42 = 2.38: el natural 14 de Semana no se baja.
+    expect(escalaAjustada(semana, 42, 100).pxPerDay).toBe(14)
+    // 200 / 42 = 4.7: por debajo del natural 5 de Mes, que se conserva.
+    expect(escalaAjustada(mes, 42, 200).pxPerDay).toBe(5)
+    // 2000 / 42 = 47: sube del natural 44 de Día.
+    expect(escalaAjustada(dia, 42, 2000).pxPerDay).toBe(47)
+  })
+
+  it('cuando no sube devuelve la misma escala y conserva sus campos', () => {
+    expect(escalaAjustada(semana, 42, 100)).toBe(semana)
+    expect(escalaAjustada(semana, 42, 574)).toBe(semana)
+    const ajustada = escalaAjustada(semana, 42, 2000)
+    expect(ajustada).not.toBe(semana)
+    expect(ajustada).toEqual({ id: 'Week', label: 'Semana', pxPerDay: 47, header: 'week' })
   })
 })

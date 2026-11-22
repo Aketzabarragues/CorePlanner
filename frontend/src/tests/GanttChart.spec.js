@@ -316,6 +316,80 @@ describe('GanttChart', () => {
     expect(wrapper.find('[data-testid="gantt-dependency-10-12"]').exists()).toBe(false)
   })
 
+  it('el SVG lleva el ancho del layout como width y min-width, no el del panel', () => {
+    const wrapper = montar(layoutDe())
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    expect(svg.attributes('width')).toBe('196')
+    expect(svg.attributes('style')).toContain('min-width: 196px')
+  })
+
+  it('al montar emite ancho-panel con el ancho medido del panel', () => {
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 480,
+    })
+    try {
+      const wrapper = montar(layoutDe())
+      expect(wrapper.emitted('ancho-panel')).toEqual([[480]])
+    } finally {
+      if (original) Object.defineProperty(HTMLElement.prototype, 'clientWidth', original)
+      else delete HTMLElement.prototype.clientWidth
+    }
+  })
+
+  it('sin ResizeObserver ni ancho, no emite ancho-panel (jsdom)', () => {
+    expect(typeof globalThis.ResizeObserver).toBe('undefined')
+    const wrapper = montar(layoutDe())
+    expect(wrapper.emitted('ancho-panel')).toBeUndefined()
+  })
+
+  it('emite ancho-panel cuando el ancho cambia y desconecta al desmontar', () => {
+    const original = globalThis.ResizeObserver
+    const originalAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    const callbacks = []
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        this.callback = callback
+        callbacks.push(this)
+      }
+      observe() {}
+      disconnect() {}
+    }
+    // El panel arranca a 0 (jsdom): con 0 no se emite nada.
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 0,
+    })
+    try {
+      const wrapper = montar(layoutDe())
+      expect(wrapper.emitted('ancho-panel')).toBeUndefined()
+
+      const observador = callbacks[0]
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 520 })
+      observador.callback()
+      expect(wrapper.emitted('ancho-panel')).toEqual([[520]])
+
+      // Ancho repetido: no se re-emite.
+      observador.callback()
+      expect(wrapper.emitted('ancho-panel')).toEqual([[520]])
+
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 640 })
+      observador.callback()
+      expect(wrapper.emitted('ancho-panel')).toEqual([[520], [640]])
+
+      // A 0 no se emite de nuevo.
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 0 })
+      observador.callback()
+      expect(wrapper.emitted('ancho-panel')).toEqual([[520], [640]])
+    } finally {
+      globalThis.ResizeObserver = original
+      if (originalAncho) Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalAncho)
+      else delete HTMLElement.prototype.clientWidth
+    }
+  })
+
   it('una barra que viola una dependencia lleva la marca y su aria-label lo dice', () => {
     const layout = layoutDe([
       barraNueva(10, { violates: true, title: 'Programacion SCADA WinCC' }),

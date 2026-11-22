@@ -19,7 +19,7 @@
  * puede arrastrar. El criterio es el mismo que usa el armazon: los proyectos
  * editables de quien entra.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { meApi, projectsApi, tasksApi } from '../api/client'
 import { useArrastre } from '../composables/useArrastre'
@@ -66,6 +66,16 @@ const nuevas = ref({})
 for (const column of KANBAN_COLUMNS) {
   nuevas.value[column.status] = { title: '', hours: '', assigned_to: '' }
 }
+/**
+ * Columna con el formulario de alta abierto, si la hay.
+ *
+ * Solo una columna muestra el formulario a la vez: al abrir otra se cierra la
+ * anterior. El pie de cada columna muestra por defecto un boton fantasma de
+ * alta, que es lo unico visible hasta que se abre el formulario.
+ */
+const altaAbierta = ref(null)
+/** Elemento del input de titulo del formulario abierto, para darle el foco. */
+const titleInput = ref(null)
 
 const auth = useAuthStore()
 
@@ -329,6 +339,26 @@ async function guardarCambio(task, cambios) {
   }
 }
 
+/**
+ * Abre el formulario de alta de una columna y cierra el de las demas.
+ *
+ * El input de titulo recibe el foco al abrir: el formulario se monta en el
+ * mismo tick, asi que el foco se pide tras el siguiente render.
+ */
+function abrirAlta(status) {
+  altaAbierta.value = status
+  nextTick(() => {
+    // El ref se repite por columna: Vue lo rellena como lista.
+    const el = Array.isArray(titleInput.value) ? titleInput.value[0] : titleInput.value
+    el?.focus?.()
+  })
+}
+
+/** Cierra el formulario de alta abierto, si lo hay. */
+function cerrarAlta() {
+  altaAbierta.value = null
+}
+
 /** Alta inline: crea la tarea en la columna donde esta el formulario. */
 async function crearTarea(status) {
   const alta = nuevas.value[status]
@@ -347,6 +377,10 @@ async function crearTarea(status) {
       end_date: hoy,
     })
     notice.value = `Tarea "${alta.title.trim()}" creada.`
+    alta.title = ''
+    alta.hours = ''
+    alta.assigned_to = ''
+    cerrarAlta()
   } catch (err) {
     aviso.value = `No se ha podido crear la tarea: ${err.message}`
   } finally {
@@ -425,7 +459,9 @@ onBeforeUnmount(() => drag.anular())
           <h2 class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
             {{ columnLabel(columna.status) }}
             <span class="rounded bg-white px-1.5 py-0.5 text-slate-500">
-              {{ columna.task_count }} tareas · {{ formatHours(columna.estimated_hours) }}
+              {{ columna.task_count }}
+              {{ columna.task_count === 1 ? 'tarea' : 'tareas' }} ·
+              {{ formatHours(columna.estimated_hours) }}
             </span>
           </h2>
 
@@ -511,17 +547,29 @@ onBeforeUnmount(() => drag.anular())
           </article>
 
           <!--
-            Alta inline al pie de la columna: el minimo de tarea. Las fechas
-            precargan a hoy y se cambian despues en el dialogo del detalle.
+            Alta inline al pie de la columna. El pie solo muestra un boton
+            fantasma; al pulsarlo se monta el formulario de esa columna y el
+            de las demas se cierra. Escape lo cierra sin crear nada.
           -->
+          <button
+            v-if="canEdit && altaAbierta !== columna.status"
+            type="button"
+            class="mt-2 w-full rounded px-1 py-1 text-left text-xs text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-siemens-500"
+            data-testid="kanban-add-task"
+            @click="abrirAlta(columna.status)"
+          >
+            + Anadir tarea
+          </button>
           <form
-            v-if="canEdit"
+            v-if="canEdit && altaAbierta === columna.status"
             class="mt-2 border-t border-slate-200 pt-2"
             data-testid="kanban-new-task"
             @submit.prevent="crearTarea(columna.status)"
+            @keydown.esc="cerrarAlta()"
           >
             <input
               v-model="nuevas[columna.status].title"
+              ref="titleInput"
               type="text"
               placeholder="Nueva tarea"
               class="w-full rounded border border-slate-300 px-2 py-1 text-xs"

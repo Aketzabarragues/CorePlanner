@@ -120,6 +120,12 @@ const miembros = [
  */
 function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {}) {
   const calls = []
+  /**
+   * Tareas creadas en la prueba, por columna: el feed las sirve en la
+   * recarga que sigue al alta, para comprobar que la tarjeta queda.
+   */
+  const creadas = {}
+  let siguienteId = 101
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
     if (url.endsWith('/auth/login')) {
@@ -145,7 +151,15 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {
     if (url.includes('/kanban')) {
       // Copia nueva en cada llamada: la vista mueve las tarjetas al instante
       // y no debe tocar los datos del test.
-      return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(board)) }
+      const copia = JSON.parse(JSON.stringify(board))
+      for (const columna of copia.columns) {
+        for (const tarea of creadas[columna.status] ?? []) {
+          columna.tasks.push(tarea)
+          columna.task_count += 1
+          columna.estimated_hours += Number(tarea.estimated_hours)
+        }
+      }
+      return { ok: true, status: 200, json: async () => copia }
     }
     if (url.endsWith('/api/tasks/1') && (options.method ?? 'GET') === 'GET') {
       return {
@@ -184,6 +198,24 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {
         status: 500,
         json: async () => ({ detail: 'No se pudo guardar' }),
       }
+    }
+    if (options.method === 'POST' && url.endsWith('/tasks')) {
+      const creada = JSON.parse(options.body)
+      const status = creada.status ?? 'backlog'
+      creadas[status] = [
+        ...(creadas[status] ?? []),
+        {
+          id: siguienteId++,
+          title: creada.title,
+          status,
+          assigned_to: creada.assigned_to,
+          assigned_name: creada.assigned_to ? 'Ana' : null,
+          estimated_hours: Number.parseFloat(creada.estimated_hours),
+          start_date: creada.start_date,
+          end_date: creada.end_date,
+        },
+      ]
+      return { ok: true, status: 200, json: async () => ({}) }
     }
     return { ok: true, status: 200, json: async () => ({}) }
   })
@@ -269,8 +301,8 @@ describe('KanbanView', () => {
       .findAll('section h2')
       .map((h) => h.text().replace(/\s+/g, ' ').trim())
     expect(cabeceras).toEqual([
-      'Backlog 1 tareas · 10 h',
-      'En Desarrollo 1 tareas · 40 h',
+      'Backlog 1 tarea · 10 h',
+      'En Desarrollo 1 tarea · 40 h',
       'Pruebas (FAT/SAT) 2 tareas · 7 h',
       'Completado 2 tareas · 6 h',
     ])
@@ -458,15 +490,33 @@ describe('KanbanView', () => {
     expect(aviso.text()).toContain('No se pudo mover')
   })
 
-  it('alta inline: crea la tarea en la columna del formulario con las fechas de hoy', async () => {
+  it('alta inline: el pie de columna muestra el boton fantasma, no el formulario', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(0)
+    const botones = wrapper.findAll('[data-testid="kanban-add-task"]')
+    expect(botones).toHaveLength(4)
+    for (const boton of botones) {
+      expect(boton.text()).toBe('+ Anadir tarea')
+    }
+  })
+
+  it('alta inline: crear la tarea en la columna del formulario con las fechas de hoy', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()
 
-    const form = wrapper.findAll('[data-testid="kanban-new-task"]')[2]
+    const botones = wrapper.findAll('[data-testid="kanban-add-task"]')
+    await botones[2].trigger('click')
+    await flushPromises()
+
+    const form = wrapper.findAll('[data-testid="kanban-new-task"]')[0]
     await form.find('input[type="text"]').setValue('Nueva tarea FAT')
     await form.find('input[type="number"]').setValue('8')
     await form.findAll('select')[0].setValue('2')
     await form.trigger('submit')
+    await flushPromises()
+    // La recarga tras la creacion es otra cadena de peticiones.
     await flushPromises()
 
     const hoy = localDateKey()
@@ -480,11 +530,21 @@ describe('KanbanView', () => {
       start_date: hoy,
       end_date: hoy,
     })
+    // El formulario se cierra al crear. La API no recibe estado: la tarea
+    // cae en backlog, el por defecto, y la tarjeta queda tras la recarga.
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(0)
+    const columna = wrapper.findAll('section')[0]
+    expect(columna.text()).toContain('Nueva tarea FAT')
+    expect(columna.text()).toContain('2 tareas · 18 h')
   })
 
   it('alta inline: sin titulo no crea nada', async () => {
     const calls = setupFetch()
     const wrapper = await mountKanban()
+
+    const [boton] = wrapper.findAll('[data-testid="kanban-add-task"]')
+    await boton.trigger('click')
+    await flushPromises()
 
     const form = wrapper.findAll('[data-testid="kanban-new-task"]')[0]
     await form.find('input[type="text"]').setValue('  ')
@@ -492,6 +552,53 @@ describe('KanbanView', () => {
     await flushPromises()
 
     expect(calls.find((c) => c.url === '/api/projects/1/tasks')).toBeUndefined()
+    // El formulario queda abierto: el alta no se descarto, solo no valido.
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(1)
+  })
+
+  it('alta inline: abrir el formulario de una columna cierra el de la otra', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    const [botonPrimera] = wrapper.findAll('[data-testid="kanban-add-task"]')
+    await botonPrimera.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="kanban-add-task"]')).toHaveLength(3)
+
+    // El de la primera ya no esta: el tercero de los que quedan es el de
+    // la columna de pruebas.
+    await wrapper.findAll('[data-testid="kanban-add-task"]')[1].trigger('click')
+    await flushPromises()
+    const forms = wrapper.findAll('[data-testid="kanban-new-task"]')
+    expect(forms).toHaveLength(1)
+    // El que queda es el de la columna tercera; el de la primera se cerro.
+    expect(forms[0].element.closest('section').querySelector('h2').textContent).toContain('Pruebas')
+  })
+
+  it('alta inline: Escape cierra el formulario sin crear nada', async () => {
+    const calls = setupFetch()
+    const wrapper = await mountKanban()
+
+    const [boton] = wrapper.findAll('[data-testid="kanban-add-task"]')
+    await boton.trigger('click')
+    await flushPromises()
+
+    const form = wrapper.find('[data-testid="kanban-new-task"]')
+    await form.find('input[type="text"]').setValue('Tarea abandonada')
+    await form.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(0)
+    expect(calls.find((c) => c.url === '/api/projects/1/tasks')).toBeUndefined()
+  })
+
+  it('alta inline: sin permiso de escritura no hay boton de alta ni formulario', async () => {
+    setupFetch({ editable: [] })
+    const wrapper = await mountKanban()
+
+    expect(wrapper.findAll('[data-testid="kanban-add-task"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="kanban-new-task"]')).toHaveLength(0)
   })
 
   it('reordenar en la propia columna no cuenta la tarjeta arrastrada', async () => {

@@ -68,7 +68,7 @@ function empezarArrastre(event) {
     :aria-disabled="editable ? undefined : 'true'"
     :aria-current="seleccionada ? 'true' : undefined"
     aria-describedby="gantt-instrucciones"
-    :transform="`translate(${barra.x}px, ${y + 6}px)`"
+    :transform="`translate(${barra.x}, ${y + 6})`"
     :class="[
       barra.color,
       {

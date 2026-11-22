@@ -72,6 +72,17 @@ describe('GanttChart', () => {
     expect(eje.attributes('aria-hidden')).toBe('true')
   })
 
+  it('la barra se coloca con un transform de SVG sin unidades', () => {
+    // El atributo `transform` de un elemento SVG NO admite unidades CSS: con
+    // `translate(98px, 42px)` el navegador descarta el atributo entero y la
+    // barra no se dibuja. Solo la propiedad CSS `transform` acepta `px`.
+    const wrapper = montar(layoutDe())
+
+    const transform = wrapper.get('[data-testid="gantt-bar"]').attributes('transform')
+    expect(transform).toMatch(/^translate\(\d+(\.\d+)?, -?\d+(\.\d+)?\)$/)
+    expect(transform).not.toContain('px')
+  })
+
   it('pinta una cabecera de grupo con su testid por fila', () => {
     const layout = layoutDe()
     layout.rows.unshift({ type: 'group', label: 'Alimentacion', rowIndex: 0 })

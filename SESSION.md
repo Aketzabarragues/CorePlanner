@@ -8,9 +8,13 @@ de Gantt propio, Kanban con orden persistido, contadores, alta y edicion
 inline, Calendario con arrastre entre dias, alta y edicion en la vista de
 dia, y el gesto de arrastre compartido.
 
-Pendiente: solo la revision visual en navegador, que esta sesion no puede
-hacer. La v1 queda cerrada entera (con la exportacion `.ics`), y con ella G1,
-G2, G3, G4 y G5: todo el plan, en codigo.
+La revision visual con navegador esta hecha (48 capturas, cuatro fallos
+corregidos). La v1 queda cerrada entera (con la exportacion `.ics`), y con
+ella G1, G2, G3, G4 y G5: todo el plan, en codigo.
+
+Pendiente de decidir: si la semilla de demostracion sigue anclando el trabajo
+dos y tres semanas por delante (deja la primera pantalla del calendario y de
+"Mi trabajo" vacia) o si se mueve parte del trabajo a la semana en curso.
 
 ## Cambios realizados
 
@@ -183,6 +187,19 @@ G2, G3, G4 y G5: todo el plan, en codigo.
   previsualizacion pendiente.
 - **Color por persona**, sin selector: lo decide el §50 del proyecto. El color
   de proyecto queda para la franja del grupo y el `aria-label`.
+
+- Revision visual con navegador (la primera de la aplicacion): 48 capturas de
+  todas las ventanas en `_capturas/` (fuera del repo). Cuatro fallos que
+  ninguna suite puede ver: el Gantt no dibujaba barras (el `transform` de SVG
+  con unidades CSS), el alta inline del Kanban estaba en las cuatro columnas,
+  el calendario abria en una semana vacia y los plurales eran perezosos.
+  Todo corregido y con test donde se puede.
+- Prueba del servidor MCP en marcha: el catalogo y una llamada por tool con
+  datos reales, en `docs/mcp-prueba.md`. La salida de las tools no era
+  parseable (una lista se reparte en varios bloques): ahora cada tool devuelve
+  un objeto.
+- `docs/analisis-interfaces.md`: el analisis de la aplicacion y su ciclo de
+  vida, con el indice de capturas.
 
 ## Pendientes / Siguiente paso inmediato
 

@@ -10,7 +10,7 @@ function barraNueva(taskId = 10, overrides = {}) {
     taskId,
     x: 42,
     width: 56,
-    rowIndex: 0,
+    rowIndex: overrides.rowIndex ?? 0,
     label: 'Programacion SCADA WinCC',
     title: 'Programacion SCADA WinCC',
     color: 'persona-0',
@@ -23,8 +23,14 @@ function barraNueva(taskId = 10, overrides = {}) {
   }
 }
 
-/** Layout minimo de `buildLayout`, con la barra ya pegada a la fila. */
-function layoutDe(barras = [barraNueva()], extras = {}) {
+/**
+ * Layout minimo de `buildLayout`, con la barra ya pegada a la fila.
+ *
+ * Tres filas de barra por defecto: el doble clic en el hueco tiene que poder
+ * comprobar que cae en la fila que toca, y con una sola fila no se distingue
+ * un calculo de fila malo de otro bueno.
+ */
+function layoutDe(barras = [barraNueva(10), barraNueva(11, { rowIndex: 1 }), barraNueva(12, { rowIndex: 2 })], extras = {}) {
   const rows = barras.map((barra, index) => ({ type: 'bar', rowIndex: index, barra }))
   return {
     scale: ESCALA,
@@ -78,9 +84,14 @@ describe('GanttChart', () => {
     // barra no se dibuja. Solo la propiedad CSS `transform` acepta `px`.
     const wrapper = montar(layoutDe())
 
-    const transform = wrapper.get('[data-testid="gantt-bar"]').attributes('transform')
-    expect(transform).toMatch(/^translate\(\d+(\.\d+)?, -?\d+(\.\d+)?\)$/)
-    expect(transform).not.toContain('px')
+    const transform = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .map((barra) => barra.attributes('transform'))
+    expect(transform.length).toBe(3)
+    for (const valor of transform) {
+      expect(valor).toMatch(/^translate\(\d+(\.\d+)?, -?\d+(\.\d+)?\)$/)
+      expect(valor).not.toContain('px')
+    }
   })
 
   it('pinta una cabecera de grupo con su testid por fila', () => {
@@ -94,7 +105,8 @@ describe('GanttChart', () => {
   it('la barra seleccionada lleva el tabindex y el resto no', () => {
     const wrapper = montar(layoutDe(), { barraEnfocada: 10 })
 
-    expect(wrapper.get('[data-testid="gantt-bar"]').attributes('tabindex')).toBe('0')
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    expect(barras.map((barra) => barra.attributes('tabindex'))).toEqual(['0', '-1', '-1'])
   })
 
   it('sin permiso la barra va en solo lectura, sin asas', () => {
@@ -103,11 +115,14 @@ describe('GanttChart', () => {
       etiquetaDe: () => 'Programacion SCADA WinCC. Solo lectura.',
     })
 
-    const barra = wrapper.get('[data-testid="gantt-bar"]')
-    expect(barra.attributes('aria-disabled')).toBe('true')
-    expect(barra.attributes('tabindex')).toBe('-1')
-    expect(barra.attributes('aria-label')).toBe('Programacion SCADA WinCC. Solo lectura.')
-    expect(barra.classes()).toContain('gantt__barra--solo-lectura')
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    expect(barras.length).toBe(3)
+    for (const barra of barras) {
+      expect(barra.attributes('aria-disabled')).toBe('true')
+      expect(barra.attributes('tabindex')).toBe('-1')
+      expect(barra.attributes('aria-label')).toBe('Programacion SCADA WinCC. Solo lectura.')
+      expect(barra.classes()).toContain('gantt__barra--solo-lectura')
+    }
     expect(wrapper.find('[data-testid="gantt-handle-start"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="gantt-handle-end"]').exists()).toBe(false)
   })
@@ -115,17 +130,17 @@ describe('GanttChart', () => {
   it('con permiso la barra lleva las dos asas', () => {
     const wrapper = montar(layoutDe())
 
-    expect(wrapper.get('[data-testid="gantt-handle-start"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="gantt-handle-end"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="gantt-handle-start"]').length).toBe(3)
+    expect(wrapper.findAll('[data-testid="gantt-handle-end"]').length).toBe(3)
   })
 
   it('un clic emite abrir y el foco emite seleccionar', async () => {
     const wrapper = montar(layoutDe())
 
-    await wrapper.get('[data-testid="gantt-bar"]').trigger('click')
+    await wrapper.findAll('[data-testid="gantt-bar"]')[0].trigger('click')
     expect(wrapper.emitted('abrir')).toEqual([[10]])
 
-    await wrapper.get('[data-testid="gantt-bar"]').trigger('focus')
+    await wrapper.findAll('[data-testid="gantt-bar"]')[0].trigger('focus')
     expect(wrapper.emitted('seleccionar')).toEqual([[10]])
   })
 
@@ -134,11 +149,16 @@ describe('GanttChart', () => {
     const wrapper = montar(layout)
 
     // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
-    // x 30 a 14 px/dia es el dia 3 (2026-11-03); y 58, 10 px bajo la
-    // cabecera de 48, cae en la fila 0.
+    // La y es la coordenada de contenido (clientY menos el top del SVG, que
+    // con scroll sube de la ventana). El cuerpo va desplazado 48 px dentro
+    // del SVG: la fila 0 empieza en la y 48 del contenido y la fila es
+    // floor((y - 48) / 36). La cabecera pegajosa tapa la banda [scroll,
+    // scroll + 48) y se descarta antes de mirar la fila: con scroll 0 la
+    // primera fila pulsable es la fila 0, contenido [48, 84). x 30 a 14
+    // px/dia es el dia 3 (2026-11-03); y 60 da floor((60 - 48) / 36) = 0.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
-    await svg.trigger('dblclick', { clientX: 30, clientY: 58 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 60 })
 
     const [payload] = wrapper.emitted('crear')[0]
     expect(payload.dateIso).toBe('2026-11-03')
@@ -150,9 +170,54 @@ describe('GanttChart', () => {
 
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
-    // y 40 esta dentro de la cabecera; y 1000, fuera del cuerpo.
+    // Con scroll 0 la cabecera pegajosa tapa la banda [0, 48): y 40 cae
+    // dentro y se descarta antes de mirar la fila. y 200 da floor((200 - 48)
+    // / 36) = 4 y el layout solo tiene 3 filas (0, 1, 2): sin fila tampoco
+    // emite nada.
     await svg.trigger('dblclick', { clientX: 30, clientY: 40 })
-    await svg.trigger('dblclick', { clientX: 30, clientY: 1000 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 200 })
+
+    expect(wrapper.emitted('crear')).toBeUndefined()
+  })
+
+  it('un doble clic con el panel desplazado cae en la fila del contenido visible', async () => {
+    const layout = layoutDe()
+    const wrapper = montar(layout)
+
+    const panel = wrapper.get('[data-testid="gantt-scroll"]')
+    panel.element.scrollTop = 40
+    await panel.trigger('scroll')
+
+    // Con scroll nativo el borde superior del SVG sube con el contenido: el
+    // rect del SVG lo imita con top -40, como en el navegador. La y queda
+    // en coordenada de contenido (clientY + 40) y la banda tapada por la
+    // cabecera pegajosa pasa a ser [40, 88). El cuerpo va desplazado 48,
+    // asi que la fila es floor((y - 48) / 36): la fila 0 empieza en 48.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: -40, right: 196, bottom: 204 })
+    // clientY 55 es y 95 en contenido, por encima de la banda tapada, y da
+    // floor((95 - 48) / 36) = 1: la fila 1, contenido [84, 120).
+    await svg.trigger('dblclick', { clientX: 30, clientY: 55 })
+
+    const [payload] = wrapper.emitted('crear')[0]
+    expect(payload.fila).toEqual(expect.objectContaining({ type: 'bar', rowIndex: 1 }))
+  })
+
+  it('un doble clic bajo la cabecera pegajosa no emite crear', async () => {
+    const wrapper = montar(layoutDe())
+
+    const panel = wrapper.get('[data-testid="gantt-scroll"]')
+    panel.element.scrollTop = 40
+    await panel.trigger('scroll')
+
+    // Con scroll 40 la cabecera pegajosa tapa la banda [40, 88) del
+    // contenido. El rect del SVG imita el navegador con top -40: clientY 20
+    // da y = 20 + 40 = 60, dentro de la banda tapada. Por mucho que 60 - 48
+    // caiga en la fila 0, el guard y < desplazamiento + 48 descarta el clic
+    // antes de mirar la fila.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: -40, right: 196, bottom: 204 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 20 })
 
     expect(wrapper.emitted('crear')).toBeUndefined()
   })
@@ -168,6 +233,10 @@ describe('GanttChart', () => {
   it('el scroll del panel sube el contenido sin traslacion extra del cuerpo', async () => {
     const wrapper = montar(layoutDe())
 
+    // El cuerpo va desplazado el alto de la cabecera (48) antes de todo
+    // scroll: la fila 0 empieza debajo de la cabecera pegajosa.
+    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 48)')
+
     const panel = wrapper.get('[data-testid="gantt-scroll"]')
     panel.element.scrollTop = 40
     await panel.trigger('scroll')
@@ -177,11 +246,9 @@ describe('GanttChart', () => {
     const eje = wrapper.get('.gantt__eje')
     expect(eje.attributes('transform')).toBe('translate(0, 40)')
 
-    // El cuerpo ya sube con el scroll nativo: no lleva traslacion propia, ni
-    // una negativa igual al desplazamiento, que lo subiria el doble de
-    // rapido.
-    const transformCuerpo = wrapper.get('.gantt__cuerpo').attributes('transform')
-    expect([undefined, '', 'translate(0, 0)']).toContain(transformCuerpo)
+    // El cuerpo sube con el scroll nativo del SVG: su traslacion es la
+    // misma constante, sin variacion con el scroll.
+    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 48)')
 
     // La columna de nombres no esta dentro del panel: su pista replica el
     // desplazamiento una sola vez.
@@ -192,7 +259,7 @@ describe('GanttChart', () => {
   it('una tecla sube a la vista con el identificador de la barra', async () => {
     const wrapper = montar(layoutDe())
 
-    await wrapper.get('[data-testid="gantt-bar"]').trigger('keydown', { key: 'ArrowRight' })
+    await wrapper.findAll('[data-testid="gantt-bar"]')[0].trigger('keydown', { key: 'ArrowRight' })
 
     const evento = wrapper.emitted('tecla')[0][0]
     expect(evento.key).toBe('ArrowRight')
@@ -261,7 +328,7 @@ describe('GanttChart', () => {
           : `Etiqueta de la ${id}`,
     })
 
-    const barra = wrapper.get('[data-testid="gantt-bar"]')
+    const barra = wrapper.findAll('[data-testid="gantt-bar"]')[0]
     expect(barra.find('[data-testid="gantt-bar-violation"]').exists()).toBe(true)
     expect(barra.attributes('aria-label')).toContain(
       'Empieza antes de que termine Montajes.',

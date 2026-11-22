@@ -212,7 +212,7 @@ function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada
  * El proyecto es un filtro que vive en la URL, de modo que la vista se monta
  * siempre en la misma ruta y lo que cambia es la consulta.
  */
-async function mountGantt(query = {}) {
+async function mountGantt(query = {}, extra = {}) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/gantt', name: 'gantt', component: { template: '<div />' } }],
@@ -222,6 +222,7 @@ async function mountGantt(query = {}) {
 
   const wrapper = mount(GanttView, {
     global: { plugins: [createPinia(), router] },
+    ...extra,
   })
   await flushPromises()
   await flushPromises()
@@ -645,6 +646,36 @@ describe('GanttView', () => {
     })
   })
 
+  it('las flechas verticales mueven el foco real entre barras', async () => {
+    setupFetch()
+
+    // Con el diagrama montado en el body: sin esto el SVG queda desconectado
+    // y `focus()` no mueve `activeElement` en jsdom.
+    const { wrapper } = await mountGantt({}, { attachTo: document.body })
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    const primera = barras[0]
+    const siguiente = barras[1]
+
+    // Con el foco en la primera barra, ArrowUp no tiene destino: el foco no
+    // se mueve.
+    await primera.element.focus()
+    await primera.trigger('keydown', { key: 'ArrowUp' })
+    await flushPromises()
+    expect(wrapper.element.ownerDocument.activeElement).toBe(primera.element)
+
+    // ArrowDown mueve el foco real a la barra siguiente: el tabindex salta a
+    // esa barra y la vista la enfoca por su data-task-id.
+    await primera.trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+
+    const activa = wrapper.element.ownerDocument.activeElement
+    expect(activa).toBe(siguiente.element)
+    expect(activa.getAttribute('data-task-id')).toBe(
+      siguiente.attributes('data-task-id'),
+    )
+  })
+
   it('agrupar por proyecto ordena las barras por proyecto', async () => {
     setupFetch()
 
@@ -823,7 +854,11 @@ describe('GanttView', () => {
     const { wrapper } = await mountGantt()
     // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
     // El rango del feed abre en 2026-11-02 (lunes) a 14 px/dia: x 56 es el
-    // 2026-11-06 (jueves). La fila 2 es la tarea de Ana.
+    // 2026-11-06 (jueves). La y es la coordenada de contenido (el top del
+    // SVG sube con el scroll del panel): la cabecera pegajosa tapa la banda
+    // [scroll, scroll + 48), el cuerpo va desplazado 48 y la fila es
+    // floor((y - 48) / 36); con scroll 0 y 130 cae en la fila 2, la tarea
+    // de Ana.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
     await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
@@ -847,7 +882,9 @@ describe('GanttView', () => {
 
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
-    // x 70 es el dia 5 del rango (2026-11-02 + 5 = 2026-11-07, domingo).
+    // x 70 es el dia 5 del rango (2026-11-02 + 5 = 2026-11-07, domingo);
+    // y 130 cae en la fila 2 con la formula de la coordenada de contenido:
+    // floor((130 - 48) / 36) = 2, por encima de la banda tapada [0, 48).
     await svg.trigger('dblclick', { clientX: 70, clientY: 130 })
     await flushPromises()
 

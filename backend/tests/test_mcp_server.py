@@ -133,7 +133,7 @@ async def test_el_servidor_hace_initialize_list_y_llama_a_una_tool(
         await client.close()
 
     assert result.isError is False
-    assert result.structuredContent["result"]["name"] == "Ana"
+    assert result.structuredContent["name"] == "Ana"
     assert [request.url.path for request in transport.requests] == ["/api/me"]
     assert transport.requests[0].headers["Authorization"] == "Bearer token-prueba"
 

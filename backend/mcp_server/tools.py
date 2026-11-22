@@ -12,7 +12,6 @@ FastMCP, que envuelve la excepcion en un texto plano.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import date, timedelta
 from typing import Annotated, Any
 
@@ -67,7 +66,7 @@ def build_server(client: ApiClient) -> FastMCP:
             "proyectos que ve y en los que puede escribir."
         ),
     )
-    async def whoami() -> Mapping[str, Any]:
+    async def whoami() -> dict[str, Any]:
         data = await client.get("/me")
         user = data["user"]
         return {
@@ -89,18 +88,20 @@ def build_server(client: ApiClient) -> FastMCP:
             "color y responsable."
         ),
     )
-    async def projects() -> list[dict[str, Any]]:
+    async def projects() -> dict[str, Any]:
         data = await client.get("/projects")
-        return [
-            {
-                "id": project["id"],
-                "name": project["name"],
-                "status": project["status"],
-                "color": project.get("color"),
-                "owner_name": project.get("owner_name"),
-            }
-            for project in data
-        ]
+        return {
+            "projects": [
+                {
+                    "id": project["id"],
+                    "name": project["name"],
+                    "status": project["status"],
+                    "color": project.get("color"),
+                    "owner_name": project.get("owner_name"),
+                }
+                for project in data
+            ]
+        }
 
     @app.tool(
         name="capacity_matrix",
@@ -126,7 +127,7 @@ def build_server(client: ApiClient) -> FastMCP:
             int | None,
             Field(description="Limita el informe a los proyectos de ese departamento"),
         ] = None,
-    ) -> Mapping[str, Any]:
+    ) -> dict[str, Any]:
         data = await client.get(
             "/capacity",
             params=_clean_params(
@@ -158,7 +159,7 @@ def build_server(client: ApiClient) -> FastMCP:
             int | None,
             Field(description="Limita el informe a los proyectos de ese departamento"),
         ] = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         data = await client.get(
             "/capacity",
             params=_clean_params(
@@ -166,7 +167,7 @@ def build_server(client: ApiClient) -> FastMCP:
             ),
         )
         report = summarize_capacity_report(data)
-        return overloaded_people(report)
+        return {"overloaded": overloaded_people(report)}
 
     @app.tool(
         name="project_capacity",
@@ -190,7 +191,7 @@ def build_server(client: ApiClient) -> FastMCP:
             str | None,
             Field(description=f"Semana ISO final del rango ({WEEK_FORMAT}), como el to de la API"),
         ] = None,
-    ) -> Mapping[str, Any]:
+    ) -> dict[str, Any]:
         data = await client.get(
             f"/projects/{project_id}/capacity",
             params=_clean_params(**{"from": from_week, "to": to_week}),
@@ -214,7 +215,7 @@ def build_server(client: ApiClient) -> FastMCP:
             str | None,
             Field(description=f"Solo esa semana ISO ({WEEK_FORMAT}), por defecto todas"),
         ] = None,
-    ) -> Mapping[str, Any]:
+    ) -> dict[str, Any]:
         target = user_id
         if target is None:
             target = (await client.get("/me"))["user"]["id"]
@@ -273,13 +274,13 @@ def build_server(client: ApiClient) -> FastMCP:
                 description=f"Solo las tareas que aportan horas en esa semana ISO ({WEEK_FORMAT})"
             ),
         ] = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         if week is not None:
             _monday_of_week(week)
         data = await client.get(
             f"/projects/{project_id}/tasks", params=_clean_params(week=week)
         )
-        return summarize_tasks(data)
+        return {"tasks": summarize_tasks(data)}
 
     @app.tool(
         name="capacity_incidents",
@@ -293,8 +294,10 @@ def build_server(client: ApiClient) -> FastMCP:
             bool,
             Field(description="Incluir tambien los resueltos, con quien los resolvio"),
         ] = False,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         data = await client.get("/capacity-incidents")
-        return summarize_incidents(data, pending_only=not include_resolved)
+        return {
+            "incidents": summarize_incidents(data, pending_only=not include_resolved)
+        }
 
     return app

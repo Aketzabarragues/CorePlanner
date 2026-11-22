@@ -161,11 +161,11 @@ async def test_whoami_pide_me_y_devuelve_el_resumen(
     assert result.isError is False
     assert transport.paths() == ["/api/me"]
     payload = result.structuredContent
-    assert payload["result"]["user_id"] == 3
-    assert payload["result"]["name"] == "Ana Ruiz"
-    assert payload["result"]["company_role"] == "tecnico"
-    assert payload["result"]["visible_project_ids"] == [1, 2]
-    assert payload["result"]["editable_project_ids"] == [1]
+    assert payload["user_id"] == 3
+    assert payload["name"] == "Ana Ruiz"
+    assert payload["company_role"] == "tecnico"
+    assert payload["visible_project_ids"] == [1, 2]
+    assert payload["editable_project_ids"] == [1]
 
 
 async def test_projects_pide_projects_y_devuelve_el_resumen(
@@ -185,7 +185,7 @@ async def test_projects_pide_projects_y_devuelve_el_resumen(
 
     assert result.isError is False
     assert transport.paths() == ["/api/projects"]
-    rows = result.structuredContent["result"]
+    rows = result.structuredContent["projects"]
     assert rows == [
         {"id": 1, "name": "Lienzo A", "status": "planificacion",
          "color": "#123456", "owner_name": "Luis"},
@@ -272,7 +272,7 @@ async def test_capacity_matrix_pide_el_rango_y_resume(
     assert request.url.params["from"] == "2026-W45"
     assert request.url.params["to"] == "2026-W46"
 
-    summary = result.structuredContent["result"]
+    summary = result.structuredContent
     # Resumen, no crudo: sin desglose por proyecto ni festivos por celda.
     assert summary["weeks"] == [{"week": "2026-W45"}, {"week": "2026-W46"}]
     ana = summary["rows"][0]
@@ -327,9 +327,9 @@ async def test_overloaded_people_filtra_sobre_el_mismo_informe(
     )
 
     assert result.isError is False
-    people = result.structuredContent["result"]
+    people = result.structuredContent
     # Solo la celda sobrecargada de Ana; el resto (ok o sin veredicto) no entra.
-    assert people == [
+    assert people["overloaded"] == [
         {
             "user_id": 1,
             "name": "Ana",
@@ -386,7 +386,7 @@ async def test_project_capacity_pide_la_ruta_del_proyecto(
 
     assert result.isError is False
     assert transport.paths() == ["/api/projects/2/capacity"]
-    assert result.structuredContent["result"]["rows"][0]["name"] == "Ana"
+    assert result.structuredContent["rows"][0]["name"] == "Ana"
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ async def test_actual_hours_con_semana_y_usuario(
     assert tasks_request.url.params["assigned_to"] == "3"
     assert tasks_request.url.params["week"] == "2026-W45"
 
-    summary = result.structuredContent["result"]
+    summary = result.structuredContent
     assert summary["user_id"] == 3
     assert summary["week"] == "2026-W45"
     # La entrada de otra persona (user 9) y la de otra semana (11-10) no entran.
@@ -458,7 +458,7 @@ async def test_actual_hours_sin_semana_suma_todo(
 
     assert result.isError is False
     assert "/api/me" not in transport.paths()
-    summary = result.structuredContent["result"]
+    summary = result.structuredContent
     assert summary["week"] is None
     assert summary["per_task"] == [{"task_id": 11, "title": "Tarea A", "hours": 5.75}]
     assert summary["total_hours"] == 5.75
@@ -506,8 +506,8 @@ async def test_tasks_pide_el_proyecto_y_filtra_por_semana(
     request = transport.requests[0]
     assert request.url.path == "/api/projects/1/tasks"
     assert request.url.params["week"] == "2026-W45"
-    summary = result.structuredContent["result"]
-    assert summary == [
+    summary = result.structuredContent
+    assert summary["tasks"] == [
         {
             "id": 5,
             "title": "Diseño",
@@ -561,14 +561,14 @@ async def test_capacity_incidents_pide_la_lista_y_resume_pendientes(
 
     assert result.isError is False
     assert transport.paths() == ["/api/capacity-incidents"]
-    summary = result.structuredContent["result"]
+    summary = result.structuredContent["incidents"]
     assert len(summary) == 1
     assert summary[0]["user_name"] == "Ana"
     assert summary[0]["state"] == "pendiente"
     assert "resolved_by" not in summary[0]
 
     result_all = await _call(api, "capacity_incidents", {"include_resolved": True})
-    all_summary = result_all.structuredContent["result"]
+    all_summary = result_all.structuredContent["incidents"]
     assert len(all_summary) == 2
     resolved = all_summary[1]
     assert resolved["state"] == "aprobada"

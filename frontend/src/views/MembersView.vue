@@ -15,6 +15,7 @@ import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { plural } from '../utils/plural'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -146,7 +147,7 @@ watch(() => props.id, loadMembers)
     >
       <template #actions>
           <p v-if="!loading && members.length" class="text-sm text-slate-500">
-            {{ members.length }} persona(s) · {{ totalHours }} h base en total
+            {{ plural(members.length, 'persona', 'personas') }} · {{ totalHours }} h base en total
           </p>
           <button
             v-if="isManager"

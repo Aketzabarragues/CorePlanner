@@ -93,7 +93,7 @@ describe('MembersView', () => {
   it('resume el total de personas y de horas base', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('2 persona(s)')
+    expect(wrapper.text()).toContain('2 personas')
     expect(wrapper.text()).toContain('70 h base en total')
   })
 

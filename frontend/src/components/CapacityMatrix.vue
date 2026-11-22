@@ -21,6 +21,7 @@ import { overviewApi, projectsApi, tasksApi } from '../api/client'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
+import { plural } from '../utils/plural'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import {

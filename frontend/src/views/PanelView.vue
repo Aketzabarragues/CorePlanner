@@ -23,6 +23,7 @@ import { columnLabel, formatHours } from '../utils/kanban'
 import { loadRatio } from '../utils/load'
 import { projectStatus } from '../utils/navigation'
 import { weekNumber } from '../utils/weeks'
+import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
 
@@ -286,7 +287,7 @@ useTaskReload(load)
             {{ overloadedPeople.length }}
           </p>
           <p class="mt-1 text-xs text-slate-500">
-            {{ overloaded.length }} celda(s) por encima de su capacidad
+            {{ plural(overloaded.length, 'celda', 'celdas') }} por encima de su capacidad
           </p>
         </RouterLink>
 
@@ -302,7 +303,7 @@ useTaskReload(load)
             {{ activeProjects.length }}
           </p>
           <p class="mt-1 text-xs text-slate-500">
-            {{ activeDepartments }} departamento(s) implicado(s)
+            {{ plural(activeDepartments, 'departamento', 'departamentos') }} implicado{{ activeDepartments === 1 ? '' : 's' }}
           </p>
         </RouterLink>
 
@@ -566,7 +567,7 @@ useTaskReload(load)
                 </span>
                 <span class="text-xs tabular-nums text-slate-600">
                   {{ formatHours(project.estimated_hours) }} ·
-                  {{ project.people_count }} persona(s)
+                  {{ plural(project.people_count, 'persona', 'personas') }}
                 </span>
               </div>
               <span class="block h-2 w-full rounded bg-slate-200">

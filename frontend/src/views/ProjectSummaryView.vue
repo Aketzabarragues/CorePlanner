@@ -21,6 +21,7 @@ import { useProjectsStore } from '../stores/projects'
 import { KANBAN_COLUMNS, formatHours, statusBar, statusPill } from '../utils/kanban'
 import { projectStatus } from '../utils/navigation'
 import { currentWeekKey, weeksFrom, weekNumber } from '../utils/weeks'
+import { plural } from '../utils/plural'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -249,7 +250,7 @@ useTaskReload(load)
             <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <h2 class="text-sm font-semibold text-siemens-900">Estado de las tareas</h2>
               <span class="text-xs text-slate-500">
-                {{ totalTasks }} tarea(s) en el proyecto
+                {{ plural(totalTasks, 'tarea', 'tareas') }} en el proyecto
               </span>
             </div>
 
@@ -354,7 +355,7 @@ useTaskReload(load)
               </p>
             </div>
             <p class="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-500">
-              {{ formatHours(totalHours) }} repartidas entre {{ team.length }} persona(s).
+              {{ formatHours(totalHours) }} repartidas entre {{ plural(team.length, 'persona', 'personas') }}.
             </p>
           </section>
         </div>

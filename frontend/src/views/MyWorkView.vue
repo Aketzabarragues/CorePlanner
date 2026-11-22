@@ -23,6 +23,7 @@ import { useAuthStore } from '../stores/auth'
 import { KANBAN_COLUMNS, columnLabel, formatHours, statusPill } from '../utils/kanban'
 import { loadAspect, loadBarWidth, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekNumber, weekTitle } from '../utils/weeks'
+import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
 
@@ -179,7 +180,7 @@ useTaskReload(load)
     >
       <template #actions>
         <p v-if="!loading && !error" class="text-sm text-slate-600">
-          {{ tasks.length }} tarea(s) · {{ formatHours(totalHours) }} en el período
+          {{ plural(tasks.length, 'tarea', 'tareas') }} · {{ formatHours(totalHours) }} en el período
         </p>
       </template>
     </PageHeader>

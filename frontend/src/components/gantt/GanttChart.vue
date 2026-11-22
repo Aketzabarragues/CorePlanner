@@ -12,6 +12,9 @@
  * el composable devuelve el fantasma y el rango previsualizado, que la vista
  * convierte en un PATCH. El teclado sube a la vista, que es quien conoce la
  * escala y el permiso.
+ *
+ * El chart no dimensiona el lienzo: eso lo estira el CSS. Solo mide el ancho
+ * del panel y lo informa a la vista, que de ahi calcula la escala efectiva.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
@@ -43,22 +46,48 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear'])
+const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel'])
 
 const panelDiagrama = ref(null)
 /** Desplazamiento vertical del diagrama: el eje lo invierte, la columna lo replica. */
 const desplazamiento = ref(0)
-/** Ancho visible del panel: el lienzo se estira hasta llenarlo. */
-const anchoPanel = ref(0)
+
+/**
+ * Ancho del panel de diagrama: lo mide el chart y lo informa a la vista.
+ *
+ * El chart no dimensiona el lienzo: eso lo estira el CSS (`width: 100%`). Lo
+ * unico que hace es informar del ancho disponible, que la vista usa para
+ * calcular la escala efectiva (los pixeles por dia suben hasta llenar el
+ * panel). Solo se emite cuando el ancho cambia de verdad.
+ */
+let anchoInformado = 0
+let observadorAncho = null
+
+function medirAncho() {
+  const panel = panelDiagrama.value
+  if (!panel) return
+  const ancho = panel.clientWidth
+  if (!ancho || ancho === anchoInformado) return
+  anchoInformado = ancho
+  emit('ancho-panel', ancho)
+}
+
+onMounted(() => {
+  medirAncho()
+  // Sin `ResizeObserver` (por ejemplo en jsdom) el ancho se queda en el que
+  // se midio al montar: no se rompe nada por no poder observar.
+  if (typeof ResizeObserver === 'undefined') return
+  observadorAncho = new ResizeObserver(medirAncho)
+  if (panelDiagrama.value) observadorAncho.observe(panelDiagrama.value)
+})
+
+onBeforeUnmount(() => {
+  observadorAncho?.disconnect()
+  observadorAncho = null
+})
 
 /** Alto total del SVG: cabecera mas una fila por entrada del layout. */
 const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.rows.length * GANTT_ROW_HEIGHT)
-
-/**
- * Ancho del lienzo: el del rango, o el del panel cuando el panel es mas ancho.
- * El diagrama ocupa siempre el panel entero.
- */
-const anchoVisible = computed(() => Math.max(props.layout.width, anchoPanel.value))
 
 /** Bandas que se sombrea: en la escala de Mes no se sombrea. */
 const bandas = computed(() =>
@@ -114,29 +143,9 @@ const xDestino = computed(() => {
   return pre ? dayIndex(parseIsoDate(pre.start), props.layout.start) * props.layout.pxPerDay : null
 })
 
-/**
- * Ancho visible del panel.
- *
- * Sin medirlo, el lienzo se queda con el ancho del rango y el panel queda a
- * medias cuando el rango es mas estrecho que la ventana.
- */
-function medirPanel() {
-  anchoPanel.value = panelDiagrama.value?.clientWidth ?? 0
-}
-
 function alDesplazar() {
   desplazamiento.value = panelDiagrama.value ? panelDiagrama.value.scrollTop : 0
-  medirPanel()
 }
-
-onMounted(() => {
-  medirPanel()
-  window.addEventListener('resize', medirPanel)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', medirPanel)
-})
 
 function alEmpezarArrastre({ barra, zona, event }) {
   // El panel es la caja del diagrama: si la soltura cae fuera, el composable
@@ -189,9 +198,16 @@ function alDobleClicFondo(event) {
       data-testid="gantt-scroll"
       @scroll.passive="alDesplazar"
     >
+      <!--
+        Lienzo: se estira al ancho del panel por CSS (`width: 100%`) y el
+        `min-width` del elemento impide que baje del ancho del rango. Asi el
+        panel se llena siempre y, cuando el rango es mas ancho, el scroll
+        horizontal sigue mostrando todo el contenido.
+      -->
       <svg
         class="gantt__svg block"
-        :width="anchoVisible"
+        :width="layout.width"
+        :style="{ minWidth: `${layout.width}px` }"
         :height="altoTotal"
         role="group"
         aria-labelledby="gantt-titulo"
@@ -217,15 +233,8 @@ function alDobleClicFondo(event) {
           </marker>
         </defs>
 
-        <!-- Fondo del lienzo: neutro, hasta el ancho visible del panel. -->
-        <rect
-          x="0"
-          y="0"
-          :width="anchoVisible"
-          :height="altoTotal"
-          fill="#ffffff"
-          aria-hidden="true"
-        />
+        <!-- Fondo del lienzo: neutro, hasta el borde del lienzo. -->
+        <rect x="0" y="0" width="100%" :height="altoTotal" fill="#ffffff" aria-hidden="true" />
 
         <!-- Rejilla vertical: una linea por tick del eje. Decorativa. -->
         <g class="gantt__rejilla" aria-hidden="true">
@@ -239,13 +248,14 @@ function alDobleClicFondo(event) {
             stroke="#e2e8f0"
             stroke-width="1"
           />
-          <!-- Borde derecho: cierra la rejilla en el ancho visible. -->
+          <!-- Borde derecho: cierra la rejilla en el ultimo pixel del lienzo. -->
           <rect
-            :x="anchoVisible - 1"
+            x="100%"
             y="0"
             width="1"
             :height="altoTotal"
             fill="#e2e8f0"
+            transform="translate(-1, 0)"
             pointer-events="none"
           />
         </g>
@@ -272,7 +282,7 @@ function alDobleClicFondo(event) {
               v-if="fila.type === 'group'"
               :grupo="fila"
               :y="fila.rowIndex * GANTT_ROW_HEIGHT"
-              :ancho="layout.width"
+              ancho="100%"
             />
 
             <GanttBar
@@ -334,7 +344,7 @@ function alDobleClicFondo(event) {
 
         <!-- Eje: se contratraslada para quedar clavado arriba. -->
         <g class="gantt__eje" :transform="`translate(0, ${desplazamiento})`">
-          <GanttAxis :columnas="columnas" :ancho="anchoVisible" :alto="GANTT_METRICS.headerHeight" />
+          <GanttAxis :columnas="columnas" ancho="100%" :alto="GANTT_METRICS.headerHeight" />
         </g>
       </svg>
     </div>

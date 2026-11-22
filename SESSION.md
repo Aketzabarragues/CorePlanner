@@ -164,10 +164,13 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
     como la columna de nombres, para que la fila 0 quede debajo de la
     cabecera pegajosa. El doble clic descarta la banda que el eje tapa,
     `[scroll, scroll + 48)`, y calcula la fila sobre el cuerpo desplazado. El
-    lienzo mide `max(ancho del rango, ancho del panel)`, medido al montar, al
-    hacer scroll y al redimensionar: el fondo, la rejilla y la franja gris del
-    eje llegan al borde del panel. El nombre de un festivo se recorta al
-    ancho de su celda.
+    lienzo lo estira el CSS (`width: 100%`), sin medirlo en JavaScript, y el
+    `min-width` del elemento impide que baje del ancho del rango. La escala se
+    adapta al panel: los pixeles por dia suben hasta llenar el ancho
+    disponible, sin bajar nunca del natural de la escala (Dia 44, Semana 14,
+    Mes 5). El chart mide el ancho del panel y lo informa a la vista, que
+    calcula la escala efectiva. El nombre de un festivo se recorta al ancho de
+    su celda.
 
 ## Decisiones tecnicas
 
@@ -218,12 +221,11 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
 - La retirada de `frappe-gantt` del `package.json` ya esta hecha (la hizo el
   implementador antes de su turno de revision): el usuario tiene que confirmar
   el cambio de dependencia antes del commit.
-- Revision visual en navegador: esta sesion no tiene Playwright (el catalogo de
-  herramientas lo retiro), asi que no se pudo hacer. Queda pendiente para una
-  sesion con navegador: modal en movil y escritorio, desglose de celda de la
-  matriz y el Gantt nuevo en las tres escalas. Los cuatro arreglos de
-  geometria del Gantt (cuerpo alineado con la columna de nombres, foco real
-  con las flechas verticales, lienzo que llena el panel y recorte del nombre
-  de un festivo) tienen test unitario, pero siguen sin comprobacion en vivo.
+- Revision visual en navegador: se hizo con Chromium headless por CDP (el
+  catalogo no expone el MCP de Playwright, pero el binario de Chromium si esta
+  instalado): el Gantt se reviso en Dia/Semana/Mes con la escala estirada al
+  panel y las barras alineadas con la columna de nombres. Queda pendiente para
+  una sesion con navegador de verdad: modal en movil y escritorio y desglose
+  de celda de la matriz.
 - Despues del motor: bloque A (Kanban) y bloque C (Calendario) del §51, y
   luego G2 (capacidad libre), G1 (horas reales), G3 (politica), G5 (MCP).

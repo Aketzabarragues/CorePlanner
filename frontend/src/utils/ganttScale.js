@@ -22,6 +22,25 @@ export function scaleById(id) {
 }
 
 /**
+ * Escala efectiva: los pixeles por dia suben hasta llenar el ancho disponible.
+ *
+ * Contrato: pixeles por dia = `max(natural, floor(ancho disponible / dias))`.
+ * El minimo natural nunca se baja: si el rango es mas ancho que el panel, se
+ * conserva la escala natural y el panel se desplaza en horizontal. Sin ancho
+ * utilizable (aun no medido, o cero), la escala natural se devuelve tal cual.
+ */
+export function escalaAjustada(scale, dias, anchoDisponible) {
+  if (!scale) return scale
+  const ancho = Math.floor(Number(anchoDisponible))
+  const cantidad = Math.floor(Number(dias))
+  if (!Number.isFinite(ancho) || !Number.isFinite(cantidad)) return scale
+  if (ancho <= 0 || cantidad <= 0) return scale
+  const pxPorDia = Math.max(scale.pxPerDay, Math.floor(ancho / cantidad))
+  if (pxPorDia === scale.pxPerDay) return scale
+  return { ...scale, pxPerDay: pxPorDia }
+}
+
+/**
  * Fecha en UTC a medianoche.
  *
  * Acepta una cadena 'YYYY-MM-DD' o una fecha. La cadena se parsea como UTC,

@@ -13,8 +13,8 @@
 const props = defineProps({
   /** Celdas del eje: [{ key, label, sublabel, x, width, kind, hoy, festivo }]. */
   columnas: { type: Array, required: true },
-  /** Ancho total del eje, en pixeles. */
-  ancho: { type: Number, required: true },
+  /** Ancho total del eje: en pixeles, o en porcentaje del lienzo. */
+  ancho: { type: [Number, String], required: true },
   /** Alto de la cabecera, en pixeles. */
   alto: { type: Number, default: 48 },
 })

@@ -152,12 +152,14 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: el diagrama de Gantt ocupa todo el ancho del panel. La escala
+  de tiempo se estira: los pixeles por dia suben hasta llenar el ancho
+  disponible, sin bajar nunca del valor natural de la escala (Dia 44, Semana
+  14, Mes 5), asi que el rango ya no deja un hueco a la derecha. El lienzo lo
+  estira el CSS, sin medirlo en JavaScript.
 - **frontend**: las flechas verticales del Gantt mueven el foco real del teclado
   a la barra siguiente, no solo el estado interno: sin eso el teclado se
   quedaba en la barra anterior.
-- **frontend**: el diagrama de Gantt llena el ancho del panel cuando el rango
-  de fechas es mas corto que la ventana: el SVG, el fondo, la rejilla y la
-  franja gris del eje llegan al borde del panel.
 - **frontend**: el nombre de un festivo se recorta al ancho de su celda en la
   cabecera del Gantt, con puntos suspensivos, en vez de desbordarse sobre la
   columna siguiente.

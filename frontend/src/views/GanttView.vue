@@ -45,7 +45,7 @@ import GanttChart from '../components/gantt/GanttChart.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
-import { addDays, diffDays, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
+import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
 import { localDateKey, shortMonthName } from '../utils/month'
 import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
@@ -64,6 +64,13 @@ const notice = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const escalaId = ref('Week')
+/**
+ * Ancho disponible del panel de diagrama, en pixeles.
+ *
+ * Lo informa el chart (`ancho-panel`). Con 0 (aun sin medir) la escala
+ * natural se usa tal cual.
+ */
+const anchoPanel = ref(0)
 const barraEnfocada = ref(null)
 const selectedTaskId = ref(null)
 const altaAbierta = ref(false)
@@ -337,12 +344,17 @@ const rangoEfectivo = computed(() => {
 
 /** Modelo del diagrama, ya con la barra pegada a cada fila. */
 const layout = computed(() => {
+  const { desde, hasta } = rangoEfectivo.value
+  // La escala se estira al ancho del panel: los pixeles por dia suben hasta
+  // llenar el ancho disponible, sin bajar del natural. Los dias del rango son
+  // los mismos que usa `buildTimeAxis`.
+  const escalaEfectiva = escalaAjustada(escala.value, diffDays(desde, hasta) + 1, anchoPanel.value)
   const modelo = buildLayout({
     items: barras.value,
     groupMode: groupBy.value,
-    scale: escala.value,
-    start: rangoEfectivo.value.desde,
-    end: rangoEfectivo.value.hasta,
+    scale: escalaEfectiva,
+    start: desde,
+    end: hasta,
     nonWorkingDays: diasNoLaborables.value.map((dia) => toIsoDate(dia.date)),
     today: parseIsoDate(hoyIso.value),
   })
@@ -1206,6 +1218,7 @@ useTaskReload(load)
         @tecla="alPulsarTecla"
         @mover="moverTarea"
         @crear="alCrear"
+        @ancho-panel="anchoPanel = $event"
       />
     </AsyncState>
 

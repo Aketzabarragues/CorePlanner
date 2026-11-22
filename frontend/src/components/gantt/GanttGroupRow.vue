@@ -12,8 +12,8 @@ const props = defineProps({
   grupo: { type: Object, required: true },
   /** Y de la fila, en pixeles: rowIndex * altoFila. */
   y: { type: Number, required: true },
-  /** Ancho del diagrama, en pixeles. */
-  ancho: { type: Number, required: true },
+  /** Ancho de la franja: en pixeles, o en porcentaje del lienzo. */
+  ancho: { type: [Number, String], required: true },
   /** Alto de la fila, en pixeles. */
   altoFila: { type: Number, default: 36 },
   /** Color de la franja, o null si el grupo no lleva color. */

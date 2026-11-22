@@ -36,9 +36,17 @@
   overscroll-behavior: contain;
 }
 
-/* El SVG es un bloque: sin el hueco inline de los elementos remplazo. */
+/*
+ * El SVG es un bloque: sin el hueco inline de los elementos remplazo.
+ *
+ * `width: 100%` estira el lienzo hasta el borde del panel, sin medirlo en
+ * JavaScript. El `min-width` en pixeles que lleva el elemento (el ancho del
+ * rango) impide que se estreche por debajo de ese ancho: cuando el rango no
+ * cabe, el panel se desplaza en horizontal y no se pierde contenido.
+ */
 .gantt__svg {
   display: block;
+  width: 100%;
 }
 
 /* Rejilla y bandas: decoracion que no debe capturar el puntero. */

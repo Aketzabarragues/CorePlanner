@@ -27,7 +27,9 @@ import { moveRange, resizeRange, snapDelta } from '../utils/ganttLayout'
  *
  * @param {object} opciones
  * @param {(id: number, pxPerDay: number) => number} opciones.pxPerDayDe
- *   Escala vigente: devuelve los pixeles por dia de la escala en uso.
+ *   Escala vigente: devuelve los pixeles por dia de la escala en uso. Se lee al
+ *   empezar el gesto, ya estirada al ancho del panel, y se fija durante el
+ *   gesto: el arrastre no puede cambiar de escala a mitad.
  * @param {(preview: { taskId, start, end }) => void} opciones.alConfirmar
  *   Se llama al soltar una barra movida o redimensionada, con el rango nuevo.
  */

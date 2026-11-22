@@ -63,6 +63,7 @@ function empezarArrastre(event) {
     class="gantt__barra"
     role="button"
     data-testid="gantt-bar"
+    :data-task-id="barra.taskId"
     :tabindex="seleccionada ? 0 : -1"
     :aria-label="etiquetaAria"
     :aria-disabled="editable ? undefined : 'true'"

@@ -2,8 +2,8 @@
 /**
  * Diagrama de Gantt: una sola pieza, con la columna de nombres aparte.
  *
- * El SVG tiene cuatro capas, en orden: rejilla, bandas, cuerpo y eje. El SVG
- * entero es el contenido del panel con overflow: el scroll nativo sube el
+ * El SVG tiene cinco capas, en orden: fondo, rejilla, bandas, cuerpo y eje. El
+ * SVG entero es el contenido del panel con overflow: el scroll nativo sube el
  * cuerpo y el eje se contratraslada, para que la cabecera quede clavada
  * arriba. La columna de nombres no hace scroll propio: su pista interior
  * lleva el mismo desplazamiento.
@@ -13,7 +13,7 @@
  * convierte en un PATCH. El teclado sube a la vista, que es quien conoce la
  * escala y el permiso.
  */
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { addDays, dayIndex, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
@@ -48,9 +48,17 @@ const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear'])
 const panelDiagrama = ref(null)
 /** Desplazamiento vertical del diagrama: el eje lo invierte, la columna lo replica. */
 const desplazamiento = ref(0)
+/** Ancho visible del panel: el lienzo se estira hasta llenarlo. */
+const anchoPanel = ref(0)
 
 /** Alto total del SVG: cabecera mas una fila por entrada del layout. */
 const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.rows.length * GANTT_ROW_HEIGHT)
+
+/**
+ * Ancho del lienzo: el del rango, o el del panel cuando el panel es mas ancho.
+ * El diagrama ocupa siempre el panel entero.
+ */
+const anchoVisible = computed(() => Math.max(props.layout.width, anchoPanel.value))
 
 /** Bandas que se sombrea: en la escala de Mes no se sombrea. */
 const bandas = computed(() =>
@@ -106,9 +114,29 @@ const xDestino = computed(() => {
   return pre ? dayIndex(parseIsoDate(pre.start), props.layout.start) * props.layout.pxPerDay : null
 })
 
+/**
+ * Ancho visible del panel.
+ *
+ * Sin medirlo, el lienzo se queda con el ancho del rango y el panel queda a
+ * medias cuando el rango es mas estrecho que la ventana.
+ */
+function medirPanel() {
+  anchoPanel.value = panelDiagrama.value?.clientWidth ?? 0
+}
+
 function alDesplazar() {
   desplazamiento.value = panelDiagrama.value ? panelDiagrama.value.scrollTop : 0
+  medirPanel()
 }
+
+onMounted(() => {
+  medirPanel()
+  window.addEventListener('resize', medirPanel)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', medirPanel)
+})
 
 function alEmpezarArrastre({ barra, zona, event }) {
   // El panel es la caja del diagrama: si la soltura cae fuera, el composable
@@ -121,14 +149,18 @@ function alEmpezarArrastre({ barra, zona, event }) {
  *
  * El fondo es el propio SVG y las barras se dibujan encima: el doble clic
  * sobre una barra no crea nada, solo la barra abre el detalle (clic simple).
- * La fecha sale de la x (indice de dia desde el inicio del rango) y la fila
- * de la y (fila debajo de la cabecera del eje).
+ * La fecha sale de la x (indice de dia desde el inicio del rango). El cuerpo
+ * va desplazado el alto de la cabecera, asi que la fila sale de la y menos
+ * esa cabecera: la fila 0 empieza en la y 48 del contenido. La cabecera
+ * pegajosa tapa la banda [scroll, scroll + 48), que se descarta antes de
+ * mirar la fila.
  */
 function alDobleClicFondo(event) {
   const caja = event.currentTarget.getBoundingClientRect()
   const x = event.clientX - caja.left
   const y = event.clientY - caja.top
-  if (x < 0 || x >= props.layout.width || y < GANTT_METRICS.headerHeight) return
+  if (x < 0 || x >= props.layout.width) return
+  if (y < desplazamiento.value + GANTT_METRICS.headerHeight) return
   const indiceDia = Math.floor(x / props.layout.pxPerDay)
   const indiceFila = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
   const fila = props.layout.rows[indiceFila]
@@ -159,7 +191,7 @@ function alDobleClicFondo(event) {
     >
       <svg
         class="gantt__svg block"
-        :width="layout.width"
+        :width="anchoVisible"
         :height="altoTotal"
         role="group"
         aria-labelledby="gantt-titulo"
@@ -185,6 +217,16 @@ function alDobleClicFondo(event) {
           </marker>
         </defs>
 
+        <!-- Fondo del lienzo: neutro, hasta el ancho visible del panel. -->
+        <rect
+          x="0"
+          y="0"
+          :width="anchoVisible"
+          :height="altoTotal"
+          fill="#ffffff"
+          aria-hidden="true"
+        />
+
         <!-- Rejilla vertical: una linea por tick del eje. Decorativa. -->
         <g class="gantt__rejilla" aria-hidden="true">
           <line
@@ -196,6 +238,15 @@ function alDobleClicFondo(event) {
             :y2="altoTotal"
             stroke="#e2e8f0"
             stroke-width="1"
+          />
+          <!-- Borde derecho: cierra la rejilla en el ancho visible. -->
+          <rect
+            :x="anchoVisible - 1"
+            y="0"
+            width="1"
+            :height="altoTotal"
+            fill="#e2e8f0"
+            pointer-events="none"
           />
         </g>
 
@@ -212,8 +263,10 @@ function alDobleClicFondo(event) {
           />
         </g>
 
-        <!-- Cuerpo: grupos, barras y linea de hoy. Sube con el scroll nativo. -->
-        <g class="gantt__cuerpo">
+        <!-- Cuerpo: grupos, barras y linea de hoy. Sube con el scroll nativo.
+             Va desplazado el alto de la cabecera, para que la fila 0 quede
+             debajo de la cabecera pegajosa y no debajo de ella. -->
+        <g class="gantt__cuerpo" :transform="`translate(0, ${GANTT_METRICS.headerHeight})`">
           <template v-for="fila in layout.rows" :key="fila.rowIndex">
             <GanttGroupRow
               v-if="fila.type === 'group'"
@@ -244,7 +297,7 @@ function alDobleClicFondo(event) {
             :x="xDestino"
             y="0"
             :width="layout.width"
-            :height="altoTotal"
+            :height="layout.rows.length * GANTT_ROW_HEIGHT"
             fill="rgba(0, 100, 180, 0.08)"
             aria-hidden="true"
           />
@@ -255,8 +308,8 @@ function alDobleClicFondo(event) {
             class="gantt__hoy"
             :x1="layout.todayIndex * layout.pxPerDay"
             :x2="layout.todayIndex * layout.pxPerDay"
-            :y1="GANTT_METRICS.headerHeight"
-            :y2="altoTotal"
+            y1="0"
+            :y2="layout.rows.length * GANTT_ROW_HEIGHT"
             stroke="#003466"
             stroke-width="2"
             aria-hidden="true"
@@ -281,7 +334,7 @@ function alDobleClicFondo(event) {
 
         <!-- Eje: se contratraslada para quedar clavado arriba. -->
         <g class="gantt__eje" :transform="`translate(0, ${desplazamiento})`">
-          <GanttAxis :columnas="columnas" :ancho="layout.width" :alto="GANTT_METRICS.headerHeight" />
+          <GanttAxis :columnas="columnas" :ancho="anchoVisible" :alto="GANTT_METRICS.headerHeight" />
         </g>
       </svg>
     </div>

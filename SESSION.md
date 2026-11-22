@@ -157,8 +157,17 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
   - Los miembros del proyecto se piden al abrir el alta y se cachean.
   - Corregido un bug de scroll: el cuerpo del diagrama se trasladaba ademas
     del scroll nativo, de modo que las barras se separaban de la columna de
-    nombres al desplazarse. Ahora solo se traslada el eje (queda clavado
-    arriba) y la pista de la columna de nombres.
+    nombres al desplazarse. El scroll lo hace el panel: ahora solo se
+    trasladan el eje (queda clavado arriba) y la pista de la columna de
+    nombres.
+  - Geometria del diagrama: el cuerpo reserva el alto de la cabecera (48 px),
+    como la columna de nombres, para que la fila 0 quede debajo de la
+    cabecera pegajosa. El doble clic descarta la banda que el eje tapa,
+    `[scroll, scroll + 48)`, y calcula la fila sobre el cuerpo desplazado. El
+    lienzo mide `max(ancho del rango, ancho del panel)`, medido al montar, al
+    hacer scroll y al redimensionar: el fondo, la rejilla y la franja gris del
+    eje llegan al borde del panel. El nombre de un festivo se recorta al
+    ancho de su celda.
 
 ## Decisiones tecnicas
 
@@ -212,6 +221,9 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
 - Revision visual en navegador: esta sesion no tiene Playwright (el catalogo de
   herramientas lo retiro), asi que no se pudo hacer. Queda pendiente para una
   sesion con navegador: modal en movil y escritorio, desglose de celda de la
-  matriz y el Gantt nuevo en las tres escalas.
+  matriz y el Gantt nuevo en las tres escalas. Los cuatro arreglos de
+  geometria del Gantt (cuerpo alineado con la columna de nombres, foco real
+  con las flechas verticales, lienzo que llena el panel y recorte del nombre
+  de un festivo) tienen test unitario, pero siguen sin comprobacion en vivo.
 - Despues del motor: bloque A (Kanban) y bloque C (Calendario) del §51, y
   luego G2 (capacidad libre), G1 (horas reales), G3 (politica), G5 (MCP).

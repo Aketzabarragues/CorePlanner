@@ -418,9 +418,19 @@ const columnas = computed(() => {
     let festivo = null
     const festivosDeCelda = (dias) => {
       const festivos = festivosDe(dias)
+      if (!festivos.length) return
       // `ancho` es la etiqueta a ~6 px por letra: el rect del eje la lleva
-      // con 12 px de margen.
-      if (festivos.length) festivo = { etiqueta: etiqueta(festivos), ancho: etiqueta(festivos).length * 6 }
+      // con 12 px de margen. Si no cabe en la celda, la etiqueta se recorta
+      // y el ancho es el del hueco, no el del texto recortado.
+      const maxAncho = celda.width - 12
+      let texto = etiqueta(festivos)
+      let ancho = texto.length * 6
+      if (ancho > maxAncho) {
+        const maxChars = Math.max(1, Math.floor(maxAncho / 6) - 1)
+        texto = `${texto.slice(0, maxChars)}…`
+        ancho = maxAncho
+      }
+      festivo = { etiqueta: texto, ancho }
     }
     if (celda.kind === 'week') {
       festivosDeCelda(weekDays(celda.key).map((dia) => parseIsoDate(dia.date)))
@@ -716,6 +726,12 @@ async function alPulsarTecla(event, id) {
     const destino = event.key === 'ArrowUp' ? indice - 1 : indice + 1
     if (destino >= 0 && destino < barrasOrden.length) {
       barraEnfocada.value = barrasOrden[destino].taskId
+      await nextTick()
+      // El foco real debe saltar a la barra nueva: sin esto el teclado se
+      // queda en la barra anterior y las flechas siguen moviendo la misma.
+      document
+        .querySelector(`[data-testid="gantt-bar"][data-task-id="${barraEnfocada.value}"]`)
+        ?.focus()
     }
     return
   }

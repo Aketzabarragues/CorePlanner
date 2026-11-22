@@ -24,9 +24,9 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   fila y el detalle con clic en la barra. El alta usa el mismo `ModalDialog` y
   `TaskForm` del desglose de celda, con las fechas precargadas, y solo se
   ofrece cuando hay un proyecto en contexto y permiso de escritura en el.
-- **frontend**: el cuerpo del diagrama no se traslada al desplazar: el scroll lo
-  hace el panel. Antes las barras se separaban de la columna de nombres al
-  desplazarse.
+- **frontend**: el cuerpo del diagrama reserva el alto de la cabecera (48 px),
+  como la columna de nombres, y no se mueve al desplazar: el scroll lo hace el
+  panel. Antes las barras no cuadraban con su fila.
 - **frontend**: el Kanban pasa al contrato comun de interaccion. Contadores por
   columna con tareas y horas (los totales los calcula el backend), arrastre
   con posicion dentro de la columna, alta inline al pie de cada columna y
@@ -149,3 +149,15 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 - **frontend**: la dependencia `frappe-gantt` del `package.json`.
 - **frontend**: `TaskDetailPanel.vue`, `PersonDrawer.vue` y sus specs, ya sin uso
   tras la migracion.
+
+### Fixed
+
+- **frontend**: las flechas verticales del Gantt mueven el foco real del teclado
+  a la barra siguiente, no solo el estado interno: sin eso el teclado se
+  quedaba en la barra anterior.
+- **frontend**: el diagrama de Gantt llena el ancho del panel cuando el rango
+  de fechas es mas corto que la ventana: el SVG, el fondo, la rejilla y la
+  franja gris del eje llegan al borde del panel.
+- **frontend**: el nombre de un festivo se recorta al ancho de su celda en la
+  cabecera del Gantt, con puntos suspensivos, en vez de desbordarse sobre la
+  columna siguiente.

@@ -18,14 +18,16 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { addDays, dayIndex, inclusiveDays, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
+import { addDays, dateAtIndex, dayIndex, inclusiveDays, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
 import { GANTT_ROW_HEIGHT, flechaDe } from '../../utils/ganttLayout'
+import { shortMonthName, weekdayNames } from '../../utils/month'
 import { useGanttDrag } from '../../composables/useGanttDrag'
 import GanttAxis from './GanttAxis.vue'
 import GanttBar from './GanttBar.vue'
 import GanttGroupRow from './GanttGroupRow.vue'
 import GanttNamesColumn from './GanttNamesColumn.vue'
+import GanttTooltip from './GanttTooltip.vue'
 
 const props = defineProps({
   /** Modelo del diagrama, de `buildLayout`. */
@@ -48,6 +50,14 @@ const props = defineProps({
   barraEnfocada: { type: [Number, String], default: null },
   /** Etiqueta aria de cada barra, por identificador. */
   etiquetaDe: { type: Function, required: true },
+  /**
+   * Dependencias de cada tarea, por identificador de tarea.
+   *
+   * La vista las arma con el feed, que es quien tiene los vinculos y los
+   * titulos: { [taskId]: [{ titulo, tipo, sentido }] }. El chart solo las
+   * pinta en el globo de la barra.
+   */
+  dependencias: { type: Object, default: () => ({}) },
   /** Frase descriptiva del SVG: tareas, proyectos, rango. */
   descripcion: { type: String, default: '' },
   /** Aviso de solo lectura, si la vista lo lleva. */
@@ -57,8 +67,18 @@ const props = defineProps({
 const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel'])
 
 const panelDiagrama = ref(null)
+/** El lienzo: el SVG del diagrama. Su caja da la coordenada del puntero. */
+const lienzo = ref(null)
 /** Desplazamiento vertical del diagrama: el eje lo invierte, la columna lo replica. */
 const desplazamiento = ref(0)
+/**
+ * Caja del lienzo en el viewport.
+ *
+ * Se cachea porque el raton la pide en cada movimiento: leerla cada vez
+ * obliga al navegador a recalcular la maquina. Se invalida al desplazar el
+ * panel (el lienzo se mueve) y al medir el ancho.
+ */
+let cajaLienzo = null
 
 /**
  * Ancho del panel de diagrama: lo mide el chart y lo informa a la vista.
@@ -74,6 +94,7 @@ let observadorAncho = null
 function medirAncho() {
   const panel = panelDiagrama.value
   if (!panel) return
+  cajaLienzo = null
   const ancho = panel.clientWidth
   if (!ancho || ancho === anchoInformado) return
   anchoInformado = ancho
@@ -92,6 +113,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   observadorAncho?.disconnect()
   observadorAncho = null
+  window.removeEventListener('mouseup', alSoltarRaton)
 })
 
 /**
@@ -126,6 +148,92 @@ const flechas = computed(() =>
     .map((vinculo) => flechaDe(vinculo, barraPorId.value))
     .filter(Boolean),
 )
+
+/**
+ * Cruz de fecha: la columna del puntero y el dia que hay en ella.
+ *
+ * El dia sale de la escala (pixeles por dia) sobre el inicio del rango, con
+ * el mismo patron que el doble clic del fondo. La linea se dibuja en el
+ * cuerpo y la etiqueta en la cabecera, para que la fecha se lea sin tapar el
+ * numero de semana ni el rango.
+ */
+const cruz = ref(null)
+/** Posicion del puntero en el viewport: el globo la sigue. */
+const puntero = ref({ x: 0, y: 0 })
+/** Barra sobre la que esta el raton: la anuncia la propia barra. */
+const barraSobre = ref(null)
+/** El raton ha agarrado una barra: el gesto de arrastre esta en curso. */
+const arrastrando = ref(false)
+
+/**
+ * Caja del lienzo, cacheada.
+ *
+ * El rect del SVG ya descuenta el scroll del panel, asi que la x del puntero
+ * sobre el lienzo es la coordenada de contenido.
+ */
+function cajaDelLienzo() {
+  if (!cajaLienzo) {
+    cajaLienzo = lienzo.value ? lienzo.value.getBoundingClientRect() : null
+  }
+  return cajaLienzo
+}
+
+/**
+ * Raton sobre el diagrama: la cruz de fecha y la posicion del puntero.
+ *
+ * Sobre la cabecera pegajosa no hay columna que marcar: la cruz se esconde.
+ * Fuera del rango horizontal, tambien. Durante un gesto de arrastre, tambien:
+ * la cruz estorba al gesto.
+ */
+function alMoverRaton(event) {
+  puntero.value = { x: event.clientX, y: event.clientY }
+  const rect = cajaDelLienzo()
+  if (!rect || arrastreEnCurso.value) {
+    cruz.value = null
+    return
+  }
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  if (x < 0 || x >= props.layout.width) {
+    cruz.value = null
+    return
+  }
+  if (y < desplazamiento.value + GANTT_METRICS.headerHeight) {
+    cruz.value = null
+    return
+  }
+  const indiceDia = Math.floor(x / props.layout.pxPerDay)
+  cruz.value = {
+    indiceDia,
+    // La linea va en el centro de la columna: asi se ve a que dia apunta.
+    x: indiceDia * props.layout.pxPerDay + props.layout.pxPerDay / 2,
+  }
+}
+
+/** El raton se va del diagrama: ni cruz ni globo. */
+function alSalirRaton() {
+  cruz.value = null
+  barraSobre.value = null
+}
+
+/**
+ * Etiqueta de la cruz: el dia de la columna del puntero, en espanol corto.
+ *
+ * Va en la tercera banda de la cabecera (la del festivo), que es la unica
+ * que no lleva el numero de semana ni el rango de fechas. El ancho se estima
+ * por caracteres y la caja se recorta al lienzo, para que no se salga por los
+ * extremos.
+ */
+const etiquetaCruz = computed(() => {
+  const actual = cruz.value
+  if (!actual) return null
+  const dia = dateAtIndex(props.layout.start, actual.indiceDia)
+  const nombreDia = weekdayNames()[(dia.getUTCDay() + 6) % 7].toLowerCase()
+  const texto = `${nombreDia} ${dia.getUTCDate()} ${shortMonthName(dia.getUTCMonth() + 1)}`
+  const ancho = texto.length * 6 + 16
+  const x = Math.max(0, Math.min(actual.x - ancho / 2, props.layout.width - ancho))
+  return { texto, ancho, x }
+})
 
 /**
  * Arrastre que acaba de confirmarse: el clic que sigue al mouseup no debe
@@ -177,14 +285,61 @@ const bandaPrevisualizacion = computed(() => {
 })
 
 function alDesplazar() {
+  // El lienzo se mueve con el scroll: su caja en el viewport cambia.
+  cajaLienzo = null
   desplazamiento.value = panelDiagrama.value ? panelDiagrama.value.scrollTop : 0
 }
 
 function alEmpezarArrastre({ barra, zona, event }) {
   // El panel es la caja del diagrama: si la soltura cae fuera, el composable
   // anula el gesto igual que con Escape (§8.5).
+  cruz.value = null
+  arrastrando.value = true
+  window.addEventListener('mouseup', alSoltarRaton, { once: true })
   drag.empezarArrastre({ barra, zona, event, dentro: panelDiagrama })
 }
+
+/** El raton suelta: el gesto se acabo y el globo vuelve. */
+function alSoltarRaton() {
+  arrastrando.value = false
+}
+
+/**
+ * Hay un gesto de arrastre en curso.
+ *
+ * El gesto empieza al agarrar la barra y se acaba al soltar; ademas, el
+ * composable avisa del fantasma y de la previsualizacion. Con cualquiera de
+ * las tres señales, la cruz y el globo se esconden: estorban al arrastre.
+ */
+const arrastreEnCurso = computed(
+  () =>
+    arrastrando.value ||
+    drag.fantasma.value !== null ||
+    drag.previsualizacion.value !== null,
+)
+
+/**
+ * Datos del globo de la barra sobre la que esta el raton.
+ *
+ * El titulo, las fechas y el avance salen de la barra del layout; las
+ * dependencias, del mapa que pasa la vista. Sin barra sobre el raton, o
+ * durante un arrastre, no hay globo.
+ */
+const globo = computed(() => {
+  if (arrastreEnCurso.value) return null
+  const id = barraSobre.value
+  if (id === null || id === undefined) return null
+  const barra = barraPorId.value.get(id)
+  if (!barra) return null
+  return {
+    titulo: barra.title,
+    inicio: barra.startIso,
+    fin: barra.endIso,
+    duracion: inclusiveDays(barra.startIso, barra.endIso),
+    avance: barra.progress ?? 0,
+    dependencias: props.dependencias?.[id] ?? [],
+  }
+})
 
 /**
  * Doble clic en el hueco del diagrama: punto de alta de tarea.
@@ -244,6 +399,7 @@ function alDobleClicFondo(event) {
         horizontal sigue mostrando todo el contenido.
       -->
       <svg
+        ref="lienzo"
         class="gantt__svg block"
         :width="layout.width"
         :style="{ minWidth: `${layout.width}px` }"
@@ -253,6 +409,8 @@ function alDobleClicFondo(event) {
         aria-describedby="gantt-descripcion gantt-instrucciones"
         data-testid="gantt-svg"
         @dblclick="alDobleClicFondo"
+        @mousemove="alMoverRaton"
+        @mouseleave="alSalirRaton"
       >
         <title id="gantt-titulo">Diagrama de Gantt</title>
         <desc id="gantt-descripcion">{{ descripcion }}</desc>
@@ -367,6 +525,8 @@ function alDobleClicFondo(event) {
               @abrir="alAbrirBarra"
               @seleccionar="(id) => emit('seleccionar', id)"
               @tecla="(event, id) => emit('tecla', event, id)"
+              @entrar="barraSobre = $event"
+              @salir="barraSobre = null"
             />
           </template>
 
@@ -398,6 +558,23 @@ function alDobleClicFondo(event) {
               :data-testid="`gantt-dependency-${flecha.depends_on_id}-${flecha.task_id}`"
             />
           </g>
+
+          <!--
+            Cruz de fecha: la columna del puntero, por encima de las barras.
+            Decorativa: no captura el puntero ni estorba al arrastre.
+          -->
+          <g class="gantt__cruz" aria-hidden="true" pointer-events="none">
+            <line
+              v-if="cruz"
+              :x1="cruz.x"
+              :x2="cruz.x"
+              y1="0"
+              :y2="layout.rows.length * GANTT_ROW_HEIGHT"
+              stroke="#0064b4"
+              stroke-width="1"
+              stroke-opacity="0.45"
+            />
+          </g>
         </g>
 
         <!-- Eje: se contratraslada para quedar clavado arriba. -->
@@ -408,6 +585,30 @@ function alDobleClicFondo(event) {
             ancho="100%"
             :alto="GANTT_METRICS.headerHeight"
           />
+
+          <!--
+            Fecha de la cruz: en la tercera banda de la cabecera, la del
+            festivo, para no tapar ni el numero de semana ni el rango de
+            fechas. La caja se recorta al lienzo en los extremos.
+          -->
+          <g v-if="etiquetaCruz" class="gantt__cruz-etiqueta" aria-hidden="true">
+            <rect
+              :x="etiquetaCruz.x"
+              y="42"
+              :width="etiquetaCruz.ancho"
+              height="18"
+              rx="4"
+              fill="#ffffff"
+              stroke="#cbd5e1"
+            />
+            <text
+              :x="etiquetaCruz.x + 8"
+              y="55"
+              fill="#003466"
+              font-size="10"
+              font-weight="600"
+            >{{ etiquetaCruz.texto }}</text>
+          </g>
         </g>
       </svg>
     </div>
@@ -425,6 +626,9 @@ function alDobleClicFondo(event) {
         {{ fantasma.rango }}
       </span>
     </div>
+
+    <!-- Globo de la barra sobre la que esta el raton: mismo patron que el fantasma. -->
+    <GanttTooltip :datos="globo" :x="puntero.x" :y="puntero.y" />
   </div>
 
   <p v-if="aviso" id="gantt-aviso" class="sr-only">{{ aviso }}</p>

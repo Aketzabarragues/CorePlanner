@@ -10,6 +10,9 @@
  * El arrastre lo gestiona el composable del chart: la barra solo emite
  * `empezar-arrastre` con la zona donde se ha agarrado (cuerpo o asa) y deja
  * al composable el resto.
+ *
+ * El raton que pasa por encima se anuncia con `entrar` y `salir`: el chart
+ * dibuja con ello el globo de datos de la tarea.
  */
 import { computed } from 'vue'
 
@@ -33,7 +36,7 @@ const props = defineProps({
   viola: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['empezar-arrastrar', 'abrir', 'seleccionar', 'tecla'])
+const emit = defineEmits(['empezar-arrastrar', 'abrir', 'seleccionar', 'tecla', 'entrar', 'salir'])
 
 /** Ancho minimo de barra, para que una tarea de un dia siga siendo agarrable. */
 const anchoBarra = computed(() => Math.max(6, props.barra.width))
@@ -83,6 +86,8 @@ function empezarArrastre(event) {
     @dblclick.stop
     @focus="emit('seleccionar', barra.taskId)"
     @keydown="emit('tecla', $event, barra.taskId)"
+    @mouseenter="emit('entrar', barra.taskId)"
+    @mouseleave="emit('salir')"
   >
     <!-- Cuerpo: el relleno lo da gantt.css con el color de la persona. -->
     <rect

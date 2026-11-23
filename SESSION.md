@@ -43,6 +43,16 @@ Esta sesion no toco el backend.
   toast flotante".
 - `.operator/product/ideas.md`: I-002 pasa a "decidido e implementado".
 - `.operator/index/index.md`: el store, el host y el numero de tests.
+- Motor de Gantt (`frontend/src/components/gantt/`): la cabecera del eje pasa a
+  tres bandas de 64 px (numero o mes, rango o ano, festivo), en escala de dia
+  con una banda que agrupa los dias del mes; la rejilla se afina a dias en
+  escala de semana y a semanas en escala de mes. El azul de arrastre es la fila
+  de la tarea, con el ancho del rango nuevo. Al mover el raton aparece una
+  cruz con la fecha del dia y, sobre una barra, un globo con sus datos
+  (inicio, fin, duracion, avance y dependencias). Arrastrar una barra ya no
+  deja tres scrollbars: el armazon lleva `min-h-0` y la vista del Gantt es una
+  columna flex que da al diagrama el espacio sobrante. La escala se estira al
+  ancho del panel (los pixeles por dia suben hasta llenarlo).
 
 ## Decisiones tecnicas
 

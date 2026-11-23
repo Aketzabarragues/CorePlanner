@@ -411,6 +411,47 @@ const layout = computed(() => {
 })
 
 /**
+ * Dependencias de cada tarea, para el globo del diagrama.
+ *
+ * De cada vinculo del feed salen dos entradas: la tarea dependiente, que
+ * exige al requisito, y el requisito, del que la dependiente cuelga. El
+ * `relates` es simetrico: las dos tareas quedan como relacionadas.
+ *
+ * La vista es quien tiene el feed, asi que es quien arma el mapa; el chart
+ * solo lo pinta.
+ */
+const dependencias = computed(() => {
+  const tituloPorId = new Map(
+    (feed.value?.tasks ?? []).map((task) => [task.id, task.title ?? task.name ?? '']),
+  )
+  const mapa = {}
+  const anota = (id, entrada) => {
+    if (id === null || id === undefined) return
+    if (!mapa[id]) mapa[id] = []
+    mapa[id].push(entrada)
+  }
+  for (const vinculo of feed.value?.dependencies ?? []) {
+    const requisito = tituloPorId.get(vinculo.depends_on_id)
+    const dependiente = tituloPorId.get(vinculo.task_id)
+    if (requisito !== undefined) {
+      anota(vinculo.task_id, {
+        titulo: requisito,
+        tipo: vinculo.type,
+        sentido: vinculo.type === 'precedes' ? 'requisito' : 'relacionada',
+      })
+    }
+    if (dependiente !== undefined) {
+      anota(vinculo.depends_on_id, {
+        titulo: dependiente,
+        tipo: vinculo.type,
+        sentido: vinculo.type === 'precedes' ? 'dependiente' : 'relacionada',
+      })
+    }
+  }
+  return mapa
+})
+
+/**
  * Celdas del eje, con las insignias de hoy y de festivo.
  *
  * En la escala de dia la insignia no cabe: el festivo ya lo marca la banda
@@ -1260,6 +1301,7 @@ useTaskReload(load)
           :editable-de="editableDe"
           :barra-enfocada="barraEnfocada"
           :etiqueta-de="etiquetaDe"
+          :dependencias="dependencias"
           :descripcion="descripcion"
           :aviso="avisoSoloLectura"
           @abrir="abrirDetalle"

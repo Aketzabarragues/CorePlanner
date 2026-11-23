@@ -66,6 +66,17 @@
   pointer-events: none;
 }
 
+/*
+ * Cruz de fecha: la columna del puntero y su etiqueta en la cabecera.
+ *
+ * Las dos son decorativas: la cruz no puede capturar el puntero, porque
+ * estorbaria al arrastre de la barra que hay debajo.
+ */
+.gantt__cruz,
+.gantt__cruz-etiqueta {
+  pointer-events: none;
+}
+
 /* Flechas de dependencias: encima de las barras y sin capturar el puntero,
    para no estorbar el arrastre. */
 .gantt__flechas polyline {

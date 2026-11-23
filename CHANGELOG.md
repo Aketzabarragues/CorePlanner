@@ -73,6 +73,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt marca la columna del raton con una cruz
+  vertical y la fecha de ese dia, y al pasar por encima de una barra muestra un
+  globo con sus datos: inicio, fin, duracion, avance y sus dependencias (que
+  tareas requiere y que tareas dependen de ella).
 - **backend**: la exportacion `.ics` del proyecto. Un formateador puro escribe el
   calendario segun RFC 5545 (`DTEND` exclusivo, `UID` estable por tarea,
   plegado a 75 octetos contando bytes UTF-8, escapado del texto y fin de linea

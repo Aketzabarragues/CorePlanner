@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import GanttChart from '../components/gantt/GanttChart.vue'
+import GanttBar from '../components/gantt/GanttBar.vue'
 
 const ESCALA = { id: 'Week', label: 'Semana', pxPerDay: 14, header: 'week' }
 
@@ -537,5 +538,168 @@ describe('GanttChart', () => {
       wrapper.findAll('[data-testid="gantt-bar"]')[1].find('[data-testid="gantt-bar-violation"]')
         .exists(),
     ).toBe(false)
+  })
+
+  it('el raton sobre el cuerpo pinta la cruz del dia bajo el puntero y la quita al salir', async () => {
+    const wrapper = montar(layoutDe())
+
+    // En jsdom la caja del SVG mide cero: se fija para apuntar con el raton.
+    // clientX 30 a 14 px/dia es el dia 2 del rango (2026-11-03, martes);
+    // clientY 80 esta bajo la cabecera (64), dentro del cuerpo.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+    await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
+
+    // La linea va en el centro de la columna del puntero: dia 2 * 14 + 7 = 35,
+    // y baja por todo el cuerpo (3 filas * 36).
+    const linea = wrapper.get('.gantt__cruz line')
+    expect(linea.attributes('x1')).toBe('35')
+    expect(linea.attributes('x2')).toBe('35')
+    expect(linea.attributes('y2')).toBe('108')
+
+    // La etiqueta va en la tercera banda de la cabecera (rect y 42, texto
+    // y 55), con la fecha corta del dia.
+    const etiqueta = wrapper.get('.gantt__cruz-etiqueta')
+    expect(etiqueta.find('rect').attributes('y')).toBe('42')
+    expect(etiqueta.find('text').attributes('y')).toBe('55')
+    expect(etiqueta.find('text').text()).toBe('mar 3 nov')
+
+    // Al salir del diagrama no queda ni linea ni etiqueta.
+    await svg.trigger('mouseleave')
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(false)
+    expect(wrapper.find('.gantt__cruz-etiqueta').exists()).toBe(false)
+  })
+
+  it('la cruz se esconde sobre la cabecera pegajosa, al desplazarse y fuera del rango', async () => {
+    const wrapper = montar(layoutDe())
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+
+    // clientY 50 esta dentro de la cabecera pegajosa [0, 64): no hay cruz.
+    await svg.trigger('mousemove', { clientX: 30, clientY: 50 })
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(false)
+
+    // Con el panel desplazado 40 la banda tapada sube a [40, 104): clientY 70
+    // cae dentro y no hay cruz.
+    const panel = wrapper.get('[data-testid="gantt-scroll"]')
+    panel.element.scrollTop = 40
+    await panel.trigger('scroll')
+    await svg.trigger('mousemove', { clientX: 30, clientY: 70 })
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(false)
+
+    // Fuera del rango horizontal tampoco: x 200 pasa el ancho del lienzo (196).
+    await svg.trigger('mousemove', { clientX: 200, clientY: 130 })
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(false)
+
+    // Dentro del cuerpo con el panel desplazado la cruz vuelve: la fecha sale
+    // del dia bajo el puntero, no de la fila.
+    await svg.trigger('mousemove', { clientX: 30, clientY: 130 })
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(true)
+    expect(wrapper.get('.gantt__cruz-etiqueta').find('text').text()).toBe('mar 3 nov')
+  })
+
+  it('la barra emite entrar con su id y salir al pasar el raton por encima', async () => {
+    const barra = barraNueva(10)
+    const wrapper = mount(GanttBar, {
+      props: { barra, y: 0, editable: true, etiquetaAria: 'Etiqueta de la 10' },
+    })
+
+    await wrapper.trigger('mouseenter')
+    expect(wrapper.emitted('entrar')).toEqual([[10]])
+
+    await wrapper.trigger('mouseleave')
+    expect(wrapper.emitted('salir')).toEqual([[]])
+  })
+
+  it('pasar el raton por una barra muestra el globo con sus datos y lo quita al salir', async () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, {
+        title: 'Programacion SCADA WinCC',
+        startIso: '2026-11-03',
+        endIso: '2026-11-06',
+        progress: 40,
+      }),
+    ]))
+
+    const barra = wrapper.get('[data-testid="gantt-bar"]')
+    await barra.trigger('mouseenter')
+
+    // El globo sale en el viewport (fixed, pointer-events-none) con el titulo,
+    // las fechas, la duracion inclusiva y el avance de la barra.
+    const globo = wrapper.get('[data-testid="gantt-tooltip"]')
+    expect(globo.attributes('aria-hidden')).toBe('true')
+    expect(globo.text()).toContain('Programacion SCADA WinCC')
+    expect(globo.text()).toContain('3 nov 2026')
+    expect(globo.text()).toContain('6 nov 2026')
+    expect(globo.text()).toContain('4 días')
+    expect(globo.text()).toContain('40 %')
+    expect(globo.find('dt').text()).toBe('Inicio')
+    expect(globo.text()).toContain('Fin')
+
+    // Sin avance el globo no deja la fila hueca: no la pinta.
+    await barra.trigger('mouseleave')
+    expect(wrapper.find('[data-testid="gantt-tooltip"]').exists()).toBe(false)
+
+    const sinAvance = montar(layoutDe([barraNueva(10, { progress: 0 })]))
+    await sinAvance.get('[data-testid="gantt-bar"]').trigger('mouseenter')
+    expect(sinAvance.get('[data-testid="gantt-tooltip"]').text()).not.toContain('Avance')
+  })
+
+  it('con la prop dependencias el globo lista requisitos y dependientes con su tipo', async () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { title: 'Tarea central' }),
+    ]), {
+      dependencias: {
+        10: [
+          { titulo: 'Diseño de proceso', tipo: 'precedes', sentido: 'requisito' },
+          { titulo: 'Pruebas de linea', tipo: 'precedes', sentido: 'dependiente' },
+          { titulo: 'Notas de operacion', tipo: 'relates', sentido: 'relacionada' },
+        ],
+      },
+    })
+
+    await wrapper.get('[data-testid="gantt-bar"]').trigger('mouseenter')
+
+    const globo = wrapper.get('[data-testid="gantt-tooltip"]')
+    const texto = globo.text()
+    // Los tres grupos salen solo con sus entradas, y cada requisito y
+    // dependiente lleva el tipo del vinculo (FS).
+    expect(texto).toContain('Depende de')
+    expect(texto).toContain('Diseño de proceso')
+    expect(texto).toContain('Requerida por')
+    expect(texto).toContain('Pruebas de linea')
+    expect(texto).toContain('Relacionada con')
+    expect(texto).toContain('Notas de operacion')
+    expect(texto.match(/FS/g)).toHaveLength(2)
+  })
+
+  it('durante un arrastre no hay cruz ni globo, y el globo vuelve al soltar', async () => {
+    const wrapper = montar(layoutDe())
+    wrapper
+      .get('[data-testid="gantt-scroll"]')
+      .element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+
+    const barra = wrapper.get('[data-testid="gantt-bar"]')
+    await barra.trigger('mousedown', { clientX: 40, clientY: 80 })
+    // El gesto pasa el umbral de 5 px: fantasma y previsualizacion en juego.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 70, clientY: 80 }))
+    await flushPromises()
+
+    // Sobre el diagrama el raton sigue moviendose, pero la cruz no sale ni el
+    // globo se pinta sobre la barra agarrada.
+    await barra.trigger('mouseenter')
+    await svg.trigger('mousemove', { clientX: 70, clientY: 80 })
+    expect(wrapper.find('.gantt__cruz line').exists()).toBe(false)
+    expect(wrapper.find('.gantt__cruz-etiqueta').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="gantt-tooltip"]').exists()).toBe(false)
+
+    // Al soltar, el gesto se acaba y el globo vuelve sobre la barra agarrada.
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 70, clientY: 80 }))
+    await flushPromises()
+    expect(wrapper.get('[data-testid="gantt-tooltip"]').exists()).toBe(true)
   })
 })

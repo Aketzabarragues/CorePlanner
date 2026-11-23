@@ -419,6 +419,48 @@ describe('GanttView', () => {
     expect(etiquetas[0]).toContain('Ana')
   })
 
+  it('con dependencias en el feed el globo cruza titulos, tipo y sentido de cada vinculo', async () => {
+    // 11 precede a 10 (10 la exige), 12 se relaciona con 10 (simetrico).
+    const feedVinculos = {
+      ...feed,
+      dependencies: [
+        { task_id: 11, depends_on_id: 10, type: 'precedes' },
+        { task_id: 12, depends_on_id: 10, type: 'relates' },
+      ],
+    }
+    setupFetch(feedVinculos)
+
+    const { wrapper } = await mountGantt()
+
+    // La barra 10 lista a la 11 como dependiente (precedes) y a la 12 como
+    // relacionada, con los titulos que vienen del feed.
+    const barra10 = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.element.getAttribute('data-task-id') === '10')
+    await barra10.trigger('mouseenter')
+
+    let globo = wrapper.get('[data-testid="gantt-tooltip"]')
+    expect(globo.text()).toContain('Programacion SCADA WinCC')
+    expect(globo.text()).toContain('Requerida por')
+    expect(globo.text()).toContain('Montajes')
+    expect(globo.text()).toContain('Relacionada con')
+    expect(globo.text()).toContain('Planos de tuberias')
+    // No le exige nada: el grupo de requisito no aparece.
+    expect(globo.text()).not.toContain('Depende de')
+
+    // La barra 11 lleva a la 10 como requisito, con el tipo del vinculo (FS).
+    await barra10.trigger('mouseleave')
+    const barra11 = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.element.getAttribute('data-task-id') === '11')
+    await barra11.trigger('mouseenter')
+
+    globo = wrapper.get('[data-testid="gantt-tooltip"]')
+    expect(globo.text()).toContain('Depende de')
+    expect(globo.text()).toContain('Programacion SCADA WinCC')
+    expect(globo.text()).toContain('FS')
+  })
+
   it('muestra la leyenda con las personas del diagrama', async () => {
     setupFetch()
 

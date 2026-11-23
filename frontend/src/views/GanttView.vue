@@ -1009,8 +1009,14 @@ useTaskReload(load)
 </script>
 
 <template>
-  <div>
-    <PageHeader title="Gantt" :subtitle="subtitle">
+  <!--
+    La vista ocupa el alto disponible (`h-full`) y es una columna flex: el
+    diagrama se queda con el espacio que sobra y encoge con el que falta. Un
+    aviso transitorio ("Fechas actualizadas") aprieta el diagrama en vez de
+    empujar la pagina.
+  -->
+  <div class="flex h-full min-h-0 flex-col">
+    <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle">
       <template #actions>
         <button
           v-if="projectFilter"
@@ -1040,7 +1046,7 @@ useTaskReload(load)
       </template>
     </PageHeader>
 
-    <AlertBanner v-if="notice" variant="success" class="mb-2">
+    <AlertBanner v-if="notice" variant="success" class="mb-2 shrink-0">
       {{ notice }}
     </AlertBanner>
 
@@ -1048,13 +1054,13 @@ useTaskReload(load)
     <AlertBanner
       v-if="falloIcs"
       variant="warning"
-      class="mb-2"
+      class="mb-2 shrink-0"
       data-testid="gantt-export-ics-fallo"
     >
       {{ falloIcs }}
     </AlertBanner>
 
-    <div class="mb-3 flex flex-wrap items-end gap-3" data-testid="gantt-filters">
+    <div class="mb-3 flex shrink-0 flex-wrap items-end gap-3" data-testid="gantt-filters">
       <label class="text-xs font-medium text-slate-600">
         <span class="mb-1 block">Departamento</span>
         <select
@@ -1155,20 +1161,21 @@ useTaskReload(load)
     </div>
 
     <AsyncState
+      class="flex min-h-0 flex-1 flex-col"
       :loading="loading"
       :error="error"
       loading-label="Cargando el diagrama"
       error-test-id="gantt-warning"
       @retry="reintentar"
     >
-      <p v-if="saving" class="text-sm text-slate-500">Guardando fechas...</p>
+      <p v-if="saving" class="shrink-0 text-sm text-slate-500">Guardando fechas...</p>
 
       <!-- Fallo de la cascada: avisa sin bloquear; la tarea arrastrada se
            guardo igualmente. -->
       <AlertBanner
         v-if="cascadaFallo"
         variant="warning"
-        class="mb-3"
+        class="mb-3 shrink-0"
         data-testid="cascada-fallo"
       >
         {{ cascadaFallo }}
@@ -1176,7 +1183,7 @@ useTaskReload(load)
 
       <ul
         v-if="miembrosVisibles.length || hayProvisional"
-        class="mb-3 flex flex-wrap gap-3 text-xs text-slate-600"
+        class="mb-3 flex shrink-0 flex-wrap gap-3 text-xs text-slate-600"
         data-testid="gantt-legend"
       >
         <li
@@ -1198,28 +1205,36 @@ useTaskReload(load)
       <AlertBanner
         v-if="feed && feed.undated_task_ids.length"
         variant="warning"
-        class="mb-3"
+        class="mb-3 shrink-0"
         data-testid="gantt-undated"
       >
         {{ avisoSinFechas }}
       </AlertBanner>
 
-      <GanttChart
-        :layout="layout"
-        :columnas="columnas"
-        :filas-nombres="layout.rows"
-        :editable-de="editableDe"
-        :barra-enfocada="barraEnfocada"
-        :etiqueta-de="etiquetaDe"
-        :descripcion="descripcion"
-        :aviso="avisoSoloLectura"
-        @abrir="abrirDetalle"
-        @seleccionar="barraEnfocada = $event"
-        @tecla="alPulsarTecla"
-        @mover="moverTarea"
-        @crear="alCrear"
-        @ancho-panel="anchoPanel = $event"
-      />
+      <!--
+        El diagrama se queda con el espacio que sobra y encoge con el que
+        falta: el aviso que aparece al soltar no lo empuja fuera de la vista.
+        El alto minimo lo mantiene visible en una ventana muy baja: ahi la
+        vista se desplaza dentro de `main` en vez de dejar el grafico en cero.
+      -->
+      <div class="flex min-h-[200px] flex-1 flex-col">
+        <GanttChart
+          :layout="layout"
+          :columnas="columnas"
+          :filas-nombres="layout.rows"
+          :editable-de="editableDe"
+          :barra-enfocada="barraEnfocada"
+          :etiqueta-de="etiquetaDe"
+          :descripcion="descripcion"
+          :aviso="avisoSoloLectura"
+          @abrir="abrirDetalle"
+          @seleccionar="barraEnfocada = $event"
+          @tecla="alPulsarTecla"
+          @mover="moverTarea"
+          @crear="alCrear"
+          @ancho-panel="anchoPanel = $event"
+        />
+      </div>
     </AsyncState>
 
     <TaskDetailDialog

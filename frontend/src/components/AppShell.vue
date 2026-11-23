@@ -378,7 +378,13 @@ watch(() => route.fullPath, () => {
       </div>
     </aside>
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <!--
+      La columna se puede encoger por debajo de su contenido (`min-h-0`). Sin
+      esto, el alto minimo automatico de `main` seria el de su contenido: al
+      aparecer un aviso la vista creceria, la columna se desbordaria y la
+      pagina ganaria un scroll que no debe existir.
+    -->
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <header class="flex h-14 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
         <button
           type="button"
@@ -449,7 +455,11 @@ watch(() => route.fullPath, () => {
         </div>
       </header>
 
-      <main class="flex-1 overflow-auto bg-slate-50 p-3 sm:p-6">
+      <!--
+        `min-h-0`: la vista se desplaza por dentro de `main` cuando su
+        contenido no cabe; la pagina (`html`) nunca crece.
+      -->
+      <main class="flex-1 min-h-0 overflow-auto bg-slate-50 p-3 sm:p-6">
         <AlertBanner v-if="error" variant="error" class="mb-3">
           {{ error }}
         </AlertBanner>

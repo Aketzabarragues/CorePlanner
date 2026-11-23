@@ -171,6 +171,13 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
     Mes 5). El chart mide el ancho del panel y lo informa a la vista, que
     calcula la escala efectiva. El nombre de un festivo se recorta al ancho de
     su celda.
+  - Scrolls del Gantt: la vista es una columna flex que ocupa el alto de
+    `main` y el diagrama se queda con el espacio sobrante (`max-h-full`, con
+    un minimo de 200 px). La columna del armazon y `main` llevan `min-h-0`: la
+    pagina (`html` en `h-screen overflow-hidden`) nunca gana scroll y `main`
+    se desplaza por dentro. Queda un solo scroll, el del panel del diagrama.
+    Un aviso transitorio (por ejemplo "Fechas actualizadas") aprieta el
+    diagrama en vez de empujar la pagina.
 
 ## Decisiones tecnicas
 
@@ -224,8 +231,9 @@ dos y tres semanas por delante (deja la primera pantalla del calendario y de
 - Revision visual en navegador: se hizo con Chromium headless por CDP (el
   catalogo no expone el MCP de Playwright, pero el binario de Chromium si esta
   instalado): el Gantt se reviso en Dia/Semana/Mes con la escala estirada al
-  panel y las barras alineadas con la columna de nombres. Queda pendiente para
-  una sesion con navegador de verdad: modal en movil y escritorio y desglose
-  de celda de la matriz.
+  panel, las barras alineadas con la columna de nombres y el arrastre de una
+  barra (tras soltar queda un solo scroll, el del panel del diagrama). Queda
+  pendiente para una sesion con navegador de verdad: modal en movil y
+  escritorio y desglose de celda de la matriz.
 - Despues del motor: bloque A (Kanban) y bloque C (Calendario) del §51, y
   luego G2 (capacidad libre), G1 (horas reales), G3 (politica), G5 (MCP).

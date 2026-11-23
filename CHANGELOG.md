@@ -152,6 +152,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: arrastrar y soltar una barra del Gantt ya no deja tres scrollbars.
+  El aviso "Fechas actualizadas" empujaba la vista, que hacia crecer la pagina.
+  Ahora la columna del armazon y `main` llevan `min-h-0` (la pagina nunca
+  crece), la vista del Gantt es una columna flex que ocupa el alto de `main` y
+  el diagrama se queda con el espacio sobrante con `max-h-full`, en vez del tope
+  fijo de pantalla. Queda un solo scroll: el del panel del diagrama.
 - **frontend**: el diagrama de Gantt ocupa todo el ancho del panel. La escala
   de tiempo se estira: los pixeles por dia suben hasta llenar el ancho
   disponible, sin bajar nunca del valor natural de la escala (Dia 44, Semana

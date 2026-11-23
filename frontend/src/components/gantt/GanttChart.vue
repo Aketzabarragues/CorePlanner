@@ -16,7 +16,7 @@
  * El chart no dimensiona el lienzo: eso lo estira el CSS. Solo mide el ancho
  * del panel y lo informa a la vista, que de ahi calcula la escala efectiva.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { addDays, dayIndex, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
@@ -85,6 +85,16 @@ onBeforeUnmount(() => {
   observadorAncho?.disconnect()
   observadorAncho = null
 })
+
+/**
+ * Vuelve a medir el panel cuando cambia el layout.
+ *
+ * El ancho del panel es el hueco que le deja la vista, y ese hueco se mueve
+ * con el layout (por ejemplo, cuando `main` gana o pierde la barra de scroll
+ * vertical). Se mide despues del repintado (`flush: 'post'`), para usar el
+ * ancho vigente y no el anterior; `medirAncho` solo emite si cambia.
+ */
+watch(() => props.layout, medirAncho, { flush: 'post' })
 
 /** Alto total del SVG: cabecera mas una fila por entrada del layout. */
 const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.rows.length * GANTT_ROW_HEIGHT)
@@ -182,8 +192,14 @@ function alDobleClicFondo(event) {
 </script>
 
 <template>
+  <!--
+    Tope relativo al hueco que le reserva la vista (`max-h-full`), no un tope
+    fijo de pantalla: el diagrama mide lo que ocupa su contenido pero nunca
+    mas que el espacio disponible, y el panel de scroll (`gantt__diagrama`)
+    sigue desplazandose cuando las filas no caben.
+  -->
   <div
-    class="gantt relative flex max-h-[70vh] overflow-hidden rounded border border-slate-200 bg-white"
+    class="gantt relative flex max-h-full overflow-hidden rounded border border-slate-200 bg-white"
     role="group"
     aria-roledescription="diagrama de Gantt"
     aria-label="Diagrama de Gantt"

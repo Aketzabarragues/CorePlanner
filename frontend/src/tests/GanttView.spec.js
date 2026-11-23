@@ -1145,6 +1145,37 @@ describe('GanttView', () => {
     )
   })
 
+  it('la vista se apoya en min-h-0 y el contenedor del diagrama en un minimo de 200 px', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    // La raiz de la vista ocupa el alto disponible y se puede encoger: un
+    // aviso transitorio aprieta el diagrama, no empuja la pagina. En modo dev
+    // el comentario de la plantilla convierte la raiz en un fragmento, asi
+    // que el div real es el primer hijo del elemento montado.
+    const raiz = wrapper.element.querySelector('div')
+    expect(raiz.className).toContain('h-full')
+    expect(raiz.className).toContain('min-h-0')
+    expect(raiz.className).toContain('flex-col')
+
+    // El contenedor del diagrama se queda con el espacio que sobra. Su minimo
+    // es solo `min-h-[200px]` (mantenerlo visible en una ventana baja);
+    // `min-h-0` lo llevaria a colapsarse a 0 en lugar de dejar que la vista
+    // se desplace dentro de `main`.
+    const contenedor = wrapper.get('[data-testid="gantt-chart"]').element.parentElement
+    expect(contenedor.className).toContain('min-h-[200px]')
+    expect(contenedor.className).not.toContain('min-h-0')
+    expect(contenedor.className).toContain('flex-1')
+    expect(contenedor.className).toContain('flex-col')
+
+    // El estado de carga que lo envuelve es el eslabon: crece y se encoge
+    // igual.
+    const estado = contenedor.parentElement
+    expect(estado.className).toContain('min-h-0')
+    expect(estado.className).toContain('flex-1')
+  })
+
   it('con proyecto en contexto ofrece el boton Exportar .ics', async () => {
     setupFetch()
 

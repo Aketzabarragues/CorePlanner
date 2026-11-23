@@ -658,6 +658,24 @@ describe('AppShell', () => {
     expect(store.tasksRevision).toBe(antes + 1)
   })
 
+  it('la columna de contenido y main se encogen para que la pagina no gane scroll', async () => {
+    const { wrapper } = await mountShell()
+
+    const main = wrapper.find('main')
+    expect(main.exists()).toBe(true)
+    expect(main.classes()).toContain('min-h-0')
+    expect(main.classes()).toContain('flex-1')
+    expect(main.classes()).toContain('overflow-auto')
+
+    // La columna que lo contiene hace el mismo pacto: sin `min-h-0`, el alto
+    // minimo automatico de `main` seria el de su contenido y la pagina
+    // ganaria un scroll que no debe existir.
+    const columna = main.element.parentElement
+    expect(columna.className).toContain('min-h-0')
+    expect(columna.className).toContain('flex-1')
+    expect(columna.className).toContain('flex-col')
+  })
+
   it('la vista abierta no se monta de nuevo cuando cambian las tareas', async () => {
     mounts = 0
     const { wrapper } = await mountShell('/capacity?project=1')

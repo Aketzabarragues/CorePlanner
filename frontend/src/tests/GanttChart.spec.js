@@ -390,6 +390,42 @@ describe('GanttChart', () => {
     }
   })
 
+  it('al cambiar el layout vuelve a medir el panel y emite el ancho nuevo solo si cambio', async () => {
+    const originalAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 480,
+    })
+    try {
+      const wrapper = montar(layoutDe())
+      expect(wrapper.emitted('ancho-panel')).toEqual([[480]])
+
+      // El hueco del panel se mueve con el layout (por ejemplo, cuando
+      // `main` gana o pierde la barra de scroll vertical): a 520.
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 520 })
+      await wrapper.setProps({ layout: layoutDe([barraNueva(10)]) })
+
+      expect(wrapper.emitted('ancho-panel')).toEqual([[480], [520]])
+
+      // Ancho igual al ya informado: el layout cambia y no se re-emite.
+      await wrapper.setProps({ layout: layoutDe([barraNueva(10), barraNueva(11, { rowIndex: 1 })]) })
+      expect(wrapper.emitted('ancho-panel')).toEqual([[480], [520]])
+    } finally {
+      if (originalAncho) Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalAncho)
+      else delete HTMLElement.prototype.clientWidth
+    }
+  })
+
+  it('la raiz del diagrama se tope al hueco de la vista, no a la pantalla', () => {
+    const wrapper = montar(layoutDe())
+
+    const raiz = wrapper.get('[data-testid="gantt-chart"]')
+    // El tope es relativo al hueco que le deja la vista (`max-h-full`); el
+    // tope fijo de pantalla (`max-h-[70vh]`) ya no existe.
+    expect(raiz.classes()).toContain('max-h-full')
+    expect(raiz.classes()).not.toContain('max-h-[70vh]')
+  })
+
   it('una barra que viola una dependencia lleva la marca y su aria-label lo dice', () => {
     const layout = layoutDe([
       barraNueva(10, { violates: true, title: 'Programacion SCADA WinCC' }),

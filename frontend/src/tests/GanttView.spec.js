@@ -487,6 +487,38 @@ describe('GanttView', () => {
     expect(bandas.some((recta) => recta.attributes('fill') === '#fffbeb')).toBe(true)
   })
 
+  it('el festivo de la celda de semana va en su banda, sin pisar el rango', async () => {
+    setupFetch(feed, [
+      {
+        id: 1,
+        date: '2026-11-06',
+        name: 'Fiestas',
+        scope: 'global',
+        department_id: null,
+        department_name: null,
+        user_id: null,
+        user_name: null,
+        half_day: false,
+      },
+    ])
+
+    const { wrapper } = await mountGantt()
+
+    // Tres bandas: el numero de semana (y 15), el rango de fechas (y 33) y
+    // el festivo (rect en y 44, texto en y 54). El festivo no pisa el rango.
+    const celda = wrapper.get('[data-testid="gantt-axis-column-2026-W45"]')
+    const subtitulo = celda
+      .findAll('text')
+      .find((texto) => texto.text().includes('nov'))
+    expect(subtitulo.attributes('y')).toBe('33')
+    const insignia = celda
+      .findAll('text')
+      .find((texto) => texto.text().includes('Fiestas'))
+    expect(insignia.attributes('y')).toBe('54')
+    expect(insignia.attributes('y')).not.toBe(subtitulo.attributes('y'))
+    expect(celda.find('rect').attributes('y')).toBe('44')
+  })
+
   it('un festivo de alcance de persona no se pinta en el diagrama', async () => {
     setupFetch(feed, [
       {
@@ -538,8 +570,12 @@ describe('GanttView', () => {
 
     const { wrapper } = await mountGantt()
 
-    // La primera celda no sale desplazada: su linea de rejilla esta en x 0.
-    const ticks = wrapper.findAll('.gantt__rejilla line')
+    // El g de rejilla dibuja primero las lineas de celda y despues las
+    // secundarias: el recuento de celdas del eje delata el corte. Las
+    // celdas del eje son `gantt-axis-column-*`.
+    const lineas = wrapper.findAll('.gantt__rejilla line')
+    const celdas = wrapper.findAll('[data-testid^="gantt-axis-column-"]')
+    const ticks = lineas.slice(0, celdas.length)
     expect(Number(ticks[0].attributes('x1'))).toBe(0)
 
     // El rango completo se amplia de lunes a domingo: la ultima celda de
@@ -981,9 +1017,9 @@ describe('GanttView', () => {
     // El rango del feed abre en 2026-11-02 (lunes) a 14 px/dia: x 56 es el
     // 2026-11-06 (jueves). La y es la coordenada de contenido (el top del
     // SVG sube con el scroll del panel): la cabecera pegajosa tapa la banda
-    // [scroll, scroll + 48), el cuerpo va desplazado 48 y la fila es
-    // floor((y - 48) / 36); con scroll 0 y 130 cae en la fila 2, la tarea
-    // de Ana.
+    // [scroll, scroll + 64), el cuerpo va desplazado 64 y la fila es
+    // floor((y - 64) / 36); con scroll 0 y 130 da floor((130 - 64) / 36) =
+    // 1, la segunda fila, la de Ana.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
     await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
@@ -1008,8 +1044,8 @@ describe('GanttView', () => {
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
     // x 70 es el dia 5 del rango (2026-11-02 + 5 = 2026-11-07, domingo);
-    // y 130 cae en la fila 2 con la formula de la coordenada de contenido:
-    // floor((130 - 48) / 36) = 2, por encima de la banda tapada [0, 48).
+    // y 130 da floor((130 - 64) / 36) = 1, por encima de la banda tapada
+    // [0, 64).
     await svg.trigger('dblclick', { clientX: 70, clientY: 130 })
     await flushPromises()
 

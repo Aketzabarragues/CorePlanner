@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import GanttChart from '../components/gantt/GanttChart.vue'
@@ -150,15 +150,15 @@ describe('GanttChart', () => {
 
     // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
     // La y es la coordenada de contenido (clientY menos el top del SVG, que
-    // con scroll sube de la ventana). El cuerpo va desplazado 48 px dentro
-    // del SVG: la fila 0 empieza en la y 48 del contenido y la fila es
-    // floor((y - 48) / 36). La cabecera pegajosa tapa la banda [scroll,
-    // scroll + 48) y se descarta antes de mirar la fila: con scroll 0 la
-    // primera fila pulsable es la fila 0, contenido [48, 84). x 30 a 14
-    // px/dia es el dia 3 (2026-11-03); y 60 da floor((60 - 48) / 36) = 0.
+    // con scroll sube de la ventana). El cuerpo va desplazado 64 px dentro
+    // del SVG: la fila 0 empieza en la y 64 del contenido y la fila es
+    // floor((y - 64) / 36). La cabecera pegajosa tapa la banda [scroll,
+    // scroll + 64) y se descarta antes de mirar la fila: con scroll 0 la
+    // primera fila pulsable es la fila 0, contenido [64, 100). x 30 a 14
+    // px/dia es el dia 3 (2026-11-03); y 80 da floor((80 - 64) / 36) = 0.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
-    await svg.trigger('dblclick', { clientX: 30, clientY: 60 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 80 })
 
     const [payload] = wrapper.emitted('crear')[0]
     expect(payload.dateIso).toBe('2026-11-03')
@@ -170,9 +170,9 @@ describe('GanttChart', () => {
 
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
-    // Con scroll 0 la cabecera pegajosa tapa la banda [0, 48): y 40 cae
-    // dentro y se descarta antes de mirar la fila. y 200 da floor((200 - 48)
-    // / 36) = 4 y el layout solo tiene 3 filas (0, 1, 2): sin fila tampoco
+    // Con scroll 0 la cabecera pegajosa tapa la banda [0, 64): y 40 cae
+    // dentro y se descarta antes de mirar la fila. y 200 da floor((200 - 64)
+    // / 36) = 3 y el layout solo tiene 3 filas (0, 1, 2): sin fila tampoco
     // emite nada.
     await svg.trigger('dblclick', { clientX: 30, clientY: 40 })
     await svg.trigger('dblclick', { clientX: 30, clientY: 200 })
@@ -191,13 +191,13 @@ describe('GanttChart', () => {
     // Con scroll nativo el borde superior del SVG sube con el contenido: el
     // rect del SVG lo imita con top -40, como en el navegador. La y queda
     // en coordenada de contenido (clientY + 40) y la banda tapada por la
-    // cabecera pegajosa pasa a ser [40, 88). El cuerpo va desplazado 48,
-    // asi que la fila es floor((y - 48) / 36): la fila 0 empieza en 48.
+    // cabecera pegajosa pasa a ser [40, 104) (desplazamiento + 64). El
+    // cuerpo va desplazado 64, asi que la fila es floor((y - 64) / 36).
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: -40, right: 196, bottom: 204 })
-    // clientY 55 es y 95 en contenido, por encima de la banda tapada, y da
-    // floor((95 - 48) / 36) = 1: la fila 1, contenido [84, 120).
-    await svg.trigger('dblclick', { clientX: 30, clientY: 55 })
+    // clientY 80 es y 120 en contenido, por encima de la banda tapada, y da
+    // floor((120 - 64) / 36) = 1: la fila 1, contenido [100, 136).
+    await svg.trigger('dblclick', { clientX: 30, clientY: 80 })
 
     const [payload] = wrapper.emitted('crear')[0]
     expect(payload.fila).toEqual(expect.objectContaining({ type: 'bar', rowIndex: 1 }))
@@ -210,14 +210,14 @@ describe('GanttChart', () => {
     panel.element.scrollTop = 40
     await panel.trigger('scroll')
 
-    // Con scroll 40 la cabecera pegajosa tapa la banda [40, 88) del
-    // contenido. El rect del SVG imita el navegador con top -40: clientY 20
-    // da y = 20 + 40 = 60, dentro de la banda tapada. Por mucho que 60 - 48
-    // caiga en la fila 0, el guard y < desplazamiento + 48 descarta el clic
+    // Con scroll 40 la cabecera pegajosa tapa la banda [40, 104) del
+    // contenido. El rect del SVG imita el navegador con top -40: clientY 44
+    // da y = 44 + 40 = 84, dentro de la banda tapada. Por mucho que 84 - 64
+    // caiga en la fila 0, el guard y < desplazamiento + 64 descarta el clic
     // antes de mirar la fila.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: -40, right: 196, bottom: 204 })
-    await svg.trigger('dblclick', { clientX: 30, clientY: 20 })
+    await svg.trigger('dblclick', { clientX: 30, clientY: 44 })
 
     expect(wrapper.emitted('crear')).toBeUndefined()
   })
@@ -233,9 +233,9 @@ describe('GanttChart', () => {
   it('el scroll del panel sube el contenido sin traslacion extra del cuerpo', async () => {
     const wrapper = montar(layoutDe())
 
-    // El cuerpo va desplazado el alto de la cabecera (48) antes de todo
+    // El cuerpo va desplazado el alto de la cabecera (64) antes de todo
     // scroll: la fila 0 empieza debajo de la cabecera pegajosa.
-    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 48)')
+    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 64)')
 
     const panel = wrapper.get('[data-testid="gantt-scroll"]')
     panel.element.scrollTop = 40
@@ -248,12 +248,102 @@ describe('GanttChart', () => {
 
     // El cuerpo sube con el scroll nativo del SVG: su traslacion es la
     // misma constante, sin variacion con el scroll.
-    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 48)')
+    expect(wrapper.get('.gantt__cuerpo').attributes('transform')).toBe('translate(0, 64)')
 
     // La columna de nombres no esta dentro del panel: su pista replica el
     // desplazamiento una sola vez.
     const pista = wrapper.get('.gantt__nombres-pista')
     expect(pista.attributes('style')).toContain('translateY(-40px)')
+  })
+
+  it('el eje se monta con el alto de la cabecera y las bandas de mes en escala dia', () => {
+    const layout = layoutDe([barraNueva(10)])
+    const wrapper = montar(layout, {
+      columnas: [
+        {
+          key: '2026-11-01',
+          label: '1',
+          sublabel: 'S',
+          x: 0,
+          width: 44,
+          kind: 'day',
+          hoy: false,
+          festivo: null,
+        },
+      ],
+      bandasCabecera: [{ key: '2026-11', label: 'nov 2026', x: 0, width: 196 }],
+    })
+
+    // El fondo del eje lleva el alto de la cabecera (64), no el antiguo 48:
+    // la banda 3 (festivo / inicial del dia) cabe dentro.
+    const eje = wrapper.get('[data-testid="gantt-axis"]')
+    expect(eje.find('rect').attributes('height')).toBe('64')
+
+    // La banda del mes entra en el g de testid propio, con su separador y su
+    // etiqueta de la banda 1 (y 15).
+    const banda = wrapper.get('[data-testid="gantt-axis-banda-2026-11"]')
+    expect(banda.find('line').attributes('y2')).toBe('64')
+    expect(banda.find('text').text()).toBe('nov 2026')
+    expect(banda.find('text').attributes('y')).toBe('15')
+
+    // La celda de dia lleva el numero (banda 2, y 33) y la inicial (banda 3,
+    // y 54), cada uno en su banda.
+    const celda = wrapper.get('[data-testid="gantt-axis-column-2026-11-01"]')
+    expect(celda.findAll('text').map((texto) => texto.attributes('y'))).toEqual(['33', '54'])
+  })
+
+  it('arrastrar la barra pinta la banda de destino con la fila y el rango nuevo', async () => {
+    const wrapper = montar(layoutDe([barraNueva(10), barraNueva(11, { rowIndex: 1 })]))
+    wrapper
+      .get('[data-testid="gantt-scroll"]')
+      .element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+
+    const barra = wrapper.get('[data-testid="gantt-bar"]')
+    await barra.trigger('mousedown', { clientX: 40, clientY: 40 })
+    // 30 px a 14 px/dia son 2 dias: el rango nuevo es 2026-11-05 a
+    // 2026-11-08. El gesto esta en juego (umbral de 5 px) y la banda se
+    // lee con el raton a punto de soltar, no despues.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 70, clientY: 40 }))
+    await flushPromises()
+
+    // El layout empieza en 2026-11-01: el 5 de noviembre es el dia 4 (x 4 * 14)
+    // y el rango de cuatro dias mide 4 * 14.
+    const banda = wrapper.get('[data-testid="gantt-drag-preview"]')
+    expect(banda.attributes('y')).toBe('0')
+    expect(banda.attributes('height')).toBe('36')
+    expect(Number(banda.attributes('x'))).toBe(4 * 14)
+    expect(Number(banda.attributes('width'))).toBe(4 * 14)
+
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 70, clientY: 40 }))
+    await flushPromises()
+    // Al soltar, la previsualizacion se limpia: no queda banda pintada.
+    expect(wrapper.find('[data-testid="gantt-drag-preview"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="gantt-drag-ghost"]').exists()).toBe(false)
+  })
+
+  it('redimensionar el asa de final pinta la banda con el rango recortado', async () => {
+    const wrapper = montar(layoutDe([barraNueva(10, { x: 28, width: 28 })]))
+    wrapper
+      .get('[data-testid="gantt-scroll"]')
+      .element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+
+    // El asa de final esta en el extremo derecho del cuerpo (x 28 a 56 en
+    // la barra): el mousedown cae en la zona 'end', no en el cuerpo.
+    const asa = wrapper.get('[data-testid="gantt-handle-end"]')
+    await asa.trigger('mousedown', { clientX: 54, clientY: 40 })
+    // 28 px a 14 px/dia son 2 dias: el final pasa de 2026-11-06 a
+    // 2026-11-08 y el inicio no se toca.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 82, clientY: 40 }))
+    await flushPromises()
+
+    const banda = wrapper.get('[data-testid="gantt-drag-preview"]')
+    expect(banda.attributes('y')).toBe('0')
+    expect(banda.attributes('height')).toBe('36')
+    expect(Number(banda.attributes('x'))).toBe(2 * 14)
+    expect(Number(banda.attributes('width'))).toBe(6 * 14)
+
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 82, clientY: 40 }))
+    await flushPromises()
   })
 
   it('una tecla sube a la vista con el identificador de la barra', async () => {

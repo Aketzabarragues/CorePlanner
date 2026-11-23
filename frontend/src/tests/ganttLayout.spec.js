@@ -102,6 +102,117 @@ describe('eje temporal del Gantt', () => {
     expect(eje.cells).toHaveLength(365)
     expect(eje.cells[364].key).toBe('2027-12-31')
   })
+
+  it('la escala de semana lleva sublineas solo por los dias interiores', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-09'),
+      end: parseIsoDate('2026-11-15'),
+      scale: semana,
+    })
+
+    // La semana completa, sin borde visible: lunes (x 0) y domingo (x 98)
+    // son lineas de celda, asi que solo caen los seis dias interiores.
+    expect(eje.subticks).toEqual([
+      { x: 14, kind: 'day' },
+      { x: 28, kind: 'day' },
+      { x: 42, kind: 'day' },
+      { x: 56, kind: 'day' },
+      { x: 70, kind: 'day' },
+      { x: 84, kind: 'day' },
+    ])
+    expect(eje.bands).toEqual([])
+  })
+
+  it('la escala de semana recorta las sublineas fuera del rango visible', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-10'),
+      end: parseIsoDate('2026-11-15'),
+      scale: semana,
+    })
+
+    // El lunes 9, que arranca antes del rango, deja interior todo: su
+    // sublinea del martes cae en x 14 y las demas tambien. El domingo 15 es
+    // el borde (x 84 = width) y no es interior: su sublinea no entra.
+    expect(eje.subticks).toEqual([
+      { x: 14, kind: 'day' },
+      { x: 28, kind: 'day' },
+      { x: 42, kind: 'day' },
+      { x: 56, kind: 'day' },
+      { x: 70, kind: 'day' },
+    ])
+  })
+
+  it('la escala de mes lleva sublineas por los lunes del mes', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-01'),
+      end: parseIsoDate('2026-11-30'),
+      scale: mes,
+    })
+
+    // Nov de 2026: el 1 es domingo, asi que los lunes son 2, 9, 16, 23 y 30,
+    // a 5 px/dia desde el 1 (x 0). El 30 cae dentro del mes, no es borde:
+    // entra.
+    expect(eje.subticks).toEqual([
+      { x: 5, kind: 'week' },
+      { x: 40, kind: 'week' },
+      { x: 75, kind: 'week' },
+      { x: 110, kind: 'week' },
+      { x: 145, kind: 'week' },
+    ])
+    expect(eje.bands).toEqual([])
+  })
+
+  it('la escala de mes recorta las sublineas fuera del rango visible', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-02'),
+      end: parseIsoDate('2026-12-01'),
+      scale: mes,
+    })
+
+    // El lunes 2 de noviembre queda fuera del rango: su sublinea no entra.
+    // En noviembre entran los lunes 9, 16, 23 y 30; el 1 de diciembre (tambien
+    // lunes) cae justo en el borde del rango (x 145 = width) y no entra.
+    expect(eje.subticks.map((subtick) => subtick.x)).toEqual([7 * 5, 14 * 5, 21 * 5, 28 * 5])
+    expect(eje.subticks.every((subtick) => subtick.kind === 'week')).toBe(true)
+  })
+
+  it('la escala de dia lleva una banda por mes y sin sublineas', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-29'),
+      end: parseIsoDate('2026-12-01'),
+      scale: dia,
+    })
+
+    // El rango cruza mes: la banda de noviembre empieza donde se ve, no en
+    // el dia 1, y la de diciembre empieza donde acaba la anterior.
+    expect(eje.subticks).toEqual([])
+    expect(eje.bands).toEqual([
+      {
+        key: '2026-11',
+        label: 'nov 2026',
+        x: 0,
+        width: 2 * 44,
+      },
+      {
+        key: '2026-12',
+        label: 'dic 2026',
+        x: 2 * 44,
+        width: 1 * 44,
+      },
+    ])
+  })
+
+  it('una sola banda engloba el mes entero cuando el rango no cruza mes', () => {
+    const eje = buildTimeAxis({
+      start: parseIsoDate('2026-11-09'),
+      end: parseIsoDate('2026-11-15'),
+      scale: dia,
+    })
+
+    expect(eje.bands).toEqual([
+      { key: '2026-11', label: 'nov 2026', x: 0, width: 7 * 44 },
+    ])
+  })
 })
 
 describe('layout del Gantt', () => {

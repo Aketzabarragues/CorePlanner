@@ -57,3 +57,6 @@ venv/
 
 # Cache del grafo de codigo (skill graphify)
 graphify-out/
+
+# Artefactos del MCP de Playwright (capturas y registros de consola)
+.playwright-mcp/

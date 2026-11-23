@@ -7,7 +7,7 @@ igual que en la matriz de capacidad.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -33,6 +33,17 @@ PASSWORD = "clave-de-prueba"
 
 RANGO = "?from=2026-W45&to=2026-W46"
 """Rango del periodo de los datos de prueba, para no depender del reloj."""
+
+
+def semana(offset: int) -> str:
+    """Clave ISO de la semana en curso desplazada `offset` semanas.
+
+    Misma idea que en test_seed: la semana se nombra por su desplazamiento
+    relativo a la actual, no por una clave fija que caduca al cambiar de
+    semana.
+    """
+    iso = (date.today() + timedelta(weeks=offset)).isocalendar()
+    return f"{iso[0]:04d}-W{iso[1]:02d}"
 
 
 @pytest.fixture
@@ -221,10 +232,11 @@ async def test_la_ventana_por_defecto_es_continua(client: AsyncClient):
     assert response.status_code == 200, response.text
     data = response.json()
     # La ventana por defecto es la semana actual y las ocho siguientes, y sale
-    # entera aunque no haya actividad en ella.
+    # entera aunque no haya actividad en ella: la semana siguiente a la actual
+    # no toca ninguna tarea de prueba.
     assert [cell["week"] for cell in data["weeks"]] == list(week_window())
     assert data["current_week"] == current_week_key()
-    assert _week(data, "2026-W47")["hours"] == 0
+    assert _week(data, semana(1))["hours"] == 0
 
 
 async def test_mi_trabajo_solo_acepta_un_rango_completo(client: AsyncClient):

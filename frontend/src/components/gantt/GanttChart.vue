@@ -18,7 +18,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { addDays, dayIndex, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
+import { addDays, dayIndex, inclusiveDays, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
 import { GANTT_ROW_HEIGHT, flechaDe } from '../../utils/ganttLayout'
 import { useGanttDrag } from '../../composables/useGanttDrag'
@@ -32,6 +32,14 @@ const props = defineProps({
   layout: { type: Object, required: true },
   /** Celdas del eje, ya con las insignias de hoy y de festivo. */
   columnas: { type: Array, required: true },
+  /**
+   * Bandas de la cabecera del eje: [{ key, label, x, width }].
+   *
+   * Solo la escala de dia las usa (una por mes). No confundirse con las
+   * bandas sombreadas del cuerpo (`bandas`), que son las de fin de semana y
+   * festivo. Si no llegan, el eje las pinta vacias.
+   */
+  bandasCabecera: { type: Array, default: () => [] },
   /** Filas de la columna de nombres, ya enriquecidas. */
   filasNombres: { type: Array, required: true },
   /** Si la persona que entra puede escribir en la barra: por identificador. */
@@ -147,10 +155,25 @@ function alAbrirBarra(id) {
   emit('abrir', id)
 }
 
-/** X de la previsualizacion, para la banda de destino. */
-const xDestino = computed(() => {
+/**
+ * Banda de destino del arrastre: la fila donde cae la tarea y el rango nuevo.
+ *
+ * Es una banda de UNA fila, no un recuadro de todo el diagrama: solo se ve la
+ * fila de la barra arrastrada. Su ancho es el del rango nuevo completo, asi
+ * que al redimensionar se ve crecer o encoger segun se arrastra el asa.
+ * Sin fila para la tarea (filtrada, por ejemplo) no se pinta banda.
+ */
+const bandaPrevisualizacion = computed(() => {
   const pre = drag.previsualizacion.value
-  return pre ? dayIndex(parseIsoDate(pre.start), props.layout.start) * props.layout.pxPerDay : null
+  if (!pre) return null
+  const fila = props.layout.rows.find((item) => item.barra?.taskId === pre.taskId)
+  if (!fila) return null
+  return {
+    x: dayIndex(parseIsoDate(pre.start), props.layout.start) * props.layout.pxPerDay,
+    y: fila.rowIndex * GANTT_ROW_HEIGHT,
+    width: inclusiveDays(pre.start, pre.end) * props.layout.pxPerDay,
+    height: GANTT_ROW_HEIGHT,
+  }
 })
 
 function alDesplazar() {
@@ -170,8 +193,8 @@ function alEmpezarArrastre({ barra, zona, event }) {
  * sobre una barra no crea nada, solo la barra abre el detalle (clic simple).
  * La fecha sale de la x (indice de dia desde el inicio del rango). El cuerpo
  * va desplazado el alto de la cabecera, asi que la fila sale de la y menos
- * esa cabecera: la fila 0 empieza en la y 48 del contenido. La cabecera
- * pegajosa tapa la banda [scroll, scroll + 48), que se descarta antes de
+ * esa cabecera: la fila 0 empieza en la y del alto de la cabecera. La cabecera
+ * pegajosa tapa la banda [scroll, scroll + alto), que se descarta antes de
  * mirar la fila.
  */
 function alDobleClicFondo(event) {
@@ -264,6 +287,21 @@ function alDobleClicFondo(event) {
             stroke="#e2e8f0"
             stroke-width="1"
           />
+          <!--
+            Lineas secundarias: dias dentro de la semana (escala de semana) y
+            semanas dentro del mes (escala de mes). Mas claras que las del
+            limite de celda, para que la rejilla se lea de un vistazo.
+          -->
+          <line
+            v-for="subtick in layout.axis.subticks"
+            :key="`sub-${subtick.x}`"
+            :x1="subtick.x"
+            :x2="subtick.x"
+            y1="0"
+            :y2="altoTotal"
+            stroke="#f1f5f9"
+            stroke-width="1"
+          />
           <!-- Borde derecho: cierra la rejilla en el ultimo pixel del lienzo. -->
           <rect
             x="100%"
@@ -293,6 +331,21 @@ function alDobleClicFondo(event) {
              Va desplazado el alto de la cabecera, para que la fila 0 quede
              debajo de la cabecera pegajosa y no debajo de ella. -->
         <g class="gantt__cuerpo" :transform="`translate(0, ${GANTT_METRICS.headerHeight})`">
+          <!--
+            Banda de destino del arrastre: la FILA donde cae la tarea, con el
+            ancho del rango nuevo. Se dibuja antes de las barras, para que se
+            lean encima.
+          -->
+          <rect
+            v-if="bandaPrevisualizacion"
+            :x="bandaPrevisualizacion.x"
+            :y="bandaPrevisualizacion.y"
+            :width="bandaPrevisualizacion.width"
+            :height="bandaPrevisualizacion.height"
+            fill="rgba(0, 100, 180, 0.08)"
+            data-testid="gantt-drag-preview"
+          />
+
           <template v-for="fila in layout.rows" :key="fila.rowIndex">
             <GanttGroupRow
               v-if="fila.type === 'group'"
@@ -316,17 +369,6 @@ function alDobleClicFondo(event) {
               @tecla="(event, id) => emit('tecla', event, id)"
             />
           </template>
-
-          <!-- Banda de destino del arrastre: el rango que va a caer. -->
-          <rect
-            v-if="previsualizacion && xDestino !== null"
-            :x="xDestino"
-            y="0"
-            :width="layout.width"
-            :height="layout.rows.length * GANTT_ROW_HEIGHT"
-            fill="rgba(0, 100, 180, 0.08)"
-            aria-hidden="true"
-          />
 
           <!-- Linea de hoy: 2 px, en el dia exacto. -->
           <line
@@ -360,7 +402,12 @@ function alDobleClicFondo(event) {
 
         <!-- Eje: se contratraslada para quedar clavado arriba. -->
         <g class="gantt__eje" :transform="`translate(0, ${desplazamiento})`">
-          <GanttAxis :columnas="columnas" ancho="100%" :alto="GANTT_METRICS.headerHeight" />
+          <GanttAxis
+            :columnas="columnas"
+            :bandas-cabecera="bandasCabecera"
+            ancho="100%"
+            :alto="GANTT_METRICS.headerHeight"
+          />
         </g>
       </svg>
     </div>

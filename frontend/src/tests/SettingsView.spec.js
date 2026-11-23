@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { useToastStore } from '../stores/toast'
 import SettingsView from '../views/SettingsView.vue'
 
 const people = [
@@ -172,6 +173,8 @@ function setupFetch(overrides = {}) {
     if (url.endsWith('/roles')) return jsonResponse(companyRoles)
     if (url.includes('/members')) return jsonResponse(members)
     if (url.endsWith('/api/skills')) return jsonResponse(skills)
+    if (url.match(/\/api\/skills\/\d+$/)) return jsonResponse({ id: 1, name: 'TIA Portal V18' })
+    if (url.includes('/api/non-working-days')) return jsonResponse({ id: 2 })
     if (url.endsWith('/capacity-policies')) {
       if (options.method === 'POST') {
         return jsonResponse({ ...policies[0], id: 7 }, true, 201)
@@ -306,6 +309,9 @@ describe('SettingsView', () => {
       scope: 'person',
       user_id: 2,
     })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Día no laborable añadido.',
+    )
   })
 
   it('elimina un dia no laborable previa confirmacion', async () => {
@@ -337,6 +343,9 @@ describe('SettingsView', () => {
         url.includes('/api/non-working-days/') && options.method === 'DELETE',
     )
     expect(despues).toHaveLength(1)
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Día no laborable eliminado.',
+    )
   })
 
   it('lista las personas con su rol y su departamento', async () => {
@@ -500,6 +509,31 @@ describe('SettingsView', () => {
     expect(JSON.parse(llamada[1].body)).toMatchObject({ is_provisional: true })
   })
 
+  it('anade una persona a un proyecto desde la pestana de miembros', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-members"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="new-member"]').trigger('click')
+    await flushPromises()
+
+    const selects = wrapper.findAll('#form-miembro select')
+    await selects[0].setValue('1')
+    await selects[1].setValue('2')
+    await selects[2].setValue('2')
+    await wrapper.find('#form-miembro').trigger('submit')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) => url.endsWith('/projects/1/members') && options.method === 'POST',
+    )
+    expect(llamada).toBeTruthy()
+    expect(JSON.parse(llamada[1].body)).toEqual({ user_id: 2, role_id: 2 })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Persona añadida al proyecto.',
+    )
+  })
+
   it('el catalogo de roles explica el alcance de cada rol', async () => {
     const wrapper = await mountView()
 
@@ -599,6 +633,9 @@ describe('SettingsView', () => {
     )
     expect(llamada).toBeTruthy()
     expect(JSON.parse(llamada[1].body)).toEqual({ name: 'Robotica' })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Competencia añadida al catálogo.',
+    )
   })
 
   it('renombra una competencia del catalogo', async () => {
@@ -617,6 +654,9 @@ describe('SettingsView', () => {
     )
     expect(llamada).toBeTruthy()
     expect(JSON.parse(llamada[1].body)).toEqual({ name: 'TIA Portal V18' })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Competencia renombrada.',
+    )
   })
 
   it('quita una competencia del catalogo', async () => {
@@ -632,6 +672,9 @@ describe('SettingsView', () => {
       ([url, options]) => url.endsWith('/api/skills/2') && options.method === 'DELETE',
     )
     expect(llamada).toBeTruthy()
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Competencia quitada del catálogo.',
+    )
   })
 
   it('muestra el error cuando la competencia esta asignada a alguien', async () => {

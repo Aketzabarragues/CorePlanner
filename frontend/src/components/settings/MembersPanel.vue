@@ -9,6 +9,7 @@ import { ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toast'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
 
@@ -22,8 +23,8 @@ const props = defineProps({
 const emit = defineEmits(['saved'])
 
 const auth = useAuthStore()
+const toast = useToastStore()
 const error = ref(null)
-const notice = ref(null)
 const saving = ref(false)
 const selection = ref({ project_id: '', user_id: '', role_id: '' })
 const formOpen = ref(false)
@@ -47,7 +48,6 @@ function closeForm() {
 
 async function add() {
   error.value = null
-  notice.value = null
   saving.value = true
   try {
     const token = await auth.ensureSession()
@@ -55,7 +55,7 @@ async function add() {
       user_id: Number(selection.value.user_id),
       role_id: Number(selection.value.role_id),
     })
-    notice.value = 'Persona añadida al proyecto.'
+    toast.success('Persona añadida al proyecto.')
     reset()
     formOpen.value = false
     emit('saved')
@@ -68,12 +68,11 @@ async function add() {
 
 async function remove(projectId, userId) {
   error.value = null
-  notice.value = null
   saving.value = true
   try {
     const token = await auth.ensureSession()
     await configApi.removeMember(token, projectId, userId)
-    notice.value = 'Persona retirada del proyecto.'
+    toast.success('Persona retirada del proyecto.')
     emit('saved')
   } catch (err) {
     error.value = err.message
@@ -95,10 +94,6 @@ async function remove(projectId, userId) {
         Añadir persona a un proyecto
       </button>
     </div>
-
-    <AlertBanner v-if="notice" variant="success" data-testid="member-notice">
-      {{ notice }}
-    </AlertBanner>
 
     <div
       v-for="project in props.projects"

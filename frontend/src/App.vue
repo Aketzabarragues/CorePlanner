@@ -9,6 +9,7 @@ import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import AppShell from './components/AppShell.vue'
+import ToastHost from './components/common/ToastHost.vue'
 
 const route = useRoute()
 
@@ -18,4 +19,5 @@ const isPublic = computed(() => route.meta.public === true)
 <template>
   <RouterView v-if="isPublic" />
   <AppShell v-else />
+  <ToastHost />
 </template>

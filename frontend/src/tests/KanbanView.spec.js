@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import KanbanView from '../views/KanbanView.vue'
+import { useToastStore } from '../stores/toast'
 import { localDateKey } from '../utils/month'
 
 /**
@@ -223,9 +224,11 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {
 }
 
 async function mountKanban() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const wrapper = mount(KanbanView, {
     props: { id: 1 },
-    global: { plugins: [createPinia()] },
+    global: { plugins: [pinia] },
   })
   await flushPromises()
   await flushPromises()
@@ -278,7 +281,6 @@ async function arrastrar(wrapper, moverX, moverY, soltarX, soltarY, indice = 0) 
 describe('KanbanView', () => {
   beforeEach(() => {
     localStorage.clear()
-    setActivePinia(createPinia())
   })
 
   it('pide el tablero al endpoint del proyecto y a los miembros', async () => {
@@ -339,6 +341,9 @@ describe('KanbanView', () => {
       task_ids: [5, 6, 1],
     })
     expect(calls.find((c) => c.method === 'PATCH')).toBeUndefined()
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      '"Esquemas EPLAN" pasa a Completado.',
+    )
   })
 
   it('arrastrar una tarjeta a otra columna la guarda en el orden de la soltura', async () => {
@@ -359,6 +364,9 @@ describe('KanbanView', () => {
       status: 'testing',
       task_ids: [3, 1, 4],
     })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      '"Esquemas EPLAN" pasa a Pruebas (FAT/SAT).',
+    )
   })
 
   it('soltar la tarjeta en su propia columna la reordena', async () => {
@@ -536,6 +544,9 @@ describe('KanbanView', () => {
     const columna = wrapper.findAll('section')[0]
     expect(columna.text()).toContain('Nueva tarea FAT')
     expect(columna.text()).toContain('2 tareas · 18 h')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Tarea "Nueva tarea FAT" creada.',
+    )
   })
 
   it('alta inline: sin titulo no crea nada', async () => {

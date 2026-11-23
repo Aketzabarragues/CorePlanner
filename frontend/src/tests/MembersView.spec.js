@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useToastStore } from '../stores/toast'
 import MembersView from '../views/MembersView.vue'
 
 const members = [
@@ -63,9 +64,11 @@ function setupFetch({ isManager = true } = {}) {
 }
 
 async function mountView() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const wrapper = mount(MembersView, {
     props: { id: 1 },
-    global: { plugins: [createPinia()] },
+    global: { plugins: [pinia] },
   })
   await flushPromises()
   await flushPromises()
@@ -75,7 +78,6 @@ async function mountView() {
 describe('MembersView', () => {
   beforeEach(() => {
     localStorage.clear()
-    setActivePinia(createPinia())
     setupFetch()
   })
 
@@ -145,6 +147,9 @@ describe('MembersView', () => {
     )
     expect(llamada).toBeTruthy()
     expect(JSON.parse(llamada[1].body)).toEqual({ user_id: 3, role_id: 3 })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Persona añadida al proyecto.',
+    )
   })
 
   it('cambia el rol de un miembro', async () => {
@@ -158,6 +163,7 @@ describe('MembersView', () => {
     )
     expect(llamada).toBeTruthy()
     expect(JSON.parse(llamada[1].body)).toEqual({ role_id: 3 })
+    expect(useToastStore().items.map((item) => item.message)).toContain('Rol de Ana cambiado.')
   })
 
   it('el aviso no oculta la lista de miembros', async () => {
@@ -166,7 +172,9 @@ describe('MembersView', () => {
     await wrapper.find('[data-testid="remove-member-2"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="members-notice"]').text()).toContain('Sebastián')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Sebastián fuera del proyecto.',
+    )
     expect(wrapper.findAll('[data-testid="member-row"]')).toHaveLength(2)
   })
 
@@ -203,5 +211,8 @@ describe('MembersView', () => {
       ([url, options]) => url.endsWith('/projects/1/members/2') && options.method === 'DELETE',
     )
     expect(llamada).toBeTruthy()
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Sebastián fuera del proyecto.',
+    )
   })
 })

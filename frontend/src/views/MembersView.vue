@@ -9,12 +9,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { configApi, meApi } from '../api/client'
-import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useToastStore } from '../stores/toast'
 import { plural } from '../utils/plural'
 
 const props = defineProps({
@@ -23,9 +23,9 @@ const props = defineProps({
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const toast = useToastStore()
 
 const error = ref(null)
-const notice = ref(null)
 const formError = ref(null)
 const loading = ref(true)
 const isManager = ref(false)
@@ -75,7 +75,6 @@ async function refreshMembers(token) {
 /** Abre el formulario vacio para meter a alguien en el proyecto. */
 function openCreate() {
   selection.value = { user_id: '', role_id: roles.value[0] ? String(roles.value[0].id) : '' }
-  notice.value = null
   formError.value = null
   formOpen.value = true
 }
@@ -86,7 +85,6 @@ function closeForm() {
 
 async function addMember() {
   error.value = null
-  notice.value = null
   formError.value = null
   try {
     const token = await auth.ensureSession()
@@ -95,7 +93,7 @@ async function addMember() {
       role_id: Number(selection.value.role_id),
     })
     formOpen.value = false
-    notice.value = 'Persona añadida al proyecto.'
+    toast.success('Persona añadida al proyecto.')
     await refreshMembers(token)
   } catch (err) {
     formError.value = err.message
@@ -104,11 +102,10 @@ async function addMember() {
 
 async function changeRole(member, roleId) {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await configApi.updateMemberRole(token, props.id, member.user_id, Number(roleId))
-    notice.value = `Rol de ${member.name} cambiado.`
+    toast.success(`Rol de ${member.name} cambiado.`)
     await refreshMembers(token)
   } catch (err) {
     error.value = err.message
@@ -118,11 +115,10 @@ async function changeRole(member, roleId) {
 
 async function removeMember(member) {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await configApi.removeMember(token, props.id, member.user_id)
-    notice.value = `${member.name} fuera del proyecto.`
+    toast.success(`${member.name} fuera del proyecto.`)
     await refreshMembers(token)
   } catch (err) {
     error.value = err.message
@@ -169,15 +165,6 @@ watch(() => props.id, loadMembers)
       loading-label="Cargando los miembros"
       @retry="reintentar"
     >
-      <AlertBanner
-        v-if="notice"
-        variant="success"
-        class="mb-4"
-        data-testid="members-notice"
-      >
-        {{ notice }}
-      </AlertBanner>
-
       <div class="overflow-x-auto rounded border border-slate-200 bg-white">
         <table class="w-full border-collapse text-sm">
           <thead>

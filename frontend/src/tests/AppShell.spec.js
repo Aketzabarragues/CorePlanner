@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import AppShell from '../components/AppShell.vue'
 import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 
 const Empty = { render: () => null }
 
@@ -584,7 +585,9 @@ describe('AppShell', () => {
     )
     expect(altas).toHaveLength(1)
     expect(altas[0][0]).toContain('/api/projects/1/tasks')
-    expect(wrapper.text()).toContain('Tarea "Revision de PLC" creada.')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Tarea "Revision de PLC" creada.',
+    )
   })
 
   it('el boton Guardar del pie del modal llama a la API de creacion', async () => {
@@ -610,30 +613,9 @@ describe('AppShell', () => {
       ([url, options]) => options?.method === 'POST' && url.includes('/api/projects/1/tasks'),
     )
     expect(altas).toHaveLength(1)
-    expect(wrapper.text()).toContain('Tarea "Revision de PLC" creada.')
-  })
-
-  it('el aviso se puede cerrar con un clic', async () => {
-    const { wrapper } = await mountShell('/projects/1/kanban')
-
-    const nueva = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('Nueva Tarea'))
-    await nueva.trigger('click')
-    await flushPromises()
-
-    await wrapper.find('input[type=text]').setValue('Revision de PLC')
-    await wrapper.findAll('input[type=date]')[0].setValue('2026-11-02')
-    await wrapper.findAll('input[type=date]')[1].setValue('2026-11-04')
-    await wrapper.find('input[type=number]').setValue('12')
-    await wrapper.find('form').trigger('submit')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Tarea "Revision de PLC" creada.')
-
-    await wrapper.find('[title="Cerrar aviso"]').trigger('click')
-
-    expect(wrapper.text()).not.toContain('Tarea "Revision de PLC" creada.')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Tarea "Revision de PLC" creada.',
+    )
   })
 
   it('el aviso de tarea creada queda marcado en el store', async () => {

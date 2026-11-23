@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estilos de toast · CorePlanner</title>
+<style>
+:root{
+  --slate-50:#f8fafc; --slate-100:#f1f5f9; --slate-200:#e2e8f0; --slate-300:#cbd5e1;
+  --slate-500:#64748b; --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b;
+  --slate-900:#0f172a;
+  --green-50:#f0fdf4; --green-200:#bbf7d0; --green-600:#16a34a; --green-700:#15803d; --green-800:#166534;
+  --amber-50:#fffbeb; --amber-200:#fde68a; --amber-600:#d97706; --amber-700:#b45309; --amber-800:#92400e;
+  --blue-50:#eff6ff;  --blue-200:#bfdbfe;  --blue-600:#2563eb;  --blue-700:#1d4ed8;  --blue-800:#1e40af;
+  --red-50:#fef2f2;   --red-200:#fecaca;   --red-600:#dc2626;   --red-700:#b91c1c;   --red-800:#991b1b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--slate-50);color:var(--slate-900);
+  font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+h1{font-size:26px;letter-spacing:-.01em;margin:0}
+h2{font-size:15px;margin:0 0 2px}
+p.lead{margin:4px 0 0;color:var(--slate-600);max-width:880px}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 24px 72px}
+header{margin-bottom:28px}
+section{margin-bottom:36px}
+.sub{color:var(--slate-500);font-size:13px;margin:0 0 12px}
+.panel{background:#fff;border:1px solid var(--slate-200);border-radius:12px;padding:16px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.variant{display:flex;flex-direction:column;gap:8px}
+.vname{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--slate-500)}
+
+/* ---------- A: oscuro con icono de color (el de la demo) ---------- */
+.toast-a{display:flex;align-items:center;gap:10px;border-radius:8px;background:var(--slate-900);
+  padding:12px 16px;color:#fff;font-size:13px;box-shadow:0 10px 15px -3px rgb(15 23 42/.25)}
+.toast-a .ico{flex:0 0 16px;display:inline-flex}
+.toast-a .txt{flex:1 1 auto;min-width:0}
+.toast-a .close{flex:none;background:none;border:0;color:#94a3b8;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+.ico-success{color:#34d399}.ico-error{color:#f87171}.ico-warning{color:#fbbf24}.ico-info{color:#60a5fa}
+
+/* ---------- B: fondo de color claro (como el banner en linea) ---------- */
+.toast-b{display:flex;align-items:flex-start;gap:8px;border-radius:8px;padding:10px 12px;font-size:13px;border:1px solid}
+.toast-b .ico{flex:none;margin-top:1px}
+.toast-b .txt{flex:1 1 auto;min-width:0}
+.toast-b .close{flex:none;background:none;border:0;cursor:pointer;font-size:15px;line-height:1;padding:0 2px;opacity:.6}
+.b-success{background:var(--green-50);border-color:var(--green-200);color:var(--green-800)}
+.b-error{background:var(--red-50);border-color:var(--red-200);color:var(--red-800)}
+.b-warning{background:var(--amber-50);border-color:var(--amber-200);color:var(--amber-800)}
+.b-info{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-800)}
+
+/* ---------- C: blanco con barra lateral de color ---------- */
+.toast-c{display:flex;align-items:flex-start;gap:10px;border-radius:10px;background:#fff;
+  padding:12px 14px 12px 16px;font-size:13px;color:var(--slate-800);
+  border:1px solid var(--slate-200);border-left:4px solid var(--slate-300);box-shadow:0 8px 20px -6px rgb(15 23 42/.18)}
+.toast-c .ico{flex:none;margin-top:1px}
+.toast-c .txt{flex:1 1 auto;min-width:0}
+.toast-c .close{flex:none;background:none;border:0;cursor:pointer;color:var(--slate-500);font-size:15px;line-height:1;padding:0 2px}
+.c-success{border-left-color:var(--green-600)}.c-error{border-left-color:var(--red-600)}
+.c-warning{border-left-color:var(--amber-600)}.c-info{border-left-color:var(--blue-600)}
+
+/* ---------- D: pill compacto ---------- */
+.toast-d{display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:var(--slate-900);
+  padding:8px 14px;color:#fff;font-size:13px;box-shadow:0 8px 18px -6px rgb(15 23 42/.3)}
+
+/* ---------- comparativa: banner en linea ---------- */
+.banner{display:flex;align-items:flex-start;gap:8px;border-radius:8px;padding:8px 12px;font-size:14px;border:1px solid}
+.banner .ico{flex:none;margin-top:2px}
+.banner .txt{flex:1 1 auto}
+.banner .action{flex:none;align-self:center;background:none;border:0;text-decoration:underline;font-weight:500;cursor:pointer;padding:0 4px}
+
+/* ---------- fondo de app para juzgar contraste ---------- */
+.mock{background:var(--slate-50);border:1px solid var(--slate-200);border-radius:12px;padding:0;overflow:hidden}
+.mock-head{background:#fff;border-bottom:1px solid var(--slate-200);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.mock-body{padding:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cell{background:#fff;border:1px solid var(--slate-200);border-radius:8px;padding:10px;font-size:12px;color:var(--slate-600)}
+.cell b{display:block;color:var(--slate-900);font-size:13px}
+.stack{position:fixed;right:24px;bottom:24px;z-index:60;display:none;flex-direction:column;gap:10px;align-items:flex-end}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--slate-900);color:#fff;border:0;border-radius:8px;
+  padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer}
+.btn:hover{background:var(--slate-800)}
+.overlay{position:fixed;inset:0;z-index:50;background:rgb(15 23 42/.45);display:flex;align-items:center;justify-content:center;display:none}
+.con-dialogo .overlay{display:flex}
+.con-dialogo .stack{display:flex}
+.stack{position:fixed;right:24px;bottom:24px;z-index:60;display:none;flex-direction:column;gap:10px;align-items:flex-end}
+.dialog{background:#fff;border-radius:12px;width:420px;box-shadow:0 20px 40px -12px rgb(15 23 42/.35);padding:18px}
+.note{font-size:12px;color:var(--slate-500);margin-top:10px}
+ul.ticks{margin:8px 0 0;padding-left:18px;color:var(--slate-600);font-size:13px}
+ul.ticks li{margin:2px 0}
+.k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--slate-100);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Estilos de toast</h1>
+  <p class="lead">Cuatro estilos para el aviso flotante de CorePlanner, con las cuatro variantes. La misma informacion en todos:
+  mensaje, icono de la variante y cierre manual. El alto de la barra de color es el mismo en las cuatro variantes.
+  Debajo, el banner en linea actual como referencia de contraste y el caso del toast sobre un dialogo abierto.</p>
+  <p class="lead"><strong>Elegido: B (fondo de color claro).</strong> Es el que ya usa el banner en linea, asi que los dos patrones se leen igual
+  y el toast se distingue por la sombra y por estar flotando. A, C y D quedan como alternativas descartadas.</p>
+</header>
+
+<section>
+  <h2>A · Oscuro con icono de color</h2>
+  <p class="sub">El de la demo: fondo <span class="k">slate-900</span>, texto blanco, icono del color de la variante. No compite con el contenido y no necesita bordes.
+    Es el mas discreto y el que mejor aguanta sobre cualquier fondo. Pierde el color de la variante en el fondo: solo lo da el icono.</p>
+  <div class="grid4">
+    <div class="variant"><span class="vname">success</span>
+      <div class="toast-a"><span class="ico ico-success"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span class="txt">Fechas actualizadas: 2026-11-05 a 2026-11-11.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">info</span>
+      <div class="toast-a"><span class="ico ico-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+        <span class="txt">5 dias no laborables guardados.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">warning</span>
+      <div class="toast-a"><span class="ico ico-warning"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+        <span class="txt">La cascada no se aplico en 2 tareas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">error</span>
+      <div class="toast-a"><span class="ico ico-error"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
+        <span class="txt">No se pudieron guardar las fechas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>B · Fondo de color claro</h2>
+  <p class="sub">Igual que el banner en linea actual (verde 50 con borde 200 y texto 800). Coherente con lo que ya hay, pero en pantalla es la voz mas alta:
+    cuatro avisos de colores a la vez son ruido. Es el unico estilo que se lee de lejos.</p>
+  <div class="grid4">
+    <div class="variant"><span class="vname">success</span>
+      <div class="toast-b b-success"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span class="txt">Fechas actualizadas: 2026-11-05 a 2026-11-11.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">info</span>
+      <div class="toast-b b-info"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+        <span class="txt">5 dias no laborables guardados.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">warning</span>
+      <div class="toast-b b-warning"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+        <span class="txt">La cascada no se aplico en 2 tareas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">error</span>
+      <div class="toast-b b-error"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
+        <span class="txt">No se pudieron guardar las fechas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>C · Blanco con barra lateral de color</h2>
+  <p class="sub">Fondo blanco, borde de 4 px del color de la variante a la izquierda, icono del mismo color y sombra suave. Neutro en el fondo y con la
+    identidad de la variante en la barra. Es el que mas se parece a las notificaciones de un escritorio, y el que mejor se funde con una tabla densa.</p>
+  <div class="grid4">
+    <div class="variant"><span class="vname">success</span>
+      <div class="toast-c c-success"><span class="ico" style="color:var(--green-600)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span class="txt">Fechas actualizadas: 2026-11-05 a 2026-11-11.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">info</span>
+      <div class="toast-c c-info"><span class="ico" style="color:var(--blue-600)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+        <span class="txt">5 dias no laborables guardados.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">warning</span>
+      <div class="toast-c c-warning"><span class="ico" style="color:var(--amber-600)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+        <span class="txt">La cascada no se aplico en 2 tareas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+    <div class="variant"><span class="vname">error</span>
+      <div class="toast-c c-error"><span class="ico" style="color:var(--red-600)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
+        <span class="txt">No se pudieron guardar las fechas.</span>
+        <button class="close" aria-label="Cerrar">&times;</button></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>D · Pill compacto</h2>
+  <p class="sub">Una sola pastilla con icono y texto, sin borde y sin cierre. Es la opcion mas ligera: cabe un mensaje corto ("Guardado") y nada mas.
+    En cuanto el mensaje necesita una frase, se queda corta y obliga a un segundo toast con la accion.</p>
+  <div class="grid4">
+    <div class="variant"><span class="vname">success</span>
+      <div class="toast-d"><span class="ico ico-success"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>Guardado</div></div>
+    <div class="variant"><span class="vname">info</span>
+      <div class="toast-d"><span class="ico ico-info"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>Sin cambios</div></div>
+    <div class="variant"><span class="vname">warning</span>
+      <div class="toast-d"><span class="ico ico-warning"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>2 sin aplicar</div></div>
+    <div class="variant"><span class="vname">error</span>
+      <div class="toast-d"><span class="ico ico-error"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>Error al guardar</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Referencia · el banner en linea de hoy</h2>
+  <p class="sub">Sigue siendo el patron de error y de aviso que hay que entender. Compueselo con el toast para ver si conviven bien.</p>
+  <div class="panel">
+    <div class="banner b-error"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
+      <span class="txt">No se pudo guardar el horario de Ana Perez.</span>
+      <button class="action">Reintentar</button></div>
+  </div>
+</section>
+
+<section>
+  <h2>Contexto · sobre una pantalla real y sobre un dialogo</h2>
+  <p class="sub">El toast va en una esquina (abajo a la derecha, por encima del velo del dialogo, <span class="k">z-index 60</span>). Pulsa el boton para ver el toast
+    con un dialogo abierto: si el toast queda por debajo del velo, desaparece, y eso decide el <span class="k">z-index</span> del host.</p>
+  <p><button class="btn" onclick="document.body.classList.toggle('con-dialogo')">Ver con un dialogo abierto</button></p>
+  <div class="mock">
+    <div class="mock-head"><strong style="font-size:13px">Capacidad</strong><span style="font-size:12px;color:var(--slate-500)">Semana 2026-W45</span></div>
+    <div class="mock-body">
+      <div class="cell"><b>Ana Perez</b>36 / 40 h</div>
+      <div class="cell"><b>Jorge Lopez</b>42 / 40 h</div>
+      <div class="cell"><b>Marta Ruiz</b>24 / 32 h</div>
+      <div class="cell"><b>Diego Gil</b>16 / 40 h</div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- Toast sobre un dialogo abierto -->
+<div class="overlay">
+  <div class="dialog">
+    <h2 style="font-size:16px">Nueva tarea</h2>
+    <p class="note" style="margin-top:6px">Ficha de la tarea: titulo, responsable, fechas y horas estimadas.</p>
+    <p class="note">El toast de abajo tiene que verse por encima del velo.</p>
+  </div>
+</div>
+<div class="stack">
+  <div class="toast-c c-success"><span class="ico" style="color:var(--green-600)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+    <span class="txt">Tarea "Programacion SCADA" creada.</span>
+    <button class="close" aria-label="Cerrar">&times;</button></div>
+  <div class="toast-a"><span class="ico ico-error"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg></span>
+    <span class="txt">No se pudieron guardar las fechas.</span>
+    <button class="close" aria-label="Cerrar">&times;</button></div>
+</div>
+
+</body>
+</html>

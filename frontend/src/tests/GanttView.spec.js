@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import GanttView from '../views/GanttView.vue'
+import { useToastStore } from '../stores/toast'
 
 const feed = {
   tasks: [
@@ -143,7 +144,7 @@ const feedVisibilidad = {
   unassigned_task_ids: [13],
 }
 
-function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true, calendarText = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', calendarOk = true) {
+function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true, calendarText = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', calendarOk = true, patchFallo = false) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
@@ -191,6 +192,14 @@ function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada
       }
       return { ok: true, status: 200, json: async () => miembros[Number(url.split('/projects/')[1].split('/')[0])] ?? [] }
     }
+    if (options.method === 'PATCH' && url.includes('/tasks/')) {
+      // El guardado de fechas puede caerse como un 500 real; el resto de los
+      // PATCH (alta, cascada) sigue respondiendo bien.
+      if (patchFallo) {
+        return { ok: false, status: 500, json: async () => ({ detail: 'Sin conexion con el servidor' }) }
+      }
+      return { ok: true, status: 200, json: async () => ({}) }
+    }
     if (url.includes('/projects')) {
       return { ok: true, status: 200, json: async () => proyectos }
     }
@@ -220,8 +229,10 @@ async function mountGantt(query = {}, extra = {}) {
   await router.push({ path: '/gantt', query })
   await router.isReady()
 
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const wrapper = mount(GanttView, {
-    global: { plugins: [createPinia(), router] },
+    global: { plugins: [pinia, router] },
     ...extra,
   })
   await flushPromises()
@@ -664,7 +675,60 @@ describe('GanttView', () => {
       start_date: '2026-11-09',
       end_date: '2026-11-15',
     })
-    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(
+      useToastStore().items.map((item) => item.message).some((msg) => msg.includes('Fechas actualizadas')),
+    ).toBe(true)
+  })
+
+  it('el toast de fechas lleva la clave gantt-fechas', async () => {
+    setupFetch()
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+
+    const items = useToastStore().items
+    expect(items.length).toBe(1)
+    expect(items[0].message).toContain('Fechas actualizadas')
+    expect(items[0].key).toBe('gantt-fechas')
+  })
+
+  it('un fallo del PATCH sobrevive a la recarga y se reintenta', async () => {
+    setupFetch(
+      feed,
+      [],
+      [1, 2],
+      null,
+      true,
+      'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n',
+      true,
+      true,
+    )
+    const { wrapper } = await mountGantt()
+
+    await arrastrarBarra(wrapper, 'Programacion SCADA', 62)
+
+    // El fallo de guardado va a su banner, no al de carga.
+    const banner = wrapper.get('[data-testid="gantt-error-guardado"]')
+    expect(banner.text()).toContain('Sin conexion con el servidor')
+    expect(banner.find('button').text()).toBe('Reintentar')
+    expect(wrapper.find('[data-testid="gantt-warning"]').exists()).toBe(false)
+    const items = useToastStore().items
+    expect(items.map((item) => item.variant)).toContain('error')
+    expect(items.map((item) => item.message)).toContain('No se ha podido guardar las fechas.')
+    // El arrastre que fallo quedo pendiente de reintento.
+    const reintentar = () =>
+      wrapper
+        .get('[data-testid="gantt-error-guardado"]')
+        .findAll('button')
+        .find((item) => item.text() === 'Reintentar')
+    await reintentar().trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // El servidor sigue caido: el banner sigue ahi con su motivo.
+    expect(wrapper.get('[data-testid="gantt-error-guardado"]').text()).toContain(
+      'Sin conexion con el servidor',
+    )
   })
 
   it('la flecha derecha mueve la barra un paso del eje con PATCH', async () => {
@@ -980,7 +1044,9 @@ describe('GanttView', () => {
       end_date: '2026-11-06',
       estimated_hours: '8.00',
     })
-    expect(wrapper.text()).toContain('Tarea creada: Tarea nueva.')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Tarea creada: Tarea nueva.',
+    )
     expect(wrapper.find('form#gantt-task-form').exists()).toBe(false)
   })
 
@@ -1086,7 +1152,9 @@ describe('GanttView', () => {
       start_date: '2026-11-07',
       end_date: '2026-11-10',
     })
-    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(
+      useToastStore().items.map((item) => item.message).some((msg) => msg.includes('Fechas actualizadas')),
+    ).toBe(true)
   })
 
   it('Solo esta guarda la arrastrada y se queda sin las propuestas', async () => {
@@ -1107,7 +1175,9 @@ describe('GanttView', () => {
       start_date: '2026-11-09',
       end_date: '2026-11-15',
     })
-    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(
+      useToastStore().items.map((item) => item.message).some((msg) => msg.includes('Fechas actualizadas')),
+    ).toBe(true)
   })
 
   it('soltar sin cascada guarda la arrastrada sin abrir dialogo', async () => {
@@ -1126,7 +1196,9 @@ describe('GanttView', () => {
       start_date: '2026-11-09',
       end_date: '2026-11-15',
     })
-    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(
+      useToastStore().items.map((item) => item.message).some((msg) => msg.includes('Fechas actualizadas')),
+    ).toBe(true)
   })
 
   it('si la consulta de cascada falla se guarda la arrastrada y se avisa', async () => {
@@ -1138,7 +1210,9 @@ describe('GanttView', () => {
 
     // La tarea arrastrada se guarda igual y el fallo de la cascada se avisa
     // sin bloquear.
-    expect(wrapper.text()).toContain('Fechas actualizadas')
+    expect(
+      useToastStore().items.map((item) => item.message).some((msg) => msg.includes('Fechas actualizadas')),
+    ).toBe(true)
     expect(wrapper.find('[data-testid="cascada-aceptar"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="cascada-fallo"]').text()).toContain(
       'No se pudo consultar la cascada',
@@ -1233,7 +1307,9 @@ describe('GanttView', () => {
     expect(anclaPulsada.href).toBe('blob:test')
     expect(anclaPulsada.download).toBe('coreplanner-1.ics')
     expect(clickSpy).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('Calendario exportado: coreplanner-1.ics.')
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Calendario exportado: coreplanner-1.ics.',
+    )
     clickSpy.mockRestore()
   })
 

@@ -44,6 +44,7 @@ import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import GanttChart from '../components/gantt/GanttChart.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useToastStore } from '../stores/toast'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
@@ -54,13 +55,17 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const store = useProjectsStore()
+const toast = useToastStore()
 
 const feed = ref(null)
 const personas = ref([])
 const diasNoLaborables = ref([])
 const scope = ref(null)
 const error = ref(null)
-const notice = ref(null)
+/** Error de guardado: la carga salio bien, pero el PATCH no. */
+const errorGuardado = ref(null)
+/** Guardado que fallo y se puede reintentar: el ultimo arrastre. */
+const guardadoPendiente = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const escalaId = ref('Week')
@@ -654,7 +659,7 @@ async function exportarIcs() {
     ancla.click()
     ancla.remove()
     URL.revokeObjectURL(url)
-    notice.value = `Calendario exportado: coreplanner-${idProyecto}.ics.`
+    toast.success(`Calendario exportado: coreplanner-${idProyecto}.ics.`)
   } catch (err) {
     falloIcs.value = `No se pudo exportar el calendario: ${err.message}`
   } finally {
@@ -704,14 +709,24 @@ async function guardarFechas(taskId, start, end) {
   saving.value = true
   try {
     await tasksApi.update(auth.token, taskId, dateChangePayload(start, end))
-    notice.value = `Fechas actualizadas: ${start} a ${end}.`
-    error.value = null
+    toast.success(`Fechas actualizadas: ${start} a ${end}.`, { key: 'gantt-fechas' })
+    errorGuardado.value = null
+    guardadoPendiente.value = null
   } catch (err) {
-    error.value = err.message
+    errorGuardado.value = err.message
+    guardadoPendiente.value = { taskId, start, end }
+    toast.error('No se ha podido guardar las fechas.')
   } finally {
     saving.value = false
   }
   await load()
+}
+
+/** Reintenta el ultimo guardado que fallo. */
+async function reintentarGuardado() {
+  const pendiente = guardadoPendiente.value
+  if (!pendiente) return
+  await guardarFechas(pendiente.taskId, pendiente.start, pendiente.end)
 }
 
 /**
@@ -859,18 +874,21 @@ function cerrarAlta() {
 /**
  * Guarda la tarea nueva y recarga el diagrama.
  *
- * El exito va al banner verde de la vista, el fallo al banner de error.
+ * El exito sale como toast, el fallo va al banner de error de guardado. El
+ * alta no se reintenta: repetirla crearia la tarea dos veces.
  */
 async function guardarAlta(payload) {
   savingAlta.value = true
+  guardadoPendiente.value = null
   try {
     const token = await auth.ensureSession()
     await tasksApi.create(token, altaProyecto.value, payload)
     altaAbierta.value = false
-    notice.value = `Tarea creada: ${payload.title}.`
-    error.value = null
+    toast.success(`Tarea creada: ${payload.title}.`)
+    errorGuardado.value = null
   } catch (err) {
-    error.value = err.message
+    errorGuardado.value = err.message
+    toast.error('No se ha podido crear la tarea.')
   } finally {
     savingAlta.value = false
   }
@@ -893,6 +911,9 @@ async function aceptarCascada() {
   cascada.value = null
   let fallo = null
   saving.value = true
+  // La cascada no se reintenta con el boton del banner: el reintento es del
+  // arrastre, y aqui ya no vale.
+  guardadoPendiente.value = null
   try {
     await tasksApi.update(
       auth.token,
@@ -912,13 +933,17 @@ async function aceptarCascada() {
       }
     }
     if (fallo) {
-      error.value = fallo.message
+      errorGuardado.value = fallo.message
+      toast.error('No se ha podido aplicar la cascada.')
     } else {
-      notice.value = `Fechas actualizadas: ${pendiente.start} a ${pendiente.end}.`
-      error.value = null
+      toast.success(`Fechas actualizadas: ${pendiente.start} a ${pendiente.end}.`, {
+        key: 'gantt-fechas',
+      })
+      errorGuardado.value = null
     }
   } catch (err) {
-    error.value = err.message
+    errorGuardado.value = err.message
+    toast.error('No se ha podido guardar las fechas.')
   } finally {
     saving.value = false
   }
@@ -1011,9 +1036,9 @@ useTaskReload(load)
 <template>
   <!--
     La vista ocupa el alto disponible (`h-full`) y es una columna flex: el
-    diagrama se queda con el espacio que sobra y encoge con el que falta. Un
-    aviso transitorio ("Fechas actualizadas") aprieta el diagrama en vez de
-    empujar la pagina.
+    diagrama se queda con el espacio que sobra y encoge con el que falta. El
+    exito de un guardado sale como toast flotante, fuera de la columna; los
+    avisos en linea son los de error y no empujan el diagrama.
   -->
   <div class="flex h-full min-h-0 flex-col">
     <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle">
@@ -1045,10 +1070,6 @@ useTaskReload(load)
         </button>
       </template>
     </PageHeader>
-
-    <AlertBanner v-if="notice" variant="success" class="mb-2 shrink-0">
-      {{ notice }}
-    </AlertBanner>
 
     <!-- Fallo de la exportacion iCal: se avisa sin bloquear el diagrama. -->
     <AlertBanner
@@ -1169,6 +1190,19 @@ useTaskReload(load)
       @retry="reintentar"
     >
       <p v-if="saving" class="shrink-0 text-sm text-slate-500">Guardando fechas...</p>
+
+      <!-- Fallo de guardado: la carga salio bien, el PATCH no. Con "Reintentar"
+           repite el ultimo arrastre; el alta no se reintenta. -->
+      <AlertBanner
+        v-if="errorGuardado"
+        variant="error"
+        class="mb-3 shrink-0"
+        data-testid="gantt-error-guardado"
+        :action-label="guardadoPendiente ? 'Reintentar' : ''"
+        @action="reintentarGuardado"
+      >
+        {{ errorGuardado }}
+      </AlertBanner>
 
       <!-- Fallo de la cascada: avisa sin bloquear; la tarea arrastrada se
            guardo igualmente. -->

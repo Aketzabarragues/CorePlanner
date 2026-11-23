@@ -13,6 +13,7 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useToastStore } from '../stores/toast'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
 
 const props = defineProps({
@@ -21,9 +22,9 @@ const props = defineProps({
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const toast = useToastStore()
 
 const error = ref(null)
-const notice = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const isManager = ref(false)
@@ -68,7 +69,6 @@ async function load() {
 
 async function save() {
   error.value = null
-  notice.value = null
   saving.value = true
   try {
     const token = await auth.ensureSession()
@@ -79,7 +79,7 @@ async function save() {
       owner_id: form.value.owner_id === '' ? null : Number(form.value.owner_id),
     })
     await store.load(token)
-    notice.value = 'Proyecto guardado.'
+    toast.success('Proyecto guardado.')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -114,15 +114,6 @@ watch(() => props.id, load)
         >
           {{ error }}
         </AlertBanner>
-        <AlertBanner
-          v-if="notice"
-          variant="success"
-          class="mb-3"
-          data-testid="project-settings-notice"
-        >
-          {{ notice }}
-        </AlertBanner>
-
         <form @submit.prevent="save">
           <div class="grid grid-cols-2 gap-3">
             <label class="block text-sm font-medium">

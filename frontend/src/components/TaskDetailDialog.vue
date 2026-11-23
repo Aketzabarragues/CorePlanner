@@ -54,7 +54,6 @@ const activity       = ref([])
 const loading        = ref(false)
 const saving         = ref(false)
 const error          = ref(null)
-const notice         = ref(null)
 /** Texto del comentario que se esta escribiendo. */
 const newComment     = ref('')
 /** Texto del punto de la lista que se esta escribiendo. */
@@ -296,7 +295,6 @@ async function reintentar() {
 async function guardar() {
   if (!hasChanges.value) return
   saving.value  = true
-  notice.value  = null
   try {
     const token   = await auth.ensureSession()
     const guardada = await tasksApi.update(token, props.taskId, changes.value)

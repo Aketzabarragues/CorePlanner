@@ -29,6 +29,7 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
 import { localDateKey } from '../utils/month'
 
@@ -36,7 +37,6 @@ const props = defineProps({ id: { type: [String, Number], required: true } })
 
 const tasks = ref([])
 const error = ref(null)
-const notice = ref(null)
 /** Aviso que no tapa el tablero: un rechazo del servidor al mover una tarea. */
 const aviso = ref(null)
 const loading = ref(true)
@@ -78,6 +78,7 @@ const altaAbierta = ref(null)
 const titleInput = ref(null)
 
 const auth = useAuthStore()
+const toast = useToastStore()
 
 /**
  * Si la persona puede escribir en el proyecto abierto.
@@ -232,7 +233,7 @@ async function ordenarTarea(task, status, y) {
       status,
       task_ids: idsFinales,
     })
-    notice.value = `"${task.title}" pasa a ${columnLabel(status)}.`
+    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
   } catch (err) {
     // El aviso va aparte del error de la vista: el tablero no se reemplaza
     // por un fallo al mover una tarjeta, y la recarga que viene despues no
@@ -261,7 +262,7 @@ async function moveFromSelect(task, event) {
       status,
       task_ids: idsFinales,
     })
-    notice.value = `"${task.title}" pasa a ${columnLabel(status)}.`
+    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
   } catch (err) {
     aviso.value = `No se ha podido mover la tarea: ${err.message}`
   } finally {
@@ -376,7 +377,7 @@ async function crearTarea(status) {
       start_date: hoy,
       end_date: hoy,
     })
-    notice.value = `Tarea "${alta.title.trim()}" creada.`
+    toast.success(`Tarea "${alta.title.trim()}" creada.`)
     alta.title = ''
     alta.hours = ''
     alta.assigned_to = ''
@@ -426,10 +427,6 @@ onBeforeUnmount(() => drag.anular())
         <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
       </template>
     </PageHeader>
-
-    <AlertBanner v-if="notice" variant="success" class="mb-2">
-      {{ notice }}
-    </AlertBanner>
 
     <AlertBanner
       v-if="aviso"

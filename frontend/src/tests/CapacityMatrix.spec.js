@@ -5,6 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CapacityMatrix from '../components/CapacityMatrix.vue'
 import CellBreakdown from '../components/CellBreakdown.vue'
+import { useToastStore } from '../stores/toast'
 import { weeksBetween } from '../utils/weeks'
 
 const members = [
@@ -163,8 +164,10 @@ async function mountMatrix(query = {}) {
   await router.push({ path: '/capacity', query })
   await router.isReady()
 
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const wrapper = mount(CapacityMatrix, {
-    global: { plugins: [createPinia(), router] },
+    global: { plugins: [pinia, router] },
   })
   await flushPromises()
   await flushPromises()
@@ -414,6 +417,10 @@ describe('CapacityMatrix', () => {
     const patch = calls.find((c) => c.method === 'PATCH')
     expect(patch).toBeDefined()
     expect(JSON.parse(patch.body).assigned_to).toBe(1)
+    // El exito sale como toast, no como banner.
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Tarea "Puesta en marcha" reasignada a Ana.',
+    )
   })
 
   it('el desglose permite eliminar una tarea', async () => {
@@ -1125,6 +1132,10 @@ describe('CapacityMatrix', () => {
     expect(wrapper.get('[data-testid="capacity-warning"]').text()).toContain(
       'No se ha podido reasignar',
     )
+    // Ademas del detalle en linea, el fallo sale como toast de error.
+    const items = useToastStore().items
+    expect(items.map((item) => item.variant)).toContain('error')
+    expect(items.map((item) => item.message)).toContain('No se ha podido reasignar la tarea.')
   })
 
   it('mayus y la flecha mueven la tarea a la persona de al lado', async () => {

@@ -9,6 +9,7 @@ import { ref } from 'vue'
 
 import { skillsApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toast'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
 
@@ -19,9 +20,9 @@ defineProps({
 const emit = defineEmits(['saved'])
 
 const auth = useAuthStore()
+const toast = useToastStore()
 const error = ref(null)
 const formError = ref(null)
-const notice = ref(null)
 const newName = ref('')
 const editingId = ref(null)
 const editingName = ref('')
@@ -42,13 +43,12 @@ function closeForm() {
 
 async function addSkill() {
   formError.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await skillsApi.create(token, newName.value.trim())
     newName.value = ''
     formOpen.value = false
-    notice.value = 'Competencia añadida al catálogo.'
+    toast.success('Competencia añadida al catálogo.')
     emit('saved')
   } catch (err) {
     formError.value = err.message
@@ -62,12 +62,11 @@ function startRename(skill) {
 
 async function saveRename() {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await skillsApi.rename(token, editingId.value, editingName.value.trim())
     editingId.value = null
-    notice.value = 'Competencia renombrada.'
+    toast.success('Competencia renombrada.')
     emit('saved')
   } catch (err) {
     error.value = err.message
@@ -76,11 +75,10 @@ async function saveRename() {
 
 async function removeSkill(skill) {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await skillsApi.remove(token, skill.id)
-    notice.value = 'Competencia quitada del catálogo.'
+    toast.success('Competencia quitada del catálogo.')
     emit('saved')
   } catch (err) {
     error.value = err.message
@@ -103,9 +101,6 @@ async function removeSkill(skill) {
 
     <AlertBanner v-if="error" variant="error" data-testid="skill-catalog-error">
       {{ error }}
-    </AlertBanner>
-    <AlertBanner v-if="notice" variant="success" data-testid="skill-catalog-notice">
-      {{ notice }}
     </AlertBanner>
 
     <table class="w-full text-sm">

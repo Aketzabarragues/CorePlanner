@@ -20,17 +20,18 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
 import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 import { KANBAN_COLUMNS, columnLabel, formatHours, statusPill } from '../utils/kanban'
 import { loadAspect, loadBarWidth, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekNumber, weekTitle } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
+const toast = useToastStore()
 
 const report = ref(null)
 const error = ref(null)
 const loading = ref(true)
-const notice = ref(null)
 const saving = ref(false)
 const tab = ref('now')
 
@@ -151,7 +152,7 @@ async function changeStatus(task, event) {
   try {
     await tasksApi.update(auth.token, task.id, { status })
     task.status = status
-    notice.value = `"${task.title}" pasa a ${columnLabel(status)}.`
+    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -206,17 +207,6 @@ useTaskReload(load)
         </span>
         Tienes {{ formatHours(semana.hours - semana.capacity) }} por encima. Reparte
         el trabajo o avisa al responsable del proyecto.
-      </AlertBanner>
-
-      <AlertBanner
-        v-if="notice"
-        variant="success"
-        class="mb-3"
-        dismissible
-        data-testid="my-work-notice"
-        @dismiss="notice = null"
-      >
-        {{ notice }}
       </AlertBanner>
 
       <div class="mb-6 grid gap-4 lg:grid-cols-3">

@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useToastStore } from '../stores/toast'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 
 const projects = [
@@ -49,9 +50,11 @@ function setupFetch({ isManager = true } = {}) {
 }
 
 async function mountView() {
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const wrapper = mount(ProjectSettingsView, {
     props: { id: 1 },
-    global: { plugins: [createPinia()] },
+    global: { plugins: [pinia] },
   })
   await flushPromises()
   await flushPromises()
@@ -61,7 +64,6 @@ async function mountView() {
 describe('ProjectSettingsView', () => {
   beforeEach(() => {
     localStorage.clear()
-    setActivePinia(createPinia())
     setupFetch()
   })
 
@@ -94,7 +96,7 @@ describe('ProjectSettingsView', () => {
       department_id: 1,
       owner_id: 2,
     })
-    expect(wrapper.find('[data-testid="project-settings-notice"]').exists()).toBe(true)
+    expect(useToastStore().items.map((item) => item.message)).toContain('Proyecto guardado.')
   })
 
   it('quien no es gerente ve los datos pero no puede cambiarlos', async () => {

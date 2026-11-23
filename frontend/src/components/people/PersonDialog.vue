@@ -15,6 +15,7 @@ import AlertBanner from '../common/AlertBanner.vue'
 import AsyncState from '../common/AsyncState.vue'
 import ModalDialog from '../ModalDialog.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toast'
 
 const props = defineProps({
   person: { type: Object, required: true },
@@ -26,10 +27,10 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const auth = useAuthStore()
+const toast = useToastStore()
 const profile = ref(null)
 const loading = ref(false)
 const error = ref(null)
-const notice = ref(null)
 
 const DAY_FIELDS = [
   'monday',
@@ -92,7 +93,6 @@ watch(() => props.person.id, loadProfile, { immediate: true })
 
 async function addSchedule() {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     const days = scheduleForm.value.hours.map((hours) => Math.round(Number(hours) * 100))
@@ -106,10 +106,10 @@ async function addSchedule() {
         ...payload,
         valid_from: scheduleForm.value.valid_from,
       })
-      notice.value = 'Horario guardado.'
+      toast.success('Horario guardado.')
     } else {
       await peopleApi.updateSchedule(token, props.person.id, editingScheduleId.value, payload)
-      notice.value = 'Horario corregido.'
+      toast.success('Horario corregido.')
     }
     editingScheduleId.value = null
     await loadProfile()
@@ -142,12 +142,11 @@ function cancelEditSchedule() {
 
 async function removeSchedule(entry) {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     await peopleApi.removeSchedule(token, props.person.id, entry.id)
     if (editingScheduleId.value === entry.id) cancelEditSchedule()
-    notice.value = 'Versión de horario quitada.'
+    toast.success('Versión de horario quitada.')
     await loadProfile()
     emit('saved')
   } catch (err) {
@@ -157,14 +156,13 @@ async function removeSchedule(entry) {
 
 async function saveSkills() {
   error.value = null
-  notice.value = null
   try {
     const token = await auth.ensureSession()
     const skills = Object.entries(skillLevels.value)
       .filter(([, level]) => Number(level) > 0)
       .map(([skillId, level]) => ({ skill_id: Number(skillId), level: Number(level) }))
     await peopleApi.setSkills(token, props.person.id, skills)
-    notice.value = 'Competencias guardadas.'
+    toast.success('Competencias guardadas.')
     await loadProfile()
     emit('saved')
   } catch (err) {
@@ -185,9 +183,6 @@ async function saveSkills() {
       <div class="space-y-6">
         <AlertBanner v-if="error" variant="error">
           {{ error }}
-        </AlertBanner>
-        <AlertBanner v-if="notice" variant="success">
-          {{ notice }}
         </AlertBanner>
 
         <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

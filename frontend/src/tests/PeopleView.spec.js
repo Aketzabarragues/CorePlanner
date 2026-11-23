@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useToastStore } from '../stores/toast'
 import PeopleView from '../views/PeopleView.vue'
 
 const people = [
@@ -300,6 +301,25 @@ describe('PeopleView', () => {
     )
     expect(llamada).toBeTruthy()
     expect(JSON.parse(llamada[1].body).availability_factor).toBe(90)
+    expect(useToastStore().items.map((item) => item.message)).toContain('Horario corregido.')
+  })
+
+  it('la ficha quita una version de horario', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="open-profile-1"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="remove-schedule-1"]').trigger('click')
+    await flushPromises()
+
+    const llamada = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url.includes('/api/people/1/schedules/1') && options.method === 'DELETE',
+    )
+    expect(llamada).toBeTruthy()
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Versión de horario quitada.',
+    )
   })
 
   it('muestra el error cuando la API lo rechaza', async () => {

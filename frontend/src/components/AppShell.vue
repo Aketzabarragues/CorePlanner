@@ -17,6 +17,7 @@ import TaskForm from './TaskForm.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useToastStore } from '../stores/toast'
 import {
   GLOBAL_SECTIONS,
   PROJECT_SECTIONS,
@@ -26,6 +27,7 @@ import {
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const toast = useToastStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -35,13 +37,10 @@ const collapsed = ref(localStorage.getItem(SIDEBAR_KEY) === '1')
 const showNewTask = ref(false)
 const saving = ref(false)
 const error = ref(null)
-const notice = ref(null)
 /** Cajon del menu en movil: por debajo de 640 px el menu lateral se esconde. */
 const menuAbierto = ref(false)
 /** Ambito de la persona que entra: rol, departamento y proyectos editables. */
 const scope = ref(null)
-
-let noticeTimer = null
 
 /** Identificador del proyecto abierto: solo la ruta del proyecto lo da. */
 const projectId = computed(() => route.params.id ?? null)
@@ -205,14 +204,6 @@ async function openNewTask() {
   showNewTask.value = true
 }
 
-function flash(message) {
-  notice.value = message
-  if (noticeTimer) clearTimeout(noticeTimer)
-  noticeTimer = setTimeout(() => {
-    notice.value = null
-  }, 6000)
-}
-
 async function createTask(payload) {
   saving.value = true
   error.value = null
@@ -220,7 +211,7 @@ async function createTask(payload) {
     await tasksApi.create(auth.token, projectId.value, payload)
     showNewTask.value = false
     store.notifyTasksChanged()
-    flash(`Tarea "${payload.title}" creada.`)
+    toast.success(`Tarea "${payload.title}" creada.`)
   } catch (err) {
     error.value = err.message
   } finally {
@@ -462,15 +453,6 @@ watch(() => route.fullPath, () => {
       <main class="flex-1 min-h-0 overflow-auto bg-slate-50 p-3 sm:p-6">
         <AlertBanner v-if="error" variant="error" class="mb-3">
           {{ error }}
-        </AlertBanner>
-        <AlertBanner
-          v-else-if="notice"
-          variant="success"
-          class="mb-3"
-          dismissible
-          @dismiss="notice = null"
-        >
-          {{ notice }}
         </AlertBanner>
         <router-view />
       </main>

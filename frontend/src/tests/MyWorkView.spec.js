@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useToastStore } from '../stores/toast'
 import MyWorkView from '../views/MyWorkView.vue'
 
 const informe = {
@@ -102,9 +103,9 @@ function setupFetch(payload = informe) {
 }
 
 async function mountView() {
-  const wrapper = mount(MyWorkView, {
-    global: { plugins: [createPinia()] },
-  })
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const wrapper = mount(MyWorkView, { global: { plugins: [pinia] } })
   await flushPromises()
   await flushPromises()
   return wrapper
@@ -113,7 +114,6 @@ async function mountView() {
 describe('MyWorkView', () => {
   beforeEach(() => {
     localStorage.clear()
-    setActivePinia(createPinia())
     setupFetch()
   })
 
@@ -193,6 +193,9 @@ describe('MyWorkView', () => {
     expect(llamada).toBeTruthy()
     expect(llamada[1].method).toBe('PATCH')
     expect(JSON.parse(llamada[1].body)).toEqual({ status: 'done' })
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      '"Programacion SCADA WinCC" pasa a Completado.',
+    )
   })
 
   it('avisa cuando no hay tareas en la pestana', async () => {

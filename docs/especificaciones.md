@@ -523,7 +523,7 @@ esfuerzo.
 Las pantallas repiten lo mismo: un texto "Cargando...", un bloque de error
 copiado, una cabecera con titulo y subtitulo, un aviso de que algo ha ido
 bien. Cada copia es una ocasion de que se queden desincronizadas. Este bloque
-sustituye esas copias por cuatro componentes que usan todas las vistas.
+sustituye esas copias por cinco componentes que usan todas las vistas.
 
 De paso se revisan las cadenas visibles: hay una decena de sitios donde falta
 la tilde ("Matriz de ocupacion", "Todavia", "Titulo"), en una interfaz que por
@@ -538,8 +538,15 @@ lo demas si la lleva.
   - Error: `role="alert"`, el mensaje y un boton **Reintentar**.
   - Vacio: un texto y una accion.
 - **`AlertBanner`**: el aviso en linea, con icono y accion opcional, en cuatro
-  variantes (exito, aviso, info, error). Es el unico patron de aviso: el aviso
-  flotante del shell desaparece.
+  variantes (exito, aviso, info, error). Es el patron del **estado de una
+  region**: un error de guardado, una validacion, un aviso con detalle. Se
+  queda en la vista, donde se puede leer y donde puede llevar su accion.
+- **`ToastHost`**: el aviso flotante de la aplicacion, con el store
+  `stores/toast.js`. Es el patron de la **confirmacion**: la accion ha terminado
+  y no hay nada que leer con detalle ("Tarea creada", "Fechas actualizadas").
+  Reutiliza `AlertBanner` (mismo mapa de variantes, mismos iconos, mismos roles
+  de accesibilidad), con sombra, abajo a la derecha. Va montado en `App.vue`:
+  sobrevive al cambio de vista y existe tambien en el acceso.
 - **`PageHeader`**: titulo, subtitulo y acciones, siempre en el mismo orden y con
   el mismo aspecto en todas las pantallas.
 - **`SidePanel`**: el panel lateral de detalle, con `role="dialog"`,
@@ -559,8 +566,13 @@ lo demas si la lleva.
 
 ### Que no entra
 
-- **El aviso flotante**: no hay dos patrones de aviso a la vez. El mensaje de
-  "tarea creada" pasa a un banner en linea.
+- **El toast como sustituto del aviso en linea**: el error y el aviso con
+  detalle se quedan en linea, donde el operario los puede leer y donde la accion
+  apunta. El toast no los sustituye.
+- **Los avisos que desaparecen solos cuando hay que entenderlos**: un `warning`
+  o un `error` del toast no se autocierran; se cierran con la `x`.
+- **Un segundo mapa de colores**: el toast es un `AlertBanner` flotante, no un
+  componente con su propio estilo.
 - **Los estados vacios propios de cada pantalla**: cada vista decide que
   escribe en su estado vacio; el componente solo aporta el hueco y la accion.
 - **El panel lateral de la pantalla unificada de capacidad**: es de la fase 4.
@@ -573,10 +585,12 @@ lo demas si la lleva.
 
 ### Decisiones de este bloque
 
-1. **Un solo patron de aviso.** El prototipo lo dice: "Un solo patron de
-   aviso, en linea, con icono y accion. El toast flotante desaparece." El
-   banner va en la propia vista, donde se puede leer y donde puede llevar su
-   accion; un flotante se traga el mensaje a los seis segundos.
+1. **Dos papeles de aviso, un solo componente.** El toast flotante es la
+   confirmacion de una accion terminada: se va sola y no exige leer un detalle.
+   El banner en linea es el estado de una region: un error de guardado, una
+   validacion, un aviso con detalle. Los dos son el mismo `AlertBanner`, con el
+   mismo mapa de variantes, los mismos iconos y los mismos roles de
+   accesibilidad; lo que cambia es donde se pintan y cuanto viven.
 2. **El azul de Siemens se mantiene.** El prototipo usa teal (`#0f766e`) en el
    boton principal. Aqui manda el azul de la casa: `bg-siemens-900`. Los avisos
    usan la paleta estandar de Tailwind (verde, ambar, azul y rojo) para no
@@ -598,7 +612,9 @@ lo demas si la lleva.
    `AlertBanner` con icono, este donde este el formulario. Cuando el propio
    formulario avisa de que un campo no vale ("el titulo es obligatorio"), el
    mensaje se queda pegado al campo, en rojo y sin caja: son dos cosas
-   distintas y el operario las distingue de un vistazo.
+   distintas y el operario las distingue de un vistazo. Un fallo de operacion
+   sale ademas como toast cuando su banner en linea puede no estar a la vista
+   (decision 16).
 8. **`PageHeader` no lleva migas.** El shell ya las pinta encima de la vista:
    meterlas tambien en el componente seria verlas dos veces. El componente
    aporta el titulo, el subtitulo y el hueco de acciones; las migas siguen
@@ -620,6 +636,33 @@ lo demas si la lleva.
     se encarga de Esc, del bloqueo del desplazamiento, de la trampa de foco y
     de devolver el foco al elemento que abrio el dialogo. `ModalDialog` lo usa
     tambien, y de paso gana la trampa de foco que le faltaba.
+13. **El toast vive en un store y en un host unico.** `stores/toast.js` es la
+    pila de avisos; `ToastHost.vue` la pinta y va montado en `App.vue`, asi que
+    sobrevive al cambio de vista y existe tambien en el acceso. Cuatro
+    variantes, las mismas que el banner: `success`, `info`, `warning` y
+    `error`.
+14. **El exito y la info se van a los 4000 ms; el aviso y el error no.** Un
+    `warning` o un `error` que hay que entender no puede desaparecer solo: se
+    cierra con la `x`. Todos los avisos llevan cierre manual.
+15. **Tres avisos a la vez y una clave por operacion.** Al entrar un cuarto se
+    descarta el mas viejo. Un aviso con `key` **reemplaza** al anterior en vez
+    de apilar: al arrastrar una barra en el Gantt sale uno por suelta, no una
+    pila de "Fechas actualizadas".
+16. **El error sale en linea y ademas en toast cuando el inline puede no estar
+    a la vista.** El inline lleva el detalle y la accion ("Reintentar"); el
+    toast lleva el resumen. Con el mismo texto en los dos, el lector de pantalla
+    lo anunciaria dos veces. Hoy califican el guardado fallido del Gantt (el
+    inline vive junto al diagrama, y la recarga que sigue al guardado lo
+    borraba) y el rechazo del servidor al reasignar en la matriz de capacidad
+    (el inline vive en la cabecera, sobre el contenedor con scroll donde ocurre
+    el arrastre). El fallo al exportar el calendario `.ics` **no** califica: su
+    aviso sale justo debajo del boton.
+17. **El toast va por encima del dialogo.** El velo de `ModalDialog` es
+    `fixed inset-0 z-50` y el host va con `z-[60]`: un aviso disparado desde un
+    dialogo se ve. Abajo a la derecha, a 1 rem de la esquina; en movil, de ancho
+    completo y pegado abajo. El contenedor es una region activa suave
+    (`aria-live="polite"`), el toast no roba el foco y no tiene animacion de
+    entrada.
 
 ## 20. Escala de carga e informes que no se piden dos veces
 

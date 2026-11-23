@@ -24,6 +24,7 @@ import { useVisibilidad } from '../composables/useVisibilidad'
 import { plural } from '../utils/plural'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useToastStore } from '../stores/toast'
 import {
   LOAD_STATE,
   isOverloaded,
@@ -52,6 +53,7 @@ import VisibilityPanel from './common/VisibilityPanel.vue'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const toast = useToastStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -68,7 +70,6 @@ const MODE = {
 const report = ref(null)
 const project = ref(null)
 const error = ref(null)
-const notice = ref(null)
 /** Aviso que no tapa la matriz: un destino que no vale, un rechazo del servidor. */
 const aviso = ref(null)
 const empty = ref(false)
@@ -769,7 +770,7 @@ async function saveTask(taskId, payload) {
   saving.value = true
   try {
     await tasksApi.update(auth.token, taskId, payload)
-    notice.value = 'Tarea actualizada.'
+    toast.success('Tarea actualizada.')
     await reload()
   } catch (err) {
     error.value = err.message
@@ -782,7 +783,7 @@ async function deleteTask(task) {
   saving.value = true
   try {
     await tasksApi.remove(auth.token, task.id)
-    notice.value = `Tarea "${task.title}" eliminada.`
+    toast.success(`Tarea "${task.title}" eliminada.`)
     await reload()
   } catch (err) {
     error.value = err.message
@@ -823,11 +824,12 @@ async function reasignarTarea(task, targetUserId, semana) {
     report.value = copia
     syncBreakdownCell()
     aviso.value = `No se ha podido reasignar la tarea: ${err.message}`
+    toast.error('No se ha podido reasignar la tarea.')
     saving.value = false
     return
   }
   saving.value = false
-  notice.value = `Tarea "${task.title}" reasignada a ${destino.name}.`
+  toast.success(`Tarea "${task.title}" reasignada a ${destino.name}.`)
   aviso.value = null
   await reload()
 }
@@ -1075,7 +1077,7 @@ async function createTask(payload) {
   saving.value = true
   try {
     await tasksApi.create(auth.token, project.value.id, payload)
-    notice.value = `Tarea "${payload.title}" creada.`
+    toast.success(`Tarea "${payload.title}" creada.`)
     aviso.value = null
     await reload()
   } catch (err) {
@@ -1328,10 +1330,6 @@ watch(
       loading-label="Cargando la matriz de capacidad"
       @retry="reintentar"
     >
-      <AlertBanner v-if="notice" variant="success" class="mb-3">
-        {{ notice }}
-      </AlertBanner>
-
       <AlertBanner
         v-if="aviso"
         variant="warning"

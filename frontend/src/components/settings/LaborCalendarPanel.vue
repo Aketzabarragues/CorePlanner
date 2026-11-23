@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { calendarApi, workCalendarApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toast'
 import { hoursText, jornadaLabel, scopeText } from '../../utils/labor'
 import {
   currentMonthKey,
@@ -35,6 +36,7 @@ const props = defineProps({
 })
 
 const auth = useAuthStore()
+const toast = useToastStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -45,7 +47,6 @@ const days = ref([])
 const impact = ref([])
 const selectedDate = ref('')
 const error = ref(null)
-const notice = ref(null)
 const saving = ref(false)
 const deleting = ref(null)
 const formOpen = ref(false)
@@ -144,7 +145,6 @@ function startNewDay() {
 
 async function addDay() {
   error.value = null
-  notice.value = null
   saving.value = true
   try {
     const token = await auth.ensureSession()
@@ -166,7 +166,7 @@ async function addDay() {
       half_day: false,
     }
     formOpen.value = false
-    notice.value = 'Día no laborable añadido.'
+    toast.success('Día no laborable añadido.')
     await load()
   } catch (err) {
     error.value = err.message
@@ -183,7 +183,7 @@ async function removeDay() {
   try {
     const token = await auth.ensureSession()
     await calendarApi.remove(token, deleting.value.id)
-    notice.value = 'Día no laborable eliminado.'
+    toast.success('Día no laborable eliminado.')
     deleting.value = null
     await load()
   } catch (err) {
@@ -201,9 +201,6 @@ onMounted(load)
   <div>
     <AlertBanner v-if="error" variant="error" class="mb-3" data-testid="labor-error">
       {{ error }}
-    </AlertBanner>
-    <AlertBanner v-if="notice" variant="success" class="mb-3" data-testid="labor-notice">
-      {{ notice }}
     </AlertBanner>
 
     <div class="grid gap-4 lg:grid-cols-3">

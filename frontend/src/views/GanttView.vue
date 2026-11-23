@@ -1255,6 +1255,7 @@ useTaskReload(load)
         <GanttChart
           :layout="layout"
           :columnas="columnas"
+          :bandas-cabecera="layout.axis.bands"
           :filas-nombres="layout.rows"
           :editable-de="editableDe"
           :barra-enfocada="barraEnfocada"

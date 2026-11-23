@@ -11,6 +11,7 @@
  * despeguen. Esta aria-hidden: es la version HTML de lo que el SVG ya
  * anuncia.
  */
+import { GANTT_METRICS } from '../../utils/ganttMetrics'
 const props = defineProps({
   /** Filas del layout, ya enriquecidas: [{ type, rowIndex, ... }]. */
   filas: { type: Array, required: true },
@@ -28,7 +29,14 @@ const cabecera = 'Tarea'
     aria-hidden="true"
     data-testid="gantt-names"
   >
-    <div class="flex h-12 items-center border-b border-slate-200 bg-slate-100 px-3">
+    <!--
+      La cabecera reserva el mismo alto que la del eje (`GANTT_METRICS`): el
+      numero es el unico, las dos piezas no se descuadran.
+    -->
+    <div
+      class="flex items-center border-b border-slate-200 bg-slate-100 px-3"
+      :style="{ height: `${GANTT_METRICS.headerHeight}px` }"
+    >
       <span class="text-xs font-semibold text-siemens-900">{{ cabecera }}</span>
     </div>
 

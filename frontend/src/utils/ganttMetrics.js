@@ -8,7 +8,9 @@
  */
 
 export const GANTT_METRICS = {
-  headerHeight: 48, // Cabecera del eje y de la columna de nombres
+  // Cabecera del eje y de la columna de nombres: tres bandas de ~21 px
+  // (numero o nombre, rango o ano, festivo).
+  headerHeight: 64,
   barHeight: 24, // Barra, dentro de la fila de 36 px
   barRadius: 4,
   namesWidth: 240, // Columna de nombres (escritorio)

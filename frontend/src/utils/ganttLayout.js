@@ -21,12 +21,22 @@ const DIA_SEMANA_INICIAL = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
  *
  * `start` y `end` son fechas UTC que delimitan un rango inclusivo. Las celdas
  * son las cabeceras segun la escala y los ticks las lineas de rejilla.
+ *
+ * Ademas devuelve dos cosas para afinar la rejilla y la cabecera:
+ * - `subticks`: las lineas secundarias, mas claras que las de celda. Dias
+ *   dentro de la semana (escala de semana) y semanas dentro del mes (escala de
+ *   mes). Solo las que caen dentro del rango visible.
+ * - `bands`: los grupos de la banda 1 de la cabecera. Solo la escala de dia
+ *   los usa: uno por mes, con todos sus dias visibles. En las demas escalas la
+ *   lista va vacia.
  */
 export function buildTimeAxis({ start, end, scale }) {
   const days = diffDays(start, end) + 1
   const width = days * scale.pxPerDay
   const cells = []
   const ticks = []
+  const subticks = []
+  const bands = []
   const first = parseIsoDate(start)
   const last = parseIsoDate(end)
   const tickX = (day) => dayIndex(day, first) * scale.pxPerDay
@@ -44,19 +54,45 @@ export function buildTimeAxis({ start, end, scale }) {
       })
       ticks.push({ x: index * scale.pxPerDay, kind: 'day' })
     }
+    // Banda del mes: agrupa todos los dias visibles del mes. La banda
+    // empieza en el primer dia visible, asi que nunca sale del rango.
+    const bandaPorMes = new Map()
+    for (let index = 0; index < days; index += 1) {
+      const day = addDays(first, index)
+      const key = `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, '0')}`
+      const banda = bandaPorMes.get(key)
+      if (banda) {
+        banda.width += scale.pxPerDay
+        continue
+      }
+      bandaPorMes.set(key, {
+        key,
+        label: `${shortMonthName(day.getUTCMonth() + 1)} ${day.getUTCFullYear()}`,
+        x: index * scale.pxPerDay,
+        width: scale.pxPerDay,
+      })
+    }
+    bands.push(...bandaPorMes.values())
   } else if (scale.header === 'week') {
     let monday = addDays(first, -((first.getUTCDay() + 6) % 7))
     while (monday <= last) {
       const key = isoWeekKey(monday)
+      const x = tickX(monday)
       cells.push({
         key,
         label: weekLabel(key),
         sublabel: daysRangeLabel(weekDays(key)),
-        x: tickX(monday),
+        x,
         width: 7 * scale.pxPerDay,
         kind: 'week',
       })
-      ticks.push({ x: tickX(monday), kind: 'week' })
+      ticks.push({ x, kind: 'week' })
+      // Sublineas: un dia dentro de la semana. El limite de la semana es una
+      // linea de celda, asi que aqui solo va el interior.
+      for (let offset = 1; offset < 7; offset += 1) {
+        const subX = x + offset * scale.pxPerDay
+        if (subX > 0 && subX < width) subticks.push({ x: subX, kind: 'day' })
+      }
       monday = addDays(monday, 7)
     }
   } else if (scale.header === 'month') {
@@ -66,20 +102,28 @@ export function buildTimeAxis({ start, end, scale }) {
       // el dia 0 del mes siguiente es el ultimo del que se mide.
       const daysInMonth =
         new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0)).getUTCDate()
+      const x = tickX(cursor)
       cells.push({
         key: `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`,
         label: shortMonthName(cursor.getUTCMonth() + 1),
         sublabel: String(cursor.getUTCFullYear()),
-        x: tickX(cursor),
+        x,
         width: daysInMonth * scale.pxPerDay,
         kind: 'month',
       })
-      ticks.push({ x: tickX(cursor), kind: 'month' })
+      ticks.push({ x, kind: 'month' })
+      // Sublineas: las semanas del mes, que empiezan en lunes.
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const fecha = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), day))
+        if (fecha.getUTCDay() !== 1) continue
+        const subX = x + (day - 1) * scale.pxPerDay
+        if (subX > 0 && subX < width) subticks.push({ x: subX, kind: 'week' })
+      }
       cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1))
     }
   }
 
-  return { days, width, cells, ticks }
+  return { days, width, cells, ticks, subticks, bands }
 }
 
 /**

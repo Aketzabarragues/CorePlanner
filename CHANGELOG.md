@@ -7,6 +7,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: la cabecera del eje del Gantt se afina. En la escala de dia, una banda
+  agrupa todos los dias del mes ("nov 2026") y debajo van el numero del dia y la inicial
+  del dia de la semana. La rejilla muestra los dias dentro de la semana (escala de
+  semana) y las semanas dentro del mes (escala de mes), con un trazo mas claro que el
+  del limite de celda. El alto de la cabecera pasa a 64 px en el eje y en la columna de
+  nombres.
 - **frontend**: el diagrama de Gantt deja de depender de la libreria
   `frappe-gantt`. Lo dibuja un motor propio (`frontend/src/components/gantt/`:
   grafico, eje, barra, cabecera de grupo y columna de nombres) sobre el mismo
@@ -152,6 +158,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: al arrastrar o redimensionar una barra del Gantt, el azul de destino ya no
+  es un recuadro que tapa todo el diagrama: es la fila de la tarea, con el ancho del rango
+  nuevo, de modo que se ve cuanto crece o se encoge.
+- **frontend**: el nombre del festivo ya no pisa las fechas en la cabecera del Gantt. La
+  cabecera pasa a tres bandas (numero o nombre, rango o ano, festivo) y el festivo
+  lleva su insignia en la tercera, con la etiqueta recortada al ancho de la celda.
 - **frontend**: arrastrar y soltar una barra del Gantt ya no deja tres scrollbars.
   El aviso "Fechas actualizadas" empujaba la vista, que hacia crecer la pagina.
   Ahora la columna del armazon y `main` llevan `min-h-0` (la pagina nunca

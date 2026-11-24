@@ -153,6 +153,37 @@
 }
 
 /*
+ * Franja de color del grupo: el color del grupo, si lo tiene.
+ *
+ * El color llega en la variable `--gantt-color-grupo`: el hex del proyecto
+ * o la clase de la persona (que ya trae su color en `--persona-color`).
+ */
+.gantt__grupo-franja {
+  fill: var(--gantt-color-grupo, transparent);
+}
+
+/*
+ * Barra de resumen del grupo: el cuerpo fino y los remates de los extremos.
+ *
+ * Va de la primera a la ultima fecha de las tareas del grupo. El cuerpo va a
+ * media opacidad, para que se lea por debajo de las barras, y los remates
+ * (opacos) cierran los dos extremos. Un grupo sin color propio se dibuja con
+ * el gris neutro de la escala.
+ *
+ * Es de solo lectura: no captura el puntero ni se arrastra.
+ */
+.gantt__resumen-cuerpo {
+  fill: var(--gantt-color-grupo, theme('colors.slate.400'));
+  fill-opacity: 0.5;
+}
+.gantt__resumen-remate {
+  fill: var(--gantt-color-grupo, theme('colors.slate.400'));
+}
+.gantt__resumen {
+  pointer-events: none;
+}
+
+/*
  * Texto del eje: el titulo de la banda, el subtitulo y las insignias.
  *
  * El titulo va en 12 px con peso 600 (numero de semana, nombre de mes,

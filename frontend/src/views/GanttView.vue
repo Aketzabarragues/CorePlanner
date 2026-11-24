@@ -18,6 +18,11 @@
  * PATCH de la tarea, de modo que el diagrama y la matriz de ocupacion
  * cuentan lo mismo. Sin permiso de escritura en el proyecto, la barra se ve
  * en solo lectura: sin asas y sin arrastre.
+ *
+ * Cada grupo lleva su barra de resumen (de la primera a la ultima fecha de
+ * sus tareas) y su cabecera es un boton que lo colapsa. Los grupos colapsados
+ * no dibujan sus barras, pero su resumen sigue a la vista: es la extension
+ * del grupo en el tiempo. El estado vive en la URL (`?collapsed=`).
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -137,6 +142,20 @@ const projectFilter = useProyectoFiltro()
 const groupBy = computed(() => route.query.group ?? 'proyecto')
 const rangoDesde = computed(() => route.query.from ?? '')
 const rangoHasta = computed(() => route.query.to ?? '')
+
+/**
+ * Grupos colapsados: los que no muestran sus tareas.
+ *
+ * Viven en la URL (`?collapsed=`, con las claves separadas por comas) para que
+ * recargar la pagina deje el diagrama igual. La clave es el identificador
+ * del grupo (`persona-12`), no su nombre: dos personas homonimas son dos
+ * grupos.
+ */
+const colapsados = computed(() => {
+  const bruto = route.query.collapsed ?? ''
+  const lista = Array.isArray(bruto) ? bruto : [bruto]
+  return new Set(lista.flatMap((valor) => String(valor).split(',')).filter(Boolean))
+})
 
 const escala = computed(() => scaleById(escalaId.value))
 
@@ -288,6 +307,43 @@ function etiquetaGrupo(clave) {
 }
 
 /**
+ * Color del grupo de departamento.
+ *
+ * El motor solo sabe el color de la persona y el del proyecto: el del
+ * departamento esta en el directorio, que es de la vista.
+ */
+function colorDeDepartamento(clave) {
+  if (!clave || !clave.startsWith('departamento-')) return null
+  const id = clave.slice('departamento-'.length)
+  const departamento = departamentos.value.find((item) => String(item.id) === id)
+  return departamento?.color ?? null
+}
+
+/**
+ * Resumen del grupo para el lector de pantalla.
+ *
+ * Cuantas tareas tiene el grupo y entre que fechas van: "4 tareas · del 21 al
+ * 25 de dic". Si los extremos caen en meses distintos, se nombran los dos.
+ */
+function resumenDeGrupo(fila) {
+  if (!fila.cuantas) return ''
+  const tareas = fila.cuantas === 1 ? '1 tarea' : `${fila.cuantas} tareas`
+  return `${tareas} · ${rangoDeGrupo(fila)}`
+}
+
+/** Rango de fechas del grupo, en texto: "del 21 al 25 de dic". */
+function rangoDeGrupo(fila) {
+  const desde = parseIsoDate(fila.inicio)
+  const hasta = parseIsoDate(fila.fin)
+  const mesDesde = shortMonthName(desde.getUTCMonth() + 1)
+  const mesHasta = shortMonthName(hasta.getUTCMonth() + 1)
+  if (mesDesde === mesHasta) {
+    return `del ${desde.getUTCDate()} al ${hasta.getUTCDate()} de ${mesHasta}`
+  }
+  return `del ${desde.getUTCDate()} de ${mesDesde} al ${hasta.getUTCDate()} de ${mesHasta}`
+}
+
+/**
  * Barras ordenadas por grupo y, dentro del grupo, por fecha de inicio.
  *
  * Las barras de las personas escondidas no salen. Las tareas sin asignar se
@@ -317,6 +373,19 @@ const barras = computed(() => {
     return a.id - b.id
   })
   return ordenadas.map((task) => ({ task, grupo: claveDe(task) }))
+})
+
+/**
+ * Claves de los grupos del agrupamiento vigente.
+ *
+ * Son las claves, no los nombres: dos personas homonimas son dos grupos y se
+ * colapsan por separado.
+ */
+const clavesDeGrupos = computed(() => {
+  if (groupBy.value === 'sin') return []
+  const claves = new Set()
+  for (const item of barras.value) claves.add(item.grupo)
+  return [...claves]
 })
 
 /** Miembros de la leyenda que no estan escondidos. */
@@ -429,6 +498,7 @@ const layout = computed(() => {
     end: hasta,
     nonWorkingDays: diasNoLaborables.value.map((dia) => toIsoDate(dia.date)),
     today: parseIsoDate(hoyIso.value),
+    collapsed: colapsados.value,
   })
   // `buildLayout` no lleva el avance ni el proyecto de cada barra: la barra
   // los necesita para el relleno oscuro y la columna de nombres.
@@ -462,9 +532,18 @@ const layout = computed(() => {
   // no de la barra: se pegan aqui, en la unica pieza que tiene las dos.
   const barraPorFila = new Map(modelo.bars.map((barra) => [barra.rowIndex, barra]))
   // La fila de grupo lleva la clave de agrupacion: la etiqueta visible la
-  // pone la vista, porque la clave no es el nombre que se lee.
+  // pone la vista, porque la clave no es el nombre que se lee. Tambien lleva
+  // el resumen que se anuncia y el estado de colapso, que vive en la URL.
   modelo.rows = modelo.rows.map((fila) => {
-    if (fila.type === 'group') return { ...fila, label: etiquetaGrupo(fila.label) }
+    if (fila.type === 'group') {
+      return {
+        ...fila,
+        label: etiquetaGrupo(fila.clave ?? fila.label),
+        resumen: resumenDeGrupo(fila),
+        colapsado: colapsados.value.has(fila.clave),
+        color: fila.color ?? colorDeDepartamento(fila.clave),
+      }
+    }
     const barra = barraPorFila.get(fila.rowIndex)
     return {
       ...fila,
@@ -628,7 +707,13 @@ const descripcion = computed(() => {
   const tareas = layout.value.bars.length
   const desde = toIsoDate(rangoEfectivo.value.desde)
   const hasta = toIsoDate(rangoEfectivo.value.hasta)
-  return `${tareas} tareas, del ${desde} al ${hasta}.`
+  // Los grupos colapsados no aportan barras: se cuentan aparte, para que la
+  // cuenta no parezca un recorte de tareas.
+  const ocultos = colapsados.value.size
+  const extra = ocultos
+    ? ` ${ocultos} ${ocultos === 1 ? 'grupo colapsado' : 'grupos colapsados'}.`
+    : ''
+  return `${tareas} tareas, del ${desde} al ${hasta}.${extra}`
 })
 
 /** Aviso de solo lectura, para la descripcion del SVG. */
@@ -706,6 +791,31 @@ function cambiarFiltro(patch) {
     else query[key] = String(value)
   }
   return router.replace({ path: route.path, query })
+}
+
+/**
+ * Colapsa o despliega un grupo.
+ *
+ * El estado vive en la URL: `?collapsed=` lleva las claves de los grupos
+ * colapsados, separadas por comas. Al cambiar el modo de agrupar, las claves
+ * que no apliquen al grupo nuevo se pueden quedar en la URL: cada clave lleva
+ * el tipo delante (`persona-12`), asi que no colapsan nada del otro modo.
+ */
+function alternarColapso(clave) {
+  const nuevo = new Set(colapsados.value)
+  if (nuevo.has(clave)) nuevo.delete(clave)
+  else nuevo.add(clave)
+  cambiarFiltro({ collapsed: [...nuevo].join(',') })
+}
+
+/** Colapsa todos los grupos del agrupamiento vigente. */
+function colapsarTodo() {
+  cambiarFiltro({ collapsed: clavesDeGrupos.value.join(',') })
+}
+
+/** Despliega todos los grupos: la lista de claves se vacia. */
+function expandirTodo() {
+  cambiarFiltro({ collapsed: '' })
 }
 
 /**
@@ -1219,6 +1329,17 @@ watch(
 watch([personasOcultas, departamentosOcultos], () => {
   barraEnfocada.value = null
 })
+// Al colapsar un grupo sus barras desaparecen: la enfocada no puede seguir
+// apunta a una barra que ya no esta.
+watch(
+  () => route.query.collapsed,
+  () => {
+    const id = barraEnfocada.value
+    if (id === null) return
+    if (layout.value.bars.some((barra) => barra.taskId === id)) return
+    barraEnfocada.value = null
+  },
+)
 // El Escape solo se escucha en modo ampliado: fuera de el no hay nada que
 // cerrar y la tecla es de los dialogos y del arrastre de barras.
 watch(ampliado, (activo) => {
@@ -1360,6 +1481,37 @@ useTaskReload(load)
         testid="gantt-group-by"
         @update:model-value="cambiarFiltro({ group: $event })"
       />
+
+      <!--
+        Colapso de grupos: la cabecera de cada grupo es un boton que lo
+        colapsa. Estos dos actuan sobre todos los grupos del agrupamiento
+        vigente y escriben el mismo estado que los botones de la cabecera.
+      -->
+      <div
+        v-if="groupBy !== 'sin'"
+        class="flex items-center gap-1"
+        role="group"
+        aria-label="Colapso de grupos"
+      >
+        <button
+          type="button"
+          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          :disabled="!clavesDeGrupos.length"
+          data-testid="gantt-collapse-all"
+          @click="colapsarTodo"
+        >
+          Colapsar todo
+        </button>
+        <button
+          type="button"
+          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          :disabled="!colapsados.size"
+          data-testid="gantt-expand-all"
+          @click="expandirTodo"
+        >
+          Expandir todo
+        </button>
+      </div>
 
       <VisibilityPanel
         :personas="personasVisibilidad"
@@ -1505,6 +1657,7 @@ useTaskReload(load)
           @crear="alCrear"
           @ancho-panel="anchoPanel = $event"
           @zoom="alZoomear"
+          @colapsar="alternarColapso"
         />
       </div>
     </AsyncState>

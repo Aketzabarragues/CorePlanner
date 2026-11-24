@@ -8,9 +8,9 @@
  *
  * La columna no hace scroll vertical propio: su pista interior se traslada
  * con el mismo desplazamiento que el diagrama, para que fila y barra no se
- * despeguen. El contenido es la version HTML de lo que el SVG ya anuncia:
- * por eso la cabecera y la pista van `aria-hidden` y solo el asa de
- * redimension queda expuesta al lector de pantalla.
+ * despeguen. Las filas de tarea son la version HTML de lo que el SVG ya
+ * anuncia, asi que van `aria-hidden`; la cabecera de grupo si se expone,
+ * porque es un boton que colapsa el grupo.
  *
  * La columna es la otra mitad de la fila: avisa de la fila bajo el puntero
  * (`fila-raton`) y recibe que filas hay que pintar (la del puntero y la de
@@ -25,6 +25,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
+import AppIcon from '../AppIcon.vue'
 
 const props = defineProps({
   /** Filas del layout, ya enriquecidas: [{ type, rowIndex, ... }]. */
@@ -42,7 +43,7 @@ const props = defineProps({
   maximo: { type: Number, default: 480 },
 })
 
-const emit = defineEmits(['fila-raton', 'redimension'])
+const emit = defineEmits(['fila-raton', 'redimension', 'colapsar'])
 
 /** Raiz de la columna: su ancho es el que se mide. */
 const raiz = ref(null)
@@ -202,34 +203,55 @@ onBeforeUnmount(() => {
       <span class="text-xs font-semibold text-siemens-900">{{ cabecera }}</span>
     </div>
 
-    <div class="gantt__nombres-cuerpo overflow-hidden" aria-hidden="true">
+    <div class="gantt__nombres-cuerpo overflow-hidden">
       <div
         class="gantt__nombres-pista"
         :style="{ transform: `translateY(${-desplazamiento}px)` }"
       >
         <!-- Una fila por entrada del layout, en el orden del diagrama. -->
         <template v-for="fila in filas" :key="fila.rowIndex">
-          <!-- Fila de grupo: la franja de color, si la hay, y el nombre. -->
-          <div
+          <!--
+            Fila de grupo: la cabecera del grupo es un boton que lo colapsa o
+            lo despliega. El estado vive en la URL y la vista lo decide; aqui
+            solo se avisa de la pulsacion con la clave del grupo.
+          -->
+          <button
             v-if="fila.type === 'group'"
-            class="flex h-9 items-center gap-2 border-b border-slate-200 bg-slate-100 px-3"
+            type="button"
+            class="flex h-9 w-full items-center gap-1.5 border-b border-slate-200 bg-slate-100 px-3 text-left hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500"
             :class="claseDeFila(fila)"
+            :aria-expanded="!fila.colapsado"
+            :title="fila.colapsado ? 'Expandir grupo' : 'Colapsar grupo'"
+            :data-testid="`gantt-group-toggle-${fila.clave}`"
+            @click="emit('colapsar', fila.clave)"
             @mouseenter="alEntrar(fila)"
             @mouseleave="alSalir"
           >
             <span
-              v-if="fila.color"
+              class="h-3 w-3 shrink-0 text-slate-500 transition-transform"
+              :class="fila.colapsado ? '' : 'rotate-90'"
+            >
+              <AppIcon name="chevronRight" />
+            </span>
+            <span
+              v-if="fila.color || fila.colorClass"
               class="h-4 w-1 shrink-0 rounded-full"
-              :style="{ backgroundColor: fila.color }"
+              :class="fila.colorClass"
+              :style="fila.color ? { backgroundColor: fila.color } : undefined"
             />
             <span class="truncate text-[13px] font-semibold text-siemens-900">
               {{ fila.label }}
             </span>
-          </div>
+          </button>
 
-          <!-- Fila de tarea: el titulo y la persona con el proyecto. -->
+          <!--
+            Fila de tarea: el titulo y la persona con el proyecto. Es la
+            version HTML de lo que el SVG ya anuncia, asi que el lector de
+            pantalla no la oye: solo la cabecera de grupo, que es un boton.
+          -->
           <div
             v-else
+            aria-hidden="true"
             class="flex h-9 flex-col justify-center border-b border-slate-100 px-3"
             :class="claseDeFila(fila)"
             @mouseenter="alEntrar(fila)"

@@ -64,7 +64,7 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom'])
+const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom', 'colapsar'])
 
 const panelDiagrama = ref(null)
 /**
@@ -239,6 +239,10 @@ function bandaDeFila(indice) {
 /**
  * Flechas de dependencias, del fin del requisito al inicio de la dependiente.
  * Un vinculo cuya otra barra no esta visible (filtrada) no se dibuja.
+ *
+ * Tambien pasa con un grupo colapsado: sus barras no se dibujan, asi que la
+ * flecha que llegaba a ellas no se dibuja. No es un fallo: la flecha era de
+ * una tarea que ya no esta a la vista.
  */
 const flechas = computed(() =>
   (props.layout.dependencies ?? [])
@@ -600,6 +604,7 @@ defineExpose({ centrarHoy, arrastrando })
       :maximo="ANCHO_NOMBRES_MAX"
       @fila-raton="filaRaton = $event"
       @redimension="redimensionarNombres"
+      @colapsar="(clave) => emit('colapsar', clave)"
     />
 
     <div
@@ -750,6 +755,7 @@ defineExpose({ centrarHoy, arrastrando })
               v-if="fila.type === 'group'"
               :grupo="fila"
               :y="fila.rowIndex * GANTT_ROW_HEIGHT"
+              :resumen="fila.resumen"
               ancho="100%"
             />
 

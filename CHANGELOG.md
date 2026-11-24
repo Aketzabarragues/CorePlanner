@@ -84,6 +84,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: la fila de cada grupo del Gantt lleva una barra de resumen, de la
+  primera a la ultima fecha de sus tareas, y los grupos se pueden colapsar: la
+  cabecera de grupo es un boton con `aria-expanded` y el estado vive en la URL
+  (`?collapsed=`), con claves por identificador y no por nombre.
 - **frontend**: el diagrama de Gantt tiene zoom continuo (Ctrl+rueda sobre el
   diagrama, mas botones de detalle y "Ajustar al ancho"), con el dia que esta
   bajo el puntero siempre en su sitio; panel de nombres redimensionable con un

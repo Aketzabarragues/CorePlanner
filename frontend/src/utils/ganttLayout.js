@@ -132,23 +132,71 @@ export function buildTimeAxis({ start, end, scale }) {
  * `items` ya van ordenados por grupo y fecha de inicio: la vista ordena, el
  * layout no. `today` es la fecha de hoy para la linea del dia; por defecto la
  * del cliente, que en el motor solo se usa cuando no se le pasa ninguna.
+ *
+ * `collapsed` son las claves de los grupos colapsados: sus filas de barra no
+ * se emiten, asi que solo queda la fila del grupo con su barra de resumen. La
+ * clave es el identificador del grupo (`persona-12`), no su nombre.
  */
-export function buildLayout({ items, groupMode, scale, start, end, nonWorkingDays, today = new Date() }) {
+export function buildLayout({
+  items,
+  groupMode,
+  scale,
+  start,
+  end,
+  nonWorkingDays,
+  today = new Date(),
+  collapsed = [],
+}) {
   const axis = buildTimeAxis({ start, end, scale })
   const first = parseIsoDate(start)
   const last = parseIsoDate(end)
   const nonLaborables = new Set(nonWorkingDays.map((day) => toIsoDate(day)))
+  const colapsados = new Set(collapsed)
 
   const rows = []
   const bars = []
   let grupoVigente = null
 
+  // Resumen de cada grupo: la primera y la ultima fecha de sus tareas, y
+  // cuantas tiene. Se calcula sobre TODAS las tareas del grupo, tambien las
+  // de un grupo colapsado: la barra de resumen es su extension.
+  const resumenPorGrupo = new Map()
+  for (const item of items) {
+    const { task, grupo } = item
+    const inicio = parseIsoDate(task.start)
+    const fin = parseIsoDate(task.end)
+    const resumen = resumenPorGrupo.get(grupo)
+    if (!resumen) {
+      resumenPorGrupo.set(grupo, {
+        inicio,
+        fin,
+        cuantas: 1,
+        ...colorDeGrupo(groupMode, task),
+      })
+      continue
+    }
+    if (inicio < resumen.inicio) resumen.inicio = inicio
+    if (fin > resumen.fin) resumen.fin = fin
+    resumen.cuantas += 1
+  }
+
   for (const item of items) {
     const { task, grupo } = item
     if (groupMode !== 'sin' && grupo !== grupoVigente) {
       grupoVigente = grupo
-      rows.push({ type: 'group', label: grupo, rowIndex: rows.length })
+      rows.push(
+        filaDeGrupo({
+          grupo,
+          resumen: resumenPorGrupo.get(grupo),
+          first,
+          scale,
+          rowIndex: rows.length,
+        }),
+      )
     }
+    // Un grupo colapsado no dibuja sus barras: solo queda su fila de grupo
+    // con la barra de resumen.
+    if (colapsados.has(grupo)) continue
     const inicio = parseIsoDate(task.start)
     const fin = parseIsoDate(task.end)
     const rowIndex = rows.length
@@ -200,6 +248,50 @@ export function buildLayout({ items, groupMode, scale, start, end, nonWorkingDay
     bars,
     shaded,
     todayIndex,
+  }
+}
+
+/**
+ * Color del grupo, segun el modo de agrupar.
+ *
+ * El color es dato: la clase CSS de la persona (que el diagrama traduce a
+ * color) o el hex del proyecto. El grupo de departamento no trae color en la
+ * barra: lo pone la vista, que tiene el directorio.
+ */
+function colorDeGrupo(groupMode, task) {
+  if (groupMode === 'proyecto') {
+    return { color: task.project_color ?? null, colorClass: null }
+  }
+  if (groupMode === 'persona') {
+    return { color: null, colorClass: task.custom_class || null }
+  }
+  return { color: null, colorClass: null }
+}
+
+/**
+ * Fila de grupo: su cabecera y los datos de la barra de resumen.
+ *
+ * `clave` es el identificador del grupo (`persona-12`): es lo que va a la URL
+ * para saber que grupos estan colapsados, y no el nombre, porque dos personas
+ * homonimas son dos grupos. `inicio` y `fin` son las fechas extremas de las
+ * tareas del grupo y `cuantas` cuantas tiene. `x` y `width` son la geometria
+ * de la barra de resumen, con el mismo origen que las barras de tarea.
+ */
+function filaDeGrupo({ grupo, resumen, first, scale, rowIndex }) {
+  const x = dayIndex(resumen.inicio, first) * scale.pxPerDay
+  const width = inclusiveDays(resumen.inicio, resumen.fin) * scale.pxPerDay
+  return {
+    type: 'group',
+    label: grupo,
+    clave: grupo,
+    rowIndex,
+    inicio: toIsoDate(resumen.inicio),
+    fin: toIsoDate(resumen.fin),
+    cuantas: resumen.cuantas,
+    x,
+    width,
+    color: resumen.color,
+    colorClass: resumen.colorClass,
   }
 }
 

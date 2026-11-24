@@ -119,7 +119,7 @@ const miembros = [
  * `failOrder` y `failPatch` hacen fallar la peticion de orden o el PATCH,
  * para ver el aviso en el banner.
  */
-function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {}) {
+function setupFetch({ editable = [1], failOrder = false, failPatch = false, falloTablero = null } = {}) {
   const calls = []
   /**
    * Tareas creadas en la prueba, por columna: el feed las sirve en la
@@ -129,6 +129,11 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false } = {
   let siguienteId = 101
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
+    if (url.includes('/kanban') && falloTablero) {
+      // La carga del tablero cae con el estado y el detalle dados, como un
+      // 403 o un 500 reales.
+      return { ok: false, status: falloTablero.status, json: async () => ({ detail: falloTablero.detail }) }
+    }
     if (url.endsWith('/auth/login')) {
       return {
         ok: true,
@@ -292,6 +297,35 @@ describe('KanbanView', () => {
     expect(call).toBeDefined()
     expect(call.url).toBe('/api/projects/1/kanban')
     expect(calls.find((c) => c.url === '/api/projects/1/members')).toBeDefined()
+  })
+
+  it('con un 403 de la carga el aviso se pinta sin reintentar', async () => {
+    setupFetch({ falloTablero: { status: 403, detail: 'Sin permiso' } })
+
+    const wrapper = await mountKanban()
+
+    const aviso = wrapper.get('[role="alert"]')
+    expect(aviso.text()).toContain('Sin permiso')
+    expect(aviso.find('button').exists()).toBe(false)
+  })
+
+  it('con un 500 de la carga el aviso ofrece reintentar y repite la peticion', async () => {
+    const calls = setupFetch({
+      falloTablero: { status: 500, detail: 'Sin conexion con el servidor' },
+    })
+
+    const wrapper = await mountKanban()
+
+    const boton = wrapper.get('[role="alert"] button')
+    expect(boton.text()).toBe('Reintentar')
+
+    await boton.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // El servidor sigue caido: el aviso se queda y la peticion se repite.
+    expect(wrapper.get('[role="alert"]').text()).toContain('Sin conexion con el servidor')
+    expect(calls.filter((c) => c.url.includes('/kanban')).length).toBe(2)
   })
 
   it('cada columna muestra el contador y las horas del feed', async () => {

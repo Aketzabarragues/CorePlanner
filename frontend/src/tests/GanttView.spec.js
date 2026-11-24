@@ -147,10 +147,15 @@ const feedVisibilidad = {
   unassigned_task_ids: [13],
 }
 
-function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true, calendarText = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', calendarOk = true, patchFallo = false) {
+function setupFetch(respuesta = feed, festivos = [], editables = [1, 2], cascada = null, cascadaOk = true, calendarText = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', calendarOk = true, patchFallo = false, falloGantt = null) {
   const calls = []
   global.fetch = vi.fn(async (url, options = {}) => {
     calls.push({ url, method: options.method ?? 'GET', body: options.body })
+    if (url.includes('/gantt') && falloGantt) {
+      // La carga de la vista cae con el estado y el detalle dados, como un
+      // 403 o un 500 reales.
+      return { ok: false, status: falloGantt.status, json: async () => ({ detail: falloGantt.detail }) }
+    }
     if (url.endsWith('/auth/login')) {
       return {
         ok: true,
@@ -289,6 +294,39 @@ describe('GanttView', () => {
     const call = calls.find((c) => c.url.includes('/gantt'))
     expect(call).toBeDefined()
     expect(call.url).toBe('/api/gantt')
+  })
+
+  it('con un 403 de la carga el aviso se pinta sin reintentar', async () => {
+    setupFetch(feed, [], [1, 2], null, true, 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', true, false, {
+      status: 403,
+      detail: 'Sin permiso',
+    })
+
+    const { wrapper } = await mountGantt()
+
+    const aviso = wrapper.get('[data-testid="gantt-warning"]')
+    expect(aviso.text()).toContain('Sin permiso')
+    expect(aviso.find('button').exists()).toBe(false)
+  })
+
+  it('con un 500 de la carga el aviso ofrece reintentar y repite la peticion', async () => {
+    const calls = setupFetch(feed, [], [1, 2], null, true, 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', true, false, {
+      status: 500,
+      detail: 'Sin conexion con el servidor',
+    })
+
+    const { wrapper } = await mountGantt()
+
+    const boton = wrapper.get('[data-testid="gantt-warning"] button')
+    expect(boton.text()).toBe('Reintentar')
+
+    await boton.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // El servidor sigue caido: el aviso se queda y la peticion se repite.
+    expect(wrapper.get('[data-testid="gantt-warning"]').text()).toContain('Sin conexion con el servidor')
+    expect(calls.filter((c) => c.url.includes('/gantt')).length).toBe(2)
   })
 
   it('con filtro de proyecto pide solo ese proyecto', async () => {

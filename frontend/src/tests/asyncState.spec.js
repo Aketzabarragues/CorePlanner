@@ -52,6 +52,31 @@ describe('AsyncState', () => {
     expect(wrapper.emitted('retry')).toHaveLength(1)
   })
 
+  it('con error 403 el aviso no ofrece reintentar', () => {
+    const wrapper = montar({ error: 'Sin permiso', errorStatus: 403 })
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    expect(wrapper.find('button').exists()).toBe(false)
+  })
+
+  it('con error 404 el aviso no ofrece reintentar', () => {
+    const wrapper = montar({ error: 'No existe el proyecto', errorStatus: 404 })
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    expect(wrapper.find('button').exists()).toBe(false)
+  })
+
+  it('con error 500 ofrece reintentar y al pulsarlo se emite el evento', async () => {
+    const wrapper = montar({ error: 'Fallo del servidor', errorStatus: 500 })
+
+    const boton = wrapper.get('button')
+    expect(boton.text()).toBe('Reintentar')
+
+    await boton.trigger('click')
+
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
+
   it('con error, el identificador de prueba queda en el aviso', () => {
     const wrapper = montar({ error: 'Fallo del servidor', errorTestId: 'panel-error' })
 

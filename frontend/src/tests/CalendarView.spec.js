@@ -444,10 +444,19 @@ describe('CalendarView', () => {
     ).toBe(false)
   })
 
-  it('avisa de las tareas sin fechas', async () => {
+  it('avisa en singular de una tarea sin fechas', async () => {
     const { wrapper } = await mountView()
+    await settle()
 
-    expect(wrapper.text()).toContain('1 tarea sin fechas')
+    expect(wrapper.text()).toContain('1 tarea sin fechas no aparece en el calendario.')
+  })
+
+  it('avisa en plural cuando hay varias tareas sin fechas', async () => {
+    setupFetch({ payload: { ...feed, undated_task_ids: [7, 8] } })
+    const { wrapper } = await mountView()
+    await settle()
+
+    expect(wrapper.text()).toContain('2 tareas sin fechas no aparecen en el calendario.')
   })
 
   it('con filtro de proyecto pide solo las tareas de ese proyecto', async () => {
@@ -819,6 +828,123 @@ describe('CalendarView en modo dia', () => {
     const bloque = wrapper.find('[data-testid="day-task"]')
     esperaColor(bloque.get('div'), '#0a3d91')
     expect(bloque.text()).toContain('Red de tuberias linea 2')
+  })
+})
+
+describe('CalendarView: vista y fecha en la URL', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('cambiar a la vista semanal escribe view y el lunes si no es la semana en curso', async () => {
+    const { wrapper, router } = await mountView()
+
+    // La semana en curso: la vista se escribe y el dia, no.
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.view).toBe('week')
+    expect(router.currentRoute.value.query.day).toBeUndefined()
+
+    // La semana siguiente no es la en curso: su lunes va en la URL.
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.view).toBe('week')
+    expect(router.currentRoute.value.query.day).toBe('2026-11-09')
+  })
+
+  it('cambiar a la vista de dia escribe view y el dia si no es hoy', async () => {
+    const { wrapper, router } = await mountView()
+
+    // El dia de hoy: la vista se escribe y el dia, no.
+    await wrapper.find('[data-testid="calendar-view-day"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.view).toBe('day')
+    expect(router.currentRoute.value.query.day).toBeUndefined()
+
+    // El lunes 9 no es hoy: su fecha va en la URL.
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-next"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.view).toBe('day')
+    expect(router.currentRoute.value.query.day).toBe('2026-11-09')
+  })
+
+  it('una URL con view=week y su dia abre la semana de ese lunes', async () => {
+    const { wrapper } = await mountView({ view: 'week', day: '2026-12-07' })
+    await settle()
+
+    // El lunes 7 de diciembre abre la semana ISO 50. La rejilla no se pinta:
+    // la semana no tiene tareas y sale el aviso de semana vacia.
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W50')
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="calendar-week-empty"]').exists()).toBe(true)
+  })
+
+  it('una URL con view=week y un dia cualquiera abre la semana que lo contiene', async () => {
+    const { wrapper } = await mountView({ view: 'week', day: '2026-12-01' })
+    await settle()
+
+    // El miercoles 1 de diciembre cae en la semana que empieza el lunes 30.
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W49')
+    expect(wrapper.find('[data-testid="calendar-week-empty"]').exists()).toBe(true)
+  })
+
+  it('una URL con view=week en la semana de los datos abre la rejilla de esa semana', async () => {
+    const { wrapper } = await mountView({ view: 'week', day: '2026-11-04' })
+    await settle()
+
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-week"]').text()).toContain('2026-W45')
+    expect(wrapper.find('[data-testid="week-lane-head-2026-11-02"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="week-task"]').exists()).toBe(true)
+  })
+
+  it('una URL con view=day y su dia abre el detalle de ese dia', async () => {
+    const { wrapper } = await mountView({ view: 'day', day: '2026-12-01' })
+    await settle()
+
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-day"]').text()).toBe(
+      'Martes 1 de diciembre de 2026',
+    )
+  })
+
+  it('una URL con view=month y su mes abre la rejilla de ese mes', async () => {
+    const { wrapper } = await mountView({ view: 'month', month: '2026-12' })
+    await settle()
+
+    expect(wrapper.find('[data-testid="calendar-month-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Diciembre 2026')
+  })
+
+  it('un mes en la URL sin view no cambia la vista mensual', async () => {
+    const { wrapper } = await mountView({ month: '2026-12' })
+    await settle()
+
+    expect(wrapper.find('[data-testid="calendar-month-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="calendar-month"]').text()).toBe('Diciembre 2026')
+  })
+
+  it('los filtros de proyecto y departamento se conservan al cambiar de vista', async () => {
+    const { wrapper, router } = await mountView({ project: '2', department: '1' })
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await wrapper.find('[data-testid="calendar-view-day"]').trigger('click')
+    await flushPromises()
+
+    const query = router.currentRoute.value.query
+    expect(query.view).toBe('day')
+    expect(query.project).toBe('2')
+    expect(query.department).toBe('1')
   })
 })
 

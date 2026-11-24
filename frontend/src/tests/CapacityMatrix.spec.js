@@ -853,21 +853,50 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    await wrapper.get('[data-testid="mode-porcentaje"]').trigger('click')
+    await wrapper.get('[data-testid="mode-pct"]').trigger('click')
     await flushPromises()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     expect(celda.text()).toContain('120 %')
     expect(celda.text()).toContain('48/40 h')
     // El modo queda en la URL, para poder compartirlo.
-    expect(router.currentRoute.value.query.mode).toBe('porcentaje')
+    expect(router.currentRoute.value.query.mode).toBe('pct')
+  })
+
+  it('?mode=pct activa el modo de porcentaje desde la URL', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ mode: 'pct' })
+
+    expect(wrapper.get('[data-testid="mode-pct"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-testid="cell-2-2026-W46"]').text()).toContain('120 %')
+    expect(wrapper.get('[data-testid="cell-2-2026-W46"]').text()).toContain('48/40 h')
+  })
+
+  it('?mode=projects activa el modo de proyectos desde la URL', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ mode: 'projects' })
+
+    expect(wrapper.get('[data-testid="mode-projects"]').attributes('aria-pressed')).toBe('true')
+    const etiqueta = wrapper.get('[data-testid="cell-2-2026-W46"] [data-testid="cell-project"]')
+    expect(etiqueta.text()).toContain('Linea Pasteurizadora SIVE')
+  })
+
+  it('un modo desconocido en la URL cae en horas', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix({ mode: 'nada' })
+
+    expect(wrapper.get('[data-testid="mode-hours"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-testid="mode-pct"]').attributes('aria-pressed')).toBe('false')
+    const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    expect(celda.find('[data-testid="cell-project"]').exists()).toBe(false)
+    expect(celda.text()).toContain('48/40')
   })
 
   it('el modo de proyectos enseña de que proyectos sale cada celda', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await wrapper.get('[data-testid="mode-projects"]').trigger('click')
     await flushPromises()
 
     const etiqueta = wrapper.get('[data-testid="cell-2-2026-W46"] [data-testid="cell-project"]')
@@ -879,7 +908,7 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await wrapper.get('[data-testid="mode-projects"]').trigger('click')
     await flushPromises()
 
     const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
@@ -1389,7 +1418,7 @@ describe('provisional', () => {
     setupFetchConProvisional()
     const wrapper = await mountMatrix()
 
-    await wrapper.get('[data-testid="mode-proyectos"]').trigger('click')
+    await wrapper.get('[data-testid="mode-projects"]').trigger('click')
     await flushPromises()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')

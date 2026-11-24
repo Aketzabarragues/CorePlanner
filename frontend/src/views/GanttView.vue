@@ -50,10 +50,18 @@ import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import GanttChart from '../components/gantt/GanttChart.vue'
+import GanttColumnsPanel from '../components/gantt/GanttColumnsPanel.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
+import {
+  COLUMNAS_GANTT,
+  columnasDeUrl,
+  comparadorDeOrden,
+  ordenDeUrl,
+  textoDeColumna,
+} from '../utils/ganttColumns'
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
 import { localDateKey, shortMonthName } from '../utils/month'
@@ -156,6 +164,32 @@ const colapsados = computed(() => {
   const lista = Array.isArray(bruto) ? bruto : [bruto]
   return new Set(lista.flatMap((valor) => String(valor).split(',')).filter(Boolean))
 })
+
+/**
+ * Columnas elegidas del panel de nombres.
+ *
+ * Viven en la URL (`?cols=`, con las claves separadas por comas) para que
+ * recargar la pagina deje el panel como estaba. La columna de la tarea no se
+ * elige: siempre esta.
+ */
+const columnasElegidas = computed(() => columnasDeUrl(route.query.cols))
+
+/** Definiciones de las columnas elegidas: las necesitan el panel y el grafico. */
+const columnasPanel = computed(() =>
+  COLUMNAS_GANTT.filter((columna) => columnasElegidas.value.includes(columna.key)),
+)
+
+/**
+ * Ordenacion de las tareas dentro de cada grupo.
+ *
+ * Vive en la URL (`?sort=columna:sentido`): la columna por la que se ordena
+ * y el sentido. Sin ordenacion, las tareas de un grupo van por fecha de
+ * inicio, como siempre.
+ */
+const orden = computed(() => ordenDeUrl(route.query.sort))
+
+/** Comparador de la ordenacion vigente; null si no hay ordenacion. */
+const comparador = computed(() => comparadorDeOrden(orden.value))
 
 const escala = computed(() => scaleById(escalaId.value))
 
@@ -348,6 +382,10 @@ function rangoDeGrupo(fila) {
  *
  * Las barras de las personas escondidas no salen. Las tareas sin asignar se
  * quedan: no son de nadie que se pueda esconder.
+ *
+ * La ordenacion elegida (`?sort=`) actua dentro del grupo: el orden de los
+ * grupos no se mueve, y el motor conserva el orden de los items que le
+ * llegan.
  */
 const barras = computed(() => {
   const tareas = (feed.value?.tasks ?? []).filter((task) => {
@@ -360,6 +398,7 @@ const barras = computed(() => {
   // clave desempata dentro de la misma etiqueta para que el grupo salga
   // contiguo: `buildLayout` crea la franja en el primer cambio de clave.
   const clavePorTarea = new Map(tareas.map((task) => [task.id, claveDe(task)]))
+  const ordenar = comparador.value
   const ordenadas = [...tareas].sort((a, b) => {
     const etiquetaA = etiquetaGrupo(clavePorTarea.get(a.id))
     const etiquetaB = etiquetaGrupo(clavePorTarea.get(b.id))
@@ -367,6 +406,12 @@ const barras = computed(() => {
     const claveA = clavePorTarea.get(a.id)
     const claveB = clavePorTarea.get(b.id)
     if (claveA !== claveB) return claveA.localeCompare(claveB)
+    // Dentro del grupo manda la ordenacion elegida; la fecha de inicio
+    // desempata para que el orden sea estable.
+    if (ordenar) {
+      const diferencia = ordenar(a, b)
+      if (diferencia !== 0) return diferencia
+    }
     const inicioA = a.start ?? ''
     const inicioB = b.start ?? ''
     if (inicioA !== inicioB) return inicioA.localeCompare(inicioB)
@@ -477,6 +522,21 @@ const hoyEnRangoElegido = computed(() => {
   return hoy >= desde && hoy <= hasta
 })
 
+/**
+ * Texto de cada columna elegida para una tarea.
+ *
+ * Lo calcula la vista, que tiene el feed: el panel de nombres solo pinta.
+ * Los datos son los del feed, sin sumas ni cuentas.
+ */
+function celdasDe(tarea) {
+  if (!tarea) return {}
+  const celdas = {}
+  for (const columna of columnasElegidas.value) {
+    celdas[columna] = textoDeColumna(columna, tarea)
+  }
+  return celdas
+}
+
 /** Modelo del diagrama, ya con la barra pegada a cada fila. */
 const layout = computed(() => {
   const { desde, hasta } = rangoEfectivo.value
@@ -551,6 +611,7 @@ const layout = computed(() => {
       title: barra.title,
       assignedName: barra.assignedName,
       projectName: barra.projectName,
+      celdas: celdasDe(tareasPorId.get(barra.taskId)),
     }
   })
   return modelo
@@ -791,6 +852,43 @@ function cambiarFiltro(patch) {
     else query[key] = String(value)
   }
   return router.replace({ path: route.path, query })
+}
+
+/**
+ * Elige o quita una columna del panel de nombres.
+ *
+ * La eleccion vive en la URL (`?cols=`, con las claves separadas por comas):
+ * recargar deja el panel como estaba. Sin columnas elegidas, el parametro no
+ * se escribe: el panel lleva solo la columna de la tarea.
+ */
+function alternarColumna(clave) {
+  const elegidas = new Set(columnasElegidas.value)
+  if (elegidas.has(clave)) elegidas.delete(clave)
+  else elegidas.add(clave)
+  const claves = COLUMNAS_GANTT.filter((columna) => elegidas.has(columna.key)).map(
+    (columna) => columna.key,
+  )
+  cambiarFiltro({ cols: claves.join(',') })
+}
+
+/**
+ * Ordena por una columna: primero ascendente, luego descendente, y la
+ * tercera pulsacion deja las tareas como estaban.
+ *
+ * La ordenacion vive en la URL (`?sort=columna:sentido`). Ordena dentro del
+ * grupo: el orden de los grupos no se mueve.
+ */
+function alternarOrden(columna) {
+  const actual = orden.value
+  if (!actual || actual.columna !== columna) {
+    cambiarFiltro({ sort: `${columna}:asc` })
+    return
+  }
+  if (actual.sentido === 'asc') {
+    cambiarFiltro({ sort: `${columna}:desc` })
+    return
+  }
+  cambiarFiltro({ sort: '' })
 }
 
 /**
@@ -1523,6 +1621,16 @@ useTaskReload(load)
         @mostrar-todos="mostrarTodos"
       />
 
+      <!--
+        Columnas del panel de nombres: las elegibles van a la derecha de la
+        columna de tareas. La eleccion vive en la URL.
+      -->
+      <GanttColumnsPanel
+        :columnas="COLUMNAS_GANTT"
+        :seleccionadas="columnasElegidas"
+        @alternar="alternarColumna"
+      />
+
       <div class="flex items-center gap-1">
         <button
           type="button"
@@ -1644,6 +1752,8 @@ useTaskReload(load)
           :columnas="columnas"
           :bandas-cabecera="layout.axis.bands"
           :filas-nombres="layout.rows"
+          :columnas-nombres="columnasPanel"
+          :orden-nombres="orden"
           :editable-de="editableDe"
           :barra-enfocada="barraEnfocada"
           :etiqueta-de="etiquetaDe"
@@ -1658,6 +1768,7 @@ useTaskReload(load)
           @ancho-panel="anchoPanel = $event"
           @zoom="alZoomear"
           @colapsar="alternarColapso"
+          @ordenar="alternarOrden"
         />
       </div>
     </AsyncState>

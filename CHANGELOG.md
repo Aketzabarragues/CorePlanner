@@ -84,6 +84,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el panel de nombres del Gantt admite columnas elegibles (persona,
+  inicio, fin, duracion, horas y estado) y ordenables por cabecera. La eleccion
+  y la orden van en la URL (`?cols=`, `?sort=`) y la ordenacion se aplica dentro
+  de cada grupo, sin mover los grupos.
 - **frontend**: la fila de cada grupo del Gantt lleva una barra de resumen, de la
   primera a la ultima fecha de sus tareas, y los grupos se pueden colapsar: la
   cabecera de grupo es un boton con `aria-expanded` y el estado vive en la URL

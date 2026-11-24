@@ -2352,7 +2352,7 @@ Kanban, Gantt y Calendario son la misma operacion vista desde tres ejes: el tabl
 - **Dependencias y ruta critica**: es G4. El feed deja el hueco (`dependencies` sigue vacio) pero el motor no dibuja flechas.
 - **Virtualizacion de filas**: se anade solo si se mide un retraso real con muchas barras; no por preventismo.
 - **Arrastre tactil**: la primera entrega es de escritorio. En movil el diagrama se desplaza y se consulta, pero no se arrastra.
-- **Colapsar grupos, multi-seleccion y edicion en lote**: no entran.
+- **Multi-seleccion y edicion en lote**: no entran. El colapso de grupos si entra, y esta en la §61.
 - **El backend**: no cambia. `backend/services/gantt.py` sigue igual, con su feed y su color guardado.
 
 ## 54. Capacidad libre y modo provisional
@@ -2554,3 +2554,63 @@ El calendario del proyecto se puede bajar como un fichero `.ics` para importarlo
 - **Alarmas y recordatorios**: losCalendarios los ponen.
 - **Tareas recurrentes**: no hay recurrencia en el modelo.
 - **Cambios en el calendario sobre el estado**: el `.ics` es una foto; las horas y las dependencias no viajan en el formato.
+
+## 61. El Gantt como componente de planificacion: lectura, resumen y colapso
+
+El diagrama de Gantt deja de ser una lista de barras y se lee como un
+componente de planificacion. Esta seccion fija lo que entra, con que reglas y
+que queda fuera. No cambia el feed ni el modelo de tareas.
+
+### Que entra
+
+- **Zoom continuo**: los pixeles por dia suben hasta llenar el panel y, con un
+  factor de detalle, dan mas detalle. Ctrl+rueda sobre el diagrama hace zoom (sin
+  Ctrl la rueda desplaza) y el dia que esta bajo el puntero se queda donde
+  estaba. El factor es estado local, como la escala: no va en la URL.
+- **Panel de nombres redimensionable**, con un asa entre 160 y 480 px. El
+  diagrama se recoloca solo, porque el ancho del panel es lo que fija la escala.
+- **Modo ampliado** a pantalla completa, que se sale con `Escape`.
+- **"Hoy"**: ademas de mover el rango, centra la columna de hoy.
+- **Cruz de fecha**: al mover el raton, una linea vertical marca la columna y
+  la cabecera lleva la fecha de ese dia.
+- **Globo de la tarea**: al pasar por encima de una barra, sus datos (inicio,
+  fin, duracion, avance y dependencias).
+- **Barra de resumen del grupo**, de la primera a la ultima fecha de sus
+  tareas, de solo lectura, que se sigue viendo con el grupo colapsado.
+- **Colapsar grupos**: la cabecera de grupo es un boton con `aria-expanded` y
+  el estado vive en la URL (`?collapsed=`), con claves por identificador.
+- **Columnas elegibles** en el panel de nombres (persona, inicio, fin,
+  duracion, horas, estado) y **ordenacion por cabecera** (`?cols=`, `?sort=`).
+- **Fila resaltada**: la fila bajo el puntero se marca a la vez en la columna de
+  nombres y en el diagrama, y la fila de la barra enfocada, con su propio tinte.
+- **Vocabulario visual**: el diagrama usa el sistema de diseno de la aplicacion
+  (sus colores salen de clases, no de hexadecimales sueltos) y los selectores
+  segmentados y los campos de filtro son componentes comunes.
+
+### Decisiones tomadas
+
+1. **El factor de zoom puede bajar de 1 y subir hasta 8**: por debajo de 1 el
+   rango se queda corto y aparece hueco a la derecha (que es lo que se ve al
+   alejar); por encima, el panel se desplaza en horizontal. El boton "Ajustar al
+   ancho" vuelve al 1, que es el estado en que el rango llena el panel. Para ver
+   mas sitio, el rango se mueve con los botones, no con el zoom.
+2. **El estado de lectura va en la URL y el de vista no**: columnas, orden y
+   grupos colapsados son decisiones de como se lee el grafico y se comparten con
+   un enlace. El factor de zoom y el ancho del panel son de la sesion.
+3. **El resumen del grupo es de solo lectura**: mover un grupo entero es
+   reprogramacion, y eso es la cascada propuesta, no un gesto de arrastre.
+4. **La ordenacion es dentro del grupo**: el orden de los grupos es el del
+   agrupamiento, no el que el usuario ordene.
+5. **Las columnas no recalculan nada**: las horas son las del feed y la duracion
+   son los dias inclusivos entre las fechas del feed. El frontend no suma.
+6. **Un grupo colapsado no muestra sus flechas**: una dependencia cuyo extremo
+   este en un grupo colapsado no se dibuja. El resumen del grupo sigue viéndose,
+   que es la informacion que de verdad resume ese trabajo.
+
+### Que no entra
+
+- **Multi-seleccion y edicion en lote**: siguen fuera.
+- **Editar el resumen de un grupo arrastrandolo**: es reprogramacion.
+- **Columnas a medida**: las seis son fijas.
+- **Deshacer y rehacer** de los gestos del diagrama: no hay historial de acciones
+   en la aplicacion.

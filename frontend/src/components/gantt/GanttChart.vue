@@ -44,6 +44,10 @@ const props = defineProps({
   bandasCabecera: { type: Array, default: () => [] },
   /** Filas de la columna de nombres, ya enriquecidas. */
   filasNombres: { type: Array, required: true },
+  /** Columnas elegidas del panel de nombres, con su etiqueta y su ancho. */
+  columnasNombres: { type: Array, default: () => [] },
+  /** Ordenacion de las tareas dentro del grupo: { columna, sentido }. */
+  ordenNombres: { type: Object, default: null },
   /** Si la persona que entra puede escribir en la barra: por identificador. */
   editableDe: { type: Function, required: true },
   /** Barra enfocada: la unica con tabindex 0. */
@@ -64,7 +68,7 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom', 'colapsar'])
+const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom', 'colapsar', 'ordenar'])
 
 const panelDiagrama = ref(null)
 /**
@@ -602,9 +606,12 @@ defineExpose({ centrarHoy, arrastrando })
       :ancho="anchoNombres"
       :minimo="ANCHO_NOMBRES_MIN"
       :maximo="ANCHO_NOMBRES_MAX"
+      :columnas="columnasNombres"
+      :orden="ordenNombres"
       @fila-raton="filaRaton = $event"
       @redimension="redimensionarNombres"
       @colapsar="(clave) => emit('colapsar', clave)"
+      @ordenar="(columna) => emit('ordenar', columna)"
     />
 
     <div

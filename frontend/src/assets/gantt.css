@@ -5,7 +5,9 @@
  * para que sus reglas ganen a las del resto cuando coinciden. Todo lo que
  * vive dentro del SVG va aqui, porque las clases de utilidad no llegan a la
  * geometria del SVG; lo demas (columna de nombres, botonera, fantasma) usa
- * clases de Tailwind en la plantilla.
+ * clases de Tailwind en la plantilla, salvo la anchura de la columna de
+ * nombres, que depende de las columnas elegidas y por eso lleva sus reglas
+ * aqui.
  *
  * Estas reglas no van en una capa de Tailwind: al quedar fuera de capa,
  * ganan a las utilidades aunque estas se apliquen despues. Por eso el tinte
@@ -311,9 +313,35 @@
 /*
  * Columna de nombres: no hace scroll propio; su pista interior se traslada
  * con el scroll del diagrama (translateY en la plantilla).
+ *
+ * El ancho es el de la columna de tareas mas el de las columnas elegidas.
+ * La columna de tareas es la que se redimensiona (240 px por defecto, o 160
+ * px en pantalla estrecha); las elegibles van a su derecha con su ancho
+ * fijo. Cuando el conjunto no cabe, la raiz se desplaza en horizontal: por
+ * eso la cabecera y el cuerpo comparten el ancho minimo de la rejilla, y la
+ * raiz es un contenedor de scroll.
+ *
+ * La columna de nombres no puede comerse el diagrama entero: el tope del
+ * 70 % deja al grafico su parte, y lo que sobra se alcanza con el scroll
+ * horizontal del panel.
  */
 .gantt__nombres {
+  --gantt-ancho-tarea: 15rem;
+  --gantt-ancho-extras: 0px;
   position: relative;
+  width: calc(var(--gantt-ancho-tarea) + var(--gantt-ancho-extras));
+  max-width: 70%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.gantt__nombres-cabecera,
+.gantt__nombres-cuerpo {
+  min-width: calc(var(--gantt-ancho-tarea) + var(--gantt-ancho-extras));
+}
+@media (max-width: 640px) {
+  .gantt__nombres {
+    --gantt-ancho-tarea: 10rem;
+  }
 }
 .gantt__nombres-cuerpo {
   overflow: hidden;

@@ -1,20 +1,26 @@
 <script setup>
 /**
- * Columna fija de nombres del diagrama de Gantt.
+ * Columna de nombres del diagrama de Gantt.
  *
  * Es la lista de tareas, no de personas: el titulo de la tarea y debajo
  * `persona · proyecto`. La barra ya va coloreada por persona; repetir el
- * nombre en cada fila seria ruido.
+ * nombre en cada fila seria ruido, asi que la columna de persona es
+ * opcional, como las demas que se pueden elegir.
+ *
+ * El panel es una rejilla: la columna de la tarea (la que flexa y la que se
+ * puede redimensionar) y, a su derecha, las columnas elegidas, cada una con su
+ * ancho fijo. Cuando no caben, el panel se desplaza en horizontal.
  *
  * La columna no hace scroll vertical propio: su pista interior se traslada
  * con el mismo desplazamiento que el diagrama, para que fila y barra no se
  * despeguen. Las filas de tarea son la version HTML de lo que el SVG ya
  * anuncia, asi que van `aria-hidden`; la cabecera de grupo si se expone,
- * porque es un boton que colapsa el grupo.
+ * porque es un boton que colapsa el grupo. La cabecera de columnas se expone
+ * tambien: sus botones ordenan las tareas.
  *
  * La columna es la otra mitad de la fila: avisa de la fila bajo el puntero
- * (`fila-raton`) y recibe que filas hay que pintar (la del puntero y la de
- * la barra enfocada). El estado lo lleva el chart, que es quien tiene las
+ * (`fila-raton`) y recibe que filas hay que pintar (la del puntero y la de la
+ * barra enfocada). El estado lo lleva el chart, que es quien tiene las
  * dos mitades del diagrama.
  *
  * El ancho es redimensionable: un asa en el borde derecho lo cambia, con el
@@ -41,14 +47,20 @@ const props = defineProps({
   /** Ancho minimo y maximo de la columna, en pixeles. */
   minimo: { type: Number, default: GANTT_METRICS.namesWidthSmall },
   maximo: { type: Number, default: 480 },
+  /** Columnas elegidas, con su etiqueta y su ancho. */
+  columnas: { type: Array, default: () => [] },
+  /** Ordenacion vigente: { columna, sentido }. */
+  orden: { type: Object, default: null },
 })
 
-const emit = defineEmits(['fila-raton', 'redimension', 'colapsar'])
+const emit = defineEmits(['fila-raton', 'redimension', 'colapsar', 'ordenar'])
 
 /** Raiz de la columna: su ancho es el que se mide. */
 const raiz = ref(null)
+/** Cabecera de columnas: de su primera celda se mide el ancho de la de tareas. */
+const cabecera = ref(null)
 /**
- * Ancho efectivo de la columna, medido.
+ * Ancho efectivo de la columna de tareas, medido.
  *
  * Solo importa mientras nadie redimensiona: es el ancho que dan las clases
  * (240 px, o 160 px en pantalla estrecha) y el punto de partida del arrastre.
@@ -61,8 +73,76 @@ const anchoEfectivo = computed(() => props.ancho ?? anchoMedido.value)
 /** Ancho que se anuncia en el asa: siempre en pixeles enteros. */
 const anchoAnunciado = computed(() => Math.round(anchoEfectivo.value))
 
-/** Cabecera de la columna: la altura es la del eje, la misma en los dos. */
-const cabecera = 'Tarea'
+/** Columnas elegidas, tal y como llegan. */
+const elegidas = computed(() => props.columnas ?? [])
+
+/** Ancho que suman las columnas elegidas, en pixeles. */
+const anchoExtras = computed(() =>
+  elegidas.value.reduce((suma, columna) => suma + (columna.ancho ?? 0), 0),
+)
+
+/**
+ * Ancho de la columna de nombres: la de tareas mas las elegidas.
+ *
+ * El ancho elegido se aplica a la columna de tareas; las elegidas van a su
+ * derecha con su ancho fijo. Con `null` (nadie ha redimensionado) el ancho lo
+ * dan las clases, y el de las elegibles se anade por CSS.
+ */
+const estiloRaiz = computed(() => {
+  const extras = anchoExtras.value
+  const estilo = {}
+  if (extras > 0) estilo['--gantt-ancho-extras'] = `${extras}px`
+  if (props.ancho !== null) {
+    estilo.width = `${props.ancho + extras}px`
+    estilo['--gantt-ancho-tarea'] = `${props.ancho}px`
+  }
+  return Object.keys(estilo).length ? estilo : undefined
+})
+
+/**
+ * Pistas de la rejilla: la de tareas flexa, las elegibles tienen ancho fijo.
+ *
+ * La misma plantilla va en la cabecera y en las filas: por eso las columnas
+ * cuadran entre si.
+ */
+const plantillaColumnas = computed(() => {
+  const pistas = ['minmax(0, 1fr)']
+  for (const columna of elegidas.value) pistas.push(`${columna.ancho ?? 0}px`)
+  return pistas.join(' ')
+})
+
+/** Cabeceras de la rejilla: la de la tarea y las de las elegidas. */
+const encabezados = computed(() => [
+  { key: 'tarea', label: 'Tarea' },
+  ...elegidas.value,
+])
+
+/** Sentido de la ordenacion de una columna: `asc`, `desc` o null. */
+function sentidoDe(clave) {
+  if (props.orden?.columna !== clave) return null
+  return props.orden.sentido
+}
+
+/** `aria-sort` de la cabecera de una columna. */
+function ariaSortDe(clave) {
+  const sentido = sentidoDe(clave)
+  if (sentido === 'asc') return 'ascending'
+  if (sentido === 'desc') return 'descending'
+  return 'none'
+}
+
+/** Padding de la cabecera: el de la columna de tareas o el de las elegibles. */
+function claseDeCabecera(clave) {
+  return clave === 'tarea' ? 'px-3' : 'px-2'
+}
+
+/** Lo que anuncia el boton de la cabecera: que va a ordenar y como. */
+function tituloDeOrden(clave) {
+  const sentido = sentidoDe(clave)
+  if (sentido === 'asc') return 'Ordenar por esta columna, de forma descendente'
+  if (sentido === 'desc') return 'Quitar la ordenacion'
+  return 'Ordenar por esta columna, de forma ascendente'
+}
 
 /**
  * Tinte de la fila: el del puntero y el de la barra enfocada.
@@ -161,9 +241,16 @@ function alTecla(event) {
 
 let observador = null
 
-/** Ancho real de la columna: el de las clases mientras nadie lo cambie. */
+/**
+ * Ancho real de la columna de tareas: el de sus clases mientras nadie lo
+ * cambie.
+ *
+ * Se mide la celda de la cabecera de tareas y no la raiz: la raiz lleva
+ * tambien las columnas elegidas, que no forman parte del ancho que se
+ * redimensiona.
+ */
 function medir() {
-  const ancho = raiz.value?.clientWidth
+  const ancho = cabecera.value?.firstElementChild?.clientWidth
   if (ancho) anchoMedido.value = ancho
 }
 
@@ -173,7 +260,7 @@ onMounted(() => {
   // se midio al montar: no se rompe nada por no poder observar.
   if (typeof ResizeObserver === 'undefined') return
   observador = new ResizeObserver(medir)
-  if (raiz.value) observador.observe(raiz.value)
+  if (cabecera.value) observador.observe(cabecera.value)
 })
 
 onBeforeUnmount(() => {
@@ -186,21 +273,39 @@ onBeforeUnmount(() => {
   <div
     ref="raiz"
     class="gantt__nombres relative shrink-0 border-r border-slate-200"
-    :class="ancho === null ? 'w-60 max-sm:w-40' : ''"
-    :style="ancho === null ? undefined : { width: `${ancho}px` }"
+    :style="estiloRaiz"
     data-testid="gantt-names"
     @mouseleave="alSalir"
   >
     <!--
       La cabecera reserva el mismo alto que la del eje (`GANTT_METRICS`): el
-      numero es el unico, las dos piezas no se descuadran.
+      numero es el unico, las dos piezas no se descuadran. Cada cabecera de
+      columna es un boton que ordena: el sentido lo dice `aria-sort`.
     -->
     <div
-      class="flex items-center border-b border-slate-200 bg-slate-100 px-3"
-      :style="{ height: `${GANTT_METRICS.headerHeight}px` }"
-      aria-hidden="true"
+      ref="cabecera"
+      class="gantt__nombres-cabecera grid border-b border-slate-200 bg-slate-100"
+      :style="{
+        height: `${GANTT_METRICS.headerHeight}px`,
+        gridTemplateColumns: plantillaColumnas,
+      }"
     >
-      <span class="text-xs font-semibold text-siemens-900">{{ cabecera }}</span>
+      <button
+        v-for="columna in encabezados"
+        :key="columna.key"
+        type="button"
+        class="flex items-center gap-1 text-left text-xs font-semibold text-siemens-900 hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500"
+        :class="claseDeCabecera(columna.key)"
+        :aria-sort="ariaSortDe(columna.key)"
+        :title="tituloDeOrden(columna.key)"
+        :data-testid="`gantt-sort-${columna.key}`"
+        @click="emit('ordenar', columna.key)"
+      >
+        <span class="truncate">{{ columna.label }}</span>
+        <span v-if="sentidoDe(columna.key)" aria-hidden="true" class="text-[10px]">
+          {{ sentidoDe(columna.key) === 'asc' ? '↑' : '↓' }}
+        </span>
+      </button>
     </div>
 
     <div class="gantt__nombres-cuerpo overflow-hidden">
@@ -245,23 +350,36 @@ onBeforeUnmount(() => {
           </button>
 
           <!--
-            Fila de tarea: el titulo y la persona con el proyecto. Es la
-            version HTML de lo que el SVG ya anuncia, asi que el lector de
-            pantalla no la oye: solo la cabecera de grupo, que es un boton.
+            Fila de tarea: el titulo y la persona con el proyecto, y el valor
+            de cada columna elegida. Es la version HTML de lo que el SVG ya
+            anuncia, asi que el lector de pantalla no la oye: solo la cabecera
+            de grupo y las cabeceras de columna, que son botones.
           -->
           <div
             v-else
             aria-hidden="true"
-            class="flex h-9 flex-col justify-center border-b border-slate-100 px-3"
+            class="grid h-9 items-center border-b border-slate-100"
             :class="claseDeFila(fila)"
+            :style="{ gridTemplateColumns: plantillaColumnas }"
             @mouseenter="alEntrar(fila)"
             @mouseleave="alSalir"
           >
-            <span class="truncate text-xs font-medium text-slate-700" :title="fila.title">
-              {{ fila.title }}
-            </span>
-            <span class="truncate text-[10px] text-slate-400">
-              {{ fila.assignedName ?? 'Sin asignar' }} · {{ fila.projectName }}
+            <div class="flex min-w-0 flex-col justify-center px-3">
+              <span class="truncate text-xs font-medium text-slate-700" :title="fila.title">
+                {{ fila.title }}
+              </span>
+              <span class="truncate text-[10px] text-slate-400">
+                {{ fila.assignedName ?? 'Sin asignar' }} · {{ fila.projectName }}
+              </span>
+            </div>
+            <span
+              v-for="columna in elegidas"
+              :key="columna.key"
+              class="truncate px-2 text-[11px] text-slate-600"
+              :title="fila.celdas?.[columna.key]"
+              :data-testid="`gantt-celda-${columna.key}`"
+            >
+              {{ fila.celdas?.[columna.key] }}
             </span>
           </div>
         </template>

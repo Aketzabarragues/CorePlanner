@@ -66,7 +66,7 @@ import {
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
 import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
-import { localDateKey, shortMonthName } from '../utils/month'
+import { localDateKey, monthKey, shortMonthName } from '../utils/month'
 import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
 
 const auth = useAuthStore()
@@ -702,6 +702,16 @@ const dependencias = computed(() => {
  */
 const columnas = computed(() => {
   const hoy = toIsoDate(parseIsoDate(hoyIso.value))
+  // Claves de hoy en cada escala: el dia exacto, su semana ISO y su mes. La
+  // insignia "Hoy" va en la celda que lo contiene, no solo en la del dia.
+  // `monthKey` lee los campos locales, asi que se le da una fecha local con
+  // los numeros del dia: el mes es el de hoy en cualquier zona horaria.
+  const [anioHoy, mesHoy, diaHoy] = hoy.split('-').map(Number)
+  const claveHoy = {
+    day: hoy,
+    week: isoWeekKey(parseIsoDate(hoy)),
+    month: monthKey(new Date(anioHoy, mesHoy - 1, diaHoy)),
+  }
   const festivosPorDia = new Map(
     diasNoLaborables.value.map((dia) => [toIsoDate(dia.date), dia]),
   )
@@ -744,7 +754,7 @@ const columnas = computed(() => {
     }
     return {
       ...celda,
-      hoy: celda.kind === 'day' ? celda.key === hoy : false,
+      hoy: celda.key === claveHoy[celda.kind],
       festivo,
     }
   })

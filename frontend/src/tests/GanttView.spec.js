@@ -1691,3 +1691,314 @@ describe('colapso de grupos', () => {
     expect(wrapper.find('[data-testid="gantt-expand-all"]').exists()).toBe(false)
   })
 })
+describe('columnas y orden del panel de nombres', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // Dos tareas por grupo, con valores distintos en cada columna: el orden
+  // dentro del grupo se puede comprobar columna a columna y el orden de los
+  // grupos (Ana delante de Jorge, Linea delante de Red) no debe moverse.
+  // Las horas se escogieron para que el natural, el asc y el desc sean tres
+  // ordenes distintos.
+  const feedColumnas = {
+    tasks: [
+      {
+        id: 21,
+        name: 'Montaje electrico · Ana',
+        start: '2026-11-10',
+        end: '2026-11-13',
+        progress: 0,
+        dependencies: '',
+        custom_class: 'persona-0',
+        project_id: 1,
+        project_name: 'Linea Pasteurizadora SIVE',
+        title: 'Montaje electrico',
+        assigned_to: 1,
+        assigned_name: 'Ana',
+        status: 'in_progress',
+        estimated_hours: '16.00',
+      },
+      {
+        id: 22,
+        name: 'Pruebas · Ana',
+        start: '2026-11-03',
+        end: '2026-11-05',
+        progress: 0,
+        dependencies: '',
+        custom_class: 'persona-0',
+        project_id: 1,
+        project_name: 'Linea Pasteurizadora SIVE',
+        title: 'Pruebas',
+        assigned_to: 1,
+        assigned_name: 'Ana',
+        status: 'done',
+        estimated_hours: '40.00',
+      },
+      {
+        id: 23,
+        name: 'Dibujo · Jorge',
+        start: '2026-11-12',
+        end: '2026-11-19',
+        progress: 0,
+        dependencies: '',
+        custom_class: 'persona-1',
+        project_id: 2,
+        project_name: 'Red de tuberias',
+        title: 'Dibujo',
+        assigned_to: 2,
+        assigned_name: 'Jorge',
+        status: 'backlog',
+        estimated_hours: '48.00',
+      },
+      {
+        id: 24,
+        name: 'Ajuste · Jorge',
+        start: '2026-11-06',
+        end: '2026-11-06',
+        progress: 0,
+        dependencies: '',
+        custom_class: 'persona-1',
+        project_id: 2,
+        project_name: 'Red de tuberias',
+        title: 'Ajuste',
+        assigned_to: 2,
+        assigned_name: 'Jorge',
+        status: 'testing',
+        estimated_hours: '24.00',
+      },
+    ],
+    members: [
+      { user_id: 1, name: 'Ana', css_class: 'persona-0' },
+      { user_id: 2, name: 'Jorge', css_class: 'persona-1' },
+    ],
+    undated_task_ids: [],
+    unassigned_task_ids: [],
+  }
+
+  /** Cabeceras del panel de nombres, por testid. */
+  function cabeceras(wrapper) {
+    return wrapper
+      .get('[data-testid="gantt-names"]')
+      .findAll('[data-testid^="gantt-sort-"]')
+      .map((cabecera) => cabecera.attributes('data-testid'))
+  }
+
+  /**
+   * Texto de las celdas de una fila del panel, por clave de columna.
+   *
+   * El panel repite el testid en cada fila: se toma la del indice pedido,
+   * dentro de la pista de la columna de nombres.
+   */
+  function celdasDe(wrapper, fila) {
+    const filas = wrapper
+      .get('[data-testid="gantt-names"]')
+      .element.querySelectorAll('.gantt__nombres-pista > div')
+    const destino = filas[fila]
+    return ['persona', 'inicio', 'fin', 'duracion', 'horas', 'estado'].map((clave) =>
+      destino.querySelector(`[data-testid="gantt-celda-${clave}"]`)?.textContent,
+    )
+  }
+
+  it('las columnas de la URL salen en el panel con sus cabeceras y su ancho', async () => {
+    setupFetch(feedColumnas)
+
+    const { wrapper } = await mountGantt({ cols: 'persona,inicio' })
+
+    // La de la tarea siempre esta delante; las elegidas siguen en el orden
+    // del catalogo.
+    expect(cabeceras(wrapper)).toEqual(['gantt-sort-tarea', 'gantt-sort-persona', 'gantt-sort-inicio'])
+    // El panel se ensancha con las elegidas: 110 + 80.
+    expect(wrapper.get('[data-testid="gantt-names"]').attributes('style')).toContain(
+      '--gantt-ancho-extras: 190px',
+    )
+  })
+
+  it('sin ?cols= el panel lleva solo la columna de la tarea', async () => {
+    setupFetch(feedColumnas)
+
+    const { wrapper } = await mountGantt()
+
+    expect(cabeceras(wrapper)).toEqual(['gantt-sort-tarea'])
+    expect(wrapper.findAll('[data-testid^="gantt-celda-"]')).toHaveLength(0)
+  })
+
+  it('las celdas pinta los valores del feed: persona, fecha corta, dias, horas y estado', async () => {
+    setupFetch(feedColumnas)
+
+    const { wrapper } = await mountGantt({
+      cols: 'persona,inicio,fin,duracion,horas,estado',
+      group: 'persona',
+    })
+
+    // Sin ordenacion, el orden dentro del grupo es por fecha de inicio:
+    // Ana Pruebas (3 nov) y Montaje electrico (10 nov); Jorge Ajuste
+    // (6 nov) y Dibujo (12 nov).
+    expect(celdasDe(wrapper, 0)).toEqual(['Ana', '3 nov', '5 nov', '3 d', '40.00', 'Completado'])
+    expect(celdasDe(wrapper, 1)).toEqual(['Ana', '10 nov', '13 nov', '4 d', '16.00', 'En Desarrollo'])
+    expect(celdasDe(wrapper, 2)).toEqual(['Jorge', '6 nov', '6 nov', '1 d', '24.00', 'Pruebas (FAT/SAT)'])
+    expect(celdasDe(wrapper, 3)).toEqual(['Jorge', '12 nov', '19 nov', '8 d', '48.00', 'Backlog'])
+  })
+
+  it('?sort= ordena las tareas dentro del grupo y el orden de los grupos no se mueve', async () => {
+    setupFetch(feedColumnas)
+
+    const { wrapper } = await mountGantt({
+      cols: 'inicio,horas',
+      sort: 'inicio:desc',
+      group: 'persona',
+    })
+
+    // Linea/Pasteurizadora sigue delante de Red de tuberias, Ana delante de
+    // Jorge: la ordenacion solo mueve tareas dentro del grupo.
+    const etiquetas = barrasPintadas(wrapper)
+    expect(etiquetas[0]).toContain('Montaje electrico')
+    expect(etiquetas[1]).toContain('Pruebas')
+    expect(etiquetas[2]).toContain('Dibujo')
+    expect(etiquetas[3]).toContain('Ajuste')
+
+    // La cabecera activa lo dice con aria-sort; las otras quedan en none.
+    expect(wrapper.get('[data-testid="gantt-sort-inicio"]').attributes('aria-sort')).toBe('descending')
+    expect(wrapper.get('[data-testid="gantt-sort-horas"]').attributes('aria-sort')).toBe('none')
+    expect(wrapper.get('[data-testid="gantt-sort-tarea"]').attributes('aria-sort')).toBe('none')
+  })
+
+  it('pulsar una cabecera alterna ascendente, descendente y el orden natural', async () => {
+    setupFetch(feedColumnas)
+    const { wrapper, router } = await mountGantt({ cols: 'horas', group: 'persona' })
+
+    const cabecera = () => wrapper.get('[data-testid="gantt-sort-horas"]')
+    const etiquetas = () => barrasPintadas(wrapper)
+
+    await cabecera().trigger('click')
+    await flushPromises()
+    await flushPromises()
+    // Primera pulsacion: ascendente. Ana Montaje (16) y Pruebas (40);
+    // Jorge Ajuste (24) y Dibujo (48).
+    expect(router.currentRoute.value.query.sort).toBe('horas:asc')
+    expect(cabecera().attributes('aria-sort')).toBe('ascending')
+    expect(etiquetas()).toEqual([
+      expect.stringContaining('Montaje electrico'),
+      expect.stringContaining('Pruebas'),
+      expect.stringContaining('Ajuste'),
+      expect.stringContaining('Dibujo'),
+    ])
+
+    await cabecera().trigger('click')
+    await flushPromises()
+    await flushPromises()
+    // Segunda: descendente, el orden de los grupos no se mueve.
+    expect(router.currentRoute.value.query.sort).toBe('horas:desc')
+    expect(cabecera().attributes('aria-sort')).toBe('descending')
+    expect(etiquetas()).toEqual([
+      expect.stringContaining('Pruebas'),
+      expect.stringContaining('Montaje electrico'),
+      expect.stringContaining('Dibujo'),
+      expect.stringContaining('Ajuste'),
+    ])
+
+    await cabecera().trigger('click')
+    await flushPromises()
+    await flushPromises()
+    // Tercera: el orden natural, por fecha de inicio dentro del grupo.
+    expect(router.currentRoute.value.query.sort).toBeUndefined()
+    expect(cabecera().attributes('aria-sort')).toBe('none')
+    expect(etiquetas()).toEqual([
+      expect.stringContaining('Pruebas'),
+      expect.stringContaining('Montaje electrico'),
+      expect.stringContaining('Ajuste'),
+      expect.stringContaining('Dibujo'),
+    ])
+  })
+
+  it('las columnas y la ordenacion sobreviven a un cambio de agrupacion', async () => {
+    setupFetch(feedColumnas)
+    const { wrapper, router } = await mountGantt({
+      cols: 'persona,inicio',
+      sort: 'inicio:desc',
+      group: 'persona',
+    })
+
+    expect(wrapper.findAll('[data-testid="gantt-celda-persona"]').length).toBe(4)
+    expect(wrapper.get('[data-testid="gantt-sort-inicio"]').attributes('aria-sort')).toBe('descending')
+
+    await router.replace({
+      path: '/gantt',
+      query: { cols: 'persona,inicio', sort: 'inicio:desc', group: 'proyecto' },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    // Los grupos cambian (proyecto) y las barras se reordenan, pero el
+    // panel sigue con sus columnas y su ordenacion.
+    const etiquetas = barrasPintadas(wrapper)
+    expect(etiquetas[0]).toContain('Montaje electrico')
+    expect(etiquetas[1]).toContain('Pruebas')
+    expect(etiquetas[2]).toContain('Dibujo')
+    expect(etiquetas[3]).toContain('Ajuste')
+    expect(wrapper.findAll('[data-testid="gantt-celda-inicio"]').length).toBe(4)
+    expect(wrapper.get('[data-testid="gantt-sort-inicio"]').attributes('aria-sort')).toBe('descending')
+  })
+
+  it('las columnas y la ordenacion sobreviven a un cambio de rango', async () => {
+    setupFetch(feedColumnas)
+    const { wrapper, router } = await mountGantt({
+      cols: 'persona,horas',
+      sort: 'horas:desc',
+      group: 'persona',
+      from: '2026-11-02',
+      to: '2026-11-15',
+    })
+
+    expect(wrapper.findAll('[data-testid="gantt-celda-horas"]').length).toBe(4)
+    expect(wrapper.get('[data-testid="gantt-sort-horas"]').attributes('aria-sort')).toBe('descending')
+
+    await router.replace({
+      path: '/gantt',
+      query: {
+        cols: 'persona,horas',
+        sort: 'horas:desc',
+        group: 'persona',
+        from: '2026-11-09',
+        to: '2026-11-22',
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    // El eje se movio al rango nuevo: las semanas viejas se fueron y las
+    // nuevas llegaron, y el panel sigue con sus columnas y su ordenacion.
+    expect(wrapper.find('[data-testid="gantt-axis-column-2026-W45"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="gantt-axis-column-2026-W47"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="gantt-celda-horas"]').length).toBe(4)
+    expect(wrapper.get('[data-testid="gantt-sort-horas"]').attributes('aria-sort')).toBe('descending')
+  })
+
+  it('el panel de columnas alterna una columna y escribe la eleccion en la URL', async () => {
+    setupFetch(feedColumnas)
+    const { wrapper, router } = await mountGantt({ cols: 'persona', group: 'persona' })
+
+    await wrapper.get('[data-testid="gantt-toggle-columns"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="gantt-columns-count"]').text()).toBe('1')
+    expect(wrapper.get('[data-testid="gantt-column-persona"]').element.checked).toBe(true)
+    expect(wrapper.get('[data-testid="gantt-column-inicio"]').element.checked).toBe(false)
+
+    await wrapper.get('[data-testid="gantt-column-inicio"]').setValue(true)
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.cols).toBe('persona,inicio')
+    expect(cabeceras(wrapper)).toEqual([
+      'gantt-sort-tarea',
+      'gantt-sort-persona',
+      'gantt-sort-inicio',
+    ])
+    expect(wrapper.findAll('[data-testid="gantt-celda-inicio"]').length).toBe(4)
+  })
+})

@@ -9,14 +9,17 @@
  * Cargando, sale un esqueleto con la forma de la pantalla, no un texto suelto:
  * se anuncia con `role="status"` y respeta la preferencia de reducir el
  * movimiento. Con error, sale un banner con el mensaje y un boton para
- * reintentar. Vacio, sale un texto y una accion.
+ * reintentar, pero solo si reintentar puede servir. Vacio, sale un texto y
+ * una accion.
  *
  * El contenido va en el slot y solo se pinta cuando no hay ni error ni
  * estado vacio.
  */
+import { computed } from 'vue'
+
 import AlertBanner from './AlertBanner.vue'
 
-defineProps({
+const props = defineProps({
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
   empty: { type: Boolean, default: false },
@@ -27,7 +30,25 @@ defineProps({
   emptyTitle: { type: String, default: '' },
   emptyText: { type: String, default: '' },
   emptyAction: { type: String, default: '' },
+  /**
+   * Codigo HTTP del error, para decidir si el aviso puede reintentarse.
+   *
+   * Lo da la vista, que es quien ha visto el fallo. Sin codigo (null) se
+   * asume un fallo de red, que si se puede reintentar.
+   */
+  errorStatus: { type: Number, default: null },
 })
+
+/**
+ * Si el aviso de error puede ofrecer reintentar.
+ *
+ * Un 4xx no: es un permiso que falta o un proyecto que no existe, y volver a
+ * pedirlo dara el mismo fallo. Un 5xx o un fallo sin respuesta (la red caida)
+ * si: la peticion puede salir bien la proxima vez.
+ */
+const puedeReintentar = computed(
+  () => props.errorStatus === null || props.errorStatus >= 500,
+)
 
 const emit = defineEmits(['retry', 'empty-action'])
 </script>
@@ -55,7 +76,7 @@ const emit = defineEmits(['retry', 'empty-action'])
       v-else-if="error"
       variant="error"
       :title="errorTitle"
-      :action-label="retryLabel"
+      :action-label="puedeReintentar ? retryLabel : ''"
       :data-testid="errorTestId"
       @action="emit('retry')"
     >

@@ -80,6 +80,13 @@ const personas = ref([])
 const diasNoLaborables = ref([])
 const scope = ref(null)
 const error = ref(null)
+/**
+ * Codigo HTTP del ultimo error de carga.
+ *
+ * Lo necesita el aviso: un 4xx (falta el permiso, el proyecto no existe)
+ * no se reintenta, porque volver a pedirlo daria el mismo fallo.
+ */
+const errorStatus = ref(null)
 /** Error de guardado: la carga salio bien, pero el PATCH no. */
 const errorGuardado = ref(null)
 /** Guardado que fallo y se puede reintentar: el ultimo arrastre. */
@@ -1664,8 +1671,10 @@ async function load() {
     // El rango de festivos depende del feed: se pide despues de montarlo.
     diasNoLaborables.value = await diasNoLaborablesDelRango(token)
     error.value = null
+    errorStatus.value = null
   } catch (err) {
     error.value = err.message
+    errorStatus.value = err.status ?? null
   } finally {
     loading.value = false
   }
@@ -1986,6 +1995,7 @@ useTaskReload(load)
       class="flex min-h-0 flex-1 flex-col"
       :loading="loading"
       :error="error"
+      :error-status="errorStatus"
       loading-label="Cargando el diagrama"
       error-test-id="gantt-warning"
       @retry="reintentar"

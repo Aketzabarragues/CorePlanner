@@ -37,6 +37,13 @@ const props = defineProps({ id: { type: [String, Number], required: true } })
 
 const tasks = ref([])
 const error = ref(null)
+/**
+ * Codigo HTTP del ultimo error de carga.
+ *
+ * Lo necesita el aviso: un 4xx (falta el permiso, el proyecto no existe)
+ * no se reintenta, porque volver a pedirlo daria el mismo fallo.
+ */
+const errorStatus = ref(null)
 /** Aviso que no tapa el tablero: un rechazo del servidor al mover una tarea. */
 const aviso = ref(null)
 const loading = ref(true)
@@ -401,8 +408,10 @@ async function load() {
     scope.value = await meApi.get(token).catch(() => null)
     members.value = (await projectsApi.members(token, props.id).catch(() => [])) ?? []
     error.value = null
+    errorStatus.value = null
   } catch (err) {
     error.value = err.message
+    errorStatus.value = err.status ?? null
   } finally {
     loading.value = false
   }
@@ -442,6 +451,7 @@ onBeforeUnmount(() => drag.anular())
     <AsyncState
       :loading="loading"
       :error="error"
+      :error-status="errorStatus"
       loading-label="Cargando el tablero"
       @retry="reintentar"
     >

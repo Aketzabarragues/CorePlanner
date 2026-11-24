@@ -36,6 +36,11 @@ const SIDEBAR_KEY = 'coreplanner_sidebar'
 const collapsed = ref(localStorage.getItem(SIDEBAR_KEY) === '1')
 const showNewTask = ref(false)
 const saving = ref(false)
+/**
+ * Error de una accion del armazon, como el alta de tarea.
+ *
+ * La carga del contexto no avisa aqui: lo avisa la vista abierta.
+ */
 const error = ref(null)
 /** Cajon del menu en movil: por debajo de 640 px el menu lateral se esconde. */
 const menuAbierto = ref(false)
@@ -199,9 +204,13 @@ function logout() {
 /** Abre el alta de tarea con la lista de miembros del proyecto. */
 async function openNewTask() {
   error.value = null
-  const token = await auth.ensureSession()
-  await store.ensureMembers(token, projectId.value)
-  showNewTask.value = true
+  try {
+    const token = await auth.ensureSession()
+    await store.ensureMembers(token, projectId.value)
+    showNewTask.value = true
+  } catch (err) {
+    error.value = err.message
+  }
 }
 
 async function createTask(payload) {
@@ -219,17 +228,28 @@ async function createTask(payload) {
   }
 }
 
-/** Carga el proyecto abierto y los miembros que dan el rol de la persona. */
+/**
+ * Carga el ambito de quien entra y el contexto del proyecto abierto.
+ *
+ * Ninguno de estos datos avisa por el armazon: el fallo de una peticion se
+ * avisa donde se pide, y la vista abierta es la que dice si el proyecto
+ * existe y si falta el permiso. Un 403 en los miembros significa que el
+ * proyecto no es visible, y esa es la misma situacion que ya avisa la vista:
+ * dos avisos para lo mismo. El aviso del armazon queda para sus propias
+ * acciones, como el alta de tarea.
+ */
 async function loadContext(id) {
-  try {
-    const token = await auth.ensureSession()
-    scope.value = await meApi.get(token)
-    await store.ensureProjects(token)
-    if (id) await store.ensureMembers(token, id)
-    error.value = null
-  } catch (err) {
-    error.value = err.message
-  }
+  error.value = null
+  const token = await auth.ensureSession().catch(() => null)
+  if (!token) return
+  // El ambito anterior se conserva si la peticion falla: sin el, la cabecera
+  // no sabria en que proyectos se puede escribir.
+  const ambito = await meApi.get(token).catch(() => null)
+  if (ambito) scope.value = ambito
+  await store.ensureProjects(token).catch(() => null)
+  // Los miembros adornan la cabecera y el alta de tarea: se siguen pidiendo
+  // para los proyectos que se pueden ver.
+  if (id) await store.ensureMembers(token, id).catch(() => null)
 }
 
 watch(

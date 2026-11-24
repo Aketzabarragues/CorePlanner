@@ -5,6 +5,9 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import GanttView from '../views/GanttView.vue'
 import { useToastStore } from '../stores/toast'
+import { addDays, parseIsoDate, toIsoDate } from '../utils/ganttScale'
+import { localDateKey, monthKey } from '../utils/month'
+import { isoWeekKey } from '../utils/weeks'
 
 const feed = {
   tasks: [
@@ -716,6 +719,44 @@ describe('GanttView', () => {
     const anchoMes = Number(svg.attributes('width'))
     expect(anchoMes).toBe(30 * 5)
     expect(anchoMes).toBeLessThan(anchoSemana)
+  })
+
+  it('la insignia Hoy se pinta en la celda de hoy en las tres escalas', async () => {
+    setupFetch()
+
+    // Hoy de la maquina, con la clave que el eje usa en cada escala: el dia
+    // exacto, su semana ISO y su mes natural. El rango elegido lo contiene.
+    const hoy = localDateKey()
+    const claveSemana = isoWeekKey(parseIsoDate(hoy))
+    const claveMes = monthKey(new Date())
+    const desde = toIsoDate(addDays(parseIsoDate(hoy), -3))
+    const hasta = toIsoDate(addDays(parseIsoDate(hoy), 3))
+
+    const { wrapper } = await mountGantt({ from: desde, to: hasta })
+
+    // Escala de semana (la natural): la insignia va a la derecha de la banda 1.
+    const celdaSemana = wrapper.get(`[data-testid="gantt-axis-column-${claveSemana}"]`)
+    expect(celdaSemana.find('.gantt__insignia-hoy-caja').exists()).toBe(true)
+    expect(wrapper.findAll('.gantt__insignia-hoy-caja')).toHaveLength(1)
+
+    // Escala de dia: la insignia sustituye a la inicial del dia.
+    await wrapper.get('[data-testid="gantt-scale-Day"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const celdaDia = wrapper.get(`[data-testid="gantt-axis-column-${hoy}"]`)
+    expect(celdaDia.find('.gantt__insignia-hoy-caja').exists()).toBe(true)
+    expect(wrapper.findAll('.gantt__insignia-hoy-caja')).toHaveLength(1)
+    expect(celdaDia.find('.gantt__subtitulo-eje').exists()).toBe(false)
+
+    // Escala de mes: la insignia va a la derecha de la banda 1.
+    await wrapper.get('[data-testid="gantt-scale-Month"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const celdaMes = wrapper.get(`[data-testid="gantt-axis-column-${claveMes}"]`)
+    expect(celdaMes.find('.gantt__insignia-hoy-caja').exists()).toBe(true)
+    expect(wrapper.findAll('.gantt__insignia-hoy-caja')).toHaveLength(1)
   })
 
   it('guarda las fechas cuando se mueve una barra', async () => {

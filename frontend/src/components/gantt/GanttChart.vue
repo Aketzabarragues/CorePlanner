@@ -15,6 +15,11 @@
  *
  * El chart no dimensiona el lienzo: eso lo estira el CSS. Solo mide el ancho
  * del panel y lo informa a la vista, que de ahi calcula la escala efectiva.
+ *
+ * El menu contextual es de la vista: el chart solo avisa de donde viene (la
+ * barra, la cabecera de grupo o el hueco) y sube el puntero y el elemento que
+ * lo abrio. Con el teclado, `Mayus+F10` y la tecla `Menu` abren el de la
+ * barra enfocada, pegado a ella.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -76,7 +81,18 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom', 'colapsar', 'ordenar'])
+const emit = defineEmits([
+  'abrir',
+  'seleccionar',
+  'tecla',
+  'mover',
+  'crear',
+  'ancho-panel',
+  'zoom',
+  'colapsar',
+  'ordenar',
+  'contexto',
+])
 
 const panelDiagrama = ref(null)
 /**
@@ -516,18 +532,111 @@ const globo = computed(() => {
  * mirar la fila.
  */
 function alDobleClicFondo(event) {
+  const punto = puntoDeDiagrama(event)
+  if (!punto || punto.fila.type !== 'bar') return
+  emit('crear', { dateIso: punto.dateIso, fila: punto.fila })
+}
+
+/**
+ * Fila y dia del diagrama bajo el puntero.
+ *
+ * Lo comparten el doble clic (que crea la tarea) y el menu contextual del
+ * hueco (que ofrece lo mismo): los dos leen el punto igual. La cabecera
+ * pegajosa tapa la banda [scroll, scroll + alto), que se descarta antes de
+ * mirar la fila, y fuera del rango horizontal no hay dia.
+ */
+function puntoDeDiagrama(event) {
   const caja = event.currentTarget.getBoundingClientRect()
   const x = event.clientX - caja.left
   const y = event.clientY - caja.top
-  if (x < 0 || x >= props.layout.width) return
-  if (y < desplazamiento.value + GANTT_METRICS.headerHeight) return
+  if (x < 0 || x >= props.layout.width) return null
+  if (y < desplazamiento.value + GANTT_METRICS.headerHeight) return null
   const indiceDia = Math.floor(x / props.layout.pxPerDay)
   const indiceFila = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
   const fila = props.layout.rows[indiceFila]
-  if (!fila || fila.type !== 'bar') return
-  emit('crear', {
-    dateIso: toIsoDate(addDays(parseIsoDate(props.layout.start), indiceDia)),
+  if (!fila) return null
+  return {
     fila,
+    dateIso: toIsoDate(addDays(parseIsoDate(props.layout.start), indiceDia)),
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Menu contextual                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Menu contextual del diagrama.
+ *
+ * El chart sabe de donde viene el menu (la barra, la cabecera de grupo o el
+ * hueco) y lo sube con un solo evento; la vista es quien arma el arbol de
+ * items y ejecuta la accion elegida.
+ */
+function alContextoBarra(contexto) {
+  emit('contexto', { tipo: 'barra', ...contexto })
+}
+
+/**
+ * Clic derecho en el fondo del diagrama: el menu del hueco.
+ *
+ * La fila bajo el puntero decide el contexto: la franja de un grupo abre el
+ * menu del grupo y el resto, el del hueco (crear la tarea en ese punto).
+ */
+function alMenuHueco(event) {
+  const punto = puntoDeDiagrama(event)
+  if (!punto) return
+  emit('contexto', {
+    tipo: punto.fila.type === 'group' ? 'grupo' : 'hueco',
+    clave: punto.fila.clave,
+    fila: punto.fila,
+    dateIso: punto.dateIso,
+    x: event.clientX,
+    y: event.clientY,
+    abridor: event.currentTarget,
+  })
+}
+
+/**
+ * Teclado de una barra: el menu contextual se abre con `Mayus+F10` o con la
+ * tecla `Menu` del teclado.
+ *
+ * Las dos teclas se atienden aqui y no suben a la vista: el resto del teclado
+ * del diagrama (§53) no cambia.
+ */
+function alTeclaBarra(event, id) {
+  if (!esAperturaDeMenu(event)) {
+    emit('tecla', event, id)
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  abrirMenuDeBarra(id)
+}
+
+/** `Mayus+F10` o la tecla `Menu`: las dos abren el menu contextual. */
+function esAperturaDeMenu(event) {
+  if (event.key === 'F10') return event.shiftKey
+  return event.key === 'ContextMenu' || event.key === 'Menu'
+}
+
+/**
+ * Abre el menu contextual de una barra sin puntero.
+ *
+ * El menu sale pegado a la barra (su esquina inferior izquierda en el
+ * viewport) y el foco vuelve a la barra al cerrarse.
+ */
+function abrirMenuDeBarra(id) {
+  const barra = panelDiagrama.value?.querySelector(
+    `[data-testid="gantt-bar"][data-task-id="${id}"]`,
+  )
+  if (!barra) return
+  const caja = barra.getBoundingClientRect()
+  emit('contexto', {
+    tipo: 'barra',
+    taskId: id,
+    x: caja.left,
+    y: caja.bottom,
+    abridor: barra,
   })
 }
 
@@ -644,6 +753,7 @@ defineExpose({ centrarHoy, arrastrando })
       @redimension="redimensionarNombres"
       @colapsar="(clave) => emit('colapsar', clave)"
       @ordenar="(columna) => emit('ordenar', columna)"
+      @contexto="(contexto) => emit('contexto', contexto)"
     />
 
     <div
@@ -669,6 +779,7 @@ defineExpose({ centrarHoy, arrastrando })
         aria-describedby="gantt-descripcion gantt-instrucciones"
         data-testid="gantt-svg"
         @dblclick="alDobleClicFondo"
+        @contextmenu.prevent="alMenuHueco"
         @mousemove="alMoverRaton"
         @mouseleave="alSalirRaton"
       >
@@ -828,9 +939,10 @@ defineExpose({ centrarHoy, arrastrando })
               @empezar-arrastrar="alEmpezarArrastre"
               @abrir="alAbrirBarra"
               @seleccionar="(id) => emit('seleccionar', id)"
-              @tecla="(event, id) => emit('tecla', event, id)"
+              @tecla="alTeclaBarra"
               @entrar="barraSobre = $event"
               @salir="barraSobre = null"
+              @contexto="alContextoBarra"
             />
           </template>
 

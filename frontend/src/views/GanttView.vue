@@ -42,6 +42,7 @@ import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import ContextMenu from '../components/common/ContextMenu.vue'
 import FilterField from '../components/common/FilterField.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
@@ -64,6 +65,7 @@ import {
 } from '../utils/ganttColumns'
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
+import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
 import { localDateKey, shortMonthName } from '../utils/month'
 import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
 
@@ -125,6 +127,13 @@ const cascadaFallo = ref(null)
 const exportandoIcs = ref(false)
 /** Fallo de la exportacion iCal: se avisa sin tocar el estado del diagrama. */
 const falloIcs = ref(null)
+/**
+ * Menu contextual abierto.
+ *
+ * Guarda el arbol de items, donde se dibuja (coordenadas del viewport) y el
+ * elemento que lo abrio, al que vuelve el foco cuando se cierra.
+ */
+const menuContexto = ref(null)
 
 /** Miembros por proyecto ya pedidos: una sola peticion por proyecto. */
 const miembrosCache = new Map()
@@ -1336,6 +1345,234 @@ function tituloTarea(id) {
   return (feed.value?.tasks ?? []).find((item) => item.id === id)?.title ?? `Tarea ${id}`
 }
 
+/* ------------------------------------------------------------------ */
+/* Menu contextual del diagrama                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El diagrama avisa de que se ha pedido un menu contextual.
+ *
+ * El chart sabe el contexto (la barra, la cabecera de grupo o el hueco); la
+ * vista arma el arbol de items segun ese contexto y ejecuta la accion
+ * elegida. Sin items no hay menu: un menu vacio no dice nada.
+ */
+function abrirMenuContexto(contexto) {
+  const items = itemsDeContexto(contexto)
+  if (!items.length) return
+  menuContexto.value = {
+    items,
+    x: contexto.x,
+    y: contexto.y,
+    abridor: contexto.abridor ?? null,
+    label: etiquetaDeContexto(contexto),
+  }
+}
+
+/** Nombre accesible del menu, segun el contexto. */
+function etiquetaDeContexto(contexto) {
+  if (contexto.tipo === 'barra') return 'Menú de la tarea'
+  if (contexto.tipo === 'grupo') return 'Menú del grupo'
+  return 'Menú del diagrama'
+}
+
+/** Arbol de items del menu, segun el contexto. */
+function itemsDeContexto(contexto) {
+  if (contexto.tipo === 'barra') return itemsDeBarra(contexto.taskId)
+  if (contexto.tipo === 'grupo') return itemsDeGrupo(contexto.clave)
+  return itemsDeHueco(contexto)
+}
+
+/**
+ * Items del menu de una barra.
+ *
+ * Sin permiso de escritura solo salen las dos acciones de lectura: abrir el
+ * detalle e ir al tablero. El submenu de reasignacion sale con los miembros
+ * que se tengan del proyecto: sin miembros cacheados no hay a quien
+ * reasignar, y el item no sale.
+ */
+function itemsDeBarra(taskId) {
+  const tarea = (feed.value?.tasks ?? []).find((item) => item.id === taskId)
+  if (!tarea) return []
+  const items = [{ label: 'Abrir detalle', accion: 'detalle', dato: tarea.id }]
+  if (tarea.project_id !== null && tarea.project_id !== undefined) {
+    items.push({
+      label: 'Ir al tablero del proyecto',
+      accion: 'tablero',
+      dato: tarea.project_id,
+    })
+  }
+  if (!editableDe(tarea.id)) return items
+  const miembros = miembrosDeProyecto(tarea.project_id)
+  if (miembros.length) {
+    items.push({
+      label: 'Reasignar a...',
+      accion: 'reasignar',
+      submenu: miembros.map((miembro) => ({
+        label: miembro.name,
+        accion: 'reasignar',
+        dato: { taskId: tarea.id, persona: miembro.user_id, nombre: miembro.name },
+      })),
+    })
+  }
+  items.push({
+    label: 'Cambiar estado',
+    accion: 'estado',
+    submenu: KANBAN_COLUMNS.map((columna) => ({
+      label: columna.status === tarea.status ? `${columna.label} (actual)` : columna.label,
+      accion: 'estado',
+      dato: { taskId: tarea.id, estado: columna.status },
+      disabled: columna.status === tarea.status,
+    })),
+  })
+  items.push({
+    label: 'Copiar las fechas',
+    accion: 'copiar',
+    dato: { inicio: tarea.start, fin: tarea.end },
+  })
+  return items
+}
+
+/**
+ * Items del menu de un grupo: colapsar o expandir el grupo, y todos los del
+ * agrupamiento vigente. El estado vive en la URL, como el de los botones.
+ */
+function itemsDeGrupo(clave) {
+  return [
+    {
+      label: colapsados.value.has(clave) ? 'Expandir' : 'Colapsar',
+      accion: 'colapsar',
+      dato: clave,
+    },
+    { label: 'Colapsar todo', accion: 'colapsar-todo' },
+    { label: 'Expandir todo', accion: 'expandir-todo' },
+  ]
+}
+
+/**
+ * Items del menu del hueco: crear la tarea en ese punto, como el doble clic.
+ *
+ * Sin proyecto en contexto o sin permiso de escritura el alta no se puede
+ * hacer, y entonces el menu no se abre.
+ */
+function itemsDeHueco(contexto) {
+  const proyecto = contexto.fila ? proyectoDestinoDe(contexto.fila) : null
+  if (proyecto === null) return []
+  if (!(scope.value?.editable_project_ids ?? []).includes(proyecto)) return []
+  return [
+    {
+      label: 'Crear tarea aquí',
+      accion: 'crear',
+      dato: { dateIso: contexto.dateIso, fila: contexto.fila },
+    },
+  ]
+}
+
+/**
+ * Miembros cacheados de un proyecto: los que se pidieron al abrir un alta.
+ *
+ * Sin cache no hay lista: el menu de reasignacion sale con los miembros que
+ * se tengan y, si no hay ninguno, el item no aparece.
+ */
+function miembrosDeProyecto(projectId) {
+  if (projectId === null || projectId === undefined) return []
+  return miembrosCache.get(projectId) ?? []
+}
+
+/**
+ * Accion elegida en el menu contextual.
+ *
+ * Cada accion es una operacion que ya existe: el detalle es el dialogo de la
+ * vista, el tablero es la vista del proyecto, la reasignacion y el estado son
+ * PATCH parciales de la tarea (los mismos que usa el tablero), la creacion
+ * es el alta de la vista y el colapso es el estado que vive en la URL.
+ */
+async function ejecutarAccion(item) {
+  const accion = item?.accion
+  const dato = item?.dato
+  if (accion === 'detalle') {
+    abrirDetalle(dato)
+    return
+  }
+  if (accion === 'tablero') {
+    await router.push({ name: 'kanban', params: { id: dato } })
+    return
+  }
+  if (accion === 'reasignar') {
+    await guardarCambioDeTarea(
+      dato.taskId,
+      { assigned_to: dato.persona },
+      `Responsable cambiado: ${dato.nombre}.`,
+    )
+    return
+  }
+  if (accion === 'estado') {
+    await guardarCambioDeTarea(
+      dato.taskId,
+      { status: dato.estado },
+      `La tarea pasa a ${columnLabel(dato.estado)}.`,
+    )
+    return
+  }
+  if (accion === 'copiar') {
+    await copiarFechas(dato)
+    return
+  }
+  if (accion === 'colapsar') {
+    alternarColapso(dato)
+    return
+  }
+  if (accion === 'colapsar-todo') {
+    colapsarTodo()
+    return
+  }
+  if (accion === 'expandir-todo') {
+    expandirTodo()
+    return
+  }
+  if (accion === 'crear') {
+    await alCrear(dato)
+  }
+}
+
+/**
+ * Guarda un cambio de la tarea pedido desde el menu contextual.
+ *
+ * Es el PATCH parcial que usa el tablero (responsable y estado) y deja la
+ * misma bitacora. El exito sale como toast y el error en el banner de la
+ * vista, no en un toast suelto.
+ */
+async function guardarCambioDeTarea(taskId, cambios, mensaje) {
+  try {
+    await tasksApi.update(auth.token, taskId, cambios)
+    toast.success(mensaje)
+    errorGuardado.value = null
+  } catch (err) {
+    errorGuardado.value = err.message
+    // El menu no se reintenta: el banner se queda con el error y sin accion.
+    guardadoPendiente.value = null
+  }
+  await load()
+}
+
+/**
+ * Copia las fechas de la tarea al portapapeles.
+ *
+ * El aviso es un toast: es la confirmacion de una accion terminada, no un
+ * error de guardado.
+ */
+async function copiarFechas({ inicio, fin }) {
+  if (!navigator.clipboard?.writeText) {
+    toast.error('No se han podido copiar las fechas.')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(`${inicio} a ${fin}`)
+    toast.success(`Fechas copiadas: ${inicio} a ${fin}.`)
+  } catch {
+    toast.error('No se han podido copiar las fechas.')
+  }
+}
+
 /**
  * Acepta la cascada: se guarda la tarea arrastrada y, una a una, las
  * propuestas con sus fechas nuevas. Si un PATCH falla, se avisa y se para:
@@ -1830,9 +2067,27 @@ useTaskReload(load)
           @zoom="alZoomear"
           @colapsar="alternarColapso"
           @ordenar="alternarOrden"
+          @contexto="abrirMenuContexto"
         />
       </div>
     </AsyncState>
+
+    <!--
+      Menu contextual del diagrama: lo abre el clic derecho o el teclado
+      (`Mayus+F10` o la tecla `Menu` con la barra enfocada). El arbol de items
+      lo arma la vista segun el contexto; el componente solo lo pinta y lo
+      opera con el teclado.
+    -->
+    <ContextMenu
+      v-if="menuContexto"
+      :items="menuContexto.items"
+      :x="menuContexto.x"
+      :y="menuContexto.y"
+      :abridor="menuContexto.abridor"
+      :label="menuContexto.label"
+      @select="ejecutarAccion"
+      @close="menuContexto = null"
+    />
 
     <TaskDetailDialog
       :open="selectedTaskId !== null"

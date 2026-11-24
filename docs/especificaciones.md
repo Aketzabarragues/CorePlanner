@@ -2590,6 +2590,12 @@ que queda fuera. No cambia el feed ni el modelo de tareas.
   que ya existe). El diagrama las destaca con un interruptor (`?critical=1`):
   un marco en la barra y mas trazo en las flechas de la cadena, distinguido por
   forma y no solo por color.
+- **Menu contextual**: con el clic derecho, o con `Mayus+F10` sobre la barra
+  enfocada, sale un menu con las operaciones que ya existen: abrir el detalle,
+  ir al tablero del proyecto, reasignar, cambiar el estado y copiar las
+  fechas; en la cabecera de un grupo, colapsarlo o desplegarlo; en el hueco de
+  una fila, crear una tarea ahi. Sin permiso de escritura, de la barra solo
+  salen las dos primeras.
 
 ### Decisiones tomadas
 
@@ -2614,6 +2620,8 @@ que queda fuera. No cambia el feed ni el modelo de tareas.
 ### Que no entra
 
 - **Multi-seleccion y edicion en lote**: siguen fuera.
+- **Eliminar una tarea desde el menu contextual**: es destructivo (borra sus
+  comentarios y su checklist) y ya vive en el detalle de la tarea.
 - **Editar el resumen de un grupo arrastrandolo**: es reprogramacion.
 - **Columnas a medida**: las seis son fijas.
 - **Deshacer y rehacer** de los gestos del diagrama: no hay historial de acciones

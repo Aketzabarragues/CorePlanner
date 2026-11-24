@@ -53,7 +53,7 @@ const props = defineProps({
   orden: { type: Object, default: null },
 })
 
-const emit = defineEmits(['fila-raton', 'redimension', 'colapsar', 'ordenar'])
+const emit = defineEmits(['fila-raton', 'redimension', 'colapsar', 'ordenar', 'contexto'])
 
 /** Raiz de la columna: su ancho es el que se mide. */
 const raiz = ref(null)
@@ -167,6 +167,23 @@ function alEntrar(fila) {
 /** El puntero se va: no queda ninguna fila resaltada por raton. */
 function alSalir() {
   emit('fila-raton', null)
+}
+
+/**
+ * Clic derecho en la cabecera de un grupo: pide el menu contextual del grupo.
+ *
+ * El menu del navegador se anula y el elemento que lo abrio viaja con el
+ * aviso, para que el foco vuelva a la cabecera al cerrarse.
+ */
+function alMenuContexto(event, fila) {
+  event.preventDefault()
+  emit('contexto', {
+    tipo: 'grupo',
+    clave: fila.clave,
+    x: event.clientX,
+    y: event.clientY,
+    abridor: event.currentTarget,
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -329,6 +346,7 @@ onBeforeUnmount(() => {
             :title="fila.colapsado ? 'Expandir grupo' : 'Colapsar grupo'"
             :data-testid="`gantt-group-toggle-${fila.clave}`"
             @click="emit('colapsar', fila.clave)"
+            @contextmenu="alMenuContexto($event, fila)"
             @mouseenter="alEntrar(fila)"
             @mouseleave="alSalir"
           >

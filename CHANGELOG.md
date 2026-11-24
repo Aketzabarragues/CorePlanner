@@ -84,6 +84,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt tiene menu contextual. Con el clic derecho
+  (o con `Mayus+F10` sobre la barra enfocada) salen las operaciones que ya
+  existen: abrir el detalle, ir al tablero del proyecto, reasignar, cambiar el
+  estado y copiar las fechas; en la cabecera de un grupo, colapsarlo o
+  desplegarlo; en el hueco de una fila, crear una tarea. Sin permiso de
+  escritura, de la barra solo salen las dos primeras.
 - **frontend**: el diagrama de Gantt destaca la ruta critica. El feed marca las
   tareas de la cadena mas larga de cada proyecto (con la funcion pura que ya
   existia) y, con el interruptor "Ruta critica", la barra lleva un marco y las

@@ -11,6 +11,10 @@
  * `empezar-arrastre` con la zona donde se ha agarrado (cuerpo o asa) y deja
  * al composable el resto.
  *
+ * El clic derecho pide el menu contextual de la tarea: la barra emite
+ * `contexto` con la tarea, el puntero y el elemento que lo abrio, y el chart
+ * lo sube a la vista.
+ *
  * El raton que pasa por encima se anuncia con `entrar` y `salir`: el chart
  * dibuja con ello el globo de datos de la tarea.
  *
@@ -48,7 +52,15 @@ const props = defineProps({
   critica: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['empezar-arrastrar', 'abrir', 'seleccionar', 'tecla', 'entrar', 'salir'])
+const emit = defineEmits([
+  'empezar-arrastrar',
+  'abrir',
+  'seleccionar',
+  'tecla',
+  'entrar',
+  'salir',
+  'contexto',
+])
 
 /** Ancho minimo de barra, para que una tarea de un dia siga siendo agarrable. */
 const anchoBarra = computed(() => Math.max(6, props.barra.width))
@@ -67,9 +79,30 @@ function zonaDe(event) {
 }
 
 function empezarArrastre(event) {
+  // Solo el boton izquierdo arrastra: el derecho abre el menu contextual y no
+  // puede quedar cancelado, porque eso anularia el menu del navegador.
+  if (event.button !== 0) return
   if (!props.editable) return
   event.preventDefault()
   emit('empezar-arrastrar', { barra: props.barra, zona: zonaDe(event), event })
+}
+
+/**
+ * Clic derecho en la barra: pide el menu contextual de la tarea.
+ *
+ * El menu del navegador se anula y el evento no sube al diagrama: el hueco
+ * que hay alrededor de la barra no es su contexto. El elemento que lo abrio
+ * viaja con el aviso, para que el foco vuelva a la barra al cerrarse.
+ */
+function alMenuContexto(event) {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('contexto', {
+    taskId: props.barra.taskId,
+    x: event.clientX,
+    y: event.clientY,
+    abridor: event.currentTarget,
+  })
 }
 </script>
 
@@ -93,9 +126,10 @@ function empezarArrastre(event) {
         'gantt__barra--provisional': barra.provisional === true,
       },
     ]"
-    @mousedown.prevent="empezarArrastre"
+    @mousedown="empezarArrastre"
     @click="emit('abrir', barra.taskId)"
     @dblclick.stop
+    @contextmenu="alMenuContexto"
     @focus="emit('seleccionar', barra.taskId)"
     @keydown="emit('tecla', $event, barra.taskId)"
     @mouseenter="emit('entrar', barra.taskId)"

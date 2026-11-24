@@ -24,18 +24,27 @@ export function scaleById(id) {
 /**
  * Escala efectiva: los pixeles por dia suben hasta llenar el ancho disponible.
  *
- * Contrato: pixeles por dia = `max(natural, floor(ancho disponible / dias))`.
+ * Contrato: pixeles por dia = `max(natural, floor(ancho disponible / dias)) * zoom`.
  * El minimo natural nunca se baja: si el rango es mas ancho que el panel, se
  * conserva la escala natural y el panel se desplaza en horizontal. Sin ancho
  * utilizable (aun no medido, o cero), la escala natural se devuelve tal cual.
+ *
+ * `zoom` es el factor de detalle que elige el usuario: 1 es el estado de
+ * partida (el lienzo llena el panel), mas factor da mas pixeles por dia y el
+ * panel se desplaza en horizontal, menos factor deja el rango mas corto que
+ * el panel. Multiplica la escala base, asi que con 1 el resultado es
+ * exactamente el de siempre. Un factor que no sea un numero positivo se
+ * toma como 1: el detalle nunca deja al diagrama sin escala.
  */
-export function escalaAjustada(scale, dias, anchoDisponible) {
+export function escalaAjustada(scale, dias, anchoDisponible, zoom = 1) {
   if (!scale) return scale
   const ancho = Math.floor(Number(anchoDisponible))
   const cantidad = Math.floor(Number(dias))
   if (!Number.isFinite(ancho) || !Number.isFinite(cantidad)) return scale
   if (ancho <= 0 || cantidad <= 0) return scale
-  const pxPorDia = Math.max(scale.pxPerDay, Math.floor(ancho / cantidad))
+  const factor = Number(zoom)
+  const multiplicador = Number.isFinite(factor) && factor > 0 ? factor : 1
+  const pxPorDia = Math.max(scale.pxPerDay, Math.floor(ancho / cantidad)) * multiplicador
   if (pxPorDia === scale.pxPerDay) return scale
   return { ...scale, pxPerDay: pxPorDia }
 }

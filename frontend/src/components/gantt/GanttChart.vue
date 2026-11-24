@@ -16,7 +16,7 @@
  * El chart no dimensiona el lienzo: eso lo estira el CSS. Solo mide el ancho
  * del panel y lo informa a la vista, que de ahi calcula la escala efectiva.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { addDays, dateAtIndex, dayIndex, inclusiveDays, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
@@ -64,9 +64,54 @@ const props = defineProps({
   aviso: { type: String, default: '' },
 })
 
-const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel'])
+const emit = defineEmits(['abrir', 'seleccionar', 'tecla', 'mover', 'crear', 'ancho-panel', 'zoom'])
 
 const panelDiagrama = ref(null)
+/**
+ * Ancho de la columna de nombres, en pixeles.
+ *
+ * Null hasta que la persona redimensiona: mientras tanto la columna toma su
+ * ancho por clases (240 px, o 160 px en pantalla estrecha). El ancho elegido
+ * no va a la URL ni se guarda: es estado local de la vista.
+ */
+const anchoNombres = ref(null)
+
+/** Limites del ancho de la columna de nombres. */
+const ANCHO_NOMBRES_MIN = GANTT_METRICS.namesWidthSmall
+const ANCHO_NOMBRES_MAX = 480
+
+/**
+ * Aplica el ancho pedido por el asa, dentro de los limites.
+ *
+ * El acotado vive aqui y no en el asa: asi hay un solo sitio donde el
+ * ancho valido se decide, y el asa solo pide.
+ */
+function redimensionarNombres(ancho) {
+  const valor = Math.round(Number(ancho))
+  if (!Number.isFinite(valor)) return
+  anchoNombres.value = Math.min(ANCHO_NOMBRES_MAX, Math.max(ANCHO_NOMBRES_MIN, valor))
+}
+
+/**
+ * Centra la columna de hoy en el panel del diagrama.
+ *
+ * El desplazamiento va al centro de la columna del dia menos la mitad del
+ * panel: la columna de hoy queda en medio. Lo llama la vista cuando el
+ * diagrama ya esta pintado con el ancho nuevo: si se hiciera antes, el
+ * navegador recortaria el `scrollLeft` al rango de scroll de ese momento y
+ * el centrado se perderia.
+ */
+function centrarHoy() {
+  const panel = panelDiagrama.value
+  if (!panel) return
+  const indice = props.layout.todayIndex
+  if (indice === null || indice === undefined) return
+  const x = indice * props.layout.pxPerDay + props.layout.pxPerDay / 2
+  panel.scrollLeft = Math.max(0, x - panel.clientWidth / 2)
+  // El lienzo se ha desplazado: su caja en el viewport ya no vale.
+  cajaLienzo = null
+}
+
 /** El lienzo: el SVG del diagrama. Su caja da la coordenada del puntero. */
 const lienzo = ref(null)
 /** Desplazamiento vertical del diagrama: el eje lo invierte, la columna lo replica. */
@@ -103,6 +148,10 @@ function medirAncho() {
 
 onMounted(() => {
   medirAncho()
+  // La rueda con Ctrl hace zoom. El listener va en el panel, que es donde
+  // esta el diagrama, y no es pasivo: hace falta `preventDefault` para que
+  // el navegador no haga su propio zoom de pagina.
+  panelDiagrama.value?.addEventListener('wheel', alGirarRueda, { passive: false })
   // Sin `ResizeObserver` (por ejemplo en jsdom) el ancho se queda en el que
   // se midio al montar: no se rompe nada por no poder observar.
   if (typeof ResizeObserver === 'undefined') return
@@ -114,6 +163,7 @@ onBeforeUnmount(() => {
   observadorAncho?.disconnect()
   observadorAncho = null
   window.removeEventListener('mouseup', alSoltarRaton)
+  panelDiagrama.value?.removeEventListener('wheel', alGirarRueda)
 })
 
 /**
@@ -440,6 +490,89 @@ function alDobleClicFondo(event) {
     fila,
   })
 }
+
+/**
+ * Ancla del zoom: donde estaba el puntero, en pixeles de contenido.
+ *
+ * La guarda el gesto de Ctrl+rueda y la consume el cambio de pixeles por
+ * dia: el dia que estaba bajo el puntero se queda bajo el puntero. Solo vale
+ * para el gesto que la creo, de modo que un cambio de escala o de rango no
+ * mueve el diagrama.
+ */
+let anclaZoom = null
+
+/**
+ * Ctrl+rueda sobre el diagrama: zoom continuo.
+ *
+ * Sin Ctrl la rueda desplaza el diagrama como siempre: aqui no se hace nada
+ * y no se anula el evento. Con Ctrl se avisa a la vista (que es quien tiene
+ * el factor) y se evita el zoom del navegador, por eso el listener no es
+ * pasivo.
+ *
+ * El chart no decide el factor: avisa del gesto con el delta de la rueda (en
+ * pixeles; negativo acerca, positivo aleja) y guarda el ancla.
+ */
+function alGirarRueda(event) {
+  if (!event.ctrlKey) return
+  event.preventDefault()
+  const rect = cajaDelLienzo()
+  if (!rect) return
+  const x = event.clientX - rect.left
+  // El ancla solo vale con el puntero sobre el rango: fuera de el no hay
+  // dia que conservar.
+  anclaZoom = x >= 0 && x < props.layout.width ? { x } : null
+  emit('zoom', deltaEnPixeles(event))
+  // Si el factor no cambia (ya esta en el limite), el ancla caduca: el
+  // siguiente cambio del diagrama no debe moverlo.
+  nextTick(() => {
+    anclaZoom = null
+  })
+}
+
+/** Delta de la rueda en pixeles: algunos navegadores cuentan lineas. */
+function deltaEnPixeles(event) {
+  if (event.deltaMode === 1) return event.deltaY * 16
+  if (event.deltaMode === 2) return event.deltaY * 100
+  return event.deltaY
+}
+
+/**
+ * Correccion del scroll con el ancla del zoom.
+ *
+ * Al cambiar los pixeles por dia el contenido se desplaza: el scrollLeft se
+ * corrige en la misma medida para que el dia que estaba bajo el puntero siga
+ * bajo el puntero. La correccion es proporcional: la x del puntero en
+ * pixeles de contenido se multiplica por el ratio de escalas, que es
+ * cuantos pixeles se ha movido ese dia.
+ *
+ * La correccion va en la fase post: el navegador recorta el scrollLeft al
+ * rango de scroll que hay en ese momento, y ese rango solo crece cuando el
+ * DOM ya ha puesto el `min-width` nuevo del lienzo. Antes de eso, el scroll
+ * se perderia.
+ */
+watch(
+  () => props.layout.pxPerDay,
+  (nuevo, viejo) => {
+    const ancla = anclaZoom
+    anclaZoom = null
+    const panel = panelDiagrama.value
+    if (!ancla || !panel) return
+    if (!Number.isFinite(nuevo) || !Number.isFinite(viejo) || viejo <= 0) return
+    panel.scrollLeft += ancla.x * (nuevo - viejo) / viejo
+    // El lienzo se ha movido: su caja en el viewport ya no vale.
+    cajaLienzo = null
+  },
+  { flush: 'post' },
+)
+
+/**
+ * Lo que la vista puede pedirle al diagrama.
+ *
+ * `centrarHoy` deja la columna de hoy en el centro del panel, y `arrastrando`
+ * dice si hay un gesto de arrastre en juego: con un gesto vivo, el Escape es
+ * del gesto y no de la vista.
+ */
+defineExpose({ centrarHoy, arrastrando })
 </script>
 
 <template>
@@ -462,7 +595,11 @@ function alDobleClicFondo(event) {
       :desplazamiento="desplazamiento"
       :fila-resaltada="filaRaton"
       :fila-activa="filaActiva"
+      :ancho="anchoNombres"
+      :minimo="ANCHO_NOMBRES_MIN"
+      :maximo="ANCHO_NOMBRES_MAX"
       @fila-raton="filaRaton = $event"
+      @redimension="redimensionarNombres"
     />
 
     <div

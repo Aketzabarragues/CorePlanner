@@ -19,7 +19,7 @@
  * cuentan lo mismo. Sin permiso de escritura en el proyecto, la barra se ve
  * en solo lectura: sin asas y sin arrastre.
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import {
@@ -35,6 +35,7 @@ import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
+import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import FilterField from '../components/common/FilterField.vue'
 import ModalDialog from '../components/ModalDialog.vue'
@@ -72,6 +73,24 @@ const loading = ref(true)
 const saving = ref(false)
 const escalaId = ref('Week')
 /**
+ * Factor de detalle del diagrama.
+ *
+ * Vive en la vista, como la escala: no va a la URL. Con 1 el lienzo llena el
+ * panel (el estado de partida); mas factor da mas pixeles por dia y el panel
+ * se desplaza en horizontal; menos factor deja el rango mas corto que el
+ * panel y se ve hueco a la derecha.
+ */
+const zoom = ref(1)
+/**
+ * Diagrama en modo ampliado: ocupa la ventana entera, por encima del
+ * armazon. La vista se sale del armazon con `fixed inset-0` (no hay
+ * `Teleport` ni ancestro con `transform`), de modo que los dialogos que se
+ * abren desde aqui siguen viendo la ventana y quedan por encima.
+ */
+const ampliado = ref(false)
+/** El diagrama: la vista le pide que centre la columna de hoy. */
+const chart = ref(null)
+/**
  * Ancho disponible del panel de diagrama, en pixeles.
  *
  * Lo informa el chart (`ancho-panel`). Con 0 (aun sin medir) la escala
@@ -106,6 +125,12 @@ const GRUPOS = [
 
 /** Semanas del rango "Hoy": hoy y cuatro a cada lado. */
 const SEMANAS_HOY = 4
+
+/** Factor de detalle minimo y maximo: el zoom tiene tope en los dos sentidos. */
+const ZOOM_MIN = 0.25
+const ZOOM_MAX = 8
+/** Paso de los botones: el factor se multiplica o se divide por este. */
+const PASO_ZOOM = 1.25
 
 const departmentFilter = computed(() => route.query.department ?? '')
 const projectFilter = useProyectoFiltro()
@@ -367,13 +392,35 @@ const rangoEfectivo = computed(() => {
   })
 })
 
+/**
+ * Si hoy esta dentro del rango que ha elegido la persona.
+ *
+ * El rango completo (sin `from` y `to` en la URL) no cuenta: ese lo sacaron
+ * las barras, no la persona, y "Hoy" debe devolverle un rango alrededor de
+ * hoy. Con un rango elegido que ya contiene a hoy, el boton solo centra y no
+ * toca el rango.
+ */
+const hoyEnRangoElegido = computed(() => {
+  if (!rangoDesde.value || !rangoHasta.value) return false
+  const desde = parseIsoDate(rangoDesde.value)
+  const hasta = parseIsoDate(rangoHasta.value)
+  const hoy = parseIsoDate(hoyIso.value)
+  return hoy >= desde && hoy <= hasta
+})
+
 /** Modelo del diagrama, ya con la barra pegada a cada fila. */
 const layout = computed(() => {
   const { desde, hasta } = rangoEfectivo.value
   // La escala se estira al ancho del panel: los pixeles por dia suben hasta
   // llenar el ancho disponible, sin bajar del natural. Los dias del rango son
-  // los mismos que usa `buildTimeAxis`.
-  const escalaEfectiva = escalaAjustada(escala.value, diffDays(desde, hasta) + 1, anchoPanel.value)
+  // los mismos que usa `buildTimeAxis`. El factor de detalle multiplica esa
+  // escala base: con 1 el resultado es el de siempre.
+  const escalaEfectiva = escalaAjustada(
+    escala.value,
+    diffDays(desde, hasta) + 1,
+    anchoPanel.value,
+    zoom.value,
+  )
   const modelo = buildLayout({
     items: barras.value,
     groupMode: groupBy.value,
@@ -646,14 +693,19 @@ const rangoLabel = computed(() =>
   etiquetaRango(rangoEfectivo.value.desde, rangoEfectivo.value.hasta),
 )
 
-/** Escribe un filtro en la URL, que es donde vive el estado de la vista. */
+/**
+ * Escribe un filtro en la URL, que es donde vive el estado de la vista.
+ *
+ * Devuelve la navegacion: quien la espera sabe que la URL ya esta escrita y
+ * que el diagrama se puede volver a pintar con el rango nuevo.
+ */
 function cambiarFiltro(patch) {
   const query = { ...route.query }
   for (const [key, value] of Object.entries(patch)) {
     if (value === '' || value === null || value === undefined) delete query[key]
     else query[key] = String(value)
   }
-  router.replace({ path: route.path, query })
+  return router.replace({ path: route.path, query })
 }
 
 /**
@@ -685,16 +737,92 @@ function moveRango(delta) {
   })
 }
 
-function goHoy() {
+/**
+ * "Hoy": el rango a hoy y la columna de hoy centrada en el diagrama.
+ *
+ * Si el rango que ha elegido la persona ya contiene a hoy, no se toca: el
+ * boton solo centra. Si no, el rango se lleva a hoy y cuatro semanas a cada
+ * lado, como siempre.
+ *
+ * El centrado va DESPUES de que el diagrama este pintado con el rango
+ * nuevo: el navegador recorta el desplazamiento al rango de scroll vigente, y
+ * ese rango solo crece cuando el DOM ya tiene el ancho nuevo del lienzo.
+ * Antes de eso, el centrado se perderia.
+ */
+async function goHoy() {
   const hoy = parseIsoDate(hoyIso.value)
-  cambiarFiltro({
-    from: toIsoDate(addDays(hoy, -SEMANAS_HOY * 7)),
-    to: toIsoDate(addDays(hoy, SEMANAS_HOY * 7)),
-  })
+  if (!hoyEnRangoElegido.value) {
+    await cambiarFiltro({
+      from: toIsoDate(addDays(hoy, -SEMANAS_HOY * 7)),
+      to: toIsoDate(addDays(hoy, SEMANAS_HOY * 7)),
+    })
+    await nextTick()
+  }
+  chart.value?.centrarHoy()
 }
 
 function goCompleto() {
   cambiarFiltro({ from: null, to: null })
+}
+
+/** Factor dentro de los limites: el detalle nunca se sale del tope. */
+function limitaZoom(valor) {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, valor))
+}
+
+/**
+ * Zoom continuo: el chart avisa del gesto y aqui se decide el factor.
+ *
+ * El delta va en pixeles (negativo acerca, positivo aleja) y se convierte en
+ * un multiplicador del factor vigente: una muesca de rueda (100 px) cambia
+ * el detalle un 19 %. El delta se acota para que una rueda disparada no
+ * salte el detalle de golpe.
+ */
+function alZoomear(delta) {
+  const paso = Math.max(-120, Math.min(120, Number(delta) || 0))
+  const nuevo = limitaZoom(zoom.value * 2 ** (-paso / 400))
+  if (nuevo === zoom.value) return
+  zoom.value = nuevo
+}
+
+/** Mas detalle: un paso mas de pixeles por dia. */
+function zoomMas() {
+  zoom.value = limitaZoom(zoom.value * PASO_ZOOM)
+}
+
+/** Menos detalle: un paso menos de pixeles por dia. */
+function zoomMenos() {
+  zoom.value = limitaZoom(zoom.value / PASO_ZOOM)
+}
+
+/** Ajustar: vuelve al estado de partida, con el lienzo lleno del panel. */
+function zoomAjustar() {
+  zoom.value = 1
+}
+
+/**
+ * Modo ampliado: el diagrama pasa a ocupar la ventana entera.
+ *
+ * El boton de la barra de herramientas hace de entrada y de salida, y es el
+ * mismo elemento en los dos casos: el foco no se pierde al entrar ni al
+ * salir, porque el control que lo tiene sigue siendo el mismo.
+ */
+function alternarAmpliado() {
+  ampliado.value = !ampliado.value
+}
+
+/**
+ * Escape sale del modo ampliado.
+ *
+ * Con un dialogo abierto el Escape es del dialogo, y con un gesto de arrastre
+ * en juego es del gesto: en ninguno de los dos casos se sale del modo
+ * ampliado, para que no se esconda el diagrama a la vez.
+ */
+function alTeclaGlobal(event) {
+  if (event.key !== 'Escape') return
+  if (selectedTaskId.value !== null || altaAbierta.value || cascada.value !== null) return
+  if (chart.value?.arrastrando) return
+  ampliado.value = false
 }
 
 /**
@@ -1091,6 +1219,13 @@ watch(
 watch([personasOcultas, departamentosOcultos], () => {
   barraEnfocada.value = null
 })
+// El Escape solo se escucha en modo ampliado: fuera de el no hay nada que
+// cerrar y la tecla es de los dialogos y del arrastre de barras.
+watch(ampliado, (activo) => {
+  if (activo) document.addEventListener('keydown', alTeclaGlobal)
+  else document.removeEventListener('keydown', alTeclaGlobal)
+})
+onBeforeUnmount(() => document.removeEventListener('keydown', alTeclaGlobal))
 useTaskReload(load)
 </script>
 
@@ -1100,8 +1235,15 @@ useTaskReload(load)
     diagrama se queda con el espacio que sobra y encoge con el que falta. El
     exito de un guardado sale como toast flotante, fuera de la columna; los
     avisos en linea son los de error y no empujan el diagrama.
+
+    En modo ampliado la vista sale del armazon (`fixed inset-0`) y ocupa la
+    ventana entera. No hay `Teleport` ni ancestro con `transform`, asi que
+    los dialogos que se abren desde aqui siguen viendo la ventana.
   -->
-  <div class="flex h-full min-h-0 flex-col">
+  <div
+    class="flex h-full min-h-0 flex-col"
+    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-slate-50 p-3 sm:p-6' : ''"
+  >
     <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle">
       <template #actions>
         <button
@@ -1120,6 +1262,65 @@ useTaskReload(load)
           label="Escala temporal"
           testid-prefix="gantt-scale"
         />
+        <!--
+          Detalle del diagrama: cuanto mas pixeles por dia, mas cerca se ve
+          el rango. "Ajustar" devuelve el lienzo al ancho del panel.
+        -->
+        <div
+          class="flex items-center gap-1"
+          role="group"
+          aria-label="Detalle del diagrama"
+          title="Ctrl+rueda sobre el diagrama para acercar o alejar"
+        >
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            aria-label="Menos detalle"
+            :disabled="zoom <= ZOOM_MIN"
+            data-testid="gantt-zoom-out"
+            @click="zoomMenos"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            aria-label="Ajustar al ancho"
+            :disabled="zoom === 1"
+            data-testid="gantt-zoom-fit"
+            @click="zoomAjustar"
+          >
+            Ajustar
+          </button>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            aria-label="Más detalle"
+            :disabled="zoom >= ZOOM_MAX"
+            data-testid="gantt-zoom-in"
+            @click="zoomMas"
+          >
+            +
+          </button>
+        </div>
+        <!--
+          Modo ampliado: el diagrama a pantalla completa, por encima del
+          armazon. El boton es el mismo al entrar y al salir, de modo que el
+          foco no se pierde en ninguno de los dos momentos.
+        -->
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+          :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
+          :aria-pressed="ampliado"
+          :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
+          data-testid="gantt-fullscreen"
+          @click="alternarAmpliado"
+        >
+          <span class="inline-flex h-4 w-4">
+            <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+          </span>
+        </button>
       </template>
     </PageHeader>
 
@@ -1286,6 +1487,7 @@ useTaskReload(load)
       -->
       <div class="flex min-h-[200px] flex-1 flex-col">
         <GanttChart
+          ref="chart"
           :layout="layout"
           :columnas="columnas"
           :bandas-cabecera="layout.axis.bands"
@@ -1302,6 +1504,7 @@ useTaskReload(load)
           @mover="moverTarea"
           @crear="alCrear"
           @ancho-panel="anchoPanel = $event"
+          @zoom="alZoomear"
         />
       </div>
     </AsyncState>

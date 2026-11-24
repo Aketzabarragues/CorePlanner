@@ -84,6 +84,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt tiene zoom continuo (Ctrl+rueda sobre el
+  diagrama, mas botones de detalle y "Ajustar al ancho"), con el dia que esta
+  bajo el puntero siempre en su sitio; panel de nombres redimensionable con un
+  asa; modo ampliado a pantalla completa, que se sale con `Escape`; y el boton
+  "Hoy" ademas de mover el rango, centra la columna de hoy.
 - **frontend**: el diagrama de Gantt marca la columna del raton con una cruz
   vertical y la fecha de ese dia, y al pasar por encima de una barra muestra un
   globo con sus datos: inicio, fin, duracion, avance y sus dependencias (que

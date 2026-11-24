@@ -13,6 +13,15 @@
  *
  * El raton que pasa por encima se anuncia con `entrar` y `salir`: el chart
  * dibuja con ello el globo de datos de la tarea.
+ *
+ * Vocabulario de la barra (que distingue una barra de otra):
+ * - el COLOR es el de la persona o el del proyecto: dato guardado;
+ * - el CONTORNO DISCONTINUO es del proyecto provisional (`--provisional`);
+ * - el TRIANGULO es de la violacion de una dependencia (el `polygon` de
+ *   abajo), y el motivo va en el `aria-label`.
+ * Ninguno de los tres se transmite solo por color: los dos ultimos cambian
+ * de forma. La ruta critica, que llega en las fases siguientes, sera un
+ * cuarto signo con su propio modificador, junto a `--provisional`.
  */
 import { computed } from 'vue'
 
@@ -104,7 +113,6 @@ function empezarArrastre(event) {
       :width="anchoBarra * (barra.progress / 100)"
       :height="GANTT_METRICS.barHeight"
       :rx="GANTT_METRICS.barRadius"
-      fill="rgba(0, 0, 0, 0.28)"
     />
 
     <!-- Etiqueta: solo si cabe entera. -->
@@ -124,8 +132,6 @@ function empezarArrastre(event) {
       class="gantt__barra-violacion"
       points="10,1 20,1 15,10"
       :transform="`translate(${anchoBarra - 21} 0)`"
-      fill="#475569"
-      stroke="#fff"
       stroke-width="1"
       aria-hidden="true"
       data-testid="gantt-bar-violation"
@@ -139,7 +145,6 @@ function empezarArrastre(event) {
       x="0"
       :width="GANTT_METRICS.handleWidth"
       :height="GANTT_METRICS.barHeight"
-      fill="transparent"
       style="cursor: ew-resize"
       aria-hidden="true"
       data-testid="gantt-handle-start"
@@ -150,7 +155,6 @@ function empezarArrastre(event) {
       :x="anchoBarra - GANTT_METRICS.handleWidth"
       :width="GANTT_METRICS.handleWidth"
       :height="GANTT_METRICS.barHeight"
-      fill="transparent"
       style="cursor: ew-resize"
       aria-hidden="true"
       data-testid="gantt-handle-end"

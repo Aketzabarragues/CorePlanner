@@ -6,6 +6,11 @@
  * vive dentro del SVG va aqui, porque las clases de utilidad no llegan a la
  * geometria del SVG; lo demas (columna de nombres, botonera, fantasma) usa
  * clases de Tailwind en la plantilla.
+ *
+ * Estas reglas no van en una capa de Tailwind: al quedar fuera de capa,
+ * ganan a las utilidades aunque estas se apliquen despues. Por eso el tinte
+ * de la fila resaltada puede pisar el fondo gris de la fila de grupo sin
+ * recurrir a `!important`.
  */
 
 /*
@@ -14,6 +19,10 @@
  * El backend elige el indice de la paleta segun la posicion de la persona
  * y lo devuelve como clase, de modo que el mismo color sirve para la barra
  * del diagrama y para la muestra de la leyenda.
+ *
+ * Esta paleta NO es estilo: es el dato guardado (el color de la persona y el
+ * del proyecto). No se toca con el resto del vocabulario visual ni se
+ * sustituye por tokens: el backend la elige y el frontend la muestra.
  */
 .persona-0 { --persona-color: #1f6feb; background-color: var(--persona-color); }
 .persona-1 { --persona-color: #1a7f37; background-color: var(--persona-color); }
@@ -23,12 +32,219 @@
 .persona-5 { --persona-color: #57606a; background-color: var(--persona-color); }
 
 /*
+ * Vocabulario visual del diagrama.
+ *
+ * Una clase por concepto, no por color: el SVG no lleva hex, ni `fill` ni
+ * `stroke` a mano, sino clases que salen del sistema de diseno (las
+ * utilidades de Tailwind y la escala de marca `siemens`). Asi el diagrama
+ * habla el mismo idioma que el resto de la aplicacion, y cambiar un color
+ * es cambiar una clase.
+ *
+ * El nombre de la clase dice QUE se pinta, no COMO: `gantt__banda-festivo`
+ * es la banda de un dia festivo, no "el color ambar". Cuando el mismo
+ * concepto aparece en dos estados, el estado va como sufijo (`--resaltada`,
+ * `--activa`).
+ *
+ * Mover el color a una clase no puede cambiar lo que se ve: cada clase
+ * recoge el color que ya estaba a mano, con su mismo valor. Los tintes
+ * nuevos (la fila resaltada) son los unicos que no tienen un color anterior
+ * al que parecerse.
+ */
+
+/* Lienzo: el papel donde se dibuja todo. */
+.gantt__lienzo {
+  @apply fill-white;
+}
+
+/* Cabecera del eje: fondo opaco (tapa lo que pasa por debajo) y borde. */
+.gantt__eje-fondo {
+  @apply fill-slate-100;
+}
+.gantt__eje-borde {
+  @apply stroke-slate-200;
+}
+
+/*
+ * Rejilla: la linea de celda y la fina que la afina.
+ *
+ * La de celda cierra cada columna del eje; la fina va dentro (dias dentro de
+ * la semana, semanas dentro del mes) y es mas clara.
+ */
+.gantt__rejilla-linea {
+  @apply stroke-slate-200;
+}
+.gantt__rejilla-linea-fina {
+  @apply stroke-slate-100;
+}
+/* Borde derecho: cierra la rejilla en el ultimo pixel del lienzo. */
+.gantt__rejilla-borde {
+  @apply fill-slate-200;
+}
+
+/* Separador de mes: mas marcado que la rejilla, para que se vea el cambio. */
+.gantt__separador-mes {
+  @apply stroke-slate-300;
+}
+
+/*
+ * Bandas del cuerpo: fin de semana, festivo y destino del arrastre.
+ *
+ * El festivo lleva su propio tinte porque es informacion, no decoracion:
+ * un dia no laborable no se puede trabajar.
+ */
+.gantt__banda-fin-de-semana {
+  @apply fill-slate-50;
+}
+.gantt__banda-festivo {
+  @apply fill-amber-50;
+}
+.gantt__banda-arrastre {
+  @apply fill-siemens-500/[0.08];
+}
+
+/*
+ * Linea de hoy: el azul mas oscuro de la marca, para que no se confunda con
+ * la cruz de fecha (que va en el azul claro y es de otro signo).
+ */
+.gantt__hoy {
+  @apply stroke-siemens-900;
+  pointer-events: none;
+}
+
+/*
+ * Cruz de fecha: la columna del puntero y su etiqueta en la cabecera.
+ *
+ * La cruz no puede capturar el puntero, porque estorbaria al arrastre de la
+ * barra que hay debajo.
+ */
+.gantt__cruz {
+  @apply stroke-siemens-500/[0.45];
+  pointer-events: none;
+}
+.gantt__cruz-caja {
+  @apply fill-white stroke-slate-300;
+}
+.gantt__cruz-fecha {
+  @apply fill-siemens-900 text-[10px] font-semibold;
+}
+.gantt__cruz-etiqueta {
+  pointer-events: none;
+}
+
+/* Flechas de dependencias: el trazo del vinculo y la punta que lo cierra. */
+.gantt__flecha {
+  @apply fill-none stroke-slate-600;
+}
+/* Van encima de las barras y no capturan el puntero, para no estorbar el
+   arrastre. */
+.gantt__flechas polyline {
+  pointer-events: none;
+}
+.gantt__punta {
+  @apply fill-slate-600;
+}
+
+/* Fila de grupo: el fondo y el separador que la cierra. */
+.gantt__grupo-fondo {
+  @apply fill-slate-100;
+}
+.gantt__grupo-separador {
+  @apply stroke-slate-200;
+}
+
+/*
+ * Texto del eje: el titulo de la banda, el subtitulo y las insignias.
+ *
+ * El titulo va en 12 px con peso 600 (numero de semana, nombre de mes,
+ * numero de dia); el subtitulo y las insignias, en 10 px. Asi el SVG no
+ * lleva tipografia a mano.
+ */
+.gantt__titulo-eje {
+  @apply fill-siemens-900 text-xs font-semibold;
+}
+.gantt__subtitulo-eje {
+  @apply fill-slate-500 text-[10px];
+}
+.gantt__insignia-hoy-caja {
+  @apply fill-siemens-900;
+}
+.gantt__insignia-hoy-texto {
+  @apply fill-white text-[10px] font-semibold;
+}
+.gantt__insignia-festivo-caja {
+  @apply fill-white stroke-slate-300;
+}
+.gantt__insignia-festivo-texto {
+  @apply fill-slate-600 text-[10px] font-medium;
+}
+
+/*
+ * Barra: cuerpo, avance, etiqueta y marca de violacion.
+ *
+ * El color del cuerpo es el de la persona (o el del proyecto); el resto son
+ * signos del diagrama, no informacion de la tarea.
+ */
+.gantt__barra-cuerpo {
+  /*
+   * Reserva del cuerpo de barra (tarea sin persona): antes era `#b8c2cc` y
+   * ahora es el `slate-300` de la paleta. Es un gris un poco mas claro: un
+   * cambio de tono minimo y deliberado, para que la reserva sea un token y
+   * no un color suelto.
+   */
+  fill: var(--persona-color, theme('colors.slate.300'));
+}
+.gantt__barra-avance {
+  @apply fill-black/[0.28];
+  pointer-events: none;
+}
+/*
+ * Etiqueta de la barra: texto blanco sobre el cuerpo de color. El cuerpo
+ * va en el color de la persona o del proyecto, y cuatro de los seis colores
+ * de la paleta son demasiado claros para un texto oscuro encima.
+ */
+.gantt__barra-etiqueta {
+  @apply fill-white;
+  pointer-events: none;
+}
+/* Marca de violacion: no captura el puntero. */
+.gantt__barra-violacion {
+  @apply fill-slate-600 stroke-white;
+  pointer-events: none;
+}
+
+/*
+ * Fila resaltada: la banda del diagrama y el tinte de la columna de nombres.
+ *
+ * La fila bajo el puntero y la fila de la barra enfocada se marcan en las
+ * DOS mitades del diagrama a la vez, con el mismo tinte: asi se leen como
+ * una fila unica entre la columna de nombres y el diagrama.
+ *
+ * En el diagrama la banda va detras de las barras (que se leen encima), mide
+ * UNA fila de alto y ocupa todo el ancho del lienzo. No captura el puntero:
+ * estorbaria al arrastre.
+ */
+.gantt__fila-resaltada {
+  @apply fill-siemens-500/[0.08];
+  pointer-events: none;
+}
+.gantt__fila-activa {
+  @apply fill-siemens-500/[0.12];
+  pointer-events: none;
+}
+.gantt__nombre-fila--resaltada {
+  @apply bg-siemens-500/[0.08];
+}
+.gantt__nombre-fila--activa {
+  @apply bg-siemens-500/[0.12];
+}
+
+/*
  * Anatomia del diagrama: capas del SVG y de la columna de nombres.
  *
- * El estilo lo ponen Tailwind (HTML) y los atributos SVG inline (geometria,
- * relleno, trazo). Estas reglas existen para que las clases de la plantilla
- * esten en el bundle y para fijar lo minimo que no puede salir de la
- * plantilla sin romperse.
+ * El estilo lo ponen Tailwind (HTML) y las clases semanticas de arriba (SVG).
+ * Estas reglas existen para que las clases de la plantilla esten en el
+ * bundle y para fijar lo minimo que no puede salir de la plantilla sin
+ * romperse.
  */
 
 /* Panel que hace scroll: no encadena el scroll a la pagina. */
@@ -61,33 +277,6 @@
   will-change: transform;
 }
 
-/* Linea de hoy: no interfiere con las barras que hay debajo. */
-.gantt__hoy {
-  pointer-events: none;
-}
-
-/*
- * Cruz de fecha: la columna del puntero y su etiqueta en la cabecera.
- *
- * Las dos son decorativas: la cruz no puede capturar el puntero, porque
- * estorbaria al arrastre de la barra que hay debajo.
- */
-.gantt__cruz,
-.gantt__cruz-etiqueta {
-  pointer-events: none;
-}
-
-/* Flechas de dependencias: encima de las barras y sin capturar el puntero,
-   para no estorbar el arrastre. */
-.gantt__flechas polyline {
-  pointer-events: none;
-}
-
-/* Marca de violacion dentro de la barra: no captura el puntero. */
-.gantt__barra-violacion {
-  pointer-events: none;
-}
-
 /*
  * Columna de nombres: no hace scroll propio; su pista interior se traslada
  * con el scroll del diagrama (translateY en la plantilla).
@@ -103,21 +292,6 @@
 }
 
 /*
- * Interior de la barra. El relleno y el trazo los da la plantilla (atributos
- * SVG inline); estas reglas solo fijan el comportamiento del puntero.
- */
-
-/* Avance: segmento oscuro sobre el cuerpo; no captura el puntero. */
-.gantt__barra-avance {
-  pointer-events: none;
-}
-
-/* Etiqueta: se pinta sobre la barra pero no captura el puntero. */
-.gantt__barra-etiqueta {
-  pointer-events: none;
-}
-
-/*
  * Asas de redimension: zona de agarre transparente de 8 px en cada extremo.
  * Los dos modificadores son el mismo agarre, uno por extremo.
  */
@@ -125,26 +299,6 @@
 .gantt__asa--inicio,
 .gantt__asa--fin {
   fill: transparent;
-}
-
-/*
- * Cuerpo de la barra: el color de la persona, o el gris de reserva si la
- * tarea no lleva persona. La clase llega en el grupo de la barra, nunca
- * concatenada en la plantilla.
- */
-.gantt__barra-cuerpo {
-  fill: var(--persona-color, #b8c2cc);
-}
-
-/*
- * Barra de un proyecto provisional: sin relleno y con el contorno punteado,
- * el mismo slate-500 de la matriz y del calendario para que se lea igual.
- */
-.gantt__barra--provisional .gantt__barra-cuerpo {
-  fill: #fff;
-  stroke: #64748b;
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
 }
 
 /*
@@ -164,10 +318,13 @@
 /*
  * Foco y seleccion: el anillo exterior siemens-700, para que el color de la
  * barra (que es informacion) no se toque.
+ *
+ * Tailwind no trae `outline-solid`, asi que el trazo va en el atajo y el
+ * color sale del token de la marca.
  */
 .gantt__barra:focus,
 .gantt__barra[aria-current="true"] {
-  outline: 2px solid #004a89;
+  outline: 2px solid theme('colors.siemens.700');
   outline-offset: 2px;
 }
 
@@ -176,7 +333,7 @@
  */
 @media (hover: hover) and (pointer: fine) {
   .gantt__barra:not(.gantt__barra--solo-lectura):hover .gantt__barra-cuerpo {
-    stroke: #94a3b8;
+    @apply stroke-slate-400;
     stroke-width: 1;
   }
   .gantt__barra:not(.gantt__barra--solo-lectura) .gantt__barra-cuerpo {
@@ -198,3 +355,32 @@
 .gantt__barra--solo-lectura .gantt__barra-cuerpo {
   cursor: default;
 }
+
+/*
+ * Barra de un proyecto provisional: sin relleno y con el contorno punteado,
+ * el mismo slate-500 de la matriz y del calendario para que se lea igual.
+ */
+.gantt__barra--provisional .gantt__barra-cuerpo {
+  @apply fill-white stroke-slate-500;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/*
+ * Vocabulario de la barra: que distingue una barra de otra.
+ *
+ * - El COLOR es de la persona (o del proyecto): dato guardado, no estilo.
+ * - El CONTORNO DISCONTINUO es del proyecto provisional: la barra no esta
+ *   firmada.
+ * - El TRIANGULO es de la violacion de una dependencia: la barra empieza
+ *   antes de que termine su requisito.
+ *
+ * Ninguno de los tres se transmite solo por color: el provisional cambia la
+ * FORMA del contorno y la violacion cambia la FORMA de la marca. El color es
+ * lo unico que no distingue por si solo.
+ *
+ * La ruta critica, que llega en las fases siguientes, sera un cuarto signo
+ * con su propio modificador de la barra (junto a `--provisional`) y con su
+ * marca en el cuerpo de la barra. Aqui solo queda reservado el sitio: no se
+ * anade marca ni estilo.
+ */

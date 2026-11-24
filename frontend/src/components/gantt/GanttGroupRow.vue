@@ -30,15 +30,16 @@ const props = defineProps({
     :data-testid="`gantt-group-${grupo.rowIndex}`"
     :aria-label="`Grupo: ${grupo.label}${resumen ? '. ' + resumen : ''}`"
   >
-    <rect x="0" :y="y" :width="ancho" :height="altoFila" fill="#f1f5f9" />
+    <rect class="gantt__grupo-fondo" x="0" :y="y" :width="ancho" :height="altoFila" />
     <line
+      class="gantt__grupo-separador"
       x1="0"
       :x2="ancho"
       :y1="y + altoFila"
       :y2="y + altoFila"
-      stroke="#e2e8f0"
       stroke-width="1"
     />
+    <!-- La franja de color es dato: lo elige el backend y llega como valor. -->
     <rect v-if="color" x="0" :y="y" width="4" :height="altoFila" :fill="color" />
   </g>
 </template>

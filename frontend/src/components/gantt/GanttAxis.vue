@@ -38,7 +38,7 @@ const props = defineProps({
 <template>
   <g data-testid="gantt-axis" aria-hidden="true">
     <!-- Fondo opaco: tapa el cuerpo que pasa por debajo al hacer scroll. -->
-    <rect x="0" y="0" :width="ancho" :height="alto" fill="#f1f5f9" />
+    <rect class="gantt__eje-fondo" x="0" y="0" :width="ancho" :height="alto" />
 
     <!--
       Banda del mes (escala de dia): el nombre del mes y su separador, mas
@@ -50,21 +50,35 @@ const props = defineProps({
       :key="`banda-${banda.key}`"
       :data-testid="`gantt-axis-banda-${banda.key}`"
     >
-      <line :x1="banda.x" :x2="banda.x" y1="0" :y2="alto" stroke="#cbd5e1" stroke-width="1" />
-      <text :x="banda.x + 6" y="15" fill="#003466" font-size="12" font-weight="600">
+      <line
+        class="gantt__separador-mes"
+        :x1="banda.x"
+        :x2="banda.x"
+        y1="0"
+        :y2="alto"
+        stroke-width="1"
+      />
+      <text class="gantt__titulo-eje" :x="banda.x + 6" y="15">
         {{ banda.label }}
       </text>
     </g>
 
     <g v-for="columna in columnas" :key="columna.key" :data-testid="`gantt-axis-column-${columna.key}`">
-      <line :x1="columna.x" :x2="columna.x" y1="0" :y2="alto" stroke="#e2e8f0" stroke-width="1" />
+      <line
+        class="gantt__rejilla-linea"
+        :x1="columna.x"
+        :x2="columna.x"
+        y1="0"
+        :y2="alto"
+        stroke-width="1"
+      />
 
       <!--
         Escala de dia: la banda 1 la lleva el mes, asi que aqui van el numero
         del dia (banda 2) y la inicial del dia de la semana (banda 3).
       -->
       <template v-if="columna.kind === 'day'">
-        <text :x="columna.x + 6" y="33" fill="#003466" font-size="12" font-weight="600">
+        <text class="gantt__titulo-eje" :x="columna.x + 6" y="33">
           {{ columna.label }}
         </text>
 
@@ -73,17 +87,19 @@ const props = defineProps({
           suelto no aporta. Asi no pisa a ningun otro texto.
         -->
         <g v-if="columna.hoy">
-          <rect :x="columna.x + 4" y="44" width="26" height="14" rx="7" fill="#003466" />
-          <text
-            :x="columna.x + 17"
-            y="54"
-            text-anchor="middle"
-            fill="#ffffff"
-            font-size="10"
-            font-weight="600"
-          >Hoy</text>
+          <rect
+            class="gantt__insignia-hoy-caja"
+            :x="columna.x + 4"
+            y="44"
+            width="26"
+            height="14"
+            rx="7"
+          />
+          <text class="gantt__insignia-hoy-texto" :x="columna.x + 17" y="54" text-anchor="middle">
+            Hoy
+          </text>
         </g>
-        <text v-else :x="columna.x + 6" y="54" fill="#64748b" font-size="10">
+        <text v-else class="gantt__subtitulo-eje" :x="columna.x + 6" y="54">
           {{ columna.sublabel }}
         </text>
       </template>
@@ -93,32 +109,32 @@ const props = defineProps({
         fechas o ano en el medio (banda 2) y festivo abajo (banda 3).
       -->
       <template v-else>
-        <text :x="columna.x + 6" y="15" fill="#003466" font-size="12" font-weight="600">
+        <text class="gantt__titulo-eje" :x="columna.x + 6" y="15">
           {{ columna.label }}
         </text>
 
-        <text v-if="columna.sublabel" :x="columna.x + 6" y="33" fill="#64748b" font-size="10">
+        <text v-if="columna.sublabel" class="gantt__subtitulo-eje" :x="columna.x + 6" y="33">
           {{ columna.sublabel }}
         </text>
 
         <!-- Insignia "Hoy": a la derecha de la banda 1, donde no hay texto. -->
         <g v-if="columna.hoy">
           <rect
+            class="gantt__insignia-hoy-caja"
             :x="columna.x + columna.width - 32"
             y="5"
             width="26"
             height="14"
             rx="7"
-            fill="#003466"
           />
           <text
+            class="gantt__insignia-hoy-texto"
             :x="columna.x + columna.width - 19"
             y="15"
             text-anchor="middle"
-            fill="#ffffff"
-            font-size="10"
-            font-weight="600"
-          >Hoy</text>
+          >
+            Hoy
+          </text>
         </g>
 
         <!--
@@ -127,21 +143,20 @@ const props = defineProps({
         -->
         <g v-if="columna.festivo">
           <rect
+            class="gantt__insignia-festivo-caja"
             :x="columna.x + 6"
             y="44"
             :width="columna.festivo.ancho + 12"
             height="14"
             rx="4"
-            fill="#ffffff"
-            stroke="#cbd5e1"
           />
-          <text :x="columna.x + 12" y="54" fill="#475569" font-size="10" font-weight="500">
+          <text class="gantt__insignia-festivo-texto" :x="columna.x + 12" y="54">
             {{ columna.festivo.etiqueta }}
           </text>
         </g>
       </template>
     </g>
 
-    <line x1="0" :x2="ancho" :y1="alto" :y2="alto" stroke="#e2e8f0" stroke-width="1" />
+    <line class="gantt__eje-borde" x1="0" :x2="ancho" :y1="alto" :y2="alto" stroke-width="1" />
   </g>
 </template>

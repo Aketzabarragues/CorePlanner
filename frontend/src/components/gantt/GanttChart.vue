@@ -134,10 +134,57 @@ const bandas = computed(() =>
   props.layout.scale.header === 'month' ? [] : props.layout.shaded,
 )
 
+/**
+ * Clase de la banda sombreada del cuerpo: festivo o fin de semana.
+ *
+ * Son dos clases y no una con el color por parametro: el festivo lleva su
+ * propio tinte porque es informacion (un dia no laborable no se trabaja).
+ */
+function claseDeBanda(kind) {
+  return kind === 'festivo' ? 'gantt__banda-festivo' : 'gantt__banda-fin-de-semana'
+}
+
 /** Barras por identificador de tarea, para resolver los extremos de las flechas. */
 const barraPorId = computed(
   () => new Map(props.layout.bars.map((barra) => [barra.taskId, barra])),
 )
+
+/**
+ * Fila de la barra enfocada: se marca aunque el raton este en otra fila.
+ *
+ * La barra enfocada es la unica con `tabindex` 0 y la unica con
+ * `aria-current`: su estado ya se anuncia. La banda de su fila es solo la
+ * parte visual de ese mismo estado.
+ */
+const filaActiva = computed(() => {
+  const id = props.barraEnfocada
+  if (id === null || id === undefined) return null
+  const barra = barraPorId.value.get(id)
+  return barra ? barra.rowIndex : null
+})
+
+/**
+ * Bandas de fila resaltada: la de la fila enfocada y la de la del puntero.
+ *
+ * Cada banda mide UNA fila de alto y ocupa todo el ancho del lienzo. Solo
+ * se pinta una por fila: si el puntero esta sobre la fila enfocada, manda
+ * la de la enfocada, que es mas marcada.
+ */
+const bandasFila = computed(() => {
+  const activa = bandaDeFila(filaActiva.value)
+  const raton = bandaDeFila(filaRaton.value)
+  return {
+    activa,
+    raton: raton && (!activa || raton.indice !== activa.indice) ? raton : null,
+  }
+})
+
+/** Banda de una fila del cuerpo, o null si la fila no existe. */
+function bandaDeFila(indice) {
+  if (indice === null || indice === undefined) return null
+  if (!props.layout.rows[indice]) return null
+  return { indice, y: indice * GANTT_ROW_HEIGHT }
+}
 
 /**
  * Flechas de dependencias, del fin del requisito al inicio de la dependiente.
@@ -162,6 +209,14 @@ const cruz = ref(null)
 const puntero = ref({ x: 0, y: 0 })
 /** Barra sobre la que esta el raton: la anuncia la propia barra. */
 const barraSobre = ref(null)
+/**
+ * Fila bajo el puntero.
+ *
+ * La columna de nombres avisa de la fila en la que esta el raton y el
+ * diagrama la calcula desde la y del puntero: las dos mitades comparten el
+ * mismo numero de fila, asi que el resaltado cae en la misma fila.
+ */
+const filaRaton = ref(null)
 /** El raton ha agarrado una barra: el gesto de arrastre esta en curso. */
 const arrastrando = ref(false)
 
@@ -190,16 +245,19 @@ function alMoverRaton(event) {
   const rect = cajaDelLienzo()
   if (!rect || arrastreEnCurso.value) {
     cruz.value = null
+    filaRaton.value = null
     return
   }
   const x = event.clientX - rect.left
   const y = event.clientY - rect.top
   if (x < 0 || x >= props.layout.width) {
     cruz.value = null
+    filaRaton.value = null
     return
   }
   if (y < desplazamiento.value + GANTT_METRICS.headerHeight) {
     cruz.value = null
+    filaRaton.value = null
     return
   }
   const indiceDia = Math.floor(x / props.layout.pxPerDay)
@@ -208,12 +266,27 @@ function alMoverRaton(event) {
     // La linea va en el centro de la columna: asi se ve a que dia apunta.
     x: indiceDia * props.layout.pxPerDay + props.layout.pxPerDay / 2,
   }
+  filaRaton.value = filaEnPunto(y)
 }
 
-/** El raton se va del diagrama: ni cruz ni globo. */
+/**
+ * Fila del cuerpo bajo el puntero.
+ *
+ * La fila sale de la y del puntero sobre el lienzo, con el mismo patron que
+ * el doble clic: el cuerpo va desplazado el alto de la cabecera, asi que la
+ * fila 0 empieza en la y de la cabecera. Una fila que no existe (por debajo
+ * del ultimo) no se resalta.
+ */
+function filaEnPunto(y) {
+  const indice = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
+  return props.layout.rows[indice] ? indice : null
+}
+
+/** El raton se va del diagrama: ni cruz ni globo ni fila resaltada. */
 function alSalirRaton() {
   cruz.value = null
   barraSobre.value = null
+  filaRaton.value = null
 }
 
 /**
@@ -384,7 +457,13 @@ function alDobleClicFondo(event) {
     :aria-describedby="aviso ? 'gantt-aviso' : undefined"
     data-testid="gantt-chart"
   >
-    <GanttNamesColumn :filas="filasNombres" :desplazamiento="desplazamiento" />
+    <GanttNamesColumn
+      :filas="filasNombres"
+      :desplazamiento="desplazamiento"
+      :fila-resaltada="filaRaton"
+      :fila-activa="filaActiva"
+      @fila-raton="filaRaton = $event"
+    />
 
     <div
       ref="panelDiagrama"
@@ -426,23 +505,23 @@ function alDobleClicFondo(event) {
             markerHeight="7"
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+            <path class="gantt__punta" d="M 0 0 L 10 5 L 0 10 z" />
           </marker>
         </defs>
 
         <!-- Fondo del lienzo: neutro, hasta el borde del lienzo. -->
-        <rect x="0" y="0" width="100%" :height="altoTotal" fill="#ffffff" aria-hidden="true" />
+        <rect class="gantt__lienzo" x="0" y="0" width="100%" :height="altoTotal" aria-hidden="true" />
 
         <!-- Rejilla vertical: una linea por tick del eje. Decorativa. -->
         <g class="gantt__rejilla" aria-hidden="true">
           <line
             v-for="tick in layout.axis.ticks"
             :key="tick.x"
+            class="gantt__rejilla-linea"
             :x1="tick.x"
             :x2="tick.x"
             y1="0"
             :y2="altoTotal"
-            stroke="#e2e8f0"
             stroke-width="1"
           />
           <!--
@@ -453,20 +532,20 @@ function alDobleClicFondo(event) {
           <line
             v-for="subtick in layout.axis.subticks"
             :key="`sub-${subtick.x}`"
+            class="gantt__rejilla-linea-fina"
             :x1="subtick.x"
             :x2="subtick.x"
             y1="0"
             :y2="altoTotal"
-            stroke="#f1f5f9"
             stroke-width="1"
           />
           <!-- Borde derecho: cierra la rejilla en el ultimo pixel del lienzo. -->
           <rect
+            class="gantt__rejilla-borde"
             x="100%"
             y="0"
             width="1"
             :height="altoTotal"
-            fill="#e2e8f0"
             transform="translate(-1, 0)"
             pointer-events="none"
           />
@@ -477,11 +556,11 @@ function alDobleClicFondo(event) {
           <rect
             v-for="banda in bandas"
             :key="`${banda.kind}-${banda.x}`"
+            :class="claseDeBanda(banda.kind)"
             :x="banda.x"
             y="0"
             :width="banda.width"
             :height="altoTotal"
-            :fill="banda.kind === 'festivo' ? '#fffbeb' : '#f8fafc'"
           />
         </g>
 
@@ -490,17 +569,42 @@ function alDobleClicFondo(event) {
              debajo de la cabecera pegajosa y no debajo de ella. -->
         <g class="gantt__cuerpo" :transform="`translate(0, ${GANTT_METRICS.headerHeight})`">
           <!--
+            Bandas de fila resaltada: la de la fila enfocada y la de la fila
+            bajo el puntero. Van detras de las barras, que se leen encima, y
+            no capturan el puntero. Son decorativas: el estado de la barra
+            enfocada ya lo anuncia su `aria-current`.
+          -->
+          <rect
+            v-if="bandasFila.activa"
+            class="gantt__fila-activa"
+            x="0"
+            :y="bandasFila.activa.y"
+            width="100%"
+            :height="GANTT_ROW_HEIGHT"
+            aria-hidden="true"
+          />
+          <rect
+            v-if="bandasFila.raton"
+            class="gantt__fila-resaltada"
+            x="0"
+            :y="bandasFila.raton.y"
+            width="100%"
+            :height="GANTT_ROW_HEIGHT"
+            aria-hidden="true"
+          />
+
+          <!--
             Banda de destino del arrastre: la FILA donde cae la tarea, con el
             ancho del rango nuevo. Se dibuja antes de las barras, para que se
             lean encima.
           -->
           <rect
             v-if="bandaPrevisualizacion"
+            class="gantt__banda-arrastre"
             :x="bandaPrevisualizacion.x"
             :y="bandaPrevisualizacion.y"
             :width="bandaPrevisualizacion.width"
             :height="bandaPrevisualizacion.height"
-            fill="rgba(0, 100, 180, 0.08)"
             data-testid="gantt-drag-preview"
           />
 
@@ -538,7 +642,6 @@ function alDobleClicFondo(event) {
             :x2="layout.todayIndex * layout.pxPerDay"
             y1="0"
             :y2="layout.rows.length * GANTT_ROW_HEIGHT"
-            stroke="#003466"
             stroke-width="2"
             aria-hidden="true"
           />
@@ -549,9 +652,8 @@ function alDobleClicFondo(event) {
             <polyline
               v-for="flecha in flechas"
               :key="`dep-${flecha.depends_on_id}-${flecha.task_id}`"
+              class="gantt__flecha"
               :points="flecha.puntos.map(([x, y]) => `${x},${y}`).join(' ')"
-              fill="none"
-              stroke="#475569"
               stroke-width="1.5"
               :stroke-dasharray="flecha.conPunta ? undefined : '5 4'"
               :marker-end="flecha.conPunta ? 'url(#gantt-punta)' : undefined"
@@ -570,9 +672,7 @@ function alDobleClicFondo(event) {
               :x2="cruz.x"
               y1="0"
               :y2="layout.rows.length * GANTT_ROW_HEIGHT"
-              stroke="#0064b4"
               stroke-width="1"
-              stroke-opacity="0.45"
             />
           </g>
         </g>
@@ -593,21 +693,16 @@ function alDobleClicFondo(event) {
           -->
           <g v-if="etiquetaCruz" class="gantt__cruz-etiqueta" aria-hidden="true">
             <rect
+              class="gantt__cruz-caja"
               :x="etiquetaCruz.x"
               y="42"
               :width="etiquetaCruz.ancho"
               height="18"
               rx="4"
-              fill="#ffffff"
-              stroke="#cbd5e1"
             />
-            <text
-              :x="etiquetaCruz.x + 8"
-              y="55"
-              fill="#003466"
-              font-size="10"
-              font-weight="600"
-            >{{ etiquetaCruz.texto }}</text>
+            <text class="gantt__cruz-fecha" :x="etiquetaCruz.x + 8" y="55">
+              {{ etiquetaCruz.texto }}
+            </text>
           </g>
         </g>
       </svg>

@@ -7,6 +7,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: el diagrama de Gantt deja de llevar los colores a mano: sus
+  ~30 hexadecimales pasan a clases del sistema de diseño (`gantt.css` con
+  `@apply` de Tailwind) y la tipografia del SVG sale tambien de las clases. La
+  paleta de personas sigue siendo dato, no estilo. Las filas se resaltan a la
+  vez en la columna de nombres y en el diagrama, y la fila de la barra
+  enfocada se marca con su propio tinte.
+- **frontend**: el selector segmentado (escala del Gantt, modo de la celda,
+  vista del calendario) y los campos de filtro de las tres vistas pasan a dos
+  componentes comunes (`SegmentedControl` y `FilterField`). Se conserva el
+  marcado y los `data-testid` de antes, y los selectores que no exponian estado
+  accesible (`aria-pressed`, `role="group"`) ahora lo hacen.
 - **frontend**: la cabecera del eje del Gantt se afina. En la escala de dia, una banda
   agrupa todos los dias del mes ("nov 2026") y debajo van el numero del dia y la inicial
   del dia de la semana. La rejilla muestra los dias dentro de la semana (escala de

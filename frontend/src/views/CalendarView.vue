@@ -32,6 +32,8 @@ import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import FilterField from '../components/common/FilterField.vue'
+import SegmentedControl from '../components/common/SegmentedControl.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import WeekLanes from '../components/common/WeekLanes.vue'
 import DayDetail from '../components/DayDetail.vue'
@@ -130,6 +132,23 @@ const departmentFilter = computed({
   set: (value) => updateQuery({ department: value }),
 })
 
+/** Vistas del calendario, para el selector comun. */
+const VISTAS = [
+  { value: 'month', label: 'Mes' },
+  { value: 'week', label: 'Semana' },
+  { value: 'day', label: 'Día' },
+]
+
+/** Opciones de los filtros: la de "todos" delante y las visibles detras. */
+const opcionesDepartamento = computed(() => [
+  { value: '', label: 'Todos los departamentos' },
+  ...store.departments.map((item) => ({ value: String(item.id), label: item.name })),
+])
+const opcionesProyecto = computed(() => [
+  { value: '', label: 'Todos los proyectos' },
+  ...store.projects.map((item) => ({ value: String(item.id), label: item.name })),
+])
+
 /**
  * Lo que se lee encima del calendario.
  *
@@ -142,17 +161,6 @@ const subtitle = computed(() => {
   }
   return 'Las tareas del proyecto que filtra, día a día.'
 })
-
-/** Clase de cada pestana del conmutador de vista. */
-const monthTabClass = computed(() =>
-  view.value === 'month' ? 'bg-siemens-900 text-white' : 'bg-white text-slate-700',
-)
-const weekTabClass = computed(() =>
-  view.value === 'week' ? 'bg-siemens-900 text-white' : 'bg-white text-slate-700',
-)
-const dayTabClass = computed(() =>
-  view.value === 'day' ? 'bg-siemens-900 text-white' : 'bg-white text-slate-700',
-)
 
 const weeks = computed(() => monthGrid(month.value))
 
@@ -604,35 +612,13 @@ watch(
   <div>
     <PageHeader title="Calendario" :subtitle="subtitle">
       <template #actions>
-          <div class="flex overflow-hidden rounded border border-slate-300">
-            <button
-              type="button"
-              class="px-3 py-1.5 text-sm"
-              :class="monthTabClass"
-              data-testid="calendar-view-month"
-              @click="setView('month')"
-            >
-              Mes
-            </button>
-            <button
-              type="button"
-              class="px-3 py-1.5 text-sm"
-              :class="weekTabClass"
-              data-testid="calendar-view-week"
-              @click="setView('week')"
-            >
-              Semana
-            </button>
-            <button
-              type="button"
-              class="px-3 py-1.5 text-sm"
-              :class="dayTabClass"
-              data-testid="calendar-view-day"
-              @click="setView('day')"
-            >
-              Día
-            </button>
-          </div>
+          <SegmentedControl
+            :model-value="view"
+            :options="VISTAS"
+            label="Vista del calendario"
+            testid-prefix="calendar-view"
+            @update:model-value="setView"
+          />
 
           <button
             type="button"
@@ -703,38 +689,23 @@ watch(
       @retry="reintentar"
     >
       <div class="mb-4 flex flex-wrap items-end gap-3">
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Departamento</span>
-          <select
-            v-model="departmentFilter"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-department"
-          >
-            <option value="">Todos los departamentos</option>
-            <option
-              v-for="department in store.departments"
-              :key="department.id"
-              :value="String(department.id)"
-            >
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
+        <FilterField
+          label="Departamento"
+          :options="opcionesDepartamento"
+          :model-value="departmentFilter"
+          testid="filter-department"
+          @update:model-value="departmentFilter = $event"
+        />
 
         <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
-        <label v-if="!route.params.id" class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Proyecto</span>
-          <select
-            v-model="projectFilter"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-project"
-          >
-            <option value="">Todos los proyectos</option>
-            <option v-for="project in store.projects" :key="project.id" :value="String(project.id)">
-              {{ project.name }}
-            </option>
-          </select>
-        </label>
+        <FilterField
+          v-if="!route.params.id"
+          label="Proyecto"
+          :options="opcionesProyecto"
+          :model-value="projectFilter"
+          testid="filter-project"
+          @update:model-value="projectFilter = $event"
+        />
 
         <VisibilityPanel
           :personas="personasVisibilidad"

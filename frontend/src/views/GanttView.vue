@@ -36,8 +36,10 @@ import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import FilterField from '../components/common/FilterField.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import SegmentedControl from '../components/common/SegmentedControl.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
@@ -116,6 +118,24 @@ const escala = computed(() => scaleById(escalaId.value))
 const proyectos = computed(() => (Array.isArray(store.projects) ? store.projects : []))
 const departamentos = computed(() =>
   Array.isArray(store.departments) ? store.departments : [],
+)
+
+/** Opciones del selector de escala, con la forma que pide el control comun. */
+const opcionesEscala = computed(() =>
+  GANTT_VIEW_MODES.map((modo) => ({ value: modo.id, label: modo.label })),
+)
+
+/** Opciones de los filtros: la de "todos" delante y las visibles detras. */
+const opcionesDepartamento = computed(() => [
+  { value: '', label: 'Todos los departamentos' },
+  ...departamentos.value.map((item) => ({ value: String(item.id), label: item.name })),
+])
+const opcionesProyecto = computed(() => [
+  { value: '', label: 'Todos los proyectos' },
+  ...proyectos.value.map((item) => ({ value: String(item.id), label: item.name })),
+])
+const opcionesGrupo = computed(() =>
+  GRUPOS.map((grupo) => ({ value: grupo.id, label: grupo.label })),
 )
 
 /**
@@ -1094,21 +1114,12 @@ useTaskReload(load)
         >
           {{ exportandoIcs ? 'Exportando...' : 'Exportar .ics' }}
         </button>
-        <button
-          v-for="mode in GANTT_VIEW_MODES"
-          :key="mode.id"
-          type="button"
-          class="rounded border px-3 py-1.5 text-sm"
-          :class="
-            escalaId === mode.id
-              ? 'border-siemens-900 bg-siemens-900 text-white'
-              : 'border-slate-300 bg-white text-slate-700'
-          "
-          :data-testid="`gantt-scale-${mode.id}`"
-          @click="escalaId = mode.id"
-        >
-          {{ mode.label }}
-        </button>
+        <SegmentedControl
+          v-model="escalaId"
+          :options="opcionesEscala"
+          label="Escala temporal"
+          testid-prefix="gantt-scale"
+        />
       </template>
     </PageHeader>
 
@@ -1123,50 +1134,31 @@ useTaskReload(load)
     </AlertBanner>
 
     <div class="mb-3 flex shrink-0 flex-wrap items-end gap-3" data-testid="gantt-filters">
-      <label class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Departamento</span>
-        <select
-          data-testid="gantt-filter-department"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          :value="departmentFilter"
-          @change="cambiarFiltro({ department: $event.target.value })"
-        >
-          <option value="">Todos los departamentos</option>
-          <option v-for="item in departamentos" :key="item.id" :value="String(item.id)">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
+      <FilterField
+        label="Departamento"
+        :options="opcionesDepartamento"
+        :model-value="departmentFilter"
+        testid="gantt-filter-department"
+        @update:model-value="cambiarFiltro({ department: $event })"
+      />
 
       <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
-      <label v-if="!route.params.id" class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Proyecto</span>
-        <select
-          data-testid="gantt-filter-project"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          :value="projectFilter"
-          @change="cambiarFiltro({ project: $event.target.value })"
-        >
-          <option value="">Todos los proyectos</option>
-          <option v-for="item in proyectos" :key="item.id" :value="String(item.id)">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
+      <FilterField
+        v-if="!route.params.id"
+        label="Proyecto"
+        :options="opcionesProyecto"
+        :model-value="projectFilter"
+        testid="gantt-filter-project"
+        @update:model-value="cambiarFiltro({ project: $event })"
+      />
 
-      <label class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Agrupar por</span>
-        <select
-          data-testid="gantt-group-by"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          :value="groupBy"
-          @change="cambiarFiltro({ group: $event.target.value })"
-        >
-          <option v-for="grupo in GRUPOS" :key="grupo.id" :value="grupo.id">
-            {{ grupo.label }}
-          </option>
-        </select>
-      </label>
+      <FilterField
+        label="Agrupar por"
+        :options="opcionesGrupo"
+        :model-value="groupBy"
+        testid="gantt-group-by"
+        @update:model-value="cambiarFiltro({ group: $event })"
+      />
 
       <VisibilityPanel
         :personas="personasVisibilidad"

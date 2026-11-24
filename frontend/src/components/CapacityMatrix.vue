@@ -48,6 +48,8 @@ import AppIcon from './AppIcon.vue'
 import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
+import FilterField from './common/FilterField.vue'
+import SegmentedControl from './common/SegmentedControl.vue'
 import SidePanel from './common/SidePanel.vue'
 import VisibilityPanel from './common/VisibilityPanel.vue'
 
@@ -144,10 +146,6 @@ const MODES = [
   { value: MODE.PERCENT, label: '% de uso' },
   { value: MODE.PROJECTS, label: 'Proyectos' },
 ]
-
-/** Aspecto del boton de modo: activo o inactivo. */
-const MODE_ACTIVE = 'bg-siemens-900 text-white'
-const MODE_INACTIVE = 'border border-slate-300 bg-white text-slate-700'
 
 /** Aspecto de una celda mientras se arrastra una tarea. */
 const PREVIEW_BORDER = 'border-2 border-dashed border-slate-500'
@@ -292,6 +290,16 @@ const departmentFilter = computed({
   get: () => query.value.department ?? '',
   set: (value) => updateQuery({ department: value }),
 })
+
+/** Opciones de los filtros: la de "todos" delante y las visibles detras. */
+const opcionesDepartamento = computed(() => [
+  { value: '', label: 'Todos los departamentos' },
+  ...store.departments.map((item) => ({ value: String(item.id), label: item.name })),
+])
+const opcionesProyecto = computed(() => [
+  { value: '', label: 'Todos los proyectos' },
+  ...store.projects.map((item) => ({ value: String(item.id), label: item.name })),
+])
 
 /** Rango del eje: la semana inicial y la final. */
 const range = computed(() => {
@@ -1199,62 +1207,33 @@ watch(
         </p>
       </div>
 
-      <div class="flex items-center gap-1" role="group" aria-label="Modo de la celda">
-        <button
-          v-for="item in MODES"
-          :key="item.value"
-          type="button"
-          class="rounded px-3 py-1.5 text-sm font-medium"
-          :class="mode === item.value ? MODE_ACTIVE : MODE_INACTIVE"
-          :aria-pressed="mode === item.value"
-          :data-testid="`mode-${item.value}`"
-          @click="mode = item.value"
-        >
-          {{ item.label }}
-        </button>
-      </div>
+      <SegmentedControl
+        v-model="mode"
+        :options="MODES"
+        label="Modo de la celda"
+        testid-prefix="mode"
+      />
     </header>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
-      <label v-if="store.departments.length > 1" class="text-xs font-medium text-slate-600">
-        <span class="mb-1 block">Departamento</span>
-        <select
-          v-model="departmentFilter"
-          data-testid="capacity-filter-department"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="">Todos los departamentos</option>
-          <option
-            v-for="item in store.departments"
-            :key="item.id"
-            :value="String(item.id)"
-          >
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
+      <FilterField
+        v-if="store.departments.length > 1"
+        label="Departamento"
+        :options="opcionesDepartamento"
+        :model-value="departmentFilter"
+        testid="capacity-filter-department"
+        @update:model-value="departmentFilter = $event"
+      />
 
       <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
-      <label
+      <FilterField
         v-if="store.projects.length && !route.params.id"
-        class="text-xs font-medium text-slate-600"
-      >
-        <span class="mb-1 block">Proyecto</span>
-        <select
-          v-model="projectFilter"
-          data-testid="capacity-filter-project"
-          class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="">Todos los proyectos</option>
-          <option
-            v-for="item in store.projects"
-            :key="item.id"
-            :value="String(item.id)"
-          >
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
+        label="Proyecto"
+        :options="opcionesProyecto"
+        :model-value="projectFilter"
+        testid="capacity-filter-project"
+        @update:model-value="projectFilter = $event"
+      />
 
       <VisibilityPanel
         :personas="personasVisibilidad"

@@ -1405,4 +1405,171 @@ describe('GanttView', () => {
     expect(wrapper.get('[data-testid="gantt-export-ics"]').attributes('disabled')).toBeUndefined()
     expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
   })
+
+  it('los botones de zoom cambian el detalle y se desactivan en los limites', async () => {
+    setupFetch()
+
+    const callbacks = []
+    const observerOriginal = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    const descriptorAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 0,
+    })
+
+    try {
+      const { wrapper } = await mountGantt()
+
+      const svg = () => wrapper.get('[data-testid="gantt-svg"]')
+      const zoomOut = () => wrapper.get('[data-testid="gantt-zoom-out"]')
+      const zoomIn = () => wrapper.get('[data-testid="gantt-zoom-in"]')
+      const zoomFit = () => wrapper.get('[data-testid="gantt-zoom-fit"]')
+
+      // Panel de 0: escala natural, 14 dias a 14 px = 196, y con el factor
+      // en 1 Ajustar no tiene que hacer nada.
+      expect(svg().attributes('width')).toBe('196')
+      expect(zoomIn().attributes('disabled')).toBeUndefined()
+      expect(zoomOut().attributes('disabled')).toBeUndefined()
+      expect(zoomFit().attributes('disabled')).toBeDefined()
+
+      // El panel pasa a 500: floor(500 / 14) = 35 px/dia y el lienzo llena
+      // el panel, 14 dias a 35 = 490.
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 500 })
+      for (const callback of callbacks) callback()
+      await flushPromises()
+      expect(svg().attributes('width')).toBe(String(14 * 35))
+
+      // +: el factor sube a 1.25 y los pixeles por dia lo heredan, 35 * 1.25
+      // = 43.75, lienzo de 14 * 43.75.
+      await zoomIn().trigger('click')
+      await flushPromises()
+      expect(zoomFit().attributes('disabled')).toBeUndefined()
+      expect(svg().attributes('width')).toBe(String(14 * 35 * 1.25))
+
+      // Ajustar devuelve el factor 1: el lienzo vuelve al ancho del panel.
+      await zoomFit().trigger('click')
+      await flushPromises()
+      expect(svg().attributes('width')).toBe(String(14 * 35))
+      expect(zoomFit().attributes('disabled')).toBeDefined()
+
+      // −: divide por 1.25 en cada paso; al llegar a 0.25 (el tope) el boton
+      // se desactiva y el lienzo queda a un cuarto del detalle del panel.
+      for (let i = 0; i < 8; i += 1) {
+        await zoomOut().trigger('click')
+        await flushPromises()
+      }
+      expect(zoomOut().attributes('disabled')).toBeDefined()
+      expect(zoomFit().attributes('disabled')).toBeUndefined()
+      expect(svg().attributes('width')).toBe(String(14 * 35 * 0.25))
+
+      // Con el factor al tope minimo, Ajustar lo devuelve a 1.
+      await zoomFit().trigger('click')
+      await flushPromises()
+      expect(svg().attributes('width')).toBe(String(14 * 35))
+      expect(zoomFit().attributes('disabled')).toBeDefined()
+    } finally {
+      globalThis.ResizeObserver = observerOriginal
+      if (descriptorAncho) {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', descriptorAncho)
+      } else {
+        delete HTMLElement.prototype.clientWidth
+      }
+    }
+  })
+
+  it('la rueda con Ctrl sobre el diagrama cambia el factor de detalle', async () => {
+    setupFetch()
+
+    const callbacks = []
+    const observerOriginal = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    const descriptorAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 0,
+    })
+
+    try {
+      const { wrapper } = await mountGantt()
+
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 500 })
+      for (const callback of callbacks) callback()
+      await flushPromises()
+
+      const svg = () => wrapper.get('[data-testid="gantt-svg"]')
+      const panel = wrapper.get('[data-testid="gantt-scroll"]')
+      expect(svg().attributes('width')).toBe(String(14 * 35))
+
+      // Una muesca de rueda (100 px) aleja: el factor es 2 ** (-100 / 400).
+      panel.element.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: 100, ctrlKey: true, bubbles: true, cancelable: true }),
+      )
+      await flushPromises()
+      expect(Number(svg().attributes('width'))).toBeCloseTo(14 * 35 * 2 ** (-100 / 400), 6)
+
+      // Con el signo contrario acerca: el factor vuelve al de partida.
+      panel.element.dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true }),
+      )
+      await flushPromises()
+      expect(Number(svg().attributes('width'))).toBeCloseTo(14 * 35, 6)
+    } finally {
+      globalThis.ResizeObserver = observerOriginal
+      if (descriptorAncho) {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', descriptorAncho)
+      } else {
+        delete HTMLElement.prototype.clientWidth
+      }
+    }
+  })
+
+  it('el modo ampliado ocupa la ventana entera y Escape lo salta', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    const raiz = () => wrapper.element.firstElementChild
+    const boton = () => wrapper.get('[data-testid="gantt-fullscreen"]')
+
+    expect(raiz().classList.contains('fixed')).toBe(false)
+    expect(boton().attributes('aria-label')).toBe('Ampliar a pantalla completa')
+    expect(boton().attributes('aria-pressed')).toBe('false')
+
+    await boton().trigger('click')
+    await flushPromises()
+
+    expect(raiz().classList.contains('fixed')).toBe(true)
+    expect(raiz().classList.contains('inset-0')).toBe(true)
+    expect(raiz().classList.contains('z-40')).toBe(true)
+    expect(boton().attributes('aria-label')).toBe('Salir de la vista ampliada')
+    expect(boton().attributes('aria-pressed')).toBe('true')
+
+    // Escape sale del modo ampliado y el boton vuelve a ser de entrada.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+
+    expect(raiz().classList.contains('fixed')).toBe(false)
+    expect(boton().attributes('aria-label')).toBe('Ampliar a pantalla completa')
+    expect(boton().attributes('aria-pressed')).toBe('false')
+
+    // El boton sigue haciendo de entrada y de salida con el mismo elemento.
+    await boton().trigger('click')
+    await flushPromises()
+    expect(raiz().classList.contains('fixed')).toBe(true)
+  })
 })

@@ -439,13 +439,16 @@ describe('GanttChart', () => {
   it('emite ancho-panel cuando el ancho cambia y desconecta al desmontar', () => {
     const original = globalThis.ResizeObserver
     const originalAncho = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
-    const callbacks = []
+    const observadores = []
     globalThis.ResizeObserver = class {
       constructor(callback) {
         this.callback = callback
-        callbacks.push(this)
+        this.observed = []
+        observadores.push(this)
       }
-      observe() {}
+      observe(target) {
+        this.observed.push(target)
+      }
       disconnect() {}
     }
     // El panel arranca a 0 (jsdom): con 0 no se emite nada.
@@ -457,7 +460,10 @@ describe('GanttChart', () => {
       const wrapper = montar(layoutDe())
       expect(wrapper.emitted('ancho-panel')).toBeUndefined()
 
-      const observador = callbacks[0]
+      // La columna de nombres observa su propia raiz: el observador del chart
+      // es el que vigila el panel del diagrama, no el primero creado.
+      const panel = wrapper.get('[data-testid="gantt-scroll"]').element
+      const observador = observadores.find((item) => item.observed.includes(panel))
       Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 520 })
       observador.callback()
       expect(wrapper.emitted('ancho-panel')).toEqual([[520]])
@@ -746,6 +752,119 @@ describe('GanttChart', () => {
     expect(texto).toContain('Relacionada con')
     expect(texto).toContain('Notas de operacion')
     expect(texto.match(/FS/g)).toHaveLength(2)
+  })
+
+  it('rueda con Ctrl emite zoom con el delta en pixeles y sin Ctrl no emite', async () => {
+    const wrapper = montar(layoutDe())
+    const panel = wrapper.get('[data-testid="gantt-scroll"]').element
+    // En jsdom la caja del lienzo mide cero: se fija para calcular el ancla.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+
+    // El listener es nativo (`addEventListener` en el panel), no un handler de
+    // Vue: se dispara con `dispatchEvent` y no con `trigger('wheel')`.
+    const sinCtrl = new WheelEvent('wheel', { deltaY: 100, clientX: 30, cancelable: true })
+    panel.dispatchEvent(sinCtrl)
+    expect(wrapper.emitted('zoom')).toBeUndefined()
+    // Sin Ctrl no se anula: el scroll nativo del panel sigue.
+    expect(sinCtrl.defaultPrevented).toBe(false)
+
+    const conCtrl = new WheelEvent('wheel', { ctrlKey: true, deltaY: 100, clientX: 30, cancelable: true })
+    panel.dispatchEvent(conCtrl)
+    expect(conCtrl.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('zoom')).toEqual([[100]])
+
+    // Algunos navegadores cuentan lineas (deltaMode 1) en vez de pixeles:
+    // una linea son 16 px.
+    panel.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: 3, deltaMode: 1, clientX: 30 }))
+    expect(wrapper.emitted('zoom')).toEqual([[100], [48]])
+  })
+
+  it('al cambiar los pixeles por dia el scroll se corrige para que el ancla se quede bajo el puntero', async () => {
+    const wrapper = montar(layoutDe())
+    const panel = wrapper.get('[data-testid="gantt-scroll"]').element
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+
+    // El ancla queda en la x 70 del contenido (el rect del lienzo empieza en 0).
+    panel.dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: 100, clientX: 70, cancelable: true }))
+    expect(wrapper.emitted('zoom')).toEqual([[100]])
+
+    // La vista reacciona al gesto y cambia la escala en el mismo tick: el
+    // cambio de los pixeles por dia llega al chart antes de que el ancla
+    // caduque. 14 -> 28 px/dia: la x del ancla se multiplica por 2 (el dia
+    // que estaba bajo el puntero se queda bajo el puntero).
+    await wrapper.setProps({
+      layout: layoutDe([barraNueva(10), barraNueva(11, { rowIndex: 1 })], { pxPerDay: 28, width: 392 }),
+    })
+    expect(panel.scrollLeft).toBe(70)
+
+    // El ancla solo vale para el gesto que la creo: un segundo cambio de
+    // escala, sin rueda encima, no mueve el scroll.
+    await wrapper.setProps({
+      layout: layoutDe([barraNueva(10), barraNueva(11, { rowIndex: 1 })], { pxPerDay: 28, width: 392, days: 15 }),
+    })
+    expect(panel.scrollLeft).toBe(70)
+  })
+
+  it('un cambio de escala sin rueda encima no corrige el scroll', async () => {
+    const wrapper = montar(layoutDe())
+    const panel = wrapper.get('[data-testid="gantt-scroll"]').element
+
+    // Sin gesto de zoom el ancla no existe: el cambio de escala no toca el
+    // scroll del panel.
+    await wrapper.setProps({
+      layout: layoutDe([barraNueva(10), barraNueva(11, { rowIndex: 1 })], { pxPerDay: 28, width: 392 }),
+    })
+    expect(panel.scrollLeft).toBe(0)
+  })
+
+  it('el asa de la columna de nombres es un separador con valor y limites', async () => {
+    const wrapper = montar(layoutDe())
+
+    const asa = wrapper.get('[data-testid="gantt-names-handle"]')
+    expect(asa.attributes('role')).toBe('separator')
+    expect(asa.attributes('aria-orientation')).toBe('vertical')
+    expect(asa.attributes('aria-valuemin')).toBe('160')
+    expect(asa.attributes('aria-valuemax')).toBe('480')
+    expect(asa.attributes('aria-valuenow')).toBe('240')
+    expect(asa.attributes('tabindex')).toBe('0')
+  })
+
+  it('las flechas del teclado cambian el ancho del asa y Home y End van a los limites', async () => {
+    const wrapper = montar(layoutDe())
+    const asa = wrapper.get('[data-testid="gantt-names-handle"]')
+    const raiz = () => wrapper.get('[data-testid="gantt-names"]')
+
+    // jsdom mide 0 en el panel: el ancho medido se queda en el de las clases
+    // (240 px). ArrowRight lo sube 16 y el chart acota el valor.
+    await asa.trigger('keydown', { key: 'ArrowRight' })
+    expect(asa.attributes('aria-valuenow')).toBe('256')
+    expect(raiz().attributes('style')).toContain('width: 256px')
+
+    await asa.trigger('keydown', { key: 'ArrowLeft' })
+    expect(asa.attributes('aria-valuenow')).toBe('240')
+
+    // Con Mayus el paso es de 64: de 240 a 304.
+    await asa.trigger('keydown', { key: 'ArrowRight', shiftKey: true })
+    expect(asa.attributes('aria-valuenow')).toBe('304')
+
+    // End y Home van a los limites, y el chart acota el valor a [160, 480].
+    await asa.trigger('keydown', { key: 'End' })
+    expect(asa.attributes('aria-valuenow')).toBe('480')
+    expect(raiz().attributes('style')).toContain('width: 480px')
+    await asa.trigger('keydown', { key: 'Home' })
+    expect(asa.attributes('aria-valuenow')).toBe('160')
+    expect(raiz().attributes('style')).toContain('width: 160px')
+  })
+
+  it('una tecla sin mover el ancho del asa no pide redimension', async () => {
+    const wrapper = montar(layoutDe())
+    const asa = wrapper.get('[data-testid="gantt-names-handle"]')
+
+    await asa.trigger('keydown', { key: 'a' })
+    expect(asa.attributes('aria-valuenow')).toBe('240')
+    expect(wrapper.get('[data-testid="gantt-names"]').attributes('style')).toBeUndefined()
   })
 
   it('durante un arrastre no hay cruz ni globo, y el globo vuelve al soltar', async () => {

@@ -122,4 +122,37 @@ describe('escala ajustada al ancho del panel', () => {
     expect(ajustada).not.toBe(semana)
     expect(ajustada).toEqual({ id: 'Week', label: 'Semana', pxPerDay: 47, header: 'week' })
   })
+
+  it('con zoom = 1 el resultado es el de siempre', () => {
+    expect(escalaAjustada(semana, 42, 2000, 1)).toEqual(escalaAjustada(semana, 42, 2000))
+    expect(escalaAjustada(semana, 42, 2000, 1).pxPerDay).toBe(47)
+    // Con el minimo natural el zoom de 1 no cambia nada ni copia la escala.
+    expect(escalaAjustada(semana, 42, 100, 1)).toBe(semana)
+  })
+
+  it('zoom = 2 duplica los pixeles por dia', () => {
+    expect(escalaAjustada(semana, 42, 2000, 2).pxPerDay).toBe(94)
+    expect(escalaAjustada(dia, 42, 2000, 2).pxPerDay).toBe(94)
+  })
+
+  it('un factor por debajo de 1 reduce los pixeles por dia', () => {
+    expect(escalaAjustada(semana, 42, 2000, 0.5).pxPerDay).toBe(23.5)
+  })
+
+  it('el factor multiplica la escala base, tambien cuando manda el minimo natural', () => {
+    // 100 / 42 no sube del natural 14; el factor de 2 lo duplica igual.
+    expect(escalaAjustada(semana, 42, 100, 2).pxPerDay).toBe(28)
+  })
+
+  it('sin ancho utilizable manda la natural, sin multiplicar', () => {
+    expect(escalaAjustada(semana, 42, 0, 2)).toBe(semana)
+    expect(escalaAjustada(semana, 0, 2000, 2)).toBe(semana)
+    expect(escalaAjustada(semana, 42, NaN, 2)).toBe(semana)
+  })
+
+  it('un factor que no es numero positivo se toma como 1', () => {
+    expect(escalaAjustada(semana, 42, 2000, 0).pxPerDay).toBe(47)
+    expect(escalaAjustada(semana, 42, 2000, -2).pxPerDay).toBe(47)
+    expect(escalaAjustada(semana, 42, 2000, NaN).pxPerDay).toBe(47)
+  })
 })

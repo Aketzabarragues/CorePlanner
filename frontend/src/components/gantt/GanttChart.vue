@@ -79,6 +79,14 @@ const props = defineProps({
   descripcion: { type: String, default: '' },
   /** Aviso de solo lectura, si la vista lo lleva. */
   aviso: { type: String, default: '' },
+  /**
+   * Menu contextual abierto.
+   *
+   * El menu es la capa de arriba de la pantalla: con el abierto se esconden
+   * el globo de la barra y la cruz de fecha. Al cerrarse no vuelven solos: el
+   * globo regresa cuando el puntero entra otra vez en una barra.
+   */
+  menuAbierto: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
@@ -343,12 +351,13 @@ function cajaDelLienzo() {
  *
  * Sobre la cabecera pegajosa no hay columna que marcar: la cruz se esconde.
  * Fuera del rango horizontal, tambien. Durante un gesto de arrastre, tambien:
- * la cruz estorba al gesto.
+ * la cruz estorba al gesto. Con el menu contextual abierto, tambien: el menu
+ * es la capa de arriba y detras de el no queda la ayuda de la barra.
  */
 function alMoverRaton(event) {
   puntero.value = { x: event.clientX, y: event.clientY }
   const rect = cajaDelLienzo()
-  if (!rect || arrastreEnCurso.value) {
+  if (!rect || arrastreEnCurso.value || props.menuAbierto) {
     cruz.value = null
     filaRaton.value = null
     return
@@ -500,11 +509,11 @@ const arrastreEnCurso = computed(
  * Datos del globo de la barra sobre la que esta el raton.
  *
  * El titulo, las fechas y el avance salen de la barra del layout; las
- * dependencias, del mapa que pasa la vista. Sin barra sobre el raton, o
- * durante un arrastre, no hay globo.
+ * dependencias, del mapa que pasa la vista. Sin barra sobre el raton, durante
+ * un arrastre o con el menu contextual abierto, no hay globo.
  */
 const globo = computed(() => {
-  if (arrastreEnCurso.value) return null
+  if (arrastreEnCurso.value || props.menuAbierto) return null
   const id = barraSobre.value
   if (id === null || id === undefined) return null
   const barra = barraPorId.value.get(id)
@@ -519,6 +528,21 @@ const globo = computed(() => {
     critica: props.tareasCriticas.has(id),
   }
 })
+
+/**
+ * El menu contextual se abre y se cierra: el globo y la cruz se esconden
+ * mientras esta abierto y no vuelven solos al cerrarse.
+ *
+ * Al cerrarse se olvida la barra que estaba bajo el puntero: el globo
+ * regresa cuando el puntero entra otra vez en una barra, como siempre.
+ */
+watch(
+  () => props.menuAbierto,
+  (abierto) => {
+    cruz.value = null
+    if (!abierto) barraSobre.value = null
+  },
+)
 
 /**
  * Doble clic en el hueco del diagrama: punto de alta de tarea.

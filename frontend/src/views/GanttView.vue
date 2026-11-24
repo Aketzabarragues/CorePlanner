@@ -2058,6 +2058,7 @@ useTaskReload(load)
           :tareas-criticas="tareasCriticas"
           :descripcion="descripcion"
           :aviso="avisoSoloLectura"
+          :menu-abierto="menuContexto !== null"
           @abrir="abrirDetalle"
           @seleccionar="barraEnfocada = $event"
           @tecla="alPulsarTecla"

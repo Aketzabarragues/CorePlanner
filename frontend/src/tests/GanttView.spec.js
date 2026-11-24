@@ -523,10 +523,10 @@ describe('GanttView', () => {
     const celda = wrapper.get('[data-testid="gantt-axis-column-2026-W45"]')
     expect(celda.text()).toContain('Fiestas')
 
-    // La banda ambar del dia no laborable llega al SVG.
+    // La banda del dia no laborable llega al SVG con su clase semantica.
     const bandas = wrapper.findAll('.gantt__bandas rect')
     expect(bandas.length).toBeGreaterThan(0)
-    expect(bandas.some((recta) => recta.attributes('fill') === '#fffbeb')).toBe(true)
+    expect(bandas.some((recta) => recta.classes().includes('gantt__banda-festivo'))).toBe(true)
   })
 
   it('el festivo de la celda de semana va en su banda, sin pisar el rango', async () => {
@@ -581,7 +581,7 @@ describe('GanttView', () => {
     const celda = wrapper.get('[data-testid="gantt-axis-column-2026-W45"]')
     expect(celda.text()).not.toContain('Fiestas')
     const bandas = wrapper.findAll('.gantt__bandas rect')
-    expect(bandas.every((recta) => recta.attributes('fill') !== '#fffbeb')).toBe(true)
+    expect(bandas.every((recta) => !recta.classes().includes('gantt__banda-festivo'))).toBe(true)
   })
 
   it('dos personas con el mismo nombre no se fusionan en un grupo', async () => {

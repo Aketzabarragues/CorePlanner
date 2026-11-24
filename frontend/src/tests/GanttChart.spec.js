@@ -599,6 +599,80 @@ describe('GanttChart', () => {
     expect(wrapper.get('.gantt__cruz-etiqueta').find('text').text()).toBe('mar 3 nov')
   })
 
+  it('el puntero sobre el diagrama resalta la fila en las dos mitades y lo quita al salir', async () => {
+    const wrapper = montar(layoutDe())
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+    // clientY 80 esta bajo la cabecera (64) y dentro de la fila 0, contenido
+    // [64, 100).
+    await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
+
+    // En el diagrama la banda mide una fila y ocupa todo el ancho del lienzo.
+    const banda = wrapper.get('.gantt__fila-resaltada')
+    expect(banda.attributes('y')).toBe('0')
+    expect(banda.attributes('height')).toBe('36')
+
+    // En la columna de nombres la misma fila lleva su tinte.
+    const filas = wrapper.findAll('.gantt__nombres-pista > div')
+    expect(
+      filas.map((fila) => fila.classes().join(' ')).some((clases) =>
+        clases.includes('gantt__nombre-fila--resaltada'),
+      ),
+    ).toBe(true)
+
+    // Fuera del diagrama no queda ni banda ni tinte.
+    await svg.trigger('mouseleave')
+    expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
+    expect(wrapper.find('[class*="gantt__nombre-fila--"]').exists()).toBe(false)
+  })
+
+  it('la fila de la barra enfocada lleva su propia marca en las dos mitades', async () => {
+    const wrapper = montar(layoutDe(), { barraEnfocada: 11 })
+
+    // La barra 11 esta en la fila 1: la banda del diagrama cae en y 36 y la
+    // fila 1 de la columna de nombres lleva su tinte.
+    expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
+    const banda = wrapper.get('.gantt__fila-activa')
+    expect(banda.attributes('y')).toBe('36')
+    expect(banda.attributes('height')).toBe('36')
+
+    const filas = wrapper.findAll('.gantt__nombres-pista > div')
+    expect(
+      filas.map((fila) => fila.classes().join(' ')).some((clases) =>
+        clases.includes('gantt__nombre-fila--activa'),
+      ),
+    ).toBe(true)
+
+    // El puntero sobre la fila enfocada (clientY 120: (120 - 64) / 36 = 1)
+    // no pinta la marca del puntero: manda la de la enfocada.
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
+    await svg.trigger('mousemove', { clientX: 30, clientY: 120 })
+    expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
+    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('36')
+
+    // El puntero sobre la fila 0, que no es la enfocada, y las dos marcas se
+    // pintan, cada una en su fila.
+    await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
+    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('36')
+    expect(wrapper.get('.gantt__fila-resaltada').attributes('y')).toBe('0')
+  })
+
+  it('la columna de nombres avisa de la fila bajo el puntero y el chart la resalta', async () => {
+    const wrapper = montar(layoutDe())
+
+    const fila = wrapper.findAll('.gantt__nombres-pista > div')[1]
+    await fila.trigger('mouseenter')
+
+    // El aviso de la fila 1 llega al chart: la banda cae en y 36.
+    expect(wrapper.get('.gantt__fila-resaltada').attributes('y')).toBe('36')
+
+    // Al salir de la columna, el chart la quita.
+    await wrapper.get('[data-testid="gantt-names"]').trigger('mouseleave')
+    expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
+  })
+
   it('la barra emite entrar con su id y salir al pasar el raton por encima', async () => {
     const barra = barraNueva(10)
     const wrapper = mount(GanttBar, {

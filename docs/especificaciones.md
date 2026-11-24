@@ -2526,7 +2526,6 @@ Hoy las tareas no saben nada unas de otras: el diagrama es una vista de barras y
 - **El reloj**: la duracion de una tarea son sus dias de calendario, no sus horas.
 - **La reprogramacion automatica**: la cascada se propone.
 - **Dependencias blandas** ("si puedes", "dependencia fuerte"): el tipo ya dice si el vinculo manda o no.
-- **El camino critico dibujado**: la ruta critica es un dato que se consulta; el diagrama dibuja las flechas, no una linea de camino.
 
 ## 60. La exportacion a calendario (.ics)
 
@@ -2586,6 +2585,11 @@ que queda fuera. No cambia el feed ni el modelo de tareas.
 - **Vocabulario visual**: el diagrama usa el sistema de diseno de la aplicacion
   (sus colores salen de clases, no de hexadecimales sueltos) y los selectores
   segmentados y los campos de filtro son componentes comunes.
+- **Ruta critica**: el feed del diagrama marca las tareas de la ruta critica de
+  cada proyecto (la cadena mas larga en dias de calendario, con la funcion pura
+  que ya existe). El diagrama las destaca con un interruptor (`?critical=1`):
+  un marco en la barra y mas trazo en las flechas de la cadena, distinguido por
+  forma y no solo por color.
 
 ### Decisiones tomadas
 

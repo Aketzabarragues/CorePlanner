@@ -84,6 +84,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt destaca la ruta critica. El feed marca las
+  tareas de la cadena mas larga de cada proyecto (con la funcion pura que ya
+  existia) y, con el interruptor "Ruta critica", la barra lleva un marco y las
+  flechas de la cadena mas trazo. Se distingue por forma, no solo por color.
 - **frontend**: el panel de nombres del Gantt admite columnas elegibles (persona,
   inicio, fin, duracion, horas y estado) y ordenables por cabecera. La eleccion
   y la orden van en la URL (`?cols=`, `?sort=`) y la ordenacion se aplica dentro

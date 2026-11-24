@@ -18,11 +18,15 @@ import { parseIsoDate } from '../../utils/ganttScale'
 
 const props = defineProps({
   /**
-   * Datos de la tarea: { titulo, inicio, fin, duracion, avance, dependencias }.
+   * Datos de la tarea: { titulo, inicio, fin, duracion, avance, dependencias,
+   * critica }.
    *
    * Las dependencias son { titulo, tipo, sentido }, con el tipo del vinculo
    * (`precedes` o `relates`) y el sentido desde la tarea: `requisito` (de
    * esta depende), `dependiente` (esta es requisito) o `relacionada`.
+   *
+   * `critica` dice que la tarea es de la ruta critica: solo llega con el
+   * interruptor encendido.
    */
   datos: { type: Object, default: null },
   /** Posicion del puntero en el viewport, en pixeles. */
@@ -103,6 +107,10 @@ const estilo = computed(() => {
       <div v-if="datos.avance > 0" class="flex gap-1.5">
         <dt class="w-16 shrink-0 text-slate-500">Avance</dt>
         <dd class="text-slate-700">{{ datos.avance }} %</dd>
+      </div>
+      <div v-if="datos.critica" class="flex gap-1.5">
+        <dt class="w-16 shrink-0 text-slate-500">Ruta</dt>
+        <dd class="text-slate-700">Crítica</dd>
       </div>
     </dl>
 

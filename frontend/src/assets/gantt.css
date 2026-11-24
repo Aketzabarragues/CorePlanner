@@ -137,6 +137,16 @@
 .gantt__flecha {
   @apply fill-none stroke-slate-600;
 }
+/*
+ * Flecha de la cadena critica: mas trazo y tinta mas oscura.
+ *
+ * Lo que la distingue de las demas es el GROSOR: la forma, no el color, es lo
+ * que marca la cadena. La punta va en un `marker` propio, porque el `marker`
+ * no admite estilo por elemento.
+ */
+.gantt__flecha--critica {
+  @apply stroke-siemens-900;
+}
 /* Van encima de las barras y no capturan el puntero, para no estorbar el
    arrastre. */
 .gantt__flechas polyline {
@@ -144,6 +154,9 @@
 }
 .gantt__punta {
   @apply fill-slate-600;
+}
+.gantt__punta-critica {
+  @apply fill-siemens-900;
 }
 
 /* Fila de grupo: el fondo y el separador que la cierra. */
@@ -242,6 +255,19 @@
 /* Marca de violacion: no captura el puntero. */
 .gantt__barra-violacion {
   @apply fill-slate-600 stroke-white;
+  pointer-events: none;
+}
+/*
+ * Marca de la ruta critica: un marco solido alrededor del cuerpo de la barra.
+ *
+ * Es el cuarto signo del vocabulario de la barra. Distingue por FORMA: un
+ * marco de 2 px alrededor del cuerpo, no un color. No se confunde con el
+ * triangulo de la violacion (que va en la esquina) ni con el contorno
+ * discontinuo del provisional (que va justo sobre el borde del cuerpo).
+ */
+.gantt__barra-critica {
+  @apply fill-none stroke-siemens-900;
+  stroke-width: 2;
   pointer-events: none;
 }
 
@@ -433,13 +459,10 @@
  *   firmada.
  * - El TRIANGULO es de la violacion de una dependencia: la barra empieza
  *   antes de que termine su requisito.
+ * - El MARCO es de la ruta critica: la tarea pertenece a la cadena que mas
+ *   se alarga.
  *
- * Ninguno de los tres se transmite solo por color: el provisional cambia la
- * FORMA del contorno y la violacion cambia la FORMA de la marca. El color es
- * lo unico que no distingue por si solo.
- *
- * La ruta critica, que llega en las fases siguientes, sera un cuarto signo
- * con su propio modificador de la barra (junto a `--provisional`) y con su
- * marca en el cuerpo de la barra. Aqui solo queda reservado el sitio: no se
- * anade marca ni estilo.
+ * Ninguno de los cuatro se transmite solo por color: el provisional cambia la
+ * FORMA del contorno, la violacion cambia la FORMA de la marca y la ruta
+ * critica tambien. El color es lo unico que no distingue por si solo.
  */

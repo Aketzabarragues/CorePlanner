@@ -191,6 +191,31 @@ const orden = computed(() => ordenDeUrl(route.query.sort))
 /** Comparador de la ordenacion vigente; null si no hay ordenacion. */
 const comparador = computed(() => comparadorDeOrden(orden.value))
 
+/**
+ * Ruta critica destacada: si el diagrama marca la cadena.
+ *
+ * Vive en la URL (`?critical=1`): el parametro solo se escribe cuando el
+ * interruptor esta encendido. Con el interruptor apagado el diagrama es
+ * exactamente el de antes, aunque el feed traiga la marca.
+ */
+const rutaCriticaActiva = computed(() => route.query.critical === '1')
+
+/**
+ * Identificadores de las tareas de la ruta critica.
+ *
+ * Sale del feed (`in_critical_path`). Con el interruptor apagado el conjunto
+ * va vacio: asi el diagrama no dibuja ninguna marca y el lector de pantalla
+ * no anuncia nada que no se vea.
+ */
+const tareasCriticas = computed(() => {
+  if (!rutaCriticaActiva.value) return new Set()
+  return new Set(
+    (feed.value?.tasks ?? [])
+      .filter((task) => task.in_critical_path === true)
+      .map((task) => task.id),
+  )
+})
+
 const escala = computed(() => scaleById(escalaId.value))
 
 const proyectos = computed(() => (Array.isArray(store.projects) ? store.projects : []))
@@ -745,6 +770,9 @@ function etiquetaDe(taskId) {
     `Del ${desde.getUTCDate()} de ${shortMonthName(desde.getUTCMonth() + 1)} al ${hasta.getUTCDate()} de ${shortMonthName(hasta.getUTCMonth() + 1)} de ${hasta.getUTCFullYear()}.`,
   )
   if (barra.progress > 0) partes.push(`${barra.progress} % de avance.`)
+  // La ruta critica se anuncia solo con el interruptor encendido: si el
+  // diagrama no la marca, tampoco hay que contarla.
+  if (tareasCriticas.value.has(taskId)) partes.push('En la ruta crítica.')
   const editable = editableDe(taskId)
   const etiqueta = partes.join(' ') + (editable ? '' : ' Solo lectura.')
   // La violacion se explica: esta barra empieza antes de que termine el
@@ -869,6 +897,17 @@ function alternarColumna(clave) {
     (columna) => columna.key,
   )
   cambiarFiltro({ cols: claves.join(',') })
+}
+
+/**
+ * Enciende o apaga el destacado de la ruta critica.
+ *
+ * El estado vive en la URL (`?critical=1`): encendido queda el parametro,
+ * apagado se quita. El enlace reproduce el diagrama con la cadena marcada o
+ * sin ella.
+ */
+function alternarRutaCritica() {
+  cambiarFiltro({ critical: rutaCriticaActiva.value ? '' : '1' })
 }
 
 /**
@@ -1631,6 +1670,27 @@ useTaskReload(load)
         @alternar="alternarColumna"
       />
 
+      <!--
+        Ruta critica: enciende el destacado de la cadena (el marco de las
+        barras y el trazo grueso de las flechas que la cierran). El estado
+        vive en la URL (`?critical=1`), asi que el enlace reproduce el
+        diagrama con la cadena marcada o sin ella.
+      -->
+      <button
+        type="button"
+        class="h-8 rounded border px-3 text-sm font-medium"
+        :class="
+          rutaCriticaActiva
+            ? 'border-siemens-900 bg-siemens-900 text-white'
+            : 'border-slate-300 bg-white text-slate-700'
+        "
+        :aria-pressed="rutaCriticaActiva"
+        data-testid="gantt-critical-toggle"
+        @click="alternarRutaCritica"
+      >
+        Ruta crítica
+      </button>
+
       <div class="flex items-center gap-1">
         <button
           type="button"
@@ -1758,6 +1818,7 @@ useTaskReload(load)
           :barra-enfocada="barraEnfocada"
           :etiqueta-de="etiquetaDe"
           :dependencias="dependencias"
+          :tareas-criticas="tareasCriticas"
           :descripcion="descripcion"
           :aviso="avisoSoloLectura"
           @abrir="abrirDetalle"

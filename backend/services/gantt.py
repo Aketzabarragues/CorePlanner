@@ -25,7 +25,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Protocol
 
-from .task_dependencies import find_violations
+from .task_dependencies import critical_path, find_violations
 
 PERSONA_CLASSES = (
     "persona-0",
@@ -120,6 +120,9 @@ class GanttTask:
     violations: tuple[int, ...] = ()
     """Requisitos que la barra empieza antes de que terminen: el vinculo esta
     roto y el diagrama lo marca."""
+    in_critical_path: bool = False
+    """La barra esta en la ruta critica de su proyecto: la cadena mas larga
+    de precedencias, medida en dias de calendario."""
 
     def to_dict(self) -> dict:
         return {
@@ -140,6 +143,7 @@ class GanttTask:
             "status": self.status,
             "estimated_hours": self.estimated_hours,
             "violations": list(self.violations),
+            "in_critical_path": self.in_critical_path,
         }
 
 
@@ -163,6 +167,31 @@ class GanttFeed:
         }
 
 
+def _tareas_de_ruta_critica(
+    task_by_id: Mapping[int, TaskLike],
+    edges: Sequence[tuple[int, int, str]],
+) -> set[int]:
+    """Identificadores de las barras que van en la ruta critica.
+
+    Las dependencias son dentro del mismo proyecto, asi que la ruta critica
+    se calcula por proyecto y la marca del feed es la union de las cadenas:
+    en el diagrama de un solo proyecto es esa misma cadena, y en el global
+    cada proyecto marca la suya. Un proyecto sin vinculos precedes no tiene
+    ruta critica y ninguna de sus barras se marca.
+    """
+    project_by_task = {task.id: task.project_id for task in task_by_id.values()}
+    edges_by_project: dict[int, list[tuple[int, int, str]]] = {}
+    for edge in edges:
+        project_id = project_by_task.get(edge[0])
+        if project_id is not None:
+            edges_by_project.setdefault(project_id, []).append(edge)
+
+    critical_ids: set[int] = set()
+    for project_edges in edges_by_project.values():
+        critical_ids.update(critical_path(task_by_id, project_edges))
+    return critical_ids
+
+
 def build_gantt_feed(
     users: list[UserLike],
     tasks: list[TaskLike],
@@ -182,9 +211,10 @@ def build_gantt_feed(
     no cuenta como firmada y el frontend lo pinta en contorno.
 
     edges son los vinculos entre tareas del proyecto, como
-    (task_id, depends_on_id, tipo). Del grafo salen las flechas del diagrama
-    y las violaciones de cada barra: una barra que empieza antes de que
-    termine su requisito va marcada.
+    (task_id, depends_on_id, tipo). Del grafo salen las flechas del diagrama,
+    las violaciones de cada barra (una barra que empieza antes de que termine
+    su requisito va marcada) y la ruta critica de cada proyecto, que marca a
+    las barras de su cadena mas larga de precedencias.
     """
     members = tuple(
         GanttMember(
@@ -198,6 +228,7 @@ def build_gantt_feed(
     name_by_user = {member.user_id: member.name for member in members}
     task_by_id = {task.id: task for task in tasks}
     violations = find_violations(task_by_id, edges)
+    critical_ids = _tareas_de_ruta_critica(task_by_id, edges)
 
     bars: list[GanttTask] = []
     undated: list[int] = []
@@ -231,6 +262,7 @@ def build_gantt_feed(
                 estimated_hours=task.estimated_hours,
                 is_provisional=task.project_id in provisional_projects,
                 violations=tuple(violations.get(task.id, ())),
+                in_critical_path=task.id in critical_ids,
             )
         )
 

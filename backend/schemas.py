@@ -731,6 +731,9 @@ class GanttTaskOut(BaseModel):
     violations: list[int] = []
     """Requisitos que la barra empieza antes de que terminen: el vinculo esta
     roto y el diagrama lo marca."""
+    in_critical_path: bool = False
+    """La tarea esta en la ruta critica de su proyecto: la cadena mas larga
+    de precedencias, medida en dias de calendario."""
 
 
 class GanttMemberOut(BaseModel):

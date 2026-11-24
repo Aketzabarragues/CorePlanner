@@ -18,10 +18,11 @@
  * - el COLOR es el de la persona o el del proyecto: dato guardado;
  * - el CONTORNO DISCONTINUO es del proyecto provisional (`--provisional`);
  * - el TRIANGULO es de la violacion de una dependencia (el `polygon` de
- *   abajo), y el motivo va en el `aria-label`.
- * Ninguno de los tres se transmite solo por color: los dos ultimos cambian
- * de forma. La ruta critica, que llega en las fases siguientes, sera un
- * cuarto signo con su propio modificador, junto a `--provisional`.
+ *   abajo), y el motivo va en el `aria-label`;
+ * - el MARCO es de la ruta critica (el `rect` de abajo), y la cadena se
+ *   anuncia en el `aria-label`.
+ * Ninguno de los cuatro se transmite solo por color: los tres ultimos
+ * cambian de forma.
  */
 import { computed } from 'vue'
 
@@ -43,6 +44,8 @@ const props = defineProps({
   etiquetaAria: { type: String, required: true },
   /** Viola una dependencia: empieza antes de que termine su requisito. */
   viola: { type: Boolean, default: false },
+  /** La tarea es de la ruta critica: lleva el marco de la cadena. */
+  critica: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['empezar-arrastrar', 'abrir', 'seleccionar', 'tecla', 'entrar', 'salir'])
@@ -113,6 +116,25 @@ function empezarArrastre(event) {
       :width="anchoBarra * (barra.progress / 100)"
       :height="GANTT_METRICS.barHeight"
       :rx="GANTT_METRICS.barRadius"
+    />
+
+    <!--
+      Marca de la ruta critica: un marco solido alrededor del cuerpo de la
+      barra. Distingue por forma (un marco, no un color) y no se confunde con
+      el triangulo de la violacion, que va en la esquina, ni con el contorno
+      discontinuo del provisional, que va justo sobre el borde del cuerpo.
+    -->
+    <rect
+      v-if="critica"
+      class="gantt__barra-critica"
+      x="-3"
+      y="-3"
+      :width="anchoBarra + 6"
+      :height="GANTT_METRICS.barHeight + 6"
+      :rx="GANTT_METRICS.barRadius + 3"
+      stroke-width="2"
+      aria-hidden="true"
+      data-testid="gantt-bar-critical"
     />
 
     <!-- Etiqueta: solo si cabe entera. -->

@@ -62,6 +62,14 @@ const props = defineProps({
    * pinta en el globo de la barra.
    */
   dependencias: { type: Object, default: () => ({}) },
+  /**
+   * Identificadores de las tareas de la ruta critica.
+   *
+   * La vista los arma con el feed (`in_critical_path`) y los pasa vacios
+   * cuando el interruptor esta apagado: con el interruptor apagado el
+   * diagrama no dibuja ninguna marca.
+   */
+  tareasCriticas: { type: Set, default: () => new Set() },
   /** Frase descriptiva del SVG: tareas, proyectos, rango. */
   descripcion: { type: String, default: '' },
   /** Aviso de solo lectura, si la vista lo lleva. */
@@ -247,12 +255,35 @@ function bandaDeFila(indice) {
  * Tambien pasa con un grupo colapsado: sus barras no se dibujan, asi que la
  * flecha que llegaba a ellas no se dibuja. No es un fallo: la flecha era de
  * una tarea que ya no esta a la vista.
+ *
+ * Una flecha es de la cadena critica cuando sus DOS extremos son tareas de
+ * la ruta critica: la cadena es lineal, asi que el vinculo que la cierra une
+ * dos tareas que estan en ella. Solo los `precedes` llevan punta, y solo
+ * ellos se marcan: los `relates` se quedan como estaban.
  */
 const flechas = computed(() =>
   (props.layout.dependencies ?? [])
     .map((vinculo) => flechaDe(vinculo, barraPorId.value))
-    .filter(Boolean),
+    .filter(Boolean)
+    .map((flecha) => ({
+      ...flecha,
+      critica:
+        flecha.conPunta &&
+        props.tareasCriticas.has(flecha.depends_on_id) &&
+        props.tareasCriticas.has(flecha.task_id),
+    })),
 )
+
+/**
+ * Punta de la flecha: la de la cadena critica es mas oscura.
+ *
+ * La punta se dibuja con un `marker`, que no admite estilo por elemento:
+ * por eso la cadena critica tiene la suya. Los `relates` no llevan punta.
+ */
+function puntaDe(flecha) {
+  if (!flecha.conPunta) return undefined
+  return flecha.critica ? 'url(#gantt-punta-critica)' : 'url(#gantt-punta)'
+}
 
 /**
  * Cruz de fecha: la columna del puntero y el dia que hay en ella.
@@ -469,6 +500,7 @@ const globo = computed(() => {
     duracion: inclusiveDays(barra.startIso, barra.endIso),
     avance: barra.progress ?? 0,
     dependencias: props.dependencias?.[id] ?? [],
+    critica: props.tareasCriticas.has(id),
   }
 })
 
@@ -656,6 +688,23 @@ defineExpose({ centrarHoy, arrastrando })
           >
             <path class="gantt__punta" d="M 0 0 L 10 5 L 0 10 z" />
           </marker>
+          <!--
+            Punta de la cadena critica: la misma forma en tinta mas oscura.
+            El `marker` se escala con el grosor del trazo, asi que esta va
+            mas pequena: con el mismo tamaño, la punta de la cadena saldria
+            un 67 % mas grande que las demas.
+          -->
+          <marker
+            id="gantt-punta-critica"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="4.2"
+            markerHeight="4.2"
+            orient="auto-start-reverse"
+          >
+            <path class="gantt__punta-critica" d="M 0 0 L 10 5 L 0 10 z" />
+          </marker>
         </defs>
 
         <!-- Fondo del lienzo: neutro, hasta el borde del lienzo. -->
@@ -775,6 +824,7 @@ defineExpose({ centrarHoy, arrastrando })
               :previsualizada="previsualizacion && previsualizacion.taskId === fila.barra.taskId"
               :etiqueta-aria="etiquetaDe(fila.barra.taskId)"
               :viola="fila.barra.violates === true"
+              :critica="tareasCriticas.has(fila.barra.taskId)"
               @empezar-arrastrar="alEmpezarArrastre"
               @abrir="alAbrirBarra"
               @seleccionar="(id) => emit('seleccionar', id)"
@@ -803,10 +853,11 @@ defineExpose({ centrarHoy, arrastrando })
               v-for="flecha in flechas"
               :key="`dep-${flecha.depends_on_id}-${flecha.task_id}`"
               class="gantt__flecha"
+              :class="{ 'gantt__flecha--critica': flecha.critica }"
               :points="flecha.puntos.map(([x, y]) => `${x},${y}`).join(' ')"
-              stroke-width="1.5"
+              :stroke-width="flecha.critica ? 2.5 : 1.5"
               :stroke-dasharray="flecha.conPunta ? undefined : '5 4'"
-              :marker-end="flecha.conPunta ? 'url(#gantt-punta)' : undefined"
+              :marker-end="puntaDe(flecha)"
               :data-testid="`gantt-dependency-${flecha.depends_on_id}-${flecha.task_id}`"
             />
           </g>

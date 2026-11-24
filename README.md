@@ -4,19 +4,116 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 ![Vue 3](https://img.shields.io/badge/vue-3.5-42b883.svg)
 
-Gestor ligero de capacidad para equipos de ingenieria. Sustituye las hojas de
-Excel de gestion con dos piezas centrales:
+**Capacidad de un equipo de ingenieria, sin hojas de Excel.** Reparte las horas
+de cada tarea entre las semanas que ocupa, cruza a las personas con el
+calendario y avisa de quien se pasa de su capacidad. Las mismas tareas se ven
+despues en un Gantt con motor propio y en un tablero por estados.
 
-- **Matriz de ocupacion**: cruza el equipo contra las semanas del ano, reparte
-  las horas estimadas de cada tarea entre las semanas que abarca y marca en rojo
-  a quien supera su capacidad semanal.
-- **Diagrama de Gantt**: vista temporal de las tareas del proyecto, con un
-  motor propio en el frontend (sin libreria externa) y exportable a
-  calendario (`.ics`).
+![El diagrama de Gantt de CorePlanner: las barras de todos los proyectos visibles, agrupadas por proyecto](docs/capturas/gantt.png)
 
-Todo el acceso a la aplicacion se controla por proyecto: cada persona entra en
-un proyecto con un rol concreto (Project Manager, Ingeniero, Lector) y solo ve
-y toca lo que ese rol permite.
+## Las pantallas
+
+### Capacidad: la matriz de ocupacion
+
+![La matriz de ocupacion: personas en las filas y semanas ISO en las columnas, con la celda sobrecargada en rojo y las celdas libres en verde](docs/capturas/capacidad.png)
+
+Personas en las filas, semanas ISO en las columnas y, en cada celda, las horas
+planificadas frente a la capacidad de esa semana. La que se pasa, en rojo.
+Un clic abre el desglose de las tareas que componen esas horas, y desde ahi se
+edita, se reasigna o se arrastra la carga a otra persona.
+
+![El panel lateral de una celda abierta, con el reparto por estado, la barra de carga y la lista de tareas](docs/capturas/capacidad-desglose.png)
+
+### Gantt: el diagrama, con motor propio
+
+![La cabecera del eje en escala de dia: la banda del mes agrupa los dias, debajo el numero del dia y el festivo con su insignia](docs/capturas/gantt-dia.png)
+
+Sin libreria de graficos: el diagrama lo dibuja un motor propio en el frontend
+(SVG). La escala de tiempo se estira hasta llenar el panel, el eje lleva tres
+bandas (numero o mes, rango de fechas y festivo), las barras se mueven y se
+redimensionan arrastrando, y el menu contextual de la barra da a las operaciones
+que ya existen: abrir el detalle, ir al tablero, reasignar, cambiar el estado o
+copiar las fechas.
+
+| El menu contextual de una barra | Los datos de la tarea al pasar por encima |
+| --- | --- |
+| ![El menu contextual de una barra del diagrama](docs/capturas/gantt-menu.png) | ![El globo con los datos de la tarea: inicio, fin, duracion y dependencias](docs/capturas/gantt-globo.png) |
+
+Con el teclado, `Mayus+F10` abre el mismo menu sobre la barra enfocada, las
+flechas mueven la barra y `Shift` con las flechas la redimensiona.
+
+### Calendario: la planificacion vista por dias
+
+![La rejilla del mes del calendario, con las tareas en los dias que ocupan](docs/capturas/calendario.png)
+
+El mismo plan que el Gantt, en una rejilla de meses (o de semanas). Es de
+lectura: las fechas se cambian desde el Gantt o desde el desglose de una celda
+de la matriz.
+
+### Tablero: las tareas por estado
+
+![El tablero del proyecto con sus cuatro columnas y las tarjetas de cada una](docs/capturas/tablero.png)
+
+Backlog, En Desarrollo, Pruebas y Completado. La tarjeta se mueve arrastrandola
+o cambiando su estado, y un clic abre el detalle de la tarea.
+
+### Panel: la organizacion de un vistazo
+
+![El resumen de la organizacion: uso del equipo, personas con sobrecarga, proyectos activos y planificacion incompleta](docs/capturas/panel.png)
+
+### Mi trabajo: la carga de cada persona
+
+![La vista de Mi trabajo: el aviso de sobrecarga de la semana, la carga de las proximas semanas y las tareas propias](docs/capturas/mi-trabajo.png)
+
+Lo que tiene asignado cada persona y cuanto pesa cada semana, con el aviso de
+la semana que se pasa de su capacidad.
+
+## Arranque rapido
+
+```bash
+python iniciar.py
+```
+
+Levanta la API y la interfaz a la vez y abre `http://localhost:5173`. La primera
+vez, con los datos de demostracion:
+
+```bash
+.venv/bin/python backend/seed.py
+```
+
+El detalle de la puesta en marcha (backend, frontend, configuracion y usuarios
+de demostracion) esta mas abajo, en [Puesta en marcha](#puesta-en-marcha).
+
+## Que lo distingue
+
+- **El Gantt es propio**: barras, arrastre, escalas, ejes y dependencias se
+  dibujan con un motor propio en SVG, sin `frappe-gantt` ni ninguna otra
+  libreria de graficos.
+- **Los permisos son por proyecto**: cada persona entra en cada proyecto con un
+  rol, y ese rol decide que ve y que puede hacer. Se consulta en la base de
+  datos en cada peticion, asi que un cambio de rol surte efecto inmediato.
+- **La aritmetica es exacta**: las horas se reparten en centimas enteras, sin
+  coma flotante, y la semana es la ISO (el 31 de diciembre de 2026 pertenece a
+  `2026-W53`).
+- **El motor es puro y esta probado**: `backend/services/capacity.py` calcula
+  sin tocar la base de datos, con tests unitarios que lo contrastan contra ella.
+- **Habla con agentes**: hay un servidor MCP (`backend/mcp_server/`) que expone
+  la API a un agente por JSON-RPC.
+
+## Documentacion
+
+- [Especificaciones](docs/especificaciones.md): el alcance y las reglas del
+  dominio, seccion por seccion.
+- [Comparativa de mercado](docs/comparativa-mercado.md): frente a OpenProject
+  Enterprise, EstiMate y la categoria SaaS de capacity planning.
+- [Analisis competitivo](docs/analisis-competitivo.md): once repos de
+  referencia, con sus licencias.
+- [Analisis de interfaces](docs/analisis-interfaces.md): el ciclo de vida de la
+  aplicacion, con el indice de capturas.
+
+Lo que viene a continuacion es la documentacion tecnica: stack, control de
+acceso, motor de capacidad, estructura, modelo de datos, puesta en marcha,
+endpoints y el detalle de cada pantalla.
 
 ## Stack
 
@@ -196,6 +293,7 @@ coreplanner/
 │       └── router/       # rutas y guardas de sesion
 ├── docs/
 │   ├── especificaciones.md              # alcance y reglas de la v1
+│   ├── capturas/                        # capturas de la interfaz (README)
 │   └── openproject/
 │       ├── analisis-openproject.md        # ingenieria inversa de OpenProject
 │       └── plan-replicacion-coreplanner.md # plan de replicacion por fases

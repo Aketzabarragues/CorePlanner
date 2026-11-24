@@ -2002,3 +2002,91 @@ describe('columnas y orden del panel de nombres', () => {
     expect(wrapper.findAll('[data-testid="gantt-celda-inicio"]').length).toBe(4)
   })
 })
+
+describe('ruta crítica', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /**
+   * Feed con la cadena completa marcada en el backend: las tres tareas del
+   * feed van con `in_critical_path` y la vista solo decide si la marca.
+   */
+  const feedCritico = {
+    ...feed,
+    tasks: feed.tasks.map((task) => ({ ...task, in_critical_path: true })),
+  }
+
+  it('con ?critical=1 las barras de la cadena llevan el marco y el aria-label lo anuncia', async () => {
+    setupFetch(feedCritico)
+
+    const { wrapper } = await mountGantt({ critical: '1' })
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    expect(barras).toHaveLength(3)
+    for (const barra of barras) {
+      expect(barra.find('[data-testid="gantt-bar-critical"]').exists()).toBe(true)
+      expect(barra.attributes('aria-label')).toContain('En la ruta crítica.')
+    }
+  })
+
+  it('con el interruptor apagado no se marca nada aunque el feed traiga la cadena', async () => {
+    setupFetch(feedCritico)
+
+    const { wrapper } = await mountGantt()
+
+    expect(wrapper.find('[data-testid="gantt-bar-critical"]').exists()).toBe(false)
+    const etiquetas = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .map((barra) => barra.attributes('aria-label'))
+    for (const etiqueta of etiquetas) {
+      expect(etiqueta).not.toContain('En la ruta crítica.')
+    }
+  })
+
+  it('el globo nombra la cadena cuando el interruptor esta encendido', async () => {
+    setupFetch(feedCritico)
+
+    const { wrapper } = await mountGantt({ critical: '1' })
+
+    const barra = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.element.getAttribute('data-task-id') === '10')
+    await barra.trigger('mouseenter')
+
+    const globo = wrapper.get('[data-testid="gantt-tooltip"]')
+    expect(globo.text()).toContain('Ruta')
+    expect(globo.text()).toContain('Crítica')
+  })
+
+  it('el interruptor escribe ?critical=1 en la URL y al apagarlo lo quita', async () => {
+    setupFetch(feedCritico)
+    const { wrapper, router } = await mountGantt()
+
+    const boton = wrapper.get('[data-testid="gantt-critical-toggle"]')
+    expect(boton.attributes('aria-pressed')).toBe('false')
+
+    await boton.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.critical).toBe('1')
+    expect(wrapper.get('[data-testid="gantt-critical-toggle"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
+    expect(wrapper.findAll('[data-testid="gantt-bar-critical"]').length).toBe(3)
+
+    await wrapper.get('[data-testid="gantt-critical-toggle"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // El parametro se quita de la URL y el diagrama vuelve al de antes.
+    expect(router.currentRoute.value.query.critical).toBeUndefined()
+    expect(wrapper.find('[data-testid="gantt-bar-critical"]').exists()).toBe(false)
+  })
+})

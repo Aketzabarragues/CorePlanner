@@ -970,3 +970,58 @@ describe('GanttChart', () => {
     expect(wrapper.get('[data-testid="gantt-tooltip"]').exists()).toBe(true)
   })
 })
+
+describe('GanttChart ruta crítica', () => {
+  /**
+   * Dos barras con el vinculo pedido (10 precede a 12) y el conjunto de la
+   * cadena por defecto con las dos: la flecha cierra la cadena.
+   */
+  function layoutFlecha(tipo = 'precedes', tareasCriticas = new Set([10, 12])) {
+    const layout = layoutDe([barraNueva(10), barraNueva(12, { x: 126, rowIndex: 1 })], {
+      dependencies: [{ task_id: 12, depends_on_id: 10, type: tipo }],
+    })
+    return { layout, tareasCriticas }
+  }
+
+  it('un precedes entre dos criticas lleva trazo grueso, clase y su propia punta', () => {
+    const { layout, tareasCriticas } = layoutFlecha()
+    const wrapper = montar(layout, { tareasCriticas })
+
+    const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
+    expect(flecha.classes().join(' ')).toContain('gantt__flecha--critica')
+    expect(flecha.attributes('stroke-width')).toBe('2.5')
+    expect(flecha.attributes('marker-end')).toBe('url(#gantt-punta-critica)')
+  })
+
+  it('un precedes con un solo extremo critico no se marca', () => {
+    const { layout } = layoutFlecha('precedes', new Set([10]))
+    const wrapper = montar(layout, { tareasCriticas: new Set([10]) })
+
+    const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
+    expect(flecha.attributes('stroke-width')).toBe('1.5')
+    expect(flecha.attributes('marker-end')).toBe('url(#gantt-punta)')
+    expect(flecha.classes().join(' ')).not.toContain('gantt__flecha--critica')
+  })
+
+  it('un relates entre dos criticas se queda como estaba: discontinuo, sin punta', () => {
+    const { layout, tareasCriticas } = layoutFlecha('relates')
+    const wrapper = montar(layout, { tareasCriticas })
+
+    const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
+    expect(flecha.attributes('stroke-dasharray')).toBe('5 4')
+    expect(flecha.attributes('stroke-width')).toBe('1.5')
+    expect(flecha.attributes('marker-end')).toBeUndefined()
+    expect(flecha.classes().join(' ')).not.toContain('gantt__flecha--critica')
+  })
+
+  it('las barras de la cadena llevan el marco y el resto no', () => {
+    const { layout, tareasCriticas } = layoutFlecha()
+    const wrapper = montar(layout, { tareasCriticas })
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    expect(barras.map((barra) => barra.find('[data-testid="gantt-bar-critical"]').exists())).toEqual([
+      true,
+      true,
+    ])
+  })
+})

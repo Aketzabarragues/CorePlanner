@@ -63,6 +63,7 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "status",
         "estimated_hours",
         "violations",
+        "in_critical_path",
     }
     assert set(feed.to_dict()) == {
         "tasks",
@@ -72,6 +73,7 @@ def test_una_barra_por_tarea_con_el_formato_de_la_libreria():
         "dependencies",
     }
     assert feed.to_dict()["dependencies"] == []
+    assert barra["in_critical_path"] is False
     assert barra["is_provisional"] is False
     assert barra["id"] == 7
     assert barra["start"] == "2026-11-05"
@@ -267,3 +269,82 @@ def test_la_clase_de_persona_no_depende_del_color_del_proyecto():
     assert barras[1]["custom_class"] == PERSONA_CLASSES[0]
     assert barras[2]["custom_class"] == PERSONA_CLASSES[0]
     assert barras[1]["project_color"] != barras[2]["project_color"]
+
+
+def test_el_feed_marca_las_barras_de_la_ruta_critica_del_proyecto():
+    """La cadena mas larga de precedencias del proyecto sale marcada; las
+    cadenas cortas, las tareas sueltas y el otro proyecto, no."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=1,
+              start_date=date(2026, 3, 2), end_date=date(2026, 3, 6)),
+        Tarea(id=2, title="B", assigned_to=1, project_id=1,
+              start_date=date(2026, 3, 7), end_date=date(2026, 3, 9)),
+        Tarea(id=3, title="C", assigned_to=2, project_id=1,
+              start_date=date(2026, 3, 2), end_date=date(2026, 3, 3)),
+        Tarea(id=4, title="D", assigned_to=2, project_id=1,
+              start_date=date(2026, 3, 4), end_date=date(2026, 3, 5)),
+        Tarea(id=5, title="E", assigned_to=1, project_id=2),
+    ]
+    edges = [
+        (2, 1, "precedes"),
+        (4, 3, "precedes"),
+    ]
+
+    feed = build_gantt_feed(PERSONAS, tareas, PROYECTOS, COLORES, edges=edges)
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    assert barras[1]["in_critical_path"] is True
+    assert barras[2]["in_critical_path"] is True
+    assert barras[3]["in_critical_path"] is False
+    assert barras[4]["in_critical_path"] is False
+    assert barras[5]["in_critical_path"] is False
+
+
+def test_el_feed_no_marca_ruta_critica_en_un_proyecto_sin_dependencias():
+    """Sin vinculos precedes no hay cadena: ninguna barra se marca."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=1),
+        Tarea(id=2, title="B", assigned_to=2, project_id=1),
+    ]
+
+    feed = build_gantt_feed(PERSONAS, tareas, PROYECTOS, COLORES, edges=[])
+
+    assert all(barra["in_critical_path"] is False
+               for barra in feed.to_dict()["tasks"])
+
+
+def test_el_feed_no_marca_ruta_critica_con_solos_vinculos_relates():
+    """Un vinculo de referencia no restringe: no forma parte de la cadena."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=1),
+        Tarea(id=2, title="B", assigned_to=2, project_id=1),
+    ]
+    edges = [(2, 1, "relates")]
+
+    feed = build_gantt_feed(PERSONAS, tareas, PROYECTOS, COLORES, edges=edges)
+
+    assert all(barra["in_critical_path"] is False
+               for barra in feed.to_dict()["tasks"])
+
+
+def test_el_feed_global_marca_las_rutas_criticas_de_cada_proyecto():
+    """Cada proyecto marca su propia cadena; la marca es la union de todas."""
+    tareas = [
+        Tarea(id=1, title="A", assigned_to=1, project_id=1,
+              start_date=date(2026, 3, 2), end_date=date(2026, 3, 6)),
+        Tarea(id=2, title="B", assigned_to=1, project_id=1,
+              start_date=date(2026, 3, 7), end_date=date(2026, 3, 9)),
+        Tarea(id=3, title="C", assigned_to=2, project_id=2,
+              start_date=date(2026, 3, 2), end_date=date(2026, 3, 6)),
+        Tarea(id=4, title="D", assigned_to=2, project_id=2,
+              start_date=date(2026, 3, 7), end_date=date(2026, 3, 9)),
+    ]
+    edges = [(2, 1, "precedes"), (4, 3, "precedes")]
+
+    feed = build_gantt_feed(PERSONAS, tareas, PROYECTOS, COLORES, edges=edges)
+
+    barras = {barra["id"]: barra for barra in feed.to_dict()["tasks"]}
+    assert barras[1]["in_critical_path"] is True
+    assert barras[2]["in_critical_path"] is True
+    assert barras[3]["in_critical_path"] is True
+    assert barras[4]["in_critical_path"] is True

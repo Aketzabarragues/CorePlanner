@@ -50,6 +50,47 @@ function layoutDe(barras = [barraNueva(10), barraNueva(11, { rowIndex: 1 }), bar
   }
 }
 
+/**
+ * Layout con una fila de grupo arriba y las barras debajo.
+ *
+ * La geometria de la barra de resumen (`x`, `width`) la da el layout: el
+ * componente no la recalcula. Con `colapsado` la fila del grupo lleva su
+ * estado y no hay barras del grupo en el layout, como despues de un colapso
+ * real.
+ */
+function layoutConGrupo(colapsado = false) {
+  const grupo = {
+    type: 'group',
+    label: 'Alimentacion',
+    clave: 'departamento-1',
+    inicio: '2026-11-02',
+    fin: '2026-11-06',
+    cuantas: 2,
+    x: 28,
+    width: 84,
+    rowIndex: 0,
+    resumen: '2 tareas · del 2 al 6 de nov',
+    colorClass: 'persona-0',
+    color: null,
+    colapsado,
+  }
+  if (colapsado) {
+    return {
+      ...layoutDe(),
+      rows: [grupo],
+      bars: [],
+    }
+  }
+  const barras = [barraNueva(10, { rowIndex: 1 }), barraNueva(11, { rowIndex: 2 })]
+  return {
+    ...layoutDe(barras),
+    rows: [
+      grupo,
+      ...barras.map((barra, index) => ({ type: 'bar', rowIndex: index + 1, barra })),
+    ],
+  }
+}
+
 function montar(layout, overrides = {}) {
   return mount(GanttChart, {
     props: {
@@ -101,6 +142,39 @@ describe('GanttChart', () => {
     const wrapper = montar(layout)
 
     expect(wrapper.get('[data-testid="gantt-group-0"]').attributes('aria-label')).toContain('Alimentacion')
+  })
+
+  it('la barra de resumen sale con la x y el ancho del layout y con remates en los extremos', () => {
+    const wrapper = montar(layoutConGrupo())
+
+    const grupo = wrapper.get('[data-testid="gantt-group-0"]')
+    // El aria del grupo anuncia el resumen que le pasa la vista.
+    expect(grupo.attributes('aria-label')).toBe(
+      'Grupo: Alimentacion. 2 tareas · del 2 al 6 de nov',
+    )
+    // El cuerpo va de x a x + width: 28 a 112, con 6 px de alto a media
+    // altura de la fila (36 - 6) / 2 + 0 = 15.
+    const cuerpo = grupo.get('.gantt__resumen-cuerpo')
+    expect(cuerpo.attributes('x')).toBe('28')
+    expect(cuerpo.attributes('width')).toBe('84')
+    expect(cuerpo.attributes('height')).toBe('6')
+    expect(cuerpo.attributes('y')).toBe('15')
+    // Los remates de 2 px cierran los dos extremos del cuerpo.
+    const remates = grupo.findAll('.gantt__resumen-remate')
+    expect(remates.map((remate) => remate.attributes('x'))).toEqual(['28', '110'])
+    // El grupo colapsado o no, la barra se dibuja igual.
+    expect(grupo.get('.gantt__resumen').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('con el grupo colapsado la barra de resumen se sigue dibujando', () => {
+    const wrapper = montar(layoutConGrupo(true))
+
+    // Sin barras del grupo en el layout: la fila del grupo sigue pintando su
+    // extension, con la geometria que dio el layout.
+    expect(wrapper.find('[data-testid="gantt-bar"]').exists()).toBe(false)
+    const cuerpo = wrapper.get('[data-testid="gantt-group-0"]').get('.gantt__resumen-cuerpo')
+    expect(cuerpo.attributes('x')).toBe('28')
+    expect(cuerpo.attributes('width')).toBe('84')
   })
 
   it('la barra seleccionada lleva el tabindex y el resto no', () => {

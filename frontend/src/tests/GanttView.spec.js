@@ -1573,3 +1573,121 @@ describe('GanttView', () => {
     expect(raiz().classList.contains('fixed')).toBe(true)
   })
 })
+
+describe('colapso de grupos', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // Las filas de grupo del diagrama viven en el SVG; el panel "Mostrar/ocultar"
+  // usa `gantt-group-by` y `gantt-group-toggle-*` en la columna de nombres.
+  const svgGrupos = (w) => w.findAll('svg [data-testid^="gantt-group-"]')
+
+  it('al colapsar un grupo se escribe su clave en la URL y desaparecen sus barras', async () => {
+    setupFetch()
+    const { wrapper, router } = await mountGantt({ group: 'proyecto' })
+
+    expect(svgGrupos(wrapper).length).toBe(2)
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(3)
+
+    const toggle = wrapper
+      .get('[data-testid="gantt-names"]')
+      .get('[data-testid="gantt-group-toggle-proyecto-1"]')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    await toggle.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    // El estado vive en la URL, con la clave (no el nombre) del grupo.
+    expect(router.currentRoute.value.query.collapsed).toBe('proyecto-1')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    // Sus dos barras desaparecen: solo queda la de Jorge.
+    const etiquetas = barrasPintadas(wrapper)
+    expect(etiquetas).toHaveLength(1)
+    expect(etiquetas[0]).toContain('Planos de tuberias')
+    // La fila del grupo sigue ahi, con su barra de resumen.
+    expect(svgGrupos(wrapper).length).toBe(2)
+  })
+
+  it('al volver a pulsar el grupo sale de la URL y sus barras vuelven', async () => {
+    setupFetch()
+    const { wrapper, router } = await mountGantt({ group: 'proyecto', collapsed: 'proyecto-1' })
+
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(1)
+    const toggle = wrapper
+      .get('[data-testid="gantt-names"]')
+      .get('[data-testid="gantt-group-toggle-proyecto-1"]')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    await toggle.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.collapsed).toBeUndefined()
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(3)
+  })
+
+  it('con la URL que trae grupos colapsados el diagrama los deja colapsados', async () => {
+    setupFetch()
+    const { wrapper } = await mountGantt({ group: 'proyecto', collapsed: 'proyecto-1,proyecto-2' })
+
+    // Los dos grupos quedan sin barras; la fila de cada uno sigue con su
+    // resumen y el toggle anuncia el estado.
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(0)
+    expect(svgGrupos(wrapper).length).toBe(2)
+    const nombres = wrapper.get('[data-testid="gantt-names"]')
+    expect(
+      nombres.get('[data-testid="gantt-group-toggle-proyecto-1"]').attributes('aria-expanded'),
+    ).toBe('false')
+    expect(
+      nombres.get('[data-testid="gantt-group-toggle-proyecto-2"]').attributes('aria-expanded'),
+    ).toBe('false')
+  })
+
+  it('el aria-label del grupo anuncia cuantas tareas tiene y entre que fechas', async () => {
+    setupFetch()
+    const { wrapper } = await mountGantt({ group: 'proyecto' })
+
+    const grupos = svgGrupos(wrapper)
+    // Grupo Linea: sus dos tareas van del 5 al 11 y del 9 al 12 de noviembre,
+    // asi que la extension es del 5 al 12.
+    expect(grupos[0].attributes('aria-label')).toBe(
+      'Grupo: Linea Pasteurizadora SIVE. 2 tareas · del 5 al 12 de nov',
+    )
+    // Grupo Red de tuberias: una sola tarea, del 3 al 6.
+    expect(grupos[1].attributes('aria-label')).toBe(
+      'Grupo: Red de tuberias. 1 tarea · del 3 al 6 de nov',
+    )
+  })
+
+  it('Colapsar todo colapsa todos los grupos y Expandir todo los abre', async () => {
+    setupFetch()
+    const { wrapper, router } = await mountGantt({ group: 'proyecto' })
+
+    await wrapper.get('[data-testid="gantt-collapse-all"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.collapsed).toBe('proyecto-1,proyecto-2')
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(0)
+
+    await wrapper.get('[data-testid="gantt-expand-all"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.collapsed).toBeUndefined()
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBe(3)
+  })
+
+  it('sin agrupar no hay botones de colapso', async () => {
+    setupFetch()
+    const { wrapper } = await mountGantt({ group: 'sin' })
+
+    expect(wrapper.find('[data-testid="gantt-collapse-all"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="gantt-expand-all"]').exists()).toBe(false)
+  })
+})

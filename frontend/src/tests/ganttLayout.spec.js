@@ -321,6 +321,104 @@ describe('layout del Gantt', () => {
     expect(domingo).toHaveLength(1)
     expect(domingo[0].kind).toBe('weekend')
   })
+
+  it('la fila de grupo lleva su clave y la extension de sus tareas', () => {
+    const { rows } = layout()
+
+    const grupo = rows.find((fila) => fila.type === 'group')
+    // La clave es el identificador del grupo: es lo que va a la URL para el
+    // colapso, y en este layout es el nombre porque la vista ya lo decide.
+    expect(grupo.clave).toBe('Alfas')
+    expect(grupo.label).toBe('Alfas')
+    expect(grupo.inicio).toBe('2026-11-02')
+    expect(grupo.fin).toBe('2026-11-06')
+    expect(grupo.cuantas).toBe(2)
+    // La barra de resumen ocupa la extension de las tareas: del 2 al 6 de
+    // noviembre son cinco dias a 44 px.
+    expect(grupo.x).toBe(0)
+    expect(grupo.width).toBe(5 * 44)
+    expect(grupo.color).toBe('#005566')
+    expect(grupo.colorClass).toBeNull()
+  })
+
+  it('cada grupo lleva su propio resumen, no el del anterior', () => {
+    const otros = [
+      { task: tarea(12, '2026-11-02', '2026-11-02'), grupo: 'Bravo' },
+      ...items,
+    ]
+    const { rows } = layout({ items: otros })
+    const grupos = rows.filter((fila) => fila.type === 'group')
+
+    expect(grupos[0]).toMatchObject({
+      clave: 'Bravo',
+      inicio: '2026-11-02',
+      fin: '2026-11-02',
+      cuantas: 1,
+      x: 0,
+      width: 1 * 44,
+    })
+    // Alfas no hereda el rango de Bravo: su extension es la de sus dos
+    // tareas, aunque Bravo empiece antes que ellas.
+    expect(grupos[1]).toMatchObject({
+      clave: 'Alfas',
+      inicio: '2026-11-02',
+      fin: '2026-11-06',
+      cuantas: 2,
+      x: 0,
+      width: 5 * 44,
+    })
+  })
+
+  it('un grupo colapsado no emite sus filas de barra y la fila del grupo sigue con su resumen', () => {
+    const { rows, bars } = layout({ collapsed: ['Alfas'] })
+
+    expect(rows).toHaveLength(1)
+    const grupo = rows[0]
+    expect(grupo.type).toBe('group')
+    expect(grupo.rowIndex).toBe(0)
+    expect(grupo).toMatchObject({
+      clave: 'Alfas',
+      inicio: '2026-11-02',
+      fin: '2026-11-06',
+      cuantas: 2,
+      x: 0,
+      width: 5 * 44,
+    })
+    // El resumen no se calcula sobre las barras visibles: el grupo colapsado
+    // sigue llevando el de sus dos tareas.
+    expect(bars).toEqual([])
+  })
+
+  it('con un grupo colapsado las filas siguientes se renumeran y las demas barras salen', () => {
+    const tresGrupos = [
+      { task: tarea(12, '2026-11-02', '2026-11-02'), grupo: 'Bravo' },
+      ...items,
+      {
+        task: tarea(13, '2026-11-07', '2026-11-07', {
+          project_color: '#112233',
+          custom_class: 'persona-3',
+        }),
+        grupo: 'Charly',
+      },
+    ]
+    const { rows, bars } = layout({ items: tresGrupos, collapsed: ['Alfas'] })
+
+    // Bravo: grupo en la 0 y su barra en la 1, como sin colapsar. Alfas
+    // solo deja su fila de grupo en la 2, sin barras. Charly baja de la 5
+    // (sin colapsar) a la 3, y su barra a la 4.
+    expect(rows.map((fila) => fila.rowIndex)).toEqual([0, 1, 2, 3, 4])
+    expect(rows.map((fila) => fila.type)).toEqual(['group', 'bar', 'group', 'group', 'bar'])
+    expect(rows.map((fila) => (fila.type === 'group' ? fila.clave : null))).toEqual([
+      'Bravo',
+      null,
+      'Alfas',
+      'Charly',
+      null,
+    ])
+    expect(bars).toHaveLength(2)
+    expect(bars.map((barra) => barra.taskId)).toEqual([12, 13])
+    expect(bars.map((barra) => barra.rowIndex)).toEqual([1, 4])
+  })
 })
 
 describe('movimiento de barras', () => {

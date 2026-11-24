@@ -2090,3 +2090,138 @@ describe('ruta crítica', () => {
     expect(wrapper.find('[data-testid="gantt-bar-critical"]').exists()).toBe(false)
   })
 })
+
+describe('GanttView menu contextual', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  /**
+   * Rellena el cache de miembros del proyecto con la ruta que lo llena en
+   * produccion (el alta) y deja el cache en el estado en el que lo deja un
+   * usuario que ya ha abierto un alta: el menu de la barra lo hereda.
+   */
+  async function abrirYCerrarAlta(wrapper) {
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('dblclick', { clientX: 56, clientY: 130 })
+    await flushPromises()
+    await wrapper.get('[data-testid="modal-close"]').trigger('click')
+    await flushPromises()
+  }
+
+  it('el clic derecho en la barra abre el menu de la tarea con sus acciones', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({}, { attachTo: document.body })
+    await abrirYCerrarAlta(wrapper)
+
+    const barra = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.element.getAttribute('data-task-id') === '10')
+    await barra.trigger('contextmenu', { clientX: 70, clientY: 90 })
+    await flushPromises()
+
+    const menu = wrapper.get('[data-testid="context-menu"]')
+    expect(menu.attributes('aria-label')).toBe('Menú de la tarea')
+
+    // El item con submenu lleva la flecha `›` decorativa: `text()` la trae.
+    const items = wrapper
+      .findAll('[data-testid="context-menu-item"]')
+      .map((item) => item.text())
+    expect(items).toEqual([
+      'Abrir detalle',
+      'Ir al tablero del proyecto',
+      'Reasignar a...›',
+      'Cambiar estado›',
+      'Copiar las fechas',
+    ])
+  })
+
+  it('sin permiso de escritura el menu de la barra solo da las acciones de lectura', async () => {
+    setupFetch(feed, [], [])
+
+    const { wrapper } = await mountGantt({}, { attachTo: document.body })
+
+    const barra = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .find((item) => item.element.getAttribute('data-task-id') === '10')
+    await barra.trigger('contextmenu', { clientX: 70, clientY: 90 })
+    await flushPromises()
+
+    const menu = wrapper.get('[data-testid="context-menu"]')
+    expect(menu.attributes('aria-label')).toBe('Menú de la tarea')
+    const items = wrapper
+      .findAll('[data-testid="context-menu-item"]')
+      .map((item) => item.text())
+    expect(items).toEqual(['Abrir detalle', 'Ir al tablero del proyecto'])
+  })
+
+  it('el clic derecho en la cabecera de un grupo abre el menu del grupo', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({}, { attachTo: document.body })
+
+    await wrapper
+      .get('[data-testid="gantt-group-toggle-proyecto-1"]')
+      .trigger('contextmenu', { clientX: 60, clientY: 40 })
+    await flushPromises()
+
+    const menu = wrapper.get('[data-testid="context-menu"]')
+    expect(menu.attributes('aria-label')).toBe('Menú del grupo')
+    const items = wrapper
+      .findAll('[data-testid="context-menu-item"]')
+      .map((item) => item.text())
+    expect(items).toEqual(['Colapsar', 'Colapsar todo', 'Expandir todo'])
+  })
+
+  it('el clic derecho en el hueco con proyecto en contexto ofrece crear la tarea', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ project: '1' }, { attachTo: document.body })
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('contextmenu', { clientX: 30, clientY: 130 })
+    await flushPromises()
+
+    const menu = wrapper.get('[data-testid="context-menu"]')
+    expect(menu.attributes('aria-label')).toBe('Menú del diagrama')
+    const items = wrapper
+      .findAll('[data-testid="context-menu-item"]')
+      .map((item) => item.text())
+    expect(items).toEqual(['Crear tarea aquí'])
+  })
+
+  it('sin permiso de escritura el hueco no ofrece crear y no abre menu', async () => {
+    setupFetch(feed, [], [])
+
+    const { wrapper } = await mountGantt({ project: '1' }, { attachTo: document.body })
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('contextmenu', { clientX: 30, clientY: 130 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="context-menu"]').exists()).toBe(false)
+  })
+
+  it('sin proyecto en contexto el hueco no abre menu aunque haya permiso', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt({ group: 'sin' }, { attachTo: document.body })
+
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+    svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })
+    await svg.trigger('contextmenu', { clientX: 30, clientY: 80 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="context-menu"]').exists()).toBe(false)
+  })
+})

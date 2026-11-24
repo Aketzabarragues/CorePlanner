@@ -1025,3 +1025,81 @@ describe('GanttChart ruta crítica', () => {
     ])
   })
 })
+
+describe('GanttChart menu contextual', () => {
+  it('el clic derecho en la barra sube un contexto de barra con coordenadas y abridor', () => {
+    const wrapper = montar(layoutDe())
+    const barra = wrapper.get('[data-testid="gantt-bar"]')
+
+    barra.trigger('contextmenu', { clientX: 70, clientY: 90 })
+
+    const contexto = wrapper.emitted('contexto')[0][0]
+    expect(contexto.tipo).toBe('barra')
+    expect(contexto.taskId).toBe(10)
+    expect(contexto.x).toBe(70)
+    expect(contexto.y).toBe(90)
+    expect(contexto.abridor).toBe(barra.element)
+  })
+
+  it('Mayus+F10 en la barra sube el contexto de barra y no la tecla', async () => {
+    const wrapper = montar(layoutDe())
+    const barra = wrapper.findAll('[data-testid="gantt-bar"]')[0]
+
+    await barra.trigger('keydown', { key: 'F10', shiftKey: true })
+
+    const contexto = wrapper.emitted('contexto')[0][0]
+    expect(contexto.tipo).toBe('barra')
+    expect(contexto.taskId).toBe(10)
+    // El menu sale pegado a la barra y el foco vuelve a ella al cerrarse:
+    // la barra viaja como abridor.
+    expect(contexto.abridor).toBe(barra.element)
+    expect(wrapper.emitted('tecla')).toBeUndefined()
+  })
+
+  it('la tecla Menu del teclado abre el menu como Mayus+F10', async () => {
+    const wrapper = montar(layoutDe())
+    const barra = wrapper.findAll('[data-testid="gantt-bar"]')[0]
+
+    await barra.trigger('keydown', { key: 'Menu' })
+
+    const contexto = wrapper.emitted('contexto')[0][0]
+    expect(contexto.tipo).toBe('barra')
+    expect(contexto.taskId).toBe(10)
+    expect(wrapper.emitted('tecla')).toBeUndefined()
+  })
+
+  it('F10 sin Mayus sigue siendo una tecla y no abre el menu', async () => {
+    const wrapper = montar(layoutDe())
+
+    await wrapper.findAll('[data-testid="gantt-bar"]')[0].trigger('keydown', { key: 'F10' })
+
+    expect(wrapper.emitted('tecla')).toHaveLength(1)
+    expect(wrapper.emitted('contexto')).toBeUndefined()
+  })
+
+  it('el clic derecho en el hueco sube un contexto con la fila y el dia bajo el puntero', () => {
+    const wrapper = montar(layoutDe())
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+
+    svg.trigger('contextmenu', { clientX: 30, clientY: 80 })
+
+    const contexto = wrapper.emitted('contexto')[0][0]
+    expect(contexto.tipo).toBe('hueco')
+    expect(contexto.fila.rowIndex).toBe(0)
+    expect(contexto.dateIso).toBe('2026-11-03')
+    expect(contexto.x).toBe(30)
+    expect(contexto.y).toBe(80)
+  })
+
+  it('el clic derecho sobre la franja de un grupo sube un contexto de grupo', () => {
+    const wrapper = montar(layoutConGrupo())
+    const svg = wrapper.get('[data-testid="gantt-svg"]')
+
+    svg.trigger('contextmenu', { clientX: 30, clientY: 80 })
+
+    const contexto = wrapper.emitted('contexto')[0][0]
+    expect(contexto.tipo).toBe('grupo')
+    expect(contexto.clave).toBe('departamento-1')
+    expect(contexto.fila.rowIndex).toBe(0)
+  })
+})

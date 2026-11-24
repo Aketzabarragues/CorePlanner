@@ -62,11 +62,11 @@ const router = useRouter()
 /** Numero de semanas del rango por defecto: la actual y las ocho siguientes. */
 const RANGE_SIZE = 9
 
-/** Modos de la celda. */
+/** Modos de la celda. Los valores son los de la URL. */
 const MODE = {
-  HOURS: 'horas',
-  PERCENT: 'porcentaje',
-  PROJECTS: 'proyectos',
+  HOURS: 'hours',
+  PERCENT: 'pct',
+  PROJECTS: 'projects',
 }
 
 const report = ref(null)
@@ -252,9 +252,17 @@ async function updateQuery(patch, recargarAhora = true) {
   if (recargarAhora) await recargar()
 }
 
-/** Modo de la celda: horas, porcentaje o proyectos. */
+/**
+ * Modo de la celda: horas, porcentaje o proyectos.
+ *
+ * Los valores son los del contrato de la URL (`hours`, `pct`, `projects`).
+ * Uno que no sea de los tres se ignora: la matriz se ve en horas.
+ */
 const mode = computed({
-  get: () => query.value.mode ?? MODE.HOURS,
+  get: () => {
+    const valor = query.value.mode
+    return MODES.some((item) => item.value === valor) ? valor : MODE.HOURS
+  },
   set: (value) => updateQuery({ mode: value === MODE.HOURS ? undefined : value }, false),
 })
 

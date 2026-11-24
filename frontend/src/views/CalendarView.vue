@@ -56,7 +56,6 @@ import {
   shiftMonth,
 } from '../utils/month'
 import { sortByDepartment } from '../utils/people'
-import { plural } from '../utils/plural'
 import {
   currentWeekKey,
   isoWeekKey,
@@ -98,10 +97,11 @@ const mesScroll = ref(null)
 const query = computed(() => route.query ?? {})
 
 /**
- * Escribe los filtros en la URL.
+ * Escribe el estado de la vista en la URL.
  *
- * Los valores vacios se quitan: una URL con los filtros puestos es la que se
- * copia para compartir la vista.
+ * Los valores vacios se quitan: una URL con lo puesto es la que se copia para
+ * compartir la vista. Lo usan los filtros y el estado de la vista (que vista
+ * se ve y en que fecha).
  */
 async function updateQuery(patch) {
   const next = { ...query.value }
@@ -138,6 +138,64 @@ const VISTAS = [
   { value: 'week', label: 'Semana' },
   { value: 'day', label: 'Día' },
 ]
+
+/**
+ * Estado del calendario segun la URL.
+ *
+ * La vista y la fecha en pantalla viajan en la URL, como en el resto de vistas:
+ * `?view=` dice si se ve el mes, la semana o el dia; `?month=` es el mes
+ * abierto (YYYY-MM) y `?day=` el dia abierto (YYYY-MM-DD), que en la vista de
+ * semana es el lunes de la semana en pantalla. Los valores por defecto no se
+ * escriben: el mes en curso, el dia de hoy y la vista de mes son lo que se ve
+ * sin nada en la URL.
+ */
+const MES_EN_URL = /^\d{4}-\d{2}$/
+const DIA_EN_URL = /^\d{4}-\d{2}-\d{2}$/
+
+/** Semana ISO a la que pertenece un dia. */
+function semanaDe(dia) {
+  return isoWeekKey(new Date(`${dia}T00:00:00Z`))
+}
+
+/**
+ * Aplica el estado de la URL a la vista.
+ *
+ * La URL manda: recargar o compartir el enlace reproduce la misma vista. Un
+ * parametro que no vale se ignora, y lo que falta se queda en su defecto.
+ */
+function aplicarEstadoDeLaUrl() {
+  const q = query.value
+  const vista = VISTAS.find((item) => item.value === q.view)?.value ?? 'month'
+  const mes =
+    typeof q.month === 'string' && MES_EN_URL.test(q.month) ? q.month : currentMonthKey()
+  const dia = typeof q.day === 'string' && DIA_EN_URL.test(q.day) ? q.day : localDateKey()
+  view.value = vista
+  month.value = mes
+  day.value = dia
+  // La semana se ancla en el dia: es la semana que lo contiene.
+  if (vista === 'week') week.value = semanaDe(dia)
+}
+
+/**
+ * Escribe la vista y la fecha en pantalla en la URL.
+ *
+ * Es lo que hace que el enlace se pueda compartir: al abrirlo, el calendario
+ * se abre como estaba.
+ */
+async function escribirEstado() {
+  const patch = { view: undefined, month: undefined, day: undefined }
+  if (view.value !== 'month') patch.view = view.value
+  if (view.value === 'month') {
+    if (month.value !== currentMonthKey()) patch.month = month.value
+  } else if (view.value === 'day') {
+    if (day.value !== localDateKey()) patch.day = day.value
+  } else {
+    // En la vista de semana, el dia es el lunes de la semana en pantalla.
+    const lunes = weekDays(week.value)[0].date
+    if (lunes !== weekDays(currentWeekKey())[0].date) patch.day = lunes
+  }
+  await updateQuery(patch)
+}
 
 /** Opciones de los filtros: la de "todos" delante y las visibles detras. */
 const opcionesDepartamento = computed(() => [
@@ -246,6 +304,14 @@ const personasVisibles = computed(() =>
 /** Si hay algun filtro puesto. */
 const hayFiltros = computed(() => Boolean(projectFilter.value || departmentFilter.value))
 
+/** Tareas sin fechas: en plural correcto, con una sola no se lee "1 tareas". */
+const avisoSinFechas = computed(() => {
+  const n = undatedTaskIds.value.length
+  return n === 1
+    ? '1 tarea sin fechas no aparece en el calendario.'
+    : `${n} tareas sin fechas no aparecen en el calendario.`
+})
+
 /** Tarea abierta en el panel de detalle. */
 const selectedTask = computed(
   () => tasks.value.find((task) => task.id === selectedTaskId.value) ?? null,
@@ -301,8 +367,10 @@ const semanaSinTareas = computed(() => {
 const semanaConTrabajo = computed(() => weekWithTasksNear(week.value, visibleTasks.value, null, null))
 
 /** Salta a la semana visible mas cercana con tareas. */
-function irASemanaConTrabajo() {
-  if (semanaConTrabajo.value) week.value = semanaConTrabajo.value
+async function irASemanaConTrabajo() {
+  if (!semanaConTrabajo.value) return
+  week.value = semanaConTrabajo.value
+  await escribirEstado()
 }
 
 /**
@@ -470,15 +538,18 @@ async function load() {
 async function step(delta) {
   if (view.value === 'day') {
     day.value = shiftDay(day.value, delta)
+    await escribirEstado()
     return
   }
   if (view.value === 'week') {
     week.value = shiftWeek(week.value, delta)
+    await escribirEstado()
     return
   }
   month.value = shiftMonth(month.value, delta)
   await nextTick()
   desplazarMesASemanaConTrabajo()
+  await escribirEstado()
 }
 
 /**
@@ -486,29 +557,38 @@ async function step(delta) {
  *
  * Al cambiar de vista cada una se coloca donde le toca: si el mes que se estaba
  * viendo es el mes en curso, la semana es la de hoy; si no, la del primer dia
- * de ese mes. Al volver al mes, el mes es el de la semana en pantalla.
+ * de ese mes. Al volver al mes, el mes es el de la semana en pantalla. Desde
+ * el dia se sale a su semana y a su mes, que es donde estaba el usuario.
  */
-function setView(next) {
+async function setView(next) {
   if (next === view.value) return
   if (next === 'day') {
     day.value = localDateKey()
   } else if (next === 'week') {
-    const [year, monthNumber] = month.value.split('-').map(Number)
-    const now = new Date()
-    const sameMonth = now.getFullYear() === year && now.getMonth() === monthNumber - 1
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-    const first = new Date(Date.UTC(year, monthNumber - 1, 1))
-    week.value = isoWeekKey(sameMonth ? today : first)
+    if (view.value === 'day') {
+      week.value = semanaDe(day.value)
+    } else {
+      const [year, monthNumber] = month.value.split('-').map(Number)
+      const now = new Date()
+      const sameMonth = now.getFullYear() === year && now.getMonth() === monthNumber - 1
+      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+      const first = new Date(Date.UTC(year, monthNumber - 1, 1))
+      week.value = isoWeekKey(sameMonth ? today : first)
+    }
+  } else if (view.value === 'day') {
+    month.value = day.value.slice(0, 7)
   } else {
     month.value = weekWorkdays(week.value)[0].date.slice(0, 7)
   }
   view.value = next
+  await escribirEstado()
 }
 
 /** Abre el detalle de un dia. */
-function openDay(date) {
+async function openDay(date) {
   day.value = date
   view.value = 'day'
+  await escribirEstado()
 }
 
 /**
@@ -585,6 +665,7 @@ async function goToday() {
     await nextTick()
     desplazarMesASemanaConTrabajo()
   }
+  await escribirEstado()
 }
 
 /** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
@@ -593,14 +674,25 @@ async function reintentar() {
   await load()
 }
 
+// La URL decide con que vista se abre el calendario, antes de pintar.
+aplicarEstadoDeLaUrl()
 onMounted(load)
 useTaskReload(load)
 onBeforeUnmount(() => drag.anular())
 
+// La URL manda sobre la vista: al cambiarla (por enlace, por historial o por
+// la propia vista) se aplica lo que dice.
+watch(
+  () => route.query,
+  () => aplicarEstadoDeLaUrl(),
+)
+
 // El proyecto cambia con la ruta del proyecto o con el filtro de la URL.
 watch(
   () => [projectFilter.value, departmentFilter.value],
-  async () => {
+  async (nuevo, anterior) => {
+    // Cambiar de vista o de fecha no pide datos: solo los filtros lo hacen.
+    if (anterior && nuevo[0] === anterior[0] && nuevo[1] === anterior[1]) return
     loading.value = true
     await load()
     loading.value = false
@@ -728,7 +820,7 @@ watch(
       </AlertBanner>
 
       <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
-        {{ plural(undatedTaskIds.length, 'tarea', 'tareas') }} sin fechas no aparecen en el calendario.
+        {{ avisoSinFechas }}
       </p>
 
       <div

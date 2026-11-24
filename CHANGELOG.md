@@ -196,6 +196,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: la insignia "Hoy" del Gantt sale en las tres escalas: antes solo
+  aparecia en la de dia y en Semana y Mes la rama del eje era codigo muerto.
+- **frontend**: al abrir un proyecto al que no se tiene acceso hay un solo aviso
+  (el de la vista) y sin boton "Reintentar", que no puede arreglar un 403. El
+  armazon ya no anade un segundo banner global por el 403 de los miembros.
+- **frontend**: el Calendario guarda su vista en la URL (`view`, `day`,
+  `month`), asi que el enlace se puede compartir y la recarga reproduce la
+  vista. Los valores del modo de la capacidad son los del contrato (`hours`,
+  `pct`, `projects`).
+- **frontend**: el aviso de tareas sin fechas del Calendario concuerda en
+  singular y en plural.
 - **frontend**: al arrastrar o redimensionar una barra del Gantt, el azul de destino ya no
   es un recuadro que tapa todo el diagrama: es la fila de la tarea, con el ancho del rango
   nuevo, de modo que se ve cuanto crece o se encoge.

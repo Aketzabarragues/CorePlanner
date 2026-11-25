@@ -13,11 +13,12 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Project, ProjectMember, Task, TaskStatus, User
+from ..models import Project, ProjectMember, Task, User
 from .capacity import CapacityReport
 from .capacity_repository import load_capacity_for_projects
 from .panel import utilization_percent
 from .schedule import current_week_key
+from .task_statuses import progress_by_project
 from .tasks import list_tasks_for_projects
 
 
@@ -89,15 +90,23 @@ async def _members_by_project(
     }
 
 
-def _task_counts(tasks: Sequence[Task]) -> dict[int, tuple[int, int]]:
-    """Tareas totales y completadas de cada proyecto."""
+def _task_counts(
+    tasks: Sequence[Task], progress_by_project: dict[int, dict[str, int]]
+) -> dict[int, tuple[int, int]]:
+    """Tareas totales y completadas de cada proyecto.
+
+    Una tarea cuenta como completada cuando el avance del estado de SU
+    proyecto es cien: el estado que termina el trabajo es el que cada
+    proyecto define, no una clave fija.
+    """
     counts: dict[int, list[int]] = {}
     for task in tasks:
         if task.project_id is None:
             continue
         entry = counts.setdefault(task.project_id, [0, 0])
         entry[0] += 1
-        if task.status == TaskStatus.DONE.value:
+        avance = progress_by_project.get(task.project_id, {}).get(task.status, 0)
+        if avance == 100:
             entry[1] += 1
     return {project_id: (total, done) for project_id, (total, done) in counts.items()}
 
@@ -159,7 +168,8 @@ async def load_project_summaries(
         session, project_ids, weeks=[target_week]
     )
 
-    counts = _task_counts(tasks)
+    avance = await progress_by_project(session, project_ids)
+    counts = _task_counts(tasks, avance)
     loads = _loads_by_project(report, target_week)
 
     return tuple(

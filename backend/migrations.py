@@ -15,7 +15,7 @@ from collections import Counter
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from .models import Base, NonWorkingDay
+from .models import DEFAULT_TASK_STATUSES, Base, NonWorkingDay, Task
 from .palette import least_used_color
 
 COLUMN_ADDITIONS = (
@@ -35,6 +35,49 @@ COLOR_TABLES = ("departments", "projects")
 """Tablas cuyo color se reparte al migrar."""
 
 NON_WORKING_DAYS_COLUMNS = ("id", "date", "name", "scope", "department_id", "user_id", "half_day")
+
+TASK_CHILD_TABLES = {
+    "task_comments": ("id", "task_id", "author_id", "body", "created_at"),
+    "task_checklist_items": ("id", "task_id", "label", "done", "position", "created_at"),
+    "time_entries": ("id", "task_id", "user_id", "work_date", "hours", "note", "created_at"),
+    "task_dependencies": ("id", "task_id", "depends_on_id", "type", "created_at"),
+}
+"""Hijas de `tasks`, con sus columnas. Borrar la tabla padre las cascadea con la
+integridad referencial activa, de modo que la recreacion las captura antes y
+las restituye despues, en la misma transaccion."""
+
+
+def _capturar_hijos_de_tasks(sync_conn, inspector) -> dict[str, list[tuple]]:
+    """Filas de las hijas de `tasks`, por tabla, para restituir tras el borrado.
+
+    Solo captura las tablas que existan en la base: `create_all` las crea antes
+    de migrar, pero la migracion no depende de eso y no revienta si falta una.
+    """
+    existentes = set(inspector.get_table_names())
+    capturados: dict[str, list[tuple]] = {}
+    for tabla, columnas in TASK_CHILD_TABLES.items():
+        if tabla not in existentes:
+            continue
+        filas = sync_conn.execute(text(f"SELECT {', '.join(columnas)} FROM {tabla}")).fetchall()
+        capturados[tabla] = [tuple(fila) for fila in filas]
+    return capturados
+
+
+def _restaurar_hijos_de_tasks(sync_conn, capturados: dict[str, list[tuple]]) -> None:
+    """Reescribe las filas capturadas de las hijas de `tasks`."""
+    for tabla, columnas in TASK_CHILD_TABLES.items():
+        filas = capturados.get(tabla, [])
+        if not filas:
+            continue
+        marcadores = ", ".join(f":{columna}" for columna in columnas)
+        for fila in filas:
+            sync_conn.execute(
+                text(
+                    f"INSERT INTO {tabla} ({', '.join(columnas)}) "
+                    f"VALUES ({marcadores})"
+                ),
+                dict(zip(columnas, fila, strict=True)),
+            )
 
 
 def _migrate_non_working_days(sync_conn, tables: set[str], inspector) -> None:
@@ -80,6 +123,104 @@ def _migrate_non_working_days(sync_conn, tables: set[str], inspector) -> None:
         sync_conn.execute(
             text(f"CREATE INDEX ix_non_working_days_{columna} ON non_working_days ({columna})")
         )
+
+
+def _sembrar_estados_por_defecto(sync_conn) -> None:
+    """Siembra los estados por defecto de los proyectos que no los tienen.
+
+    Los proyectos creados antes de que los estados fueran configurables no
+    tienen filas en `task_statuses`. Se les rellenan los cuatro por defecto,
+    en su orden. Es idempotente: los proyectos que ya tienen estados no se
+    tocan, de modo que reejecutar la migracion no duplica nada.
+    """
+    ids = [
+        fila.id
+        for fila in sync_conn.execute(
+            text(
+                "SELECT p.id FROM projects p "
+                "WHERE NOT EXISTS ("
+                "SELECT 1 FROM task_statuses t WHERE t.project_id = p.id)"
+            )
+        )
+    ]
+    for project_id in ids:
+        for index, estado in enumerate(DEFAULT_TASK_STATUSES):
+            sync_conn.execute(
+                text(
+                    "INSERT INTO task_statuses "
+                    "(project_id, key, label, color, progress, order_index) "
+                    "VALUES (:pid, :key, :label, :color, :progress, :order)"
+                ),
+                {
+                    "pid": project_id,
+                    "key": estado.key,
+                    "label": estado.label,
+                    "color": estado.color,
+                    "progress": estado.progress,
+                    "order": index,
+                },
+            )
+
+
+def _recrear_tasks_sin_check_estado(sync_conn, inspector) -> None:
+    """Recrea la tabla de tareas sin la comprobacion del estado.
+
+    El estado de la tarea ahora es una clave por proyecto, no una lista
+    cerrada, de modo que la comprobacion que lo restringia a los cuatro
+    valores por defecto ya no vale. SQLite no permite quitar una comprobacion
+    de una tabla existente, asi que se crea la nueva con el esquema del
+    modelo, se copian las filas y se le cambia el nombre, como en la migracion
+    de los dias no laborables.
+
+    La decision se toma con el inspector: solo se recrea si alguna
+    comprobacion de la tabla menciona la columna `status`. Las bases nuevas no
+    pasan por aqui: las crea `create_all` con el esquema al dia.
+    """
+    checks = inspector.get_check_constraints("tasks")
+    if not any("status" in (check.get("sqltext") or "") for check in checks):
+        return
+
+    # Borrar la tabla padre cascadea a las hijas con la integridad referencial
+    # activa, de modo que se capturan antes del borrado y se restituyen al
+    # final, en la misma transaccion.
+    capturados = _capturar_hijos_de_tasks(sync_conn, inspector)
+
+    # El indice `ix_tasks_project_assignee` lleva un nombre explicito en el
+    # modelo, de modo que al crear la tabla nueva chocaria con el de la
+    # antigua: en SQLite los nombres de indice son globales, no por tabla. Se
+    # libera antes; la tabla nueva lo vuelve a llevar por el esquema del
+    # modelo y el renombrado lo conserva sobre `tasks`.
+    sync_conn.execute(text("DROP INDEX IF EXISTS ix_tasks_project_assignee"))
+
+    destino = MetaData()
+    for nombre in ("projects", "users"):
+        Base.metadata.tables[nombre].to_metadata(destino)
+    nueva = Task.__table__.to_metadata(destino, name="tasks_new")
+    nueva.create(bind=sync_conn)
+
+    # La copia lleva la interseccion de columnas, en el orden de la tabla
+    # nueva: si el modelo gana una columna y la tabla vieja no la tiene, no se
+    # copia y queda con su valor por defecto; si la tabla vieja lleva algo que
+    # el modelo ya no, se descarta sin perder nada del modelo. La lista de
+    # columnas se refleja de nuevo (no con el inspector de antes del ALTER):
+    # `ConnectionInspector` cachea la reflecion y no veria la columna que la
+    # alta de columnas acabo de anadir.
+    viejas = {item["name"] for item in inspect(sync_conn).get_columns("tasks")}
+    columnas = [col.name for col in nueva.columns if col.name in viejas]
+    lista = ", ".join(columnas)
+    sync_conn.execute(text(f"INSERT INTO tasks_new ({lista}) SELECT {lista} FROM tasks"))
+    sync_conn.execute(text("DROP TABLE tasks"))
+    sync_conn.execute(text("ALTER TABLE tasks_new RENAME TO tasks"))
+    _restaurar_hijos_de_tasks(sync_conn, capturados)
+
+    # Los indices por convencion salen con el sufijo `_new`; se devuelven a su
+    # nombre. El explicito `ix_tasks_project_assignee` viaja con la tabla: al
+    # crear `tasks_new` con el esquema del modelo ya lo lleva y el renombrado
+    # lo conserva sobre `tasks`.
+    sync_conn.execute(text("DROP INDEX IF EXISTS ix_tasks_new_project_id"))
+    sync_conn.execute(text("CREATE INDEX ix_tasks_project_id ON tasks (project_id)"))
+    sync_conn.execute(text("DROP INDEX IF EXISTS ix_tasks_new_assigned_to"))
+    sync_conn.execute(text("CREATE INDEX ix_tasks_assigned_to ON tasks (assigned_to)"))
 
 
 def _backfill_task_positions(sync_conn) -> None:
@@ -164,6 +305,12 @@ async def apply_migrations(engine: AsyncEngine) -> None:
         if "tasks" in tables and "position" in columnas["tasks"]:
             _backfill_task_positions(sync_conn)
         _migrate_non_working_days(sync_conn, tables, inspector)
+        # La recreacion de `tasks` copia todas sus columnas, asi que va tras
+        # las altas de columnas y el relleno de posiciones.
+        if "tasks" in tables:
+            _recrear_tasks_sin_check_estado(sync_conn, inspector)
+        if "task_statuses" in tables and "projects" in tables:
+            _sembrar_estados_por_defecto(sync_conn)
 
     async with engine.begin() as conn:
         await conn.run_sync(_migrate)

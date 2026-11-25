@@ -9,7 +9,7 @@ from __future__ import annotations
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Task, User
+from ..models import ProjectTaskStatus, Task, User
 from .kanban import KanbanColumn, build_kanban
 
 
@@ -44,4 +44,12 @@ async def load_project_kanban(
         await session.execute(select(User).where(User.id.in_(assignee_ids)))
     ).scalars().all()
 
-    return build_kanban(list(tasks), list(users))
+    claves = (
+        await session.execute(
+            select(ProjectTaskStatus.key)
+            .where(ProjectTaskStatus.project_id == project_id)
+            .order_by(ProjectTaskStatus.order_index, ProjectTaskStatus.id)
+        )
+    ).scalars().all()
+
+    return build_kanban(list(tasks), list(users), list(claves))

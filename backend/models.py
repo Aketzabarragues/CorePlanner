@@ -8,6 +8,7 @@ PostgreSQL requiere unicamente sustituir la URL de conexion y el driver async.
 from __future__ import annotations
 
 import enum
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -25,7 +26,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
     func,
+    insert,
     text,
 )
 from sqlalchemy.orm import (
@@ -63,6 +66,34 @@ class TaskStatus(enum.StrEnum):
     IN_PROGRESS = "in_progress"
     TESTING = "testing"
     DONE = "done"
+
+
+@dataclass(frozen=True, slots=True)
+class DefaultTaskStatus:
+    """Estado por defecto que recibe todo proyecto nuevo.
+
+    Los cuatro valores y sus avances son el contrato: una tarea termina
+    (progress 100), pasa por pruebas (75) y desarrollo (50) antes de
+    salir de la lista (0).
+    """
+
+    key: str
+    label: str
+    color: str
+    progress: int
+
+
+DEFAULT_TASK_STATUSES: tuple[DefaultTaskStatus, ...] = (
+    DefaultTaskStatus("backlog", "Backlog", "#57606a", 0),
+    DefaultTaskStatus("in_progress", "En Desarrollo", "#1f6feb", 50),
+    DefaultTaskStatus("testing", "Pruebas (FAT/SAT)", "#bf8700", 75),
+    DefaultTaskStatus("done", "Completado", "#1a7f37", 100),
+)
+"""Estados iniciales de cada proyecto, en el orden del tablero por defecto.
+
+Es la unica lista de valores: el esquema, la siembra y la migracion la
+importan de aqui, de modo que no hay copia que se desincronice.
+"""
 
 
 class CompanyRole(enum.StrEnum):
@@ -317,6 +348,69 @@ class Project(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    task_statuses: Mapped[list[ProjectTaskStatus]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ProjectTaskStatus.order_index",
+    )
+
+
+class ProjectTaskStatus(Base):
+    """Estado configurable de las tareas de un proyecto.
+
+    Cada proyecto tiene sus propios estados, sembrados con los cuatro
+    por defecto y editables: etiqueta, color y avance. La clave es inmutable
+    porque las tareas la referencian, de modo que solo se genera al crear
+    el estado. El color es uno de la paleta cerrada o None, que significa
+    sin color y deja que la interfaz use su color por defecto.
+    """
+
+    __tablename__ = "task_statuses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    key: Mapped[str] = mapped_column(String(32), nullable=False)
+    label: Mapped[str] = mapped_column(String(60), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    progress: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    order_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("project_id", "key", name="uq_task_statuses_project_key"),
+        CheckConstraint("progress BETWEEN 0 AND 100", name="progress_range"),
+    )
+
+    project: Mapped[Project] = relationship(back_populates="task_statuses")
+
+
+def _sembrar_estados_iniciales(mapper, connection, target: Project) -> None:
+    """Siembra los cuatro estados por defecto del proyecto recién insertado.
+
+    Vive en un evento de ORM y no en el servicio para que cubra cualquier
+    insercion de proyecto: la configuracion, el seed y las pruebas. La
+    insercion queda en la misma transaccion que el proyecto.
+    """
+    for index, estado in enumerate(DEFAULT_TASK_STATUSES):
+        connection.execute(
+            insert(ProjectTaskStatus).values(
+                project_id=target.id,
+                key=estado.key,
+                label=estado.label,
+                color=estado.color,
+                progress=estado.progress,
+                order_index=index,
+            )
+        )
+
+
+event.listens_for(Project, "after_insert")(_sembrar_estados_iniciales)
 
 
 class ProjectMember(Base):
@@ -386,10 +480,6 @@ class Task(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('backlog', 'in_progress', 'testing', 'done')",
-            name="status",
-        ),
         CheckConstraint("estimated_hours >= 0", name="estimated_hours_positive"),
         CheckConstraint(
             "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",

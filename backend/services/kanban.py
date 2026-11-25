@@ -6,6 +6,7 @@ base de datos.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -19,7 +20,7 @@ KANBAN_ORDER = (
     TaskStatus.TESTING,
     TaskStatus.DONE,
 )
-"""Orden de las columnas del tablero."""
+"""Orden de las columnas del tablero por defecto."""
 
 
 class TaskLike(Protocol):
@@ -84,16 +85,32 @@ class KanbanColumn:
         }
 
 
-def build_kanban(tasks: list[TaskLike], users: list[UserLike]) -> list[KanbanColumn]:
-    """Agrupa las tareas por estado, con las cuatro columnas siempre presentes.
+def build_kanban(
+    tasks: list[TaskLike],
+    users: list[UserLike],
+    claves: Sequence[str] | None = None,
+) -> list[KanbanColumn]:
+    """Agrupa las tareas por estado, con una columna por estado del proyecto.
+
+    `claves` son las claves de las columnas del tablero del proyecto, en su
+    orden, las que trae el repositorio; sin ellas se dibujan las cuatro
+    columnas por defecto, para que el agrupado se pueda probar sin base de
+    datos. Una tarea cuya clave no este entre las columnas se descarta: la
+    columna no se inventa, porque el estado ya se valido al escribir la
+    tarea.
 
     La persona asignada se resuelve por su identificador: puede ser de otro
     departamento, de modo que en la tarjeta se ve quien la lleva. El orden de
     las tarjetas dentro de cada columna es el que llegan: la consulta que
     trae las tareas ya las ordena.
     """
+    if claves is None:
+        claves = tuple(estado.value for estado in KANBAN_ORDER)
+    else:
+        claves = tuple(claves)
+
     name_by_user = {user.id: user.name for user in users}
-    grouped: dict[str, list[KanbanCard]] = {status.value: [] for status in KANBAN_ORDER}
+    grouped: dict[str, list[KanbanCard]] = {clave: [] for clave in claves}
 
     for task in tasks:
         grouped.setdefault(task.status, []).append(
@@ -114,12 +131,12 @@ def build_kanban(tasks: list[TaskLike], users: list[UserLike]) -> list[KanbanCol
             )
         )
 
-    columnas = []
-    for status in KANBAN_ORDER:
-        cards = tuple(grouped[status.value])
+    columnas: list[KanbanColumn] = []
+    for clave in claves:
+        cards = tuple(grouped[clave])
         columnas.append(
             KanbanColumn(
-                status=status.value,
+                status=clave,
                 cards=cards,
                 task_count=len(cards),
                 estimated_hours=sum(

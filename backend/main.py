@@ -25,6 +25,7 @@ from .api import (
     projects,
     roles,
     skills,
+    task_statuses,
     tasks,
     users,
     work_calendar,
@@ -68,6 +69,7 @@ app.include_router(roles.router, prefix=settings.api_prefix)
 app.include_router(projects.router, prefix=settings.api_prefix)
 app.include_router(overview.router, prefix=settings.api_prefix)
 app.include_router(my_work.router, prefix=settings.api_prefix)
+app.include_router(task_statuses.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(dependencies.router, prefix=settings.api_prefix)
 app.include_router(members.router, prefix=settings.api_prefix)

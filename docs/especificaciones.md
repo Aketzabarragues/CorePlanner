@@ -101,7 +101,7 @@ del proyecto, pero sin poder tocarlos.
 | Personas y competencias | directorio con el horario vigente de cada persona, historial de horarios y matriz de competencias |
 | Configuracion | personas, roles, departamentos, proyectos y catalogo de competencias (solo gerente) |
 | Miembros del proyecto | quien entra en el proyecto, con que rol y que horas base (el gerente lo edita) |
-| Configuracion del proyecto | nombre, estado, departamento que lo gestiona y responsable (el gerente lo edita) |
+| Configuracion del proyecto | nombre, estado, departamento que lo gestiona, responsable y estados de tarea (el gerente lo edita) |
 
 ## 7. Que NO tiene que tener la aplicacion (v1)
 
@@ -138,6 +138,7 @@ Esta lista es la que evita que la aplicacion crezca otra vez.
 | Proyecto | nombre, departamento que lo gestiona, responsable, estado |
 | Miembro de proyecto | persona, proyecto, rol en el proyecto |
 | Tarea | proyecto, titulo, responsable, estado, fechas, horas estimadas |
+| Estado de tarea | proyecto, clave, etiqueta, color, avance y orden en el tablero |
 
 ## 9. Que ya esta construido
 
@@ -2626,3 +2627,83 @@ que queda fuera. No cambia el feed ni el modelo de tareas.
 - **Columnas a medida**: las seis son fijas.
 - **Deshacer y rehacer** de los gestos del diagrama: no hay historial de acciones
    en la aplicacion.
+
+## 62. Los estados de tarea son de cada proyecto
+
+Los estados de tarea dejan de ser una lista global fija. Cada proyecto define
+los suyos: clave, etiqueta, color y avance. Un proyecto que trabaja con
+"Revision" o "En espera" los tiene, y el tablero, el diagrama y el resumen los
+usan. Los cuatro de siempre siguen existiendo, con el mismo nombre y el mismo
+avance, para que a nadie le cambie el tablero sin querer.
+
+### Que entra
+
+- `task_statuses`: clave, etiqueta, color, avance (0-100) y orden en el tablero.
+  La pareja proyecto y clave es unica.
+- **Los cuatro por defecto** se siembran en todos los proyectos, nuevos o ya
+  existentes:
+
+  | Clave | Etiqueta | Color | Avance |
+  | --- | --- | --- | --- |
+  | `backlog` | Backlog | `#57606a` | 0 |
+  | `in_progress` | En Desarrollo | `#1f6feb` | 50 |
+  | `testing` | Pruebas (FAT/SAT) | `#bf8700` | 75 |
+  | `done` | Completado | `#1a7f37` | 100 |
+
+- La tabla `tasks` pierde la comprobacion que restringia el estado a esos cuatro
+  valores: el estado es una clave del proyecto, no una lista cerrada.
+- **La clave la genera el servidor** a partir de la etiqueta y no se puede
+  cambiar: es lo que la tarea referencia.
+- **El tablero** se dibuja con los estados del proyecto, en su orden. Una tarea
+  con una clave que el proyecto ya no tiene no cae en ninguna columna.
+- **El diagrama de Gantt** pinta el avance de la barra con el avance del estado
+  de SU proyecto, no con una tabla global.
+- **El resumen de proyectos** cuenta como completadas las tareas cuyo estado
+  tiene avance 100 en su proyecto. No hay una clave "hecha" con categoria
+  especial.
+- **Una tarea nueva nace en el primer estado por orden** (hoy `backlog`).
+- **Al mover una tarea**, la clave de destino tiene que existir en el
+  proyecto: si no, 422.
+- La API: listar (de un proyecto y de todos los proyectos visibles), crear,
+  editar etiqueta, color y avance, reordenar, y borrar.
+- **Borrar un estado en uso** exige indicar a que estado pasan sus tareas. Sin
+  ese destino, la respuesta es 409 con el numero de tareas que lo usan. Las
+  tareas se reasignan en la misma transaccion que el borrado, y la columna
+  destino queda recompuesta (0..n-1, sin huecos ni repeticiones). El ultimo
+  estado del proyecto no se puede borrar.
+- En la vista de configuracion del proyecto, el gerente gestiona la lista:
+  anadir, editar, reordenar y borrar, con el numero de tareas de cada estado a
+  la vista.
+
+### Decisiones tomadas
+
+1. **Los cuatro por defecto son el contrato**: se siembran en todos los
+   proyectos y su avance no se deja de tener. Un proyecto anade los que
+   necesite encima, no los sustituye.
+2. **La clave es inmutable y la pone el servidor**: es lo que referencia la
+   tarea. Renombrarla seria una migracion de datos en cada tarea del proyecto,
+   asi que la etiqueta es lo que se edita.
+3. **El avance es un dato, no un tipo**: no hay estados terminales ni de
+   transicion. "Completada" es la que tenga avance 100, y el diagrama usa ese
+   mismo numero para pintar la barra.
+4. **El color sale de la paleta cerrada de dieciocho**, la misma que el color
+   de identidad de proyecto y de departamento. Es un color semantico de estado:
+   no se confunde con la identidad porque vive en su propia columna y nunca
+   pinta un proyecto. Sin color, la interfaz usa el suyo por defecto.
+5. **La siembra va en el alta del proyecto**, no en una funcion que se pueda
+   olvidar: asi todo proyecto, venga de donde venga, tiene sus estados. La
+   migracion rellena los que ya existian y no se repite.
+6. **Borrar es una reasignacion, no un borrado en seco**: un estado con tareas
+   no puede quedar huerfano. El numero de tareas sale a la vista antes de
+   borrar, como el uso de una competencia.
+7. **El estado no va a la bitacora**: cambiar la configuracion de los estados no
+   es un movimiento de trabajo. Queda pendiente.
+
+### Que no entra
+
+- **Copiar los estados de otro proyecto** o partir de una plantilla.
+- **Transiciones obligatorias**: que no se pueda pasar de "Revision" a
+  "Completado" sin pasar por "Pruebas".
+- **Colores libres**: la paleta es cerrada, como en el resto de la aplicacion.
+- **Renombrar la clave** de un estado.
+- **Historial de los cambios** en la configuracion de los estados.

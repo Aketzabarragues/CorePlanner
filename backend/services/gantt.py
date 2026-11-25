@@ -26,6 +26,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from .task_dependencies import critical_path, find_violations
+from .task_statuses import default_progress
 
 PERSONA_CLASSES = (
     "persona-0",
@@ -39,14 +40,6 @@ PERSONA_CLASSES = (
 
 DEFAULT_PROJECT_COLOR = "#57606a"
 """Color de una barra cuyo proyecto no tiene color guardado."""
-
-PROGRESS_BY_STATUS = {
-    "done": 100,
-    "testing": 75,
-    "in_progress": 50,
-    "backlog": 0,
-}
-"""Avance que muestra la barra segun el estado de la tarea."""
 
 
 class TaskLike(Protocol):
@@ -192,6 +185,24 @@ def _tareas_de_ruta_critica(
     return critical_ids
 
 
+def _avance_por_tarea(
+    tasks: list[TaskLike],
+    progress_by_project: dict[int, dict[str, int]] | None,
+) -> dict[int, int]:
+    """El avance de cada barra: el de su proyecto, o el avance por defecto
+    cuando no se pasa la tabla del repositorio."""
+    por_defecto = default_progress() if progress_by_project is None else None
+    avance: dict[int, int] = {}
+    for task in tasks:
+        if por_defecto is not None:
+            avance[task.id] = por_defecto.get(task.status, 0)
+        else:
+            avance[task.id] = progress_by_project.get(task.project_id, {}).get(
+                task.status, 0
+            )
+    return avance
+
+
 def build_gantt_feed(
     users: list[UserLike],
     tasks: list[TaskLike],
@@ -199,6 +210,7 @@ def build_gantt_feed(
     project_colors: Mapping[int, str],
     provisional_projects: frozenset[int] = frozenset(),
     edges: Sequence[tuple[int, int, str]] = (),
+    progress_by_project: dict[int, dict[str, int]] | None = None,
 ) -> GanttFeed:
     """Construye el diagrama a partir de las personas y las tareas.
 
@@ -215,6 +227,11 @@ def build_gantt_feed(
     las violaciones de cada barra (una barra que empieza antes de que termine
     su requisito va marcada) y la ruta critica de cada proyecto, que marca a
     las barras de su cadena mas larga de precedencias.
+
+    progress_by_project es el avance de cada estado de cada proyecto,
+    {proyecto: {clave: avance}}, el que trae el repositorio. Sin el, cada
+    barra usa el avance por defecto de su estado, para que el feed se pueda
+    probar sin base de datos.
     """
     members = tuple(
         GanttMember(
@@ -229,6 +246,7 @@ def build_gantt_feed(
     task_by_id = {task.id: task for task in tasks}
     violations = find_violations(task_by_id, edges)
     critical_ids = _tareas_de_ruta_critica(task_by_id, edges)
+    avance = _avance_por_tarea(tasks, progress_by_project)
 
     bars: list[GanttTask] = []
     undated: list[int] = []
@@ -248,7 +266,7 @@ def build_gantt_feed(
                 name=f"{task.title} · {assignee}" if assignee else task.title,
                 start=task.start_date,
                 end=task.end_date,
-                progress=PROGRESS_BY_STATUS.get(task.status, 0),
+                progress=avance[task.id],
                 dependencies="",
                 custom_class=class_by_user.get(task.assigned_to, ""),
                 project_color=project_colors.get(task.project_id)

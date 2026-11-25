@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Project, ProjectMember, Task, TaskDependency, User
 from .gantt import GanttFeed, build_gantt_feed
+from .task_statuses import progress_by_project
 
 
 async def load_gantt_for_projects(
@@ -69,6 +70,7 @@ async def load_gantt_for_projects(
         )
     ).scalars().all()
     edges = [(fila.task_id, fila.depends_on_id, fila.type) for fila in filas]
+    avance = await progress_by_project(session, sorted(ids))
 
     ordered = sorted(users, key=lambda user: (user.name.lower(), user.id))
     ordered_tasks = sorted(
@@ -80,7 +82,13 @@ async def load_gantt_for_projects(
         ),
     )
     return build_gantt_feed(
-        ordered, ordered_tasks, names, colors, provisional, edges
+        ordered,
+        ordered_tasks,
+        names,
+        colors,
+        provisional,
+        edges,
+        progress_by_project=avance,
     )
 
 

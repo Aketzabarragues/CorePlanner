@@ -14,12 +14,13 @@ from fastapi import HTTPException, status
 from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import ProjectMember, Task, TaskStatus, User
+from ..models import ProjectMember, Task, User
 from ..schemas import TaskCreate, TaskOrder, TaskUpdate
 from ..services.activity import log_activity
 from ..services.capacity import business_days, iso_week_key
 from ..services.capacity_incidents import abrir_incidentes_por_carga
 from ..services.schedule import week_start_from_key
+from ..services.task_statuses import first_status_key, status_keys
 from ..services.units import hours_to_json
 
 
@@ -103,7 +104,7 @@ async def create_task(
         start_date=payload.start_date,
         end_date=payload.end_date,
         estimated_hours=payload.estimated_hours,
-        status=TaskStatus.BACKLOG.value,
+        status=await first_status_key(session, project_id),
     )
     session.add(task)
     await session.flush()
@@ -183,7 +184,13 @@ async def update_task(
     if "title" in changed and payload.title is not None:
         task.title = payload.title
     if "status" in changed and payload.status is not None:
-        task.status = payload.status.value
+        claves = await status_keys(session, task.project_id)
+        if payload.status not in claves:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"El estado {payload.status} no existe en el proyecto",
+            )
+        task.status = payload.status
     if "description" in changed:
         # La descripcion se puede vaciar: enviarla con null la borra.
         task.description = payload.description
@@ -267,7 +274,12 @@ async def order_project_tasks(
             detail="Tarea no encontrada",
         )
 
-    estado = payload.status.value
+    estado = payload.status
+    if estado not in await status_keys(session, project_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"El estado {estado} no existe en el proyecto",
+        )
     ids_solicitados = set(payload.task_ids)
 
     # La columna afectada, entera y con las tareas completas: se comprueba

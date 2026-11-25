@@ -24,7 +24,6 @@ from .models import (
     EmploymentType,
     NonWorkingDayScope,
     ProjectStatus,
-    TaskStatus,
 )
 from .palette import PALETTE_COLORS
 from .services.units import hours_to_json
@@ -860,7 +859,7 @@ class TaskOrder(BaseModel):
     """
 
     task_id: int
-    status: TaskStatus
+    status: str = Field(min_length=1, max_length=32)
     task_ids: list[int] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -909,7 +908,7 @@ class TaskUpdate(BaseModel):
     estimated_hours: Decimal | None = Field(
         default=None, ge=0, max_digits=8, decimal_places=2
     )
-    status: TaskStatus | None = None
+    status: str | None = Field(default=None, min_length=1, max_length=32)
 
     @model_validator(mode="after")
     def _check_range(self) -> TaskUpdate:
@@ -924,6 +923,67 @@ class TaskUpdate(BaseModel):
     def changed_fields(self) -> set[str]:
         """Nombres de los campos presentes en la peticion."""
         return self.model_fields_set
+
+
+class TaskStatusCreate(BaseModel):
+    """Alta de un estado de tarea del proyecto.
+
+    La clave no viene en la peticion: la genera el servidor a partir de la
+    etiqueta, de modo que las tareas siempre la referencian por un valor
+    inmutable.
+    """
+
+    label: str = Field(min_length=1, max_length=60)
+    color: str | None = None
+    """Uno de la paleta, o None para dejar el estado sin color."""
+    progress: int = Field(default=0, ge=0, le=100)
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _check_palette_color(value)
+
+
+class TaskStatusUpdate(BaseModel):
+    """Modificacion parcial de un estado. La clave no se edita nunca."""
+
+    label: str | None = Field(default=None, min_length=1, max_length=60)
+    color: str | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
+
+    @field_validator("color")
+    @classmethod
+    def _known_color(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _check_palette_color(value)
+
+    def changed_fields(self) -> set[str]:
+        """Nombres de los campos presentes en la peticion."""
+        return self.model_fields_set
+
+
+class TaskStatusOut(BaseModel):
+    """Estado de un proyecto, con el numero de tareas que lo usan."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    key: str
+    label: str
+    color: str | None = None
+    progress: int
+    order_index: int
+    task_count: int = 0
+
+
+class TaskStatusOrder(BaseModel):
+    """Nuevo orden de los estados del proyecto: la lista es el orden nuevo."""
+
+    ids: list[int] = Field(min_length=1)
 
 
 class TimeEntryCreate(BaseModel):

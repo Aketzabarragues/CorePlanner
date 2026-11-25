@@ -12,15 +12,12 @@ from datetime import date
 from decimal import Decimal
 from typing import Protocol
 
-from ..models import TaskStatus
+from ..models import DEFAULT_TASK_STATUSES
 
-KANBAN_ORDER = (
-    TaskStatus.BACKLOG,
-    TaskStatus.IN_PROGRESS,
-    TaskStatus.TESTING,
-    TaskStatus.DONE,
-)
-"""Orden de las columnas del tablero por defecto."""
+KANBAN_ORDER: tuple[str, ...] = tuple(estado.key for estado in DEFAULT_TASK_STATUSES)
+"""Orden de las columnas del tablero por defecto: las claves de
+`DEFAULT_TASK_STATUSES` en su orden. No hay lista propia: la fuente unica sigue
+siendo la constante del esquema."""
 
 
 class TaskLike(Protocol):
@@ -105,7 +102,7 @@ def build_kanban(
     trae las tareas ya las ordena.
     """
     if claves is None:
-        claves = tuple(estado.value for estado in KANBAN_ORDER)
+        claves = KANBAN_ORDER
     else:
         claves = tuple(claves)
 

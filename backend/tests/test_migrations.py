@@ -32,6 +32,31 @@ def test_la_migracion_no_consulta_el_catalogo_de_sqlite():
     assert "PRAGMA" not in fuente
 
 
+def test_toda_hija_de_tasks_esta_registrada_en_la_migracion():
+    """Toda clave foranea que apunte a `tasks.id` tiene su tabla en `TASK_CHILD_TABLES`.
+
+    La migracion que recrea `tasks` solo captura las tablas registradas: si una
+    hija nueva con cascada no esta en la lista, el `DROP TABLE` de la recreacion
+    le borra las filas sin error.
+    """
+    hijas: set[str] = set()
+    for tabla in Base.metadata.tables.values():
+        for clave_foranea in tabla.foreign_keys:
+            if (
+                clave_foranea.column.table.name == "tasks"
+                and clave_foranea.column.name == "id"
+            ):
+                hijas.add(tabla.name)
+
+    faltantes = sorted(hijas - set(migrations.TASK_CHILD_TABLES))
+
+    assert not faltantes, (
+        "Hay hijas nuevas de `tasks` (FK a `tasks.id`) no registradas en "
+        f"migrations.TASK_CHILD_TABLES: {', '.join(faltantes)}. Añádelas antes "
+        "de la siguiente recreacion de `tasks`, que las cascadearia en silencio."
+    )
+
+
 def test_el_ddl_de_la_tabla_nueva_compila_en_postgresql():
     """La tabla que crea la migracion es valida en PostgreSQL."""
     destino = MetaData()

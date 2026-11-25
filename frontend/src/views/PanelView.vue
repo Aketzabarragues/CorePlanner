@@ -208,12 +208,17 @@ function problemPill(problem) {
  * Etiqueta de un estado de tarea por su clave.
  *
  * El feed del panel solo lleva la clave y el conteo: no hay proyecto por
- * linea. La etiqueta sale del primer proyecto cargado que defina la clave; si
- * dos proyectos usan la misma clave con etiquetas distintas, el panel muestra
- * la primera.
+ * linea, y si dos proyectos usan la misma clave con etiquetas distintas, el
+ * panel no sabe a cual pertenecen las tareas. Limitacion de la vista, no de la
+ * API. Para que salga siempre la misma etiqueta, el proyecto que responde es
+ * el de menor identificador entre los que definen la clave, no el primero
+ * cargado, que depende del orden de insercion.
  */
 function etiquetaDe(clave) {
-  for (const estados of Object.values(statusStore.byProject)) {
+  const proyectos = Object.entries(statusStore.byProject).sort(
+    ([idA], [idB]) => Number(idA) - Number(idB),
+  )
+  for (const [, estados] of proyectos) {
     const estado = estados.find((item) => item.key === clave)
     if (estado) return estado.label
   }

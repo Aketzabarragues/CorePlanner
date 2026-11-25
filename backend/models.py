@@ -29,6 +29,7 @@ from sqlalchemy import (
     event,
     func,
     insert,
+    select,
     text,
 )
 from sqlalchemy.orm import (
@@ -396,7 +397,21 @@ def _sembrar_estados_iniciales(mapper, connection, target: Project) -> None:
     Vive en un evento de ORM y no en el servicio para que cubra cualquier
     insercion de proyecto: la configuracion, el seed y las pruebas. La
     insercion queda en la misma transaccion que el proyecto.
+
+    Si el proyecto ya tiene estados, no toca nada: la siembra es idempotente
+    y una segunda siembra (por ejemplo, desde el servicio) no revienta con
+    la clave unica (project_id, key).
     """
+    existentes = (
+        connection.execute(
+            select(func.count())
+            .select_from(ProjectTaskStatus)
+            .where(ProjectTaskStatus.project_id == target.id)
+        )
+        .scalar_one()
+    )
+    if existentes:
+        return
     for index, estado in enumerate(DEFAULT_TASK_STATUSES):
         connection.execute(
             insert(ProjectTaskStatus).values(

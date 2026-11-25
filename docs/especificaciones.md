@@ -2698,6 +2698,9 @@ avance, para que a nadie le cambie el tablero sin querer.
    borrar, como el uso de una competencia.
 7. **El estado no va a la bitacora**: cambiar la configuracion de los estados no
    es un movimiento de trabajo. Queda pendiente.
+8. **Los estados los configura el gerente de empresa**: los endpoints de
+   escritura usan `require_manager()`, el mismo permiso que crear y editar el
+   proyecto; no hay permiso por proyecto para esa configuracion.
 
 ### Que no entra
 

@@ -103,7 +103,9 @@ async def first_status_key(session: AsyncSession, project_id: int) -> str:
         # Invariante: todo proyecto tiene al menos un estado. Si falta, es
         # una base sin migrar o una insercion manual sin la siembra.
         raise RuntimeError(
-            f"El proyecto {project_id} no tiene estados de tarea"
+            f"El proyecto {project_id} no tiene estados de tarea: la base "
+            "necesita la migracion (backend/migrations.py) o la siembra "
+            "del evento de alta de proyecto"
         )
     return clave
 

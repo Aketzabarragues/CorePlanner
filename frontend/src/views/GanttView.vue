@@ -52,6 +52,7 @@ import TaskForm from '../components/TaskForm.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
 import GanttChart from '../components/gantt/GanttChart.vue'
 import GanttColumnsPanel from '../components/gantt/GanttColumnsPanel.vue'
+import GanttRangePanel from '../components/gantt/GanttRangePanel.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
@@ -66,7 +67,7 @@ import {
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
 import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
-import { localDateKey, monthKey, shortMonthName } from '../utils/month'
+import { localDateKey, monthKey, monthName, shortMonthName } from '../utils/month'
 import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
 
 const auth = useAuthStore()
@@ -166,6 +167,20 @@ const projectFilter = useProyectoFiltro()
 const groupBy = computed(() => route.query.group ?? 'proyecto')
 const rangoDesde = computed(() => route.query.from ?? '')
 const rangoHasta = computed(() => route.query.to ?? '')
+
+/** Formato de fecha del rango en la URL: 'AAAA-MM-DD'. */
+const FECHA_EN_URL = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Fecha de la URL que existe de verdad.
+ *
+ * El formato no basta: '2026-02-31' lo pasa y no existe. Se compara la fecha
+ * normalizada con la cadena: si no son iguales, el dia no existe.
+ */
+function fechaValida(valor) {
+  if (typeof valor !== 'string' || !FECHA_EN_URL.test(valor)) return false
+  return toIsoDate(parseIsoDate(valor)) === valor
+}
 
 /**
  * Grupos colapsados: los que no muestran sus tareas.
@@ -485,11 +500,72 @@ const hayProvisional = computed(() =>
   (layout.value?.bars ?? []).some((barra) => barra.provisional === true),
 )
 
-/** Rango completo: sin desde ni hasta en la URL. */
-const rangoCompleto = computed(() => !rangoDesde.value && !rangoHasta.value)
-
 /** Fecha de hoy, en ISO local: la que se le pasa al layout como "hoy". */
 const hoyIso = computed(() => localDateKey())
+
+/**
+ * Rango pedido en la URL, ya validado.
+ *
+ * `valido` false significa que lo que llega no vale: una fecha que no
+ * parsea, un dia que no existe o un rango al reves. En ese caso el diagrama
+ * cae al rango del plan y la vista avisa: un enlace mal escrito nunca deja
+ * el diagrama vacio.
+ *
+ * Con rango valido, `desde` y `hasta` son las fechas efectivas: si falta un
+ * lado, se rellena con hoy mas/menos cuatro semanas, como siempre.
+ */
+const rangoPedido = computed(() => {
+  const brutoDesde = rangoDesde.value
+  const brutoHasta = rangoHasta.value
+  if (!brutoDesde && !brutoHasta) {
+    return { valido: true, desde: null, hasta: null, problema: '' }
+  }
+  if (
+    (brutoDesde && !fechaValida(brutoDesde)) ||
+    (brutoHasta && !fechaValida(brutoHasta))
+  ) {
+    return {
+      valido: false,
+      desde: null,
+      hasta: null,
+      problema: 'Las fechas del enlace no tienen un formato válido (AAAA-MM-DD).',
+    }
+  }
+  const hoy = parseIsoDate(hoyIso.value)
+  const desde = brutoDesde ? parseIsoDate(brutoDesde) : addDays(hoy, -28)
+  const hasta = brutoHasta ? parseIsoDate(brutoHasta) : addDays(hoy, 28)
+  if (desde > hasta) {
+    return {
+      valido: false,
+      desde: null,
+      hasta: null,
+      problema: 'El rango del enlace está invertido: la fecha inicial es posterior a la final.',
+    }
+  }
+  return { valido: true, desde, hasta, problema: '' }
+})
+
+/** Aviso del rango que no vale: el diagrama muestra el plan completo. */
+const avisoRango = computed(() => {
+  const problema = rangoPedido.value.problema
+  if (!problema) return ''
+  return `${problema} Se muestra el plan completo.`
+})
+
+/**
+ * Rango elegido, en ISO, para el panel de rango.
+ *
+ * Vacio cuando no hay rango valido en la URL: entonces lo que se ve es el
+ * plan completo, y el panel lo dice.
+ */
+const rangoElegido = computed(() => {
+  const pedido = rangoPedido.value
+  if (!pedido.valido || pedido.desde === null) return { desde: '', hasta: '' }
+  return { desde: toIsoDate(pedido.desde), hasta: toIsoDate(pedido.hasta) }
+})
+
+/** Rango completo: no hay un rango valido elegido en la URL. */
+const rangoCompleto = computed(() => rangoPedido.value.desde === null)
 
 /**
  * Rango visible del diagrama, en fechas UTC.
@@ -522,10 +598,9 @@ function ampliarRango({ desde, hasta }) {
 
 const rangoEfectivo = computed(() => {
   const tareas = barras.value.map((item) => item.task)
-  if (!rangoCompleto.value) {
-    const desde = rangoDesde.value || toIsoDate(addDays(parseIsoDate(hoyIso.value), -28))
-    const hasta = rangoHasta.value || toIsoDate(addDays(parseIsoDate(hoyIso.value), 28))
-    return ampliarRango({ desde: parseIsoDate(desde), hasta: parseIsoDate(hasta) })
+  const pedido = rangoPedido.value
+  if (pedido.desde !== null) {
+    return ampliarRango({ desde: pedido.desde, hasta: pedido.hasta })
   }
   if (!tareas.length) {
     return ampliarRango({
@@ -556,11 +631,10 @@ const rangoEfectivo = computed(() => {
  * toca el rango.
  */
 const hoyEnRangoElegido = computed(() => {
-  if (!rangoDesde.value || !rangoHasta.value) return false
-  const desde = parseIsoDate(rangoDesde.value)
-  const hasta = parseIsoDate(rangoHasta.value)
+  const pedido = rangoPedido.value
+  if (pedido.desde === null) return false
   const hoy = parseIsoDate(hoyIso.value)
-  return hoy >= desde && hoy <= hasta
+  return hoy >= pedido.desde && hoy <= pedido.hasta
 })
 
 /**
@@ -894,6 +968,30 @@ const rangoLabel = computed(() =>
 )
 
 /**
+ * Rango vigente, en texto largo: "Del 23 de noviembre al 3 de enero".
+ *
+ * El año sale solo cuando los dos extremos no son del mismo: si no, el
+ * diagrama ya lo dice en la cabecera.
+ */
+function textoRango(desde, hasta) {
+  const d = parseIsoDate(desde)
+  const h = parseIsoDate(hasta)
+  const mismoAnio = d.getUTCFullYear() === h.getUTCFullYear()
+  const inicio = mismoAnio
+    ? `${d.getUTCDate()} de ${monthName(d.getUTCMonth() + 1)}`
+    : `${d.getUTCDate()} de ${monthName(d.getUTCMonth() + 1)} de ${d.getUTCFullYear()}`
+  const fin = mismoAnio
+    ? `${h.getUTCDate()} de ${monthName(h.getUTCMonth() + 1)}`
+    : `${h.getUTCDate()} de ${monthName(h.getUTCMonth() + 1)} de ${h.getUTCFullYear()}`
+  return `Del ${inicio} al ${fin}`
+}
+
+/** Rango vigente en texto largo, para el panel de rango. */
+const rangoTexto = computed(() =>
+  textoRango(rangoEfectivo.value.desde, rangoEfectivo.value.hasta),
+)
+
+/**
  * Escribe un filtro en la URL, que es donde vive el estado de la vista.
  *
  * Devuelve la navegacion: quien la espera sabe que la URL ya esta escrita y
@@ -1036,6 +1134,17 @@ async function goHoy() {
 
 function goCompleto() {
   cambiarFiltro({ from: null, to: null })
+}
+
+/**
+ * Escribe el rango que propone el panel de rango.
+ *
+ * Las fechas van en ISO (`from` y `to`). Un extremo vacio se quita de la
+ * URL: con los dos vacios el rango vuelve a ser el del plan, que es lo que
+ * hacen el atajo "Todo el plan" del panel y el boton "Completo" de la barra.
+ */
+function aplicarRango({ desde, hasta }) {
+  cambiarFiltro({ from: desde, to: hasta })
 }
 
 /** Factor dentro de los limites: el detalle nunca se sale del tope. */
@@ -1848,6 +1957,19 @@ useTaskReload(load)
       {{ falloIcs }}
     </AlertBanner>
 
+    <!--
+      Rango del enlace que no vale: se avisa en linea y el diagrama cae al
+      rango del plan, para que un enlace mal escrito no lo deje vacio.
+    -->
+    <AlertBanner
+      v-if="avisoRango"
+      variant="warning"
+      class="mb-2 shrink-0"
+      data-testid="gantt-range-warning"
+    >
+      {{ avisoRango }}
+    </AlertBanner>
+
     <div class="mb-3 flex shrink-0 flex-wrap items-end gap-3" data-testid="gantt-filters">
       <FilterField
         label="Departamento"
@@ -1948,6 +2070,16 @@ useTaskReload(load)
       </button>
 
       <div class="flex items-center gap-1">
+        <!--
+          Rango de fechas: el panel elige el tramo que se ve y lo escribe en
+          la URL. Es el mismo patron que el de columnas.
+        -->
+        <GanttRangePanel
+          :desde="rangoElegido.desde"
+          :hasta="rangoElegido.hasta"
+          :texto="rangoTexto"
+          @aplicar="aplicarRango"
+        />
         <button
           type="button"
           class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"

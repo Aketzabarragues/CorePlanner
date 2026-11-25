@@ -666,7 +666,11 @@ externa:
   diciembre de 2026).
 - El rango visible vive en la URL (`?from=` y `?to=`, en fechas ISO) y se mueve
   con las flechas, se centra con **Hoy** y se abre a todas las barras con
-  **Completo**.
+  **Completo**. El boton **Rango** abre un panel con dos campos de fecha
+  ("Desde" y "Hasta") y los atajos *Todo el plan*, *Esta semana*, *Este mes* y
+  *Proximas 4 semanas*: el tramo que se elija queda en el enlace, asi que se
+  puede compartir. Un rango invertido o con una fecha que no existe avisa y
+  muestra el plan completo, en vez de dejar el diagrama en blanco.
 - Al mover o redimensionar una barra se guardan las fechas con un `PATCH` de
   la tarea, de modo que el diagrama y la matriz de ocupacion cuentan lo mismo.
   Con el teclado: las flechas mueven la barra, `Shift` con las flechas

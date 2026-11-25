@@ -84,6 +84,11 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el diagrama de Gantt tiene selector de rango: un boton "Rango"
+  abre un panel con dos campos de fecha ("Desde" y "Hasta") y los atajos *Todo
+  el plan*, *Esta semana*, *Este mes* y *Proximas 4 semanas*. El tramo elegido
+  vive en la URL (`?from=` y `?to=`), asi que el enlace se puede compartir. Por
+  defecto sigue mandando el plan completo.
 - **frontend**: el diagrama de Gantt tiene menu contextual. Con el clic derecho
   (o con `Mayus+F10` sobre la barra enfocada) salen las operaciones que ya
   existen: abrir el detalle, ir al tablero del proyecto, reasignar, cambiar el
@@ -196,6 +201,9 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: un rango de fechas invalido en el enlace del Gantt (invertido,
+  con una fecha que no existe o mal formada) ya no deja el diagrama en blanco:
+  avisa en linea y muestra el plan completo.
 - **frontend**: la insignia "Hoy" del Gantt sale en las tres escalas: antes solo
   aparecia en la de dia y en Semana y Mes la rama del eje era codigo muerto.
 - **frontend**: al abrir un proyecto al que no se tiene acceso hay un solo aviso

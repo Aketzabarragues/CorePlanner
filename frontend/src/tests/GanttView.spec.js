@@ -1,13 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import GanttView from '../views/GanttView.vue'
 import { useToastStore } from '../stores/toast'
-import { addDays, parseIsoDate, toIsoDate } from '../utils/ganttScale'
+import { addDays, diffDays, parseIsoDate, toIsoDate } from '../utils/ganttScale'
 import { localDateKey, monthKey } from '../utils/month'
-import { isoWeekKey } from '../utils/weeks'
+import { isoWeekKey, weekMonday } from '../utils/weeks'
 
 const feed = {
   tasks: [
@@ -2302,5 +2303,167 @@ describe('GanttView menu contextual', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="context-menu"]').exists()).toBe(false)
+  })
+})
+
+describe('rango de fechas del diagrama', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('el panel abre y se cierra al pulsar fuera', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    expect(wrapper.find('[data-testid="gantt-range-panel"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="gantt-toggle-range"]').trigger('click')
+    expect(wrapper.find('[data-testid="gantt-range-panel"]').exists()).toBe(true)
+
+    const fuera = document.createElement('div')
+    document.body.appendChild(fuera)
+    fuera.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    fuera.remove()
+    await nextTick()
+    expect(wrapper.find('[data-testid="gantt-range-panel"]').exists()).toBe(false)
+  })
+
+  it('dos fechas mas Aplicar escriben la URL y el diagrama muestra el tramo', async () => {
+    setupFetch()
+
+    // Proyecto 1: el plan completo son 14 dias (196 px); el tramo pedido es
+    // una semana (7 dias, 98 px), ampliado de lunes a domingo.
+    const { wrapper, router } = await mountGantt({ project: '1' })
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(14 * 14)
+
+    await wrapper.get('[data-testid="gantt-toggle-range"]').trigger('click')
+    await wrapper.get('[data-testid="gantt-range-from"]').setValue('2026-11-05')
+    await wrapper.get('[data-testid="gantt-range-to"]').setValue('2026-11-07')
+    await wrapper.get('[data-testid="gantt-range-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.from).toBe('2026-11-05')
+    expect(router.currentRoute.value.query.to).toBe('2026-11-07')
+    expect(wrapper.find('[data-testid="gantt-range-panel"]').exists()).toBe(false)
+    // El tramo ampliado es la semana ISO del 2 al 8 de noviembre: una sola
+    // celda de semana en el eje y 7 dias a 14 px en el lienzo.
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(7 * 14)
+    expect(wrapper.findAll('[data-testid^="gantt-axis-column-"]').length).toBe(1)
+    expect(wrapper.get(`[data-testid="gantt-axis-column-${isoWeekKey(parseIsoDate('2026-11-05'))}"]`).exists()).toBe(true)
+    // Las barras del tramo siguen pintadas: el diagrama no esta vacio.
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
+  })
+
+  it('Todo el plan borra from y to de la URL', async () => {
+    setupFetch()
+
+    const { wrapper, router } = await mountGantt({ project: '1', from: '2026-11-05', to: '2026-11-07' })
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(7 * 14)
+
+    await wrapper.get('[data-testid="gantt-toggle-range"]').trigger('click')
+    await wrapper.get('[data-testid="gantt-range-shortcut-plan"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.from).toBeUndefined()
+    expect(router.currentRoute.value.query.to).toBeUndefined()
+    // Vuelve al plan completo del proyecto: 14 dias a 14 px.
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(14 * 14)
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
+  })
+
+  it('los atajos escriben rangos coherentes en la URL', async () => {
+    setupFetch()
+
+    const hoy = parseIsoDate(localDateKey())
+    const lunes = weekMonday(isoWeekKey(hoy))
+    const ultimoDia = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() + 1, 0)).getUTCDate()
+    const casos = [
+      {
+        atajo: '[data-testid="gantt-range-shortcut-week"]',
+        desde: toIsoDate(lunes),
+        hasta: toIsoDate(addDays(lunes, 6)),
+        dias: 7,
+      },
+      {
+        atajo: '[data-testid="gantt-range-shortcut-month"]',
+        desde: toIsoDate(new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1))),
+        hasta: toIsoDate(new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() + 1, 0))),
+        dias: ultimoDia,
+      },
+      {
+        atajo: '[data-testid="gantt-range-shortcut-4weeks"]',
+        desde: toIsoDate(hoy),
+        hasta: toIsoDate(addDays(hoy, 27)),
+        dias: 28,
+      },
+    ]
+
+    for (const [indice, { atajo, desde, hasta, dias }] of casos.entries()) {
+      const { wrapper, router } = await mountGantt()
+      await wrapper.get('[data-testid="gantt-toggle-range"]').trigger('click')
+      await wrapper.get(atajo).trigger('click')
+      await flushPromises()
+
+      const query = router.currentRoute.value.query
+      expect(query.from).toBe(desde)
+      expect(query.to).toBe(hasta)
+      // El tramo escrito es coherente: la duracion esperada de extremo a
+      // extremo, sin avisos de rango invalido.
+      expect(diffDays(parseIsoDate(desde), parseIsoDate(hasta)) + 1).toBe(dias)
+      expect(wrapper.find('[data-testid="gantt-range-warning"]').exists()).toBe(false)
+      await wrapper.unmount()
+      void indice
+    }
+
+    // La semana: lunes a domingo; el mes: dia 1 al ultimo; 4 semanas: 28.
+    expect(parseIsoDate(casos[0].desde).getUTCDay()).toBe(1)
+    expect(parseIsoDate(casos[0].hasta).getUTCDay()).toBe(0)
+    expect(parseIsoDate(casos[1].desde).getUTCDate()).toBe(1)
+    expect(parseIsoDate(casos[1].hasta).getUTCDate()).toBe(ultimoDia)
+  })
+
+  it.each([
+    ['rango invertido', { from: '2026-11-10', to: '2026-11-05' }],
+    ['fecha mal formada', { from: '11/05/2026', to: '11/07/2026' }],
+    ['dia inexistente', { from: '2026-02-31', to: '2026-12-31' }],
+  ])('con %s: avisa y el diagrama no queda vacio', async (_etiqueta, query) => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt(query)
+
+    const aviso = wrapper.get('[data-testid="gantt-range-warning"]').text()
+    expect(aviso.endsWith('Se muestra el plan completo.')).toBe(true)
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBeGreaterThan(0)
+  })
+
+  it('con un solo extremo se rellena el otro con hoy mas o menos 28 dias', async () => {
+    setupFetch()
+
+    const hoy = parseIsoDate(localDateKey())
+    const lunesDe = (fecha) => weekMonday(isoWeekKey(fecha))
+    const domingoDe = (fecha) => addDays(weekMonday(isoWeekKey(fecha)), 6)
+    // El rango pedido se amplía a la escala de semana: de lunes a domingo.
+    const ancho = (desde, hasta) => (diffDays(lunesDe(desde), domingoDe(hasta)) + 1) * 14
+
+    // Solo from: el extremo que falta se rellena con hoy + 28 dias.
+    const { wrapper } = await mountGantt({ from: '2026-11-05' })
+    expect(Number(wrapper.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(
+      ancho(parseIsoDate('2026-11-05'), addDays(hoy, 28)),
+    )
+    expect(wrapper.find('[data-testid="gantt-range-warning"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="gantt-bar"]').length).toBeGreaterThan(0)
+
+    // Solo to: el extremo que falta se rellena con hoy - 28 dias.
+    const { wrapper: wrapperSolo } = await mountGantt({ to: '2026-11-15' })
+    expect(Number(wrapperSolo.get('[data-testid="gantt-svg"]').attributes('width'))).toBe(
+      ancho(addDays(hoy, -28), parseIsoDate('2026-11-15')),
+    )
+    expect(wrapperSolo.find('[data-testid="gantt-range-warning"]').exists()).toBe(false)
   })
 })

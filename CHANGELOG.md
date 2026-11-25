@@ -7,6 +7,14 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: los estados de tarea dejan de ser una constante del frontend: la
+  lista sale del backend y es por proyecto. El tablero, la lista de tareas, mi
+  trabajo, el resumen de proyectos, el diagrama de Gantt, el panel, la bitacora
+  y el detalle de la tarea leen los estados del proyecto que les toca. El color
+  se calcula en el navegador y se pinta con estilos en linea (el hex es un
+  dato del servidor, no una clase): el texto de la pila se oscurece hasta
+  llegar a 4.5:1 de contraste contra su fondo. Con el color tal cual, tres de
+  los cuatro estados por defecto se quedaban entre 2.79:1 y 4.33:1.
 - **frontend**: el diagrama de Gantt deja de llevar los colores a mano: sus
   ~30 hexadecimales pasan a clases del sistema de diseño (`gantt.css` con
   `@apply` de Tailwind) y la tipografia del SVG sale tambien de las clases. La
@@ -84,6 +92,18 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **estados**: los estados de tarea son de cada proyecto. Cada proyecto define
+  los suyos (clave, etiqueta, color y avance) en la tabla `task_statuses`, en
+  vez de la lista global fija de cuatro. Los cuatro por defecto (Backlog, En
+  Desarrollo, Pruebas (FAT/SAT) y Completado, con avances 0/50/75/100) se
+  siembran en todos los proyectos, nuevos o ya existentes, y no cambian. El
+  tablero se dibuja con las columnas del proyecto, el diagrama de Gantt usa el
+  avance del estado de SU proyecto y el resumen cuenta como completadas las
+  tareas con avance 100. La clave la genera el servidor a partir de la etiqueta
+  y no se puede cambiar; el color sale de la paleta cerrada de dieciocho. En la
+  configuracion del proyecto, el gerente anade, edita, reordena y borra estados:
+  borrar uno en uso exige indicar a que estado pasan sus tareas, y el ultimo
+  estado del proyecto no se puede borrar.
 - **frontend**: el diagrama de Gantt tiene selector de rango: un boton "Rango"
   abre un panel con dos campos de fecha ("Desde" y "Hasta") y los atajos *Todo
   el plan*, *Esta semana*, *Este mes* y *Proximas 4 semanas*. El tramo elegido
@@ -201,6 +221,9 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: el guard `verify:css` escapa tambien la coma al buscar una
+  clase en el bundle: las clases arbitrarias con comas estan en el CSS con las
+  comas escapadas y el guard las daba por ausentes.
 - **frontend**: un rango de fechas invalido en el enlace del Gantt (invertido,
   con una fecha que no existe o mal formada) ya no deja el diagrama en blanco:
   avisa en linea y muestra el plan completo.

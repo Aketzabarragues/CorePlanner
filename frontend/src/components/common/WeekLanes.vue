@@ -31,7 +31,8 @@
  */
 import { computed } from 'vue'
 
-import { columnLabel } from '../../utils/kanban'
+import { useTaskStatusesStore } from '../../stores/taskStatuses'
+import { DEFAULT_TASK_STATUSES, columnLabel } from '../../utils/kanban'
 import { localDateKey, weekdayNames } from '../../utils/month'
 import { daysRangeLabel, isoWeekKey } from '../../utils/weeks'
 
@@ -56,6 +57,16 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['open-day', 'open-task', 'drag-start'])
+
+/**
+ * Estados por proyecto: el componente no pide al servidor, la carga la hace
+ * quien lo contiene. Sin carga, los cuatro por defecto.
+ */
+const statusStore = useTaskStatusesStore()
+function estadosDe(projectId) {
+  const lista = statusStore.statesOf(projectId)
+  return lista.length ? lista : DEFAULT_TASK_STATUSES
+}
 
 const NOMBRES_DIA = weekdayNames()
 
@@ -228,7 +239,9 @@ function esFinDeSemana(indice) {
 
 /** Titulo con todos los datos de una tarea, para el aviso al pasar el raton. */
 function tituloTarea(tarea) {
-  const estado = tarea.status ? ` · ${columnLabel(tarea.status)}` : ''
+  const estado = tarea.status
+    ? ` · ${columnLabel(tarea.status, estadosDe(tarea.project_id))}`
+    : ''
   const provisional = tarea.is_provisional ? ' (provisional)' : ''
   return `${tarea.title}${estado} · ${tarea.project_name}${provisional} · ${tarea.start} - ${tarea.end}`
 }

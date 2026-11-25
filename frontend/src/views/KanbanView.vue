@@ -29,8 +29,15 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
-import { KANBAN_COLUMNS, columnAt, columnLabel, formatHours } from '../utils/kanban'
+import {
+  DEFAULT_TASK_STATUSES,
+  columnAt,
+  columnLabel,
+  estadosCon,
+  formatHours,
+} from '../utils/kanban'
 import { localDateKey } from '../utils/month'
 
 const props = defineProps({ id: { type: [String, Number], required: true } })
@@ -67,12 +74,10 @@ const selectedTaskId = ref(null)
 const editando = ref(null)
 /**
  * Alta inline al pie de cada columna, con el minimo de tarea: titulo, horas
- * y responsable. Las fechas precargan a hoy.
+ * y responsable. Las fechas precargan a hoy. El formulario se crea cuando
+ * llega la lista de estados: los estados son del backend, no una constante.
  */
 const nuevas = ref({})
-for (const column of KANBAN_COLUMNS) {
-  nuevas.value[column.status] = { title: '', hours: '', assigned_to: '' }
-}
 /**
  * Columna con el formulario de alta abierto, si la hay.
  *
@@ -86,6 +91,36 @@ const titleInput = ref(null)
 
 const auth = useAuthStore()
 const toast = useToastStore()
+const statusStore = useTaskStatusesStore()
+
+/** Claves de los estados que usan las tareas que se estan ensenando. */
+const clavesUsadas = computed(() => [...new Set(tasks.value.map((task) => task.status))])
+
+/**
+ * Estados a pintar, en el orden que el backend fija.
+ *
+ * Con la lista vacia (no cargada o peticion fallada) se cae en los cuatro
+ * por defecto, que son los del alta del proyecto. A esa lista siempre se
+ * anaden los estados que usan las tareas y no estan en ella: si la peticion
+ * de estados falla, la tarea no desaparece del tablero por eso.
+ */
+const estados = computed(() => {
+  const lista = statusStore.statesOf(props.id)
+  return estadosCon(lista.length ? lista : DEFAULT_TASK_STATUSES, clavesUsadas.value)
+})
+
+/** Cada columna con formulario nuevo se asegura su formulario al llegar. */
+watch(
+  estados,
+  (lista) => {
+    for (const estado of lista) {
+      if (!nuevas.value[estado.key]) {
+        nuevas.value[estado.key] = { title: '', hours: '', assigned_to: '' }
+      }
+    }
+  },
+  { immediate: true },
+)
 
 /**
  * Si la persona puede escribir en el proyecto abierto.
@@ -120,27 +155,34 @@ const draggedTask = computed(() => tasks.value.find((task) => task.id === draggi
  */
 const columnas = ref([])
 
-const board = computed(() =>
-  KANBAN_COLUMNS.map((column) => {
-    const datos = columnas.value.find((c) => c.status === column.status) ?? {}
+const board = computed(() => {
+  // El orden lo da el feed del proyecto (columnas del backend) y, si no
+  // llega, el orden de la lista de estados.
+  const orden = columnas.value.length
+    ? columnas.value.map((column) => column.status)
+    : estados.value.map((estado) => estado.key)
+  return orden.map((status) => {
+    const estado = estados.value.find((item) => item.key === status)
+    const datos = columnas.value.find((c) => c.status === status) ?? {}
     return {
-      status: column.status,
-      tasks: tasks.value.filter((task) => task.status === column.status),
+      status,
+      label: estado?.label ?? status,
+      tasks: tasks.value.filter((task) => task.status === status),
       task_count: datos.task_count ?? 0,
       estimated_hours: datos.estimated_hours ?? 0,
     }
-  }),
-)
+  })
+})
 
 function columnIndexOf(status) {
-  return KANBAN_COLUMNS.findIndex((c) => c.status === status)
+  return estados.value.findIndex((c) => c.key === status)
 }
 
 function columnAtPoint(x, y) {
   const rects = columnElements.value.map((element) =>
     element ? element.getBoundingClientRect() : null,
   )
-  return columnAt(x, y, rects)
+  return columnAt(x, y, rects, estados.value)
 }
 
 /**
@@ -176,13 +218,13 @@ function fantasmaDe(pendiente, event) {
 
 function alMover(pendiente, event) {
   draggingId.value = pendiente.datos.tarea.id
-  hoverColumn.value = columnAtPoint(event.clientX, event.clientY)?.status ?? null
+  hoverColumn.value = columnAtPoint(event.clientX, event.clientY)?.key ?? null
 }
 
 /** Al soltar: la tarjeta cae en la columna destino, en el hueco del puntero. */
 function alSoltar(pendiente, event) {
   const target = columnAtPoint(event.clientX, event.clientY)
-  if (target) ordenarTarea(pendiente.datos.tarea, target.status, event.clientY)
+  if (target) ordenarTarea(pendiente.datos.tarea, target.key, event.clientY)
 }
 
 function alAnular() {
@@ -240,7 +282,7 @@ async function ordenarTarea(task, status, y) {
       status,
       task_ids: idsFinales,
     })
-    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
+    toast.success(`"${task.title}" pasa a ${columnLabel(status, estados.value)}.`)
   } catch (err) {
     // El aviso va aparte del error de la vista: el tablero no se reemplaza
     // por un fallo al mover una tarjeta, y la recarga que viene despues no
@@ -269,7 +311,7 @@ async function moveFromSelect(task, event) {
       status,
       task_ids: idsFinales,
     })
-    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
+    toast.success(`"${task.title}" pasa a ${columnLabel(status, estados.value)}.`)
   } catch (err) {
     aviso.value = `No se ha podido mover la tarea: ${err.message}`
   } finally {
@@ -400,13 +442,18 @@ async function crearTarea(status) {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    const data = await projectsApi.kanban(token, props.id)
+    const [data, ambito, equipo] = await Promise.all([
+      projectsApi.kanban(token, props.id),
+      // El ambito va aparte: si no se puede leer, el tablero se ve en solo
+      // lectura, pero se ve. Los estados igual: sin lista, los por defecto.
+      meApi.get(token).catch(() => null),
+      projectsApi.members(token, props.id).catch(() => []),
+      statusStore.loadProject(token, props.id).catch(() => []),
+    ])
     columnas.value = data.columns ?? []
     tasks.value = columnas.value.flatMap((column) => column.tasks ?? [])
-    // El ambito va aparte: si no se puede leer, el tablero se ve en solo
-    // lectura, pero se ve.
-    scope.value = await meApi.get(token).catch(() => null)
-    members.value = (await projectsApi.members(token, props.id).catch(() => [])) ?? []
+    scope.value = ambito
+    members.value = equipo ?? []
     error.value = null
     errorStatus.value = null
   } catch (err) {
@@ -455,7 +502,8 @@ onBeforeUnmount(() => drag.anular())
       loading-label="Cargando el tablero"
       @retry="reintentar"
     >
-      <div class="grid grid-cols-4 gap-3">
+      <!-- El numero de columnas lo da la lista de estados, no una constante. -->
+      <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
         <section
           v-for="(columna, index) in board"
           :key="columna.status"
@@ -464,7 +512,7 @@ onBeforeUnmount(() => drag.anular())
           :class="hoverColumn === columna.status ? 'border-siemens-500 bg-slate-200' : 'border-slate-200'"
         >
           <h2 class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
-            {{ columnLabel(columna.status) }}
+            {{ columna.label }}
             <span class="rounded bg-white px-1.5 py-0.5 text-slate-500">
               {{ columna.task_count }}
               {{ columna.task_count === 1 ? 'tarea' : 'tareas' }} ·
@@ -547,7 +595,7 @@ onBeforeUnmount(() => drag.anular())
               :title="canEdit ? 'Cambiar el estado de la tarea' : 'Solo lectura'"
               @change="moveFromSelect(task, $event)"
             >
-              <option v-for="option in KANBAN_COLUMNS" :key="option.status" :value="option.status">
+              <option v-for="option in estados" :key="option.key" :value="option.key">
                 {{ option.label }}
               </option>
             </select>

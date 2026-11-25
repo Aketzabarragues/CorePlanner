@@ -13,7 +13,7 @@
  * nada.
  */
 
-import { columnLabel } from './kanban'
+import { columnLabel, DEFAULT_TASK_STATUSES } from './kanban'
 import { inclusiveDays, parseIsoDate } from './ganttScale'
 import { shortMonthName } from './month'
 
@@ -83,9 +83,10 @@ function fechaCorta(iso) {
  *
  * Las fechas van en ISO, asi que se comparan como texto y el resultado no
  * depende de la zona horaria. Las horas son las del feed: el frontend no las
- * suma ni las recalcula.
+ * suma ni las recalcula. El estado se etiqueta con los estados que se pasan;
+ * sin lista, los cuatro por defecto.
  */
-export function valorDeColumna(clave, tarea) {
+export function valorDeColumna(clave, tarea, estados = DEFAULT_TASK_STATUSES) {
   switch (clave) {
     case 'tarea':
       return tarea?.title ?? ''
@@ -100,14 +101,14 @@ export function valorDeColumna(clave, tarea) {
     case 'horas':
       return Number(tarea?.estimated_hours ?? 0)
     case 'estado':
-      return columnLabel(tarea?.status ?? '')
+      return columnLabel(tarea?.status ?? '', estados)
     default:
       return ''
   }
 }
 
-/** Texto que se pinta en la celda de una columna. */
-export function textoDeColumna(clave, tarea) {
+/** Texto que se pinta en la celda de una columna, con los mismos estados. */
+export function textoDeColumna(clave, tarea, estados = DEFAULT_TASK_STATUSES) {
   switch (clave) {
     case 'persona':
       return tarea?.assigned_name ?? 'Sin asignar'
@@ -120,7 +121,7 @@ export function textoDeColumna(clave, tarea) {
     case 'horas':
       return Number(tarea?.estimated_hours ?? 0).toFixed(2)
     case 'estado':
-      return columnLabel(tarea?.status ?? '')
+      return columnLabel(tarea?.status ?? '', estados)
     default:
       return ''
   }
@@ -130,14 +131,17 @@ export function textoDeColumna(clave, tarea) {
  * Comparador de tareas por una columna, en el sentido pedido.
  *
  * Devuelve null si no hay ordenacion: el diagrama queda en su orden natural
- * (por fecha de inicio dentro del grupo).
+ * (por fecha de inicio dentro del grupo). La etiqueta de estado de cada tarea
+ * se resuelve con `estadosDe(tarea)`, para que el comparador sirva con tareas
+ * de proyectos distintos; sin resolver, los cuatro por defecto.
  */
-export function comparadorDeOrden(orden) {
+export function comparadorDeOrden(orden, estadosDe = null) {
   if (!orden) return null
   const signo = orden.sentido === 'desc' ? -1 : 1
+  const listaDe = (tarea) => (estadosDe ? estadosDe(tarea) : DEFAULT_TASK_STATUSES)
   return (a, b) => {
-    const va = valorDeColumna(orden.columna, a)
-    const vb = valorDeColumna(orden.columna, b)
+    const va = valorDeColumna(orden.columna, a, listaDe(a))
+    const vb = valorDeColumna(orden.columna, b, listaDe(b))
     const base =
       typeof va === 'number' && typeof vb === 'number'
         ? va - vb

@@ -119,7 +119,14 @@ const miembros = [
  * `failOrder` y `failPatch` hacen fallar la peticion de orden o el PATCH,
  * para ver el aviso en el banner.
  */
-function setupFetch({ editable = [1], failOrder = false, failPatch = false, falloTablero = null } = {}) {
+function setupFetch({
+  editable = [1],
+  failOrder = false,
+  failPatch = false,
+  falloTablero = null,
+  failEstados = false,
+  columnaExtra = null,
+} = {}) {
   const calls = []
   /**
    * Tareas creadas en la prueba, por columna: el feed las sirve en la
@@ -158,6 +165,11 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false, fall
       // Copia nueva en cada llamada: la vista mueve las tarjetas al instante
       // y no debe tocar los datos del test.
       const copia = JSON.parse(JSON.stringify(board))
+      if (columnaExtra) {
+        // Columna con un estado propio del proyecto, fuera de los cuatro
+        // por defecto: el caso de la lista de estados fallada.
+        copia.columns.push(JSON.parse(JSON.stringify(columnaExtra)))
+      }
       for (const columna of copia.columns) {
         for (const tarea of creadas[columna.status] ?? []) {
           columna.tasks.push(tarea)
@@ -166,6 +178,12 @@ function setupFetch({ editable = [1], failOrder = false, failPatch = false, fall
         }
       }
       return { ok: true, status: 200, json: async () => copia }
+    }
+    if (url.includes('/task-statuses')) {
+      if (failEstados) {
+        return { ok: false, status: 500, json: async () => ({ detail: 'Sin conexion' }) }
+      }
+      return { ok: true, status: 200, json: async () => [] }
     }
     if (url.endsWith('/api/tasks/1') && (options.method ?? 'GET') === 'GET') {
       return {
@@ -354,6 +372,51 @@ describe('KanbanView', () => {
     expect(texto).toContain('Ana')
     expect(texto).toContain('10 h')
     expect(texto).toContain('2026-11-02')
+  })
+
+  it('si la peticion de estados falla, la tarea con estado propio del proyecto sigue en el tablero y se puede elegir', async () => {
+    setupFetch({
+      failEstados: true,
+      columnaExtra: {
+        status: 'revision_extras',
+        task_count: 1,
+        estimated_hours: 5,
+        tasks: [
+          {
+            id: 7,
+            title: 'Revisión extra',
+            status: 'revision_extras',
+            assigned_to: 1,
+            assigned_name: 'Ana',
+            estimated_hours: 5,
+            start_date: '2026-11-17',
+            end_date: '2026-11-18',
+          },
+        ],
+      },
+    })
+
+    const wrapper = await mountKanban()
+
+    // La columna se pinta al final, con la clave como etiqueta: la lista del
+    // proyecto nunca llego.
+    const cabeceras = wrapper
+      .findAll('section h2')
+      .map((h) => h.text().replace(/\s+/g, ' ').trim())
+    expect(cabeceras).toHaveLength(5)
+    expect(cabeceras[4]).toContain('revision_extras')
+
+    // La tarjeta no desaparecio del tablero... (la séptima: una por backlog
+    // e in_progress, dos por testing y dos por done).
+    const tarjeta = wrapper.findAll('article')[6]
+    expect(tarjeta.text()).toContain('Revisión extra')
+
+    // ...y se puede elegir en el desplegable de estado de la tarjeta.
+    const options = tarjeta
+      .findAll('select')[1]
+      .findAll('option')
+      .map((o) => o.attributes('value'))
+    expect(options).toContain('revision_extras')
   })
 
   it('cambiar el estado en el desplegable ordena la tarea al final de la columna destino', async () => {

@@ -56,6 +56,7 @@ import GanttRangePanel from '../components/gantt/GanttRangePanel.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { GANTT_VIEW_MODES, dateChangePayload } from '../utils/gantt'
 import {
   COLUMNAS_GANTT,
@@ -66,7 +67,7 @@ import {
 } from '../utils/ganttColumns'
 import { addDays, diffDays, escalaAjustada, parseIsoDate, scaleById, toIsoDate } from '../utils/ganttScale'
 import { buildLayout, moveRange, resizeRange } from '../utils/ganttLayout'
-import { KANBAN_COLUMNS, columnLabel } from '../utils/kanban'
+import { DEFAULT_TASK_STATUSES, columnLabel } from '../utils/kanban'
 import { localDateKey, monthKey, monthName, shortMonthName } from '../utils/month'
 import { isoWeekKey, weekDays, weekMonday, weekWorkdays } from '../utils/weeks'
 
@@ -75,6 +76,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useProjectsStore()
 const toast = useToastStore()
+const statusStore = useTaskStatusesStore()
 
 const feed = ref(null)
 const personas = ref([])
@@ -220,7 +222,9 @@ const columnasPanel = computed(() =>
 const orden = computed(() => ordenDeUrl(route.query.sort))
 
 /** Comparador de la ordenacion vigente; null si no hay ordenacion. */
-const comparador = computed(() => comparadorDeOrden(orden.value))
+const comparador = computed(() =>
+  comparadorDeOrden(orden.value, (tarea) => estadosDe(tarea?.project_id)),
+)
 
 /**
  * Ruta critica destacada: si el diagrama marca la cadena.
@@ -647,7 +651,7 @@ function celdasDe(tarea) {
   if (!tarea) return {}
   const celdas = {}
   for (const columna of columnasElegidas.value) {
-    celdas[columna] = textoDeColumna(columna, tarea)
+    celdas[columna] = textoDeColumna(columna, tarea, estadosDe(tarea.project_id))
   }
   return celdas
 }
@@ -1516,6 +1520,12 @@ function itemsDeContexto(contexto) {
  * que se tengan del proyecto: sin miembros cacheados no hay a quien
  * reasignar, y el item no sale.
  */
+/** Estados del proyecto, o los por defecto si la lista no ha cargado. */
+function estadosDe(projectId) {
+  const lista = statusStore.statesOf(projectId)
+  return lista.length ? lista : DEFAULT_TASK_STATUSES
+}
+
 function itemsDeBarra(taskId) {
   const tarea = (feed.value?.tasks ?? []).find((item) => item.id === taskId)
   if (!tarea) return []
@@ -1540,14 +1550,15 @@ function itemsDeBarra(taskId) {
       })),
     })
   }
+  const estados = estadosDe(tarea.project_id)
   items.push({
     label: 'Cambiar estado',
     accion: 'estado',
-    submenu: KANBAN_COLUMNS.map((columna) => ({
-      label: columna.status === tarea.status ? `${columna.label} (actual)` : columna.label,
+    submenu: estados.map((estado) => ({
+      label: estado.key === tarea.status ? `${estado.label} (actual)` : estado.label,
       accion: 'estado',
-      dato: { taskId: tarea.id, estado: columna.status },
-      disabled: columna.status === tarea.status,
+      dato: { taskId: tarea.id, estado: estado.key, proyecto: tarea.project_id },
+      disabled: estado.key === tarea.status,
     })),
   })
   items.push({
@@ -1635,7 +1646,7 @@ async function ejecutarAccion(item) {
     await guardarCambioDeTarea(
       dato.taskId,
       { status: dato.estado },
-      `La tarea pasa a ${columnLabel(dato.estado)}.`,
+      `La tarea pasa a ${columnLabel(dato.estado, estadosDe(dato.proyecto))}.`,
     )
     return
   }
@@ -1771,6 +1782,9 @@ async function load() {
     const [respuesta, directorio] = await Promise.all([
       overviewApi.gantt(token, params),
       peopleApi.list(token).catch(() => []),
+      // Los estados de los proyectos alimentan el menu contextual y la
+      // columna de estado; si no se pueden leer, se pintan los por defecto.
+      statusStore.loadAll(token).catch(() => null),
     ])
     personas.value = Array.isArray(directorio) ? directorio : []
     await store.ensureProjects(token).catch(() => null)

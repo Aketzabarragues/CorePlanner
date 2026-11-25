@@ -28,7 +28,7 @@ function collectFiles(dir, extensions) {
 
 /** Escapa una clase de Tailwind como lo hace el generador de CSS. */
 function escapeClassName(name) {
-  return name.replace(/[.:/[\]()%&#!@'"~>+=$^|<>?*\\]/g, (char) => `\\${char}`)
+  return name.replace(/[.,:/[\]()%&#!@'"~>+=$^|<>?*\\]/g, (char) => `\\${char}`)
 }
 
 function extractClasses(content) {

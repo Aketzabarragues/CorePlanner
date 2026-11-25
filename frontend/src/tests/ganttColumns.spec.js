@@ -86,6 +86,13 @@ describe('valorDeColumna', () => {
     expect(valorDeColumna('tarea', null)).toBe('')
     expect(valorDeColumna('inexistente', tarea)).toBe('')
   })
+
+  it('el estado se etiqueta con los estados que se pasan', () => {
+    const estados = [{ key: 'custom', label: 'Mi estado', color: '#000000', progress: 10 }]
+    expect(valorDeColumna('estado', { status: 'custom' }, estados)).toBe('Mi estado')
+    expect(textoDeColumna('estado', { status: 'custom' }, estados)).toBe('Mi estado')
+    expect(valorDeColumna('estado', { status: 'custom' })).toBe('custom')
+  })
 })
 
 describe('textoDeColumna', () => {

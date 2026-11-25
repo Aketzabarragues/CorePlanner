@@ -18,7 +18,14 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
-import { KANBAN_COLUMNS, formatHours, statusBar, statusPill } from '../utils/kanban'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
+import {
+  DEFAULT_TASK_STATUSES,
+  estadosCon,
+  formatHours,
+  statusBar,
+  statusPill,
+} from '../utils/kanban'
 import { projectStatus } from '../utils/navigation'
 import { currentWeekKey, weeksFrom, weekNumber } from '../utils/weeks'
 import { plural } from '../utils/plural'
@@ -29,6 +36,7 @@ const props = defineProps({
 
 const auth = useAuthStore()
 const store = useProjectsStore()
+const statusStore = useTaskStatusesStore()
 
 const error = ref(null)
 const loading = ref(true)
@@ -59,12 +67,26 @@ const status = computed(() => projectStatus(project.value?.status))
 
 const rows = computed(() => capacity.value?.rows ?? [])
 
+/**
+ * Estados a contar: los del proyecto mas los que usan las tareas. Si la
+ * peticion de estados falla, el reparto por estado sigue sumando el total
+ * de tareas.
+ */
+const estados = computed(() =>
+  estadosCon(
+    statusStore.statesOf(props.id).length
+      ? statusStore.statesOf(props.id)
+      : DEFAULT_TASK_STATUSES,
+    tasks.value.map((task) => task.status),
+  ),
+)
+
 /** Tareas del proyecto, agrupadas por estado. */
 const byStatus = computed(() =>
-  KANBAN_COLUMNS.map((column) => ({
-    status: column.status,
-    label: column.label,
-    count: tasks.value.filter((task) => task.status === column.status).length,
+  estados.value.map((estado) => ({
+    status: estado.key,
+    label: estado.label,
+    count: tasks.value.filter((task) => task.status === estado.key).length,
   })),
 )
 
@@ -75,7 +97,7 @@ const statusSegments = computed(() =>
   byStatus.value.map((item) => ({
     ...item,
     width: totalTasks.value ? (item.count / totalTasks.value) * 100 : 0,
-    color: statusBar(item.status),
+    color: statusBar(item.status, estados.value),
   })),
 )
 
@@ -140,6 +162,7 @@ async function load() {
     const [report, projectTasks] = await Promise.all([
       projectsApi.capacity(token, props.id, { from: weeks[0], to: weeks[weeks.length - 1] }),
       projectsApi.tasks(token, props.id),
+      statusStore.loadProject(token, props.id).catch(() => []),
     ])
     capacity.value = report
     tasks.value = projectTasks
@@ -263,8 +286,7 @@ useTaskReload(load)
               <span
                 v-for="segmento in statusSegments"
                 :key="segmento.status"
-                :style="{ width: `${segmento.width}%` }"
-                :class="segmento.color"
+                :style="{ width: `${segmento.width}%`, ...segmento.color }"
               />
             </div>
 
@@ -277,7 +299,7 @@ useTaskReload(load)
               >
                 <span
                   class="inline-block rounded-full px-2 py-0.5 text-xs font-semibold"
-                  :class="statusPill(item.status)"
+                  :style="statusPill(item.status, estados.value)"
                 >
                   {{ item.label }}
                 </span>

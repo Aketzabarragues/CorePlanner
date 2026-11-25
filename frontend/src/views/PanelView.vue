@@ -19,6 +19,7 @@ import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
 import { useAuthStore } from '../stores/auth'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { columnLabel, formatHours } from '../utils/kanban'
 import { loadRatio } from '../utils/load'
 import { projectStatus } from '../utils/navigation'
@@ -26,6 +27,7 @@ import { weekNumber } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
+const statusStore = useTaskStatusesStore()
 
 const panel = ref(null)
 const error = ref(null)
@@ -202,6 +204,22 @@ function problemPill(problem) {
   return problem === 'Sin persona' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-900'
 }
 
+/**
+ * Etiqueta de un estado de tarea por su clave.
+ *
+ * El feed del panel solo lleva la clave y el conteo: no hay proyecto por
+ * linea. La etiqueta sale del primer proyecto cargado que defina la clave; si
+ * dos proyectos usan la misma clave con etiquetas distintas, el panel muestra
+ * la primera.
+ */
+function etiquetaDe(clave) {
+  for (const estados of Object.values(statusStore.byProject)) {
+    const estado = estados.find((item) => item.key === clave)
+    if (estado) return estado.label
+  }
+  return columnLabel(clave)
+}
+
 async function load() {
   try {
     const token = await auth.ensureSession()
@@ -209,6 +227,9 @@ async function load() {
       panelApi.list(token),
       meApi.get(token),
       capacityIncidentsApi.list(token),
+      // Los estados de los proyectos dan la etiqueta de "tareas por estado";
+      // si no se pueden leer, se pinta la clave.
+      statusStore.loadAll(token).catch(() => null),
     ])
     panel.value = panelData
     scope.value = scopeData
@@ -664,7 +685,7 @@ useTaskReload(load)
               :key="status"
               class="flex items-center justify-between py-1"
             >
-              <span class="text-slate-600">{{ columnLabel(status) }}</span>
+              <span class="text-slate-600">{{ etiquetaDe(status) }}</span>
               <span class="font-medium tabular-nums text-siemens-900">{{ count }}</span>
             </li>
             <li v-if="!taskStatuses.length" class="py-1 text-slate-500">

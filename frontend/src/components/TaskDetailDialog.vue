@@ -19,8 +19,9 @@ import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
 import ModalDialog from './ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { actionLabel, relativeTime } from '../utils/activity'
-import { KANBAN_COLUMNS, columnLabel, formatHours } from '../utils/kanban'
+import { DEFAULT_TASK_STATUSES, columnLabel, formatHours } from '../utils/kanban'
 
 const props = defineProps({
   open:    { type: Boolean, default: false },
@@ -44,6 +45,7 @@ function centimas(value) {
 }
 
 const auth = useAuthStore()
+const statusStore  = useTaskStatusesStore()
 
 const task           = ref(null)
 const members        = ref([])
@@ -91,7 +93,18 @@ const form = ref({
 })
 
 const title       = computed(() => task.value?.title ?? 'Tarea')
-const statusLabel = computed(() => columnLabel(form.value.status))
+/**
+ * Estados del proyecto de la tarea.
+ *
+ * El desplegable de estado y la etiqueta del formulario se pintan con los
+ * estados que el backend siembra y permite editar por proyecto; sin carga,
+ * los cuatro por defecto.
+ */
+const estados = computed(() => {
+  const lista = statusStore.statesOf(task.value?.project_id)
+  return lista.length ? lista : DEFAULT_TASK_STATUSES
+})
+const statusLabel = computed(() => columnLabel(form.value.status, estados.value))
 
 /**
  * Campos que han cambiado de verdad.
@@ -269,6 +282,9 @@ async function load() {
     const token = await auth.ensureSession()
     const tarea = await tasksApi.detail(token, props.taskId)
     fillForm(tarea)
+    // Los estados del proyecto van aparte: si no se pueden leer, el
+    // desplegable se queda con los cuatro por defecto.
+    await statusStore.loadProject(token, tarea.project_id).catch(() => [])
     const equipo   = await projectsApi.members(token, tarea.project_id).catch(() => [])
     members.value  = equipo ?? []
     await Promise.all([
@@ -505,8 +521,8 @@ watch(
               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
               data-testid="task-status"
             >
-              <option v-for="column in KANBAN_COLUMNS" :key="column.status" :value="column.status">
-                {{ column.label }}
+              <option v-for="estado in estados" :key="estado.key" :value="estado.key">
+                {{ estado.label }}
               </option>
             </select>
           </label>
@@ -821,7 +837,7 @@ watch(
               data-testid="task-activity-entry"
             >
               <span class="font-medium text-slate-900">{{ entry.actor_name }}</span>
-              <span class="text-slate-600">{{ actionLabel(entry) }}</span>
+              <span class="text-slate-600">{{ actionLabel(entry, estados.value) }}</span>
               <span class="ml-1 text-xs text-slate-400">{{ relativeTime(entry.created_at) }}</span>
             </li>
           </ul>

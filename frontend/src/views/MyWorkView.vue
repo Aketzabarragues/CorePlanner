@@ -20,14 +20,35 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
 import { useAuthStore } from '../stores/auth'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
-import { KANBAN_COLUMNS, columnLabel, formatHours, statusPill } from '../utils/kanban'
+import {
+  DEFAULT_TASK_STATUSES,
+  columnLabel,
+  estadosCon,
+  formatHours,
+  statusPill,
+} from '../utils/kanban'
 import { loadAspect, loadBarWidth, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekNumber, weekTitle } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
 const toast = useToastStore()
+const statusStore = useTaskStatusesStore()
+
+/**
+ * Estados a ofrecer para una tarea: los del proyecto de la tarea, mas los que
+ * usan las tareas de la vista. Cada tarea lleva su `project_id` y los estados
+ * son por proyecto. Con lista vacia, los cuatro por defecto.
+ */
+function estadosDe(projectId) {
+  const lista = statusStore.statesOf(projectId)
+  return estadosCon(
+    lista.length ? lista : DEFAULT_TASK_STATUSES,
+    visibleTasks.value.map((task) => task.status),
+  )
+}
 
 const report = ref(null)
 const error = ref(null)
@@ -123,7 +144,13 @@ const card = computed(() => {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    report.value = await myWorkApi.list(token)
+    const [informe] = await Promise.all([
+      myWorkApi.list(token),
+      // Vista multiproyecto: los estados de todos los proyectos visibles.
+      // Si no llegan, cada tarea cae en los estados por defecto.
+      statusStore.loadAll(token).catch(() => null),
+    ])
+    report.value = informe
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -152,7 +179,7 @@ async function changeStatus(task, event) {
   try {
     await tasksApi.update(auth.token, task.id, { status })
     task.status = status
-    toast.success(`"${task.title}" pasa a ${columnLabel(status)}.`)
+    toast.success(`"${task.title}" pasa a ${columnLabel(status, estadosDe(task.project_id))}.`)
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -333,9 +360,9 @@ useTaskReload(load)
             </span>
             <span
               class="w-32 rounded-full px-2.5 py-0.5 text-center text-xs font-semibold"
-              :class="statusPill(task.status)"
+              :style="statusPill(task.status, estadosDe(task.project_id))"
             >
-              {{ columnLabel(task.status) }}
+              {{ columnLabel(task.status, estadosDe(task.project_id)) }}
             </span>
             <select
               :value="task.status"
@@ -345,7 +372,11 @@ useTaskReload(load)
               data-testid="my-work-status"
               @change="changeStatus(task, $event)"
             >
-              <option v-for="option in KANBAN_COLUMNS" :key="option.status" :value="option.status">
+              <option
+                v-for="option in estadosDe(task.project_id)"
+                :key="option.key"
+                :value="option.key"
+              >
                 {{ option.label }}
               </option>
             </select>

@@ -22,7 +22,8 @@
  */
 import { computed, ref } from 'vue'
 
-import { KANBAN_COLUMNS, columnLabel, formatHours } from '../utils/kanban'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
+import { DEFAULT_TASK_STATUSES, columnLabel, formatHours } from '../utils/kanban'
 import { longDateLabel, tasksOnDay } from '../utils/month'
 
 const props = defineProps({
@@ -41,6 +42,16 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['open-task', 'cambiar', 'crear'])
+
+/**
+ * Estados por proyecto: el componente no pide al servidor, la carga la hace
+ * quien lo contiene. Sin carga, los cuatro por defecto.
+ */
+const statusStore = useTaskStatusesStore()
+function estadosDe(projectId) {
+  const lista = statusStore.statesOf(projectId)
+  return lista.length ? lista : DEFAULT_TASK_STATUSES
+}
 
 const label = computed(() => longDateLabel(props.date))
 
@@ -195,7 +206,7 @@ function nonWorkingClass(scope) {
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium" :title="task.title">{{ task.title }}</p>
               <p class="mt-0.5 truncate text-[11px] opacity-80">
-                {{ columnLabel(task.status) }} · {{ task.project_name }}
+                {{ columnLabel(task.status, estadosDe(task.project_id)) }} · {{ task.project_name }}
               </p>
             </div>
             <span class="shrink-0 text-[11px] tabular-nums opacity-80">
@@ -255,12 +266,12 @@ function nonWorkingClass(scope) {
               @change="cambiarEstado(task, $event)"
             >
               <option
-                v-for="column in KANBAN_COLUMNS"
-                :key="column.status"
-                :value="column.status"
+                v-for="estado in estadosDe(task.project_id)"
+                :key="estado.key"
+                :value="estado.key"
                 class="text-slate-700"
               >
-                {{ column.label }}
+                {{ estado.label }}
               </option>
             </select>
           </div>

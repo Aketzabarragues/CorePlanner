@@ -304,6 +304,43 @@ export const myWorkApi = {
   list: (token) => apiFetch('/my-work', { token }),
 }
 
+/**
+ * Estados de tarea por proyecto.
+ *
+ * `all` devuelve el mapa de los proyectos visibles (clave: identificador de
+ * proyecto en texto) y `project` la lista de uno solo. La escritura (alta,
+ * edicion, orden, borrado) la pide la configuracion del proyecto.
+ */
+export const taskStatusesApi = {
+  all: (token) => apiFetch('/task-statuses', { token }),
+  project: (token, projectId) => apiFetch(`/projects/${projectId}/task-statuses`, { token }),
+  create: (token, projectId, payload) =>
+    apiFetch(`/projects/${projectId}/task-statuses`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  update: (token, projectId, statusId, changes) =>
+    apiFetch(`/projects/${projectId}/task-statuses/${statusId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(changes),
+    }),
+  order: (token, projectId, ids) =>
+    apiFetch(`/projects/${projectId}/task-statuses/order`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ ids }),
+    }),
+  remove: (token, projectId, statusId, reassignTo) =>
+    apiFetch(
+      `/projects/${projectId}/task-statuses/${statusId}${
+        reassignTo ? `?reassign_to=${encodeURIComponent(reassignTo)}` : ''
+      }`,
+      { method: 'DELETE', token },
+    ),
+}
+
 export const tasksApi = {
   list: (token, params = {}) => {
     const query = new URLSearchParams(params).toString()

@@ -1,61 +1,83 @@
 /**
- * Utilidades del tablero Kanban.
+ * Utilidades de los estados de tarea.
+ *
+ * Los estados son por proyecto y los da el backend (la tienda `taskStatuses`
+ * los guarda). Estas funciones reciben la lista de estados que les toca
+ * pintar; la que no se pasa usa los cuatro por defecto, que son el respaldo
+ * de la app mientras la lista no ha cargado o la peticion ha fallado.
  */
 
-/** Columnas del tablero, en el orden en que se muestran. */
-export const KANBAN_COLUMNS = [
-  { status: 'backlog', label: 'Backlog' },
-  { status: 'in_progress', label: 'En Desarrollo' },
-  { status: 'testing', label: 'Pruebas (FAT/SAT)' },
-  { status: 'done', label: 'Completado' },
+import { barra as barraColor, pildora as pildoraColor } from './statusColor'
+
+/**
+ * Estados por defecto, en el orden en que se muestran.
+ *
+ * Mismos que los que el backend siembra en el alta del proyecto: cuando la
+ * lista del proyecto no esta cargada, la interfaz se ve igual que en la
+ * version anterior.
+ */
+export const DEFAULT_TASK_STATUSES = [
+  { key: 'backlog', label: 'Backlog', color: '#57606a', progress: 0 },
+  { key: 'in_progress', label: 'En Desarrollo', color: '#1f6feb', progress: 50 },
+  { key: 'testing', label: 'Pruebas (FAT/SAT)', color: '#bf8700', progress: 75 },
+  { key: 'done', label: 'Completado', color: '#1a7f37', progress: 100 },
 ]
 
-/** Etiqueta de un estado. */
-export function columnLabel(status) {
-  return KANBAN_COLUMNS.find((column) => column.status === status)?.label ?? status
+/** Estado de la lista por su clave, o null si no esta. */
+export function stateOf(status, estados = DEFAULT_TASK_STATUSES) {
+  return estados.find((item) => item.key === status) ?? null
 }
 
-/** Color de la pila de estado, para que todas las pantallas hablen igual. */
-const STATUS_PILL = {
-  backlog: 'bg-slate-100 text-slate-700',
-  in_progress: 'bg-blue-100 text-blue-900',
-  testing: 'bg-amber-100 text-amber-800',
-  done: 'bg-emerald-100 text-emerald-800',
+/** Etiqueta de un estado, o la clave si la lista no lo trae. */
+export function columnLabel(status, estados = DEFAULT_TASK_STATUSES) {
+  return stateOf(status, estados)?.label ?? status
 }
 
-/** Clases de la pila de estado de una tarea. */
-export function statusPill(status) {
-  return STATUS_PILL[status] ?? 'bg-slate-100 text-slate-700'
+/** Estilos en linea de la pildora de un estado. */
+export function statusPill(status, estados = DEFAULT_TASK_STATUSES) {
+  return pildoraColor(stateOf(status, estados)?.color)
 }
 
-/** Color solido de cada estado, para la barra de reparto de tareas. */
-const STATUS_BAR = {
-  backlog: 'bg-slate-400',
-  in_progress: 'bg-blue-600',
-  testing: 'bg-amber-500',
-  done: 'bg-emerald-600',
-}
-
-/** Color solido del estado de una tarea. */
-export function statusBar(status) {
-  return STATUS_BAR[status] ?? 'bg-slate-400'
+/** Estilos en linea de la barra de un estado. */
+export function statusBar(status, estados = DEFAULT_TASK_STATUSES) {
+  return barraColor(stateOf(status, estados)?.color)
 }
 
 /**
  * Columna que hay bajo un punto de la pantalla.
  *
- * Recebe los rectangulos de las columnas en el mismo orden que
- * KANBAN_COLUMNS y devuelve la que contiene el punto, o null si no hay
- * ninguna.
+ * Recibe los rectangulos de las columnas en el mismo orden en que se pintan
+ * (el de la lista de estados) y devuelve el estado que contiene el punto, o
+ * null si no hay ninguno.
  */
-export function columnAt(x, y, rects) {
+export function columnAt(x, y, rects, estados = DEFAULT_TASK_STATUSES) {
   for (const [index, rect] of rects.entries()) {
     if (!rect) continue
     if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-      return KANBAN_COLUMNS[index] ?? null
+      return estados[index] ?? null
     }
   }
   return null
+}
+
+/**
+ * Estados a pintar: los del proyecto y los que usan las tareas que se ven.
+ *
+ * Si la lista del proyecto no esta cargada, al menos se ven las tareas con su
+ * estado, en vez de desaparecer del tablero. Los estados que no conoce la
+ * lista se anaden con la clave como etiqueta y sin color.
+ */
+export function estadosCon(estados, clavesUsadas = []) {
+  const lista = estados ?? []
+  const faltantes = [...new Set(clavesUsadas ?? [])].filter(
+    (clave) => clave !== null && clave !== undefined && !lista.some((item) => item.key === clave),
+  )
+  return [...lista, ...faltantes.map((clave) => ({ key: clave, label: clave }))].map((item) => ({
+    key: item.key,
+    label: item.label ?? item.key,
+    color: item.color,
+    progress: item.progress,
+  }))
 }
 
 /**

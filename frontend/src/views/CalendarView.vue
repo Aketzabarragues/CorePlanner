@@ -44,6 +44,7 @@ import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { dateChangePayload, diffDays } from '../utils/ganttScale'
 import { moveRange } from '../utils/ganttLayout'
 import {
@@ -70,6 +71,7 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const store = useProjectsStore()
+const statusStore = useTaskStatusesStore()
 
 const view = ref('month')
 const month = ref(currentMonthKey())
@@ -508,6 +510,10 @@ async function load() {
       // lectura, pero se abre.
       meApi.get(token).catch(() => null),
       peopleApi.list(token).catch(() => []),
+      // Los estados de los proyectos alimentan el detalle de dia y los
+      // carriles de la semana; si no se pueden leer, se pintan los por
+      // defecto.
+      statusStore.loadAll(token).catch(() => null),
     ])
     tasks.value = feed.tasks ?? []
     members.value = feed.members ?? []

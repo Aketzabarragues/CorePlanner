@@ -6,7 +6,7 @@
  * pintarlo.
  */
 
-import { columnLabel } from './kanban'
+import { columnLabel, DEFAULT_TASK_STATUSES } from './kanban'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -47,9 +47,11 @@ export function fullDate(fecha) {
  * Que hizo el actor, en una frase.
  *
  * El nombre de la entidad va dentro de la frase, de modo que la lista se lee
- * como una linea de diario y no como una tabla de campos.
+ * como una linea de diario y no como una tabla de campos. El estado de un
+ * movimiento se etiqueta con los estados que se pasan; sin lista, los cuatro
+ * por defecto.
  */
-export function actionLabel(entrada) {
+export function actionLabel(entrada, estados = DEFAULT_TASK_STATUSES) {
   const payload = entrada?.payload ?? {}
   const titulo = payload.title ?? ''
   const etiqueta = payload.label ?? ''
@@ -59,7 +61,7 @@ export function actionLabel(entrada) {
     case 'task.updated':
       return `editó la tarea «${titulo}»`
     case 'task.moved':
-      return `movió «${titulo}» de ${columnLabel(payload.from)} a ${columnLabel(payload.to)}`
+      return `movió «${titulo}» de ${columnLabel(payload.from, estados)} a ${columnLabel(payload.to, estados)}`
     case 'task.deleted':
       return `eliminó la tarea «${titulo}»`
     case 'task.commented':

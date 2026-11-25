@@ -15,10 +15,13 @@ import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { actionLabel, fullDate, relativeTime } from '../utils/activity'
+import { DEFAULT_TASK_STATUSES } from '../utils/kanban'
 
 const auth = useAuthStore()
 const route = useRoute()
+const statusStore = useTaskStatusesStore()
 
 /** Entradas que trae una pagina de la bitacora. */
 const PAGE_SIZE = 50
@@ -40,6 +43,12 @@ const subtitle = computed(() =>
 /** Quedan entradas por pedir. */
 const quedan = computed(() => entries.value.length < total.value)
 
+/** Estados del proyecto de la entrada, o los por defecto si no hay. */
+function estadosDe(projectId) {
+  const lista = statusStore.statesOf(projectId)
+  return lista.length ? lista : DEFAULT_TASK_STATUSES
+}
+
 /** Iniciales de quien ha hecho el cambio. */
 function iniciales(nombre) {
   const palabras = String(nombre ?? '').split(/\s+/).filter(Boolean)
@@ -60,7 +69,12 @@ async function load(mas = false) {
     const offset = mas ? entries.value.length : 0
     const params = { limit: PAGE_SIZE, offset }
     if (projectFilter.value) params.project_id = projectFilter.value
-    const page = await activityApi.list(token, params)
+    const [page] = await Promise.all([
+      activityApi.list(token, params),
+      // Los movimientos de tarea llevan el estado: la etiqueta sale de los
+      // estados del proyecto, que no tumben la bitacora si fallan.
+      statusStore.loadAll(token).catch(() => null),
+    ])
     const items = page?.items ?? []
     entries.value = mas ? [...entries.value, ...items] : items
     total.value = page?.total ?? 0
@@ -134,7 +148,9 @@ watch(
           <div class="min-w-0 flex-1">
             <p class="text-sm">
               <span class="font-medium text-slate-900">{{ entrada.actor_name }}</span>
-              <span class="text-slate-600">{{ actionLabel(entrada) }}</span>
+              <span class="text-slate-600">
+                {{ actionLabel(entrada, estadosDe(entrada.project_id)) }}
+              </span>
             </p>
             <p v-if="!projectFilter" class="text-xs text-slate-500">
               {{ entrada.project_name }}

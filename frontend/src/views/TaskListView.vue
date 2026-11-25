@@ -19,13 +19,35 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
-import { KANBAN_COLUMNS, columnLabel, formatHours, statusPill } from '../utils/kanban'
+import { useTaskStatusesStore } from '../stores/taskStatuses'
+import {
+  DEFAULT_TASK_STATUSES,
+  columnLabel,
+  estadosCon,
+  formatHours,
+  statusPill,
+} from '../utils/kanban'
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
 })
 
 const auth = useAuthStore()
+const statusStore = useTaskStatusesStore()
+
+/**
+ * Estados a ofrecer en el filtro y en la fila: los del proyecto mas los que
+ * usan las tareas. Si la peticion de estados falla, las tareas se siguen
+ * pudiendo filtrar y mover por su estado.
+ */
+const estados = computed(() =>
+  estadosCon(
+    statusStore.statesOf(props.id).length
+      ? statusStore.statesOf(props.id)
+      : DEFAULT_TASK_STATUSES,
+    tasks.value.map((task) => task.status),
+  ),
+)
 
 const tasks = ref([])
 const members = ref([])
@@ -105,7 +127,7 @@ function valor(task, key) {
     case 'assigned':
       return task.assigned_name ?? ''
     case 'status':
-      return KANBAN_COLUMNS.findIndex((column) => column.status === task.status)
+      return estados.value.findIndex((estado) => estado.key === task.status)
     case 'start_date':
       return task.start_date ?? null
     case 'hours':
@@ -165,6 +187,7 @@ async function load() {
       projectsApi.tasks(token, props.id),
       projectsApi.members(token, props.id).catch(() => []),
       meApi.get(token).catch(() => null),
+      statusStore.loadProject(token, props.id).catch(() => []),
     ])
     tasks.value = lista ?? []
     members.value = equipo ?? []
@@ -207,8 +230,8 @@ useTaskReload(load)
             data-testid="filter-status"
           >
             <option value="">Todos los estados</option>
-            <option v-for="column in KANBAN_COLUMNS" :key="column.status" :value="column.status">
-              {{ column.label }}
+            <option v-for="estado in estados" :key="estado.key" :value="estado.key">
+              {{ estado.label }}
             </option>
           </select>
         </label>
@@ -287,9 +310,9 @@ useTaskReload(load)
               <td class="border border-slate-200 px-3 py-2">
                 <span
                   class="rounded px-2 py-0.5 text-xs font-medium"
-                  :class="statusPill(task.status)"
+                  :style="statusPill(task.status, estados.value)"
                 >
-                  {{ columnLabel(task.status) }}
+                  {{ columnLabel(task.status, estados.value) }}
                 </span>
               </td>
               <td class="border border-slate-200 px-3 py-2 text-slate-600 tabular-nums">

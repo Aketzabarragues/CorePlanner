@@ -330,6 +330,10 @@ Vive en los dos espacios, igual que el Gantt: en el global (`/calendar`) con
 las tareas de los proyectos visibles y en el de proyecto
 (`/projects/{id}/calendar`) con las de ese proyecto.
 
+La rejilla es propia: no hay libreria de calendario. El motor reparte las tareas
+en filas por persona y en carriles, y decide el destino de un arrastre con una
+geometria medida sobre la rejilla, no con el DOM consultado por selector.
+
 ### Que entra
 
 - La **rejilla mensual**, con la semana de lunes a domingo.
@@ -345,13 +349,25 @@ las tareas de los proyectos visibles y en el de proyecto
   ven junto a las tareas.
 - Las **tareas sin fecha**, listadas aparte: la planificacion incompleta tiene
   que ser visible.
+- **Mover una tarea a otro dia** arrastrándola: conserva la duracion y se
+  guarda con el mismo PATCH que el Gantt. El destino cae siempre en dia
+  laborable: un sabado es el viernes y un domingo el lunes.
+- **Redimensionar una tarea** por sus dos extremos, con el mismo gesto.
+- El **teclado**: las flechas mueven la barra enfocada un dia, `Mayus` con las
+  flechas alarga o acorta, `Intro` abre el detalle y las flechas arriba y abajo
+  cambian de barra.
+- El **menu contextual** de la barra (abrir, mover un dia, alargar o acortar) y
+  el del hueco (ver el dia, crear tarea en ese dia).
+- El **globo** de la tarea al pasar el puntero por encima.
+- El **alta de tarea en un dia concreto**, con doble clic en un hueco.
 
 ### Que no entra
 
-- Arrastrar y soltar para mover o redimensionar tareas: el calendario es de
-  lectura.
-- Edicion desde el calendario.
-- Filtros por proyecto, persona o estado.
+- La **edicion en linea** de horas, responsable o estado: vive en la vista de
+  dia (§16).
+- El **filtro por persona o por estado**: el calendario se acota por proyecto y
+  por departamento; del panel de visibilidad solo se esconde a una persona
+  concreta.
 - El calculo del "impacto en la capacidad" de los festivos: vive en el
   calendario laboral, que es su pantalla.
 - Un calendario por persona: el color de la tarea ya dice quien la tiene.
@@ -370,23 +386,23 @@ periodo.
 
 - El **conmutador de vista** (Mes / Semana) en la cabecera del calendario, en los
   dos espacios.
-- La **rejilla de la semana**, con una columna por dia laborable, de lunes a
-  viernes. El fin de semana no se muestra: el motor de capacidad nunca reparte
-  horas un sabado ni un domingo, y una columna siempre vacia no aporta nada.
+- La **rejilla de la semana**, con una columna por dia, de lunes a domingo. El
+  fin de semana se ve atenuado y sin barras: el motor de capacidad nunca
+  reparte horas un sabado ni un domingo.
 - Las **tareas de cada dia**, con mas detalle que en la vista mensual: titulo,
   persona, estado y las fechas completas de la tarea.
 - La **navegacion de semana**: anterior, siguiente y hoy.
 - Los **dias no laborables marcados** en su columna, con su motivo y su alcance.
 - Las **tareas sin fecha**, listadas aparte, como en la vista mensual.
+- Mover, redimensionar, teclado, menu contextual y globo, como en la vista
+  mensual.
 
 ### Que no entra
 
-- El **fin de semana**: no hay columna de sabado ni de domingo.
-- Arrastrar y soltar, o edicion desde el calendario: es de lectura.
 - El **desglose de horas por dia**: el motor reparte las horas de una tarea
   entre sus dias laborables, pero ese reparto no viaja en el feed del Gantt;
   verlo exigiria un endpoint nuevo.
-- Filtros por proyecto, persona o estado.
+- El filtro por persona o por estado.
 - Un calendario por persona: el color de la tarea ya dice quien la tiene.
 
 ### Decisiones de este bloque
@@ -411,13 +427,15 @@ de la rejilla mensual o de la semanal.
 - La **navegacion de dia**: anterior, siguiente y hoy.
 - Los **dias no laborables** de esa fecha, con su motivo y su alcance.
 - El aviso de **tareas sin fecha**, que no aparecen en ningun dia.
+- La **edicion en linea**, con permiso de escritura: las horas se editan con
+  doble clic, y el responsable y el estado van en desplegables.
+- El **alta de tarea del dia**, con la fecha ya puesta.
 
 ### Que no entra
 
 - El **desglose de horas del dia**: el motor reparte las horas de una tarea
   entre sus dias laborables, pero ese reparto no viaja en el feed del Gantt;
   verlo exigiria un endpoint nuevo.
-- La **edicion de tareas**: la vista es de lectura.
 - La **vista de fin de semana**: el fin de semana no tiene tareas ni carga, y
   el calendario entero lo deja vacio a proposito.
 - Un **calendario por persona**: el color de la tarea ya dice quien la tiene.
@@ -428,6 +446,9 @@ de la rejilla mensual o de la semanal.
   cabecera de la semanal, no pulsando cualquier punto de la celda: en la celda
   hay una lista que se desplaza y hay que poder hacerlo sin abrir nada.
 - Al pulsarlo cambia la cabecera a "Dia" y el calendario muestra el dia entero.
+- La edicion en linea y el alta son del mismo tipo que las del Tablero, con el
+  mismo criterio de permiso: sin permiso de escritura en el proyecto, el dia se
+  ve en solo lectura y avisa de ello.
 
 ## 17. Calendario laboral
 
@@ -2710,3 +2731,42 @@ avance, para que a nadie le cambie el tablero sin querer.
 - **Colores libres**: la paleta es cerrada, como en el resto de la aplicacion.
 - **Renombrar la clave** de un estado.
 - **Historial de los cambios** en la configuracion de los estados.
+
+## 60. Motor de calendario propio
+
+El calendario deja de ser un par de componentes que pintan una tabla y pasa a ser un motor propio, con la misma arquitectura que el del Gantt (§53): modulos puros para el reparto y la geometria, componentes que pintan y miden, y una vista que decide. La rejilla gana el juego de interacciones del Gantt: mover, redimensionar, teclado, menu contextual, globo y alta en un dia concreto. El feed del backend no cambia de contrato.
+
+### Que entra
+
+- `frontend/src/utils/calendarLayout.js` (nuevo): el reparto de la rejilla. `buildWeekLayout` reparte las tareas de una semana en filas por persona y en carriles; `celdasDeCarril` convierte un carril en las celdas de la fila. Funciones puras: no tocan el DOM ni el estado.
+- `frontend/src/utils/calendarGeometry.js` (nuevo): el hit-test sobre una geometria ya medida. `hitTestDia` devuelve la semana, la columna y la fecha que caen bajo el puntero; `columnaDesdeX` la columna; `esLaborable` y `diaLaborable` dejan el destino en dia laborable.
+- `frontend/src/utils/calendarMetrics.js` (nuevo): las medidas fijas de la rejilla.
+- `frontend/src/composables/useCalendarioDrag.js` (nuevo): el gesto de mover y redimensionar, sobre el esqueleto comun `useArrastre`.
+- `frontend/src/composables/useCalendarioEstado.js` (nuevo): el estado de la vista (mes, semana, dia) y su ida y vuelta con la URL.
+- `frontend/src/components/calendar/`: la tabla con un `<tbody>` por semana (`CalendarGrid`), las filas de una semana (`CalendarWeek`), la cabecera de dias (`CalendarDayHeader`), la barra (`CalendarBar`) y el globo de la tarea (`CalendarTooltip`).
+- `WeekLanes.vue` y `WeekGrid.vue` se sustituyen: no quedan alias ni envoltorios.
+
+### Decisiones tomadas
+
+1. **El motor es HTML, no SVG.** La rejilla es una tabla: una fila por persona y una columna por dia, con celdas que se fusionan (`colspan`) para que una tarea ocupe los dias que ocupa. El Gantt dibuja barras sobre una linea de tiempo; el calendario no tiene eje ni escala.
+2. **La geometria se mide en el componente y se decide en un modulo puro.** La tabla mide su caja, el ancho de la columna de nombres, el ancho de columna de dia y el rango vertical de cada semana; con esos numeros, `hitTestDia` decide que dia cae bajo el puntero. La vista no consulta el DOM por selector. La medicion se hace al empezar el gesto y se fija durante el gesto: el desplazamiento del mes no puede cambiar la geometria a mitad de arrastre.
+3. **El fin de semana se ve y no lleva barras.** La semana tiene siete columnas; sabado y domingo salen atenuados. El motor de capacidad solo reparte horas entre dias laborables, de modo que las barras se recortan a ellos: una tarea que empieza un sabado entra el lunes y una que acaba un domingo sale el viernes.
+4. **El destino de un arrastre cae siempre en dia laborable**: un sabado se resuelve al viernes y un domingo al lunes. La barra nunca se queda en un dia que el motor de capacidad no cuenta.
+5. **Mover conserva la duracion y redimensionar recorta al otro extremo**, con las mismas operaciones que el Gantt (`moveRange` y `resizeRange`). El PATCH es el mismo (`dateChangePayload`).
+6. **Las asas solo aparecen donde se ve el extremo.** Una tarea que empieza antes de la semana no se redimensiona por el inicio desde esa semana: el asa se reserva al segmento que contiene el extremo real.
+7. **El permiso es por barra**, igual que en el Gantt: sin permiso de escritura en el proyecto de la tarea no hay arrastre, no hay asas y el teclado no mueve nada; el clic sigue abriendo el detalle.
+8. **El teclado tiene un solo camino**: las flechas mueven la barra un dia, `Mayus` con las flechas alarga o acorta, `Intro` abre el detalle y las flechas arriba y abajo cambian de barra. Una sola barra tiene el foco (`tabindex` 0) y su `aria-label` describe la tarea y si es de solo lectura.
+9. **El menu contextual depende del contexto**: el de la barra abre el detalle y mueve o redimensiona un dia; el del hueco abre el dia y ofrece el alta, que solo aparece si hay proyecto en contexto y permiso de escritura. `Mayus+F10` o la tecla `Menu` abren el de la barra enfocada.
+10. **El globo es decorativo**: repite lo que ya dice la etiqueta accesible de la barra, asi que no captura el puntero ni se anuncia.
+11. **El alta necesita un proyecto en contexto** y permiso de escritura: doble clic en un hueco, o el item del menu. El dia queda puesto en el formulario.
+12. **El estado de la vista vive en la URL** (`view`, `month`, `day`) y lo lleva un composable. Los valores por defecto no se escriben, los parametros invalidos se ignoran y los filtros de proyecto y departamento no se tocan.
+13. **El guardado se confirma con un aviso flotante** y el fallo sale en el banner de la vista: un fallo, un aviso. Ningun error cierra la sesion.
+14. **El motor no calcula horas ni capacidad.** Solo coloca la tarea en las columnas que ocupa.
+
+### Que no entra
+
+- **La rejilla horaria o la vista de agenda**: el feed trae fechas, no horas por dia.
+- **El desglose de horas del dia**: lo reparte el motor de capacidad y no viaja en el feed.
+- **El calendario por persona**: el color de la tarea ya dice quien la lleva.
+- **Arrastre tactil**: la primera entrega es de escritorio.
+- **El backend**: no cambia. El calendario sigue leyendo el feed del Gantt y los dias no laborables.

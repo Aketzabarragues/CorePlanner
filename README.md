@@ -46,9 +46,11 @@ flechas mueven la barra y `Shift` con las flechas la redimensiona.
 
 ![La rejilla del mes del calendario, con las tareas en los dias que ocupan](docs/capturas/calendario.png)
 
-El mismo plan que el Gantt, en una rejilla de meses (o de semanas). Es de
-lectura: las fechas se cambian desde el Gantt o desde el desglose de una celda
-de la matriz.
+El mismo plan que el Gantt, en una rejilla de meses (o de semanas), con una
+fila por persona. Las tareas se mueven arrastrandolas a otro dia, se
+redimensionan por sus extremos, se mueven y redimensionan con el teclado, y
+tienen menu contextual y globo. Con doble clic en un hueco se crea una tarea
+ese dia.
 
 ### Tablero: las tareas por estado
 
@@ -281,14 +283,14 @@ coreplanner/
 │       │   ├── TaskDetailDialog.vue # detalle de una tarea: campos, lista, comentarios y actividad
 │       │   ├── TaskForm.vue        # alta y edicion de tarea
 │       │   ├── DayDetail.vue       # detalle de un dia del calendario
-│       │   ├── WeekGrid.vue        # rejilla de la vista semanal del calendario
 │       │   ├── LaborMonthGrid.vue  # rejilla del mes del calendario laboral
+│       │   ├── calendar/           # motor del calendario: tabla, semana, cabecera de dias, barra y globo
 │       │   │   ├── people/             # directorio, ficha y competencias
 │       │   │   └── settings/           # paneles de la configuracion
 │       ├── stores/       # estado Pinia (sesion, proyectos y departamentos)
 │       ├── tests/        # tests de vitest
-│       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas) y el motor de Gantt (escala, layout, medidas)
-│       ├── composables/  # useGanttDrag (arrastre de barras) y los demas composables
+│       ├── utils/        # helpers puros (actividad, gantt, kanban, navegacion, semanas) y los motores de Gantt (escala, layout, medidas) y de calendario (reparto, geometria, medidas)
+│       ├── composables/  # useGanttDrag (arrastre de barras), useCalendarioDrag (arrastre del calendario), useCalendarioEstado (estado del calendario en la URL) y los demas composables
 │       ├── views/        # Login, Panel, Mi trabajo, Proyectos, Departamentos, Personas, Capacidad, Gantt, Calendario, Actividad, Kanban, Lista, Miembros, Resumen, Configuración, Configuración de proyecto
 │       └── router/       # rutas y guardas de sesion
 ├── docs/

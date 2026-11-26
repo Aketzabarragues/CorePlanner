@@ -7,10 +7,13 @@ import DayDetail from '../components/DayDetail.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
-import WeekGrid from '../components/WeekGrid.vue'
+import CalendarGrid from '../components/calendar/CalendarGrid.vue'
+import CalendarWeek from '../components/calendar/CalendarWeek.vue'
 import PageHeader from '../components/common/PageHeader.vue'
-import WeekLanes from '../components/common/WeekLanes.vue'
 import CalendarView from '../views/CalendarView.vue'
+import { useToastStore } from '../stores/toast'
+import { buildWeekLayout } from '../utils/calendarLayout'
+import { weekDays } from '../utils/weeks'
 
 const feed = {
   tasks: [
@@ -312,10 +315,12 @@ async function mountView(query = {}) {
   await router.push({ path: '/calendar', query })
   await router.isReady()
 
+  const pinia = createPinia()
+  setActivePinia(pinia)
   const raiz = document.createElement('div')
   document.body.appendChild(raiz)
   const wrapper = mount(CalendarView, {
-    global: { plugins: [createPinia(), router] },
+    global: { plugins: [pinia, router] },
     attachTo: raiz,
   })
   vistaMontada = wrapper
@@ -1399,11 +1404,11 @@ describe('CalendarView con el panel de visibilidad', () => {
   })
 })
 
-describe('WeekGrid y DayDetail', () => {
+describe('CalendarGrid y DayDetail', () => {
   it('la rejilla semanal emite el id de la tarea pulsada', async () => {
-    const wrapper = mount(WeekGrid, {
+    const wrapper = mount(CalendarGrid, {
       props: {
-        weekKey: '2026-W45',
+        weeks: [weekDays('2026-W45')],
         people: [
           {
             id: 2,
@@ -1445,7 +1450,7 @@ describe('WeekGrid y DayDetail', () => {
   })
 })
 
-describe('WeekLanes', () => {
+describe('CalendarWeek', () => {
   /** Los siete dias de la semana del 2 al 8 de noviembre de 2026. */
   const dias = [
     { date: '2026-11-02', day: 2, weekday: 0, weekend: false },
@@ -1477,10 +1482,19 @@ describe('WeekLanes', () => {
     }
   }
 
-  it('cada persona tiene su fila aunque no tenga tareas', () => {
-    const wrapper = mount(WeekLanes, {
-      props: { days: dias, people: personas, tasks: [], nonWorkingDays: [] },
+  /**
+   * Monta la semana con su rejilla repartida por `buildWeekLayout`, como la
+   * pinta `CalendarGrid`: el componente solo recibe la semana y las filas.
+   */
+  function monta({ dias: diasDeLaSemana, people = personas, tasks = [], ...resto } = {}) {
+    const { filas } = buildWeekLayout({ days: diasDeLaSemana ?? dias, people, tasks })
+    return mount(CalendarWeek, {
+      props: { days: diasDeLaSemana ?? dias, filas, ...resto },
     })
+  }
+
+  it('cada persona tiene su fila aunque no tenga tareas', () => {
+    const wrapper = monta({})
 
     expect(wrapper.findAll('[data-testid^="week-lane-name-"]')).toHaveLength(2)
     expect(wrapper.find('[data-testid="week-lane-name-3"]').text()).toContain('Beto')
@@ -1490,13 +1504,8 @@ describe('WeekLanes', () => {
   })
 
   it('recorta la tarea que se sale de la semana', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Tarea larga', '2026-10-28', '2026-11-08', 2)],
-        nonWorkingDays: [],
-      },
+    const wrapper = monta({
+      tasks: [tarea(1, 'Tarea larga', '2026-10-28', '2026-11-08', 2)],
     })
 
     // Entra el lunes y sale el viernes: las cinco columnas laborables.
@@ -1506,24 +1515,14 @@ describe('WeekLanes', () => {
   })
 
   it('el fin de semana no lleva barras', () => {
-    const soloFinDeSemana = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Solo el fin de semana', '2026-11-07', '2026-11-08', 2)],
-        nonWorkingDays: [],
-      },
+    const soloFinDeSemana = monta({
+      tasks: [tarea(1, 'Solo el fin de semana', '2026-11-07', '2026-11-08', 2)],
     })
     expect(soloFinDeSemana.findAll('[data-testid="week-task"]')).toHaveLength(0)
 
     // Una que empieza en domingo entra el lunes y sale el viernes.
-    const desdeDomingo = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(2, 'Desde el domingo', '2026-11-01', '2026-11-06', 2)],
-        nonWorkingDays: [],
-      },
+    const desdeDomingo = monta({
+      tasks: [tarea(2, 'Desde el domingo', '2026-11-01', '2026-11-06', 2)],
     })
     const barra = desdeDomingo.find('[data-testid="week-task"]')
     expect(barra.attributes('data-inicio')).toBe('0')
@@ -1531,16 +1530,11 @@ describe('WeekLanes', () => {
   })
 
   it('apila en carriles distintos las tareas que se pisan', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [
-          tarea(1, 'Primera', '2026-11-02', '2026-11-04', 2),
-          tarea(2, 'Segunda', '2026-11-03', '2026-11-05', 2),
-        ],
-        nonWorkingDays: [],
-      },
+    const wrapper = monta({
+      tasks: [
+        tarea(1, 'Primera', '2026-11-02', '2026-11-04', 2),
+        tarea(2, 'Segunda', '2026-11-03', '2026-11-05', 2),
+      ],
     })
 
     const barras = wrapper.findAll('[data-testid="week-task"]')
@@ -1558,16 +1552,11 @@ describe('WeekLanes', () => {
   })
 
   it('no apila las tareas que no se pisan', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [
-          tarea(1, 'Primera', '2026-11-02', '2026-11-03', 2),
-          tarea(2, 'Segunda', '2026-11-04', '2026-11-05', 2),
-        ],
-        nonWorkingDays: [],
-      },
+    const wrapper = monta({
+      tasks: [
+        tarea(1, 'Primera', '2026-11-02', '2026-11-03', 2),
+        tarea(2, 'Segunda', '2026-11-04', '2026-11-05', 2),
+      ],
     })
 
     const barras = wrapper.findAll('[data-testid="week-task"]')
@@ -1577,18 +1566,11 @@ describe('WeekLanes', () => {
   })
 
   it('la fila de sin asignar solo sale si hay tareas sin persona', () => {
-    const vacio = mount(WeekLanes, {
-      props: { days: dias, people: personas, tasks: [], nonWorkingDays: [] },
-    })
+    const vacio = monta({})
     expect(vacio.find('[data-testid="week-lane-unassigned-name"]').exists()).toBe(false)
 
-    const conSueltas = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(9, 'Sin persona', '2026-11-02', '2026-11-03', null)],
-        nonWorkingDays: [],
-      },
+    const conSueltas = monta({
+      tasks: [tarea(9, 'Sin persona', '2026-11-02', '2026-11-03', null)],
     })
     expect(conSueltas.find('[data-testid="week-lane-unassigned-name"]').exists()).toBe(true)
     expect(conSueltas.find('[data-testid="week-lane-unassigned-name"]').text()).toBe('Sin asignar')
@@ -1596,13 +1578,8 @@ describe('WeekLanes', () => {
   })
 
   it('la barra lleva el nombre del proyecto y el color que le toca', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
-        nonWorkingDays: [],
-      },
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
     })
 
     const barra = wrapper.find('[data-testid="week-task"]')
@@ -1612,21 +1589,16 @@ describe('WeekLanes', () => {
   })
 
   it('la barra de un proyecto provisional va de contorno, sin relleno', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [
-          tarea(1, 'Firme', '2026-11-02', '2026-11-04', 2),
-          {
-            ...tarea(2, 'Provisional', '2026-11-02', '2026-11-04', 2),
-            project_id: 2,
-            project_name: 'Proyecto en estudio',
-            is_provisional: true,
-          },
-        ],
-        nonWorkingDays: [],
-      },
+    const wrapper = monta({
+      tasks: [
+        tarea(1, 'Firme', '2026-11-02', '2026-11-04', 2),
+        {
+          ...tarea(2, 'Provisional', '2026-11-02', '2026-11-04', 2),
+          project_id: 2,
+          project_name: 'Proyecto en estudio',
+          is_provisional: true,
+        },
+      ],
     })
 
     const [firme, provisional] = wrapper.findAll('[data-testid="week-task"]')
@@ -1639,22 +1611,17 @@ describe('WeekLanes', () => {
   })
 
   it('marca los dias no laborables de la semana', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [],
-        nonWorkingDays: [
-          {
-            id: 1,
-            date: '2026-11-03',
-            name: 'Fiesta local',
-            scope: 'department',
-            department_id: 1,
-            department_name: 'Automatizacion & SCADA',
-          },
-        ],
-      },
+    const wrapper = monta({
+      nonWorkingDays: [
+        {
+          id: 1,
+          date: '2026-11-03',
+          name: 'Fiesta local',
+          scope: 'department',
+          department_id: 1,
+          department_name: 'Automatizacion & SCADA',
+        },
+      ],
     })
 
     const marcados = wrapper.findAll('[data-testid="week-lane-holiday"]')
@@ -1663,25 +1630,18 @@ describe('WeekLanes', () => {
   })
 
   it('avisa del dia que se pulsa en la cabecera', async () => {
-    const wrapper = mount(WeekLanes, {
-      props: { days: dias, people: personas, tasks: [], nonWorkingDays: [] },
-    })
+    const wrapper = monta({})
 
     await wrapper.find('[data-testid="week-day-2026-11-04"]').trigger('click')
 
     expect(wrapper.emitted('open-day')[0]).toEqual(['2026-11-04'])
   })
 
-  it('la barra de un proyecto editable emite drag-start con la tarea', async () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
-        nonWorkingDays: [],
-        editableProjectIds: [1],
-        semanaIndice: 3,
-      },
+  it('la barra de un proyecto editable emite drag-start con la tarea y la zona', async () => {
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [1],
+      semanaIndice: 3,
     })
 
     await wrapper.find('[data-testid="week-task"]').trigger('mousedown', {
@@ -1691,21 +1651,20 @@ describe('WeekLanes', () => {
     })
 
     expect(wrapper.emitted('drag-start')).toBeDefined()
-    expect(wrapper.emitted('drag-start')[0][0].tarea.id).toBe(1)
-    // La semana de la rejilla va en el <tbody>, no en el evento: la soltura
-    // la resuelve la vista contra el DOM.
+    const payload = wrapper.emitted('drag-start')[0][0]
+    expect(payload.tarea.id).toBe(1)
+    // El cuerpo de la barra emite su zona y los dias de la semana: el
+    // composable mapea columna a fecha al redimensionar.
+    expect(payload.zona).toBe('body')
+    expect(payload.dias).toHaveLength(7)
+    // La semana de la rejilla va en el <tbody>, no en el evento.
     expect(wrapper.find('tbody').attributes('data-semana')).toBe('3')
   })
 
   it('la barra de un proyecto que no se puede editar no emite drag-start', async () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
-        nonWorkingDays: [],
-        editableProjectIds: [2],
-      },
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [2],
     })
 
     await wrapper.find('[data-testid="week-task"]').trigger('mousedown', {
@@ -1717,15 +1676,59 @@ describe('WeekLanes', () => {
     expect(wrapper.emitted('drag-start')).toBeUndefined()
   })
 
+  it('la barra editable muestra sus asas solo si el extremo real cae en la semana', () => {
+    const dentro = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [1],
+    })
+    expect(dentro.find('[data-testid="calendar-handle-start"]').exists()).toBe(true)
+    expect(dentro.find('[data-testid="calendar-handle-end"]').exists()).toBe(true)
+
+    // Empieza antes de la semana: sin asa de inicio; acaba despues: sin asa
+    // de fin.
+    const recortada = monta({
+      tasks: [tarea(1, 'Tarea larga', '2026-10-26', '2026-11-09', 2)],
+      editableProjectIds: [1],
+    })
+    expect(recortada.find('[data-testid="calendar-handle-start"]').exists()).toBe(false)
+    expect(recortada.find('[data-testid="calendar-handle-end"]').exists()).toBe(false)
+
+    // Sin permiso de escritura no hay asas, ni siquiera con el extremo visible.
+    const soloLectura = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [2],
+    })
+    expect(soloLectura.find('[data-testid="calendar-handle-start"]').exists()).toBe(false)
+    expect(soloLectura.find('[data-testid="calendar-handle-end"]').exists()).toBe(false)
+  })
+
+  it('las asas emiten drag-start con su zona y no propagan al cuerpo', async () => {
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [1],
+    })
+
+    await wrapper.find('[data-testid="calendar-handle-start"]').trigger('mousedown', {
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    })
+    expect(wrapper.emitted('drag-start')).toHaveLength(1)
+    expect(wrapper.emitted('drag-start')[0][0].zona).toBe('start')
+
+    await wrapper.find('[data-testid="calendar-handle-end"]').trigger('mousedown', {
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    })
+    expect(wrapper.emitted('drag-start')).toHaveLength(2)
+    expect(wrapper.emitted('drag-start')[1][0].zona).toBe('end')
+  })
+
   it('las celdas del cuerpo llevan el primer dia que cubren en data-day', () => {
-    const wrapper = mount(WeekLanes, {
-      props: {
-        days: dias,
-        people: personas,
-        tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
-        nonWorkingDays: [],
-        editableProjectIds: [1],
-      },
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      editableProjectIds: [1],
     })
 
     const cuerpo = wrapper.findAll('[data-testid="week-lanes"] td[data-day]')
@@ -1906,7 +1909,12 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
   })
 
   /** Captura metodo y cuerpo de cada peticion, con el resto de endpoints fijos. */
-  function setupFetchEdicion({ payload = feed, ambito = AMBITO, miembros = [] } = {}) {
+  function setupFetchEdicion({
+    payload = feed,
+    ambito = AMBITO,
+    miembros = [],
+    falloGuardado = false,
+  } = {}) {
     const calls = []
     global.fetch = vi.fn(async (url, options = {}) => {
       calls.push({ url, method: options.method ?? 'GET', body: options.body ?? null })
@@ -1926,7 +1934,13 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
       if (url.includes('/activity')) return jsonResponse({ items: [] })
       if (/\/tasks\/\d+\/comments$/.test(url)) return jsonResponse([])
       if (/\/tasks\/\d+\/checklist$/.test(url)) return jsonResponse([])
-      if (/\/tasks\/\d+$/.test(url)) return jsonResponse(DETALLE_TAREA)
+      if (/\/tasks\/\d+$/.test(url)) {
+        // El PATCH de fechas cae como un 500 real cuando la prueba lo pide.
+        if (options.method === 'PATCH' && falloGuardado) {
+          return jsonResponse({ detail: 'Sin conexion con el servidor' }, false, 500)
+        }
+        return jsonResponse(DETALLE_TAREA)
+      }
       if (/\/projects\/\d+\/members$/.test(url)) return jsonResponse(miembros)
       if (/\/projects\/\d+\/tasks$/.test(url)) return jsonResponse({ id: 10, project_id: 1 })
       return jsonResponse({ detail: 'no encontrado' }, false, 404)
@@ -1985,6 +1999,36 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
       start_date: '2026-11-03',
       end_date: '2026-11-07',
     })
+    // El exito del guardado confirma con un toast flotante, como el Gantt.
+    expect(useToastStore().items.map((item) => item.message)).toContain(
+      'Fechas actualizadas: del 2026-11-03 al 2026-11-07.',
+    )
+  })
+
+  it('el toast de fechas del arrastre lleva la clave calendario-fechas', async () => {
+    setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    await arrastrarBarra(wrapper, 100 + 1 * 85.5 + 40, 150)
+
+    const items = useToastStore().items
+    expect(items).toHaveLength(1)
+    expect(items[0].key).toBe('calendario-fechas')
+    expect(items[0].variant).toBe('success')
+  })
+
+  it('un fallo del guardado no confirma con toast: solo el aviso en linea', async () => {
+    setupFetchEdicion({ falloGuardado: true })
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    await arrastrarBarra(wrapper, 100 + 1 * 85.5 + 40, 150)
+
+    expect(useToastStore().items).toHaveLength(0)
+    expect(wrapper.find('[data-testid="calendar-warning"]').text()).toContain(
+      'No se ha podido mover la tarea',
+    )
   })
 
   it('arrastrar a otro dia de la misma semana de la vista mensual cae en esa semana', async () => {
@@ -2065,6 +2109,85 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 150 }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     window.dispatchEvent(new MouseEvent('mouseup', { clientX: 200, clientY: 150 }))
+    await settle()
+
+    expect(calls.find((call) => call.method === 'PATCH')).toBeUndefined()
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
+  })
+
+  /** Agarra el asa del extremo dado y suelta en el punto dado. */
+  async function redimensionar(wrapper, asa, soltarX, soltarY) {
+    const handle = wrapper.find(
+      `[data-testid="calendar-month-table"] [data-testid="${asa}"]`,
+    )
+    await handle.trigger('mousedown', { button: 0, clientX: 10, clientY: 10 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: soltarX, clientY: soltarY }))
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: soltarX, clientY: soltarY }))
+    await settle()
+  }
+
+  it('redimensionar el inicio de la barra mueve solo el inicio con un PATCH', async () => {
+    const calls = setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    // La barra va del lunes 2 al viernes 6. El asa de inicio suelta en la
+    // columna 2 (miercoles 4): el inicio cae al 4 y el fin se queda en el 6.
+    await redimensionar(wrapper, 'calendar-handle-start', 100 + 2 * 85.5 + 40, 150)
+
+    const patch = calls.find((call) => call.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(patch.url).toBe('/api/tasks/1')
+    expect(JSON.parse(patch.body)).toEqual({
+      start_date: '2026-11-04',
+      end_date: '2026-11-06',
+    })
+  })
+
+  it('redimensionar el fin de la barra mueve solo el fin con un PATCH', async () => {
+    const calls = setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    // La barra va del lunes 2 al viernes 6. El asa de fin suelta en la
+    // columna 3 (jueves 5): el fin cae al 5 y el inicio se queda en el 2.
+    await redimensionar(wrapper, 'calendar-handle-end', 100 + 3 * 85.5 + 40, 150)
+
+    const patch = calls.find((call) => call.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(patch.url).toBe('/api/tasks/1')
+    expect(JSON.parse(patch.body)).toEqual({
+      start_date: '2026-11-02',
+      end_date: '2026-11-05',
+    })
+  })
+
+  it('soltar el cuerpo sobre un dia de fin de semana cae en el dia laborable', async () => {
+    const calls = setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    // La barra va del lunes 2 al viernes 6. Suelta sobre el sabado 7
+    // (columna 5): el dia laborable es el viernes 6 y el rango cae al 6 - 10.
+    await arrastrarBarra(wrapper, 100 + 5 * 85.5 + 40, 150)
+
+    const patch = calls.find((call) => call.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(JSON.parse(patch.body)).toEqual({
+      start_date: '2026-11-06',
+      end_date: '2026-11-10',
+    })
+  })
+
+  it('soltar fuera de la rejilla no guarda nada', async () => {
+    const calls = setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    const barra = wrapper.find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
+    await barra.trigger('mousedown', { button: 0, clientX: 10, clientY: 10 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 200, clientY: 150 }))
+    window.dispatchEvent(new MouseEvent('mouseup', { clientX: 1200, clientY: 150 }))
     await settle()
 
     expect(calls.find((call) => call.method === 'PATCH')).toBeUndefined()
@@ -2243,5 +2366,255 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     const patch = calls.find((call) => call.method === 'PATCH')
     expect(patch).toBeDefined()
     expect(JSON.parse(patch.body)).toEqual({ status: 'done' })
+  })
+
+  describe('teclado en la barra', () => {
+    /** Enfoca la barra por su id: el foco es lo que la barra emite. */
+    async function enfocar(wrapper, taskId) {
+      const barra = wrapper
+        .findAll('[data-testid="week-task"]')
+        .find((b) => b.attributes('data-task-id') === String(taskId))
+      await barra.trigger('focus')
+      await flushPromises()
+      return barra
+    }
+
+    it('la barra enfocada es la unica con tabindex 0 y el resto con -1', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barras = wrapper.findAll('[data-testid="week-task"]')
+      expect(barras.length).toBeGreaterThan(1)
+      // Al montar, la primera barra visible lleva el tabindex 0.
+      expect(barras[0].attributes('tabindex')).toBe('0')
+      barras.slice(1).forEach((barra) => expect(barra.attributes('tabindex')).toBe('-1'))
+
+      await enfocar(wrapper, 2)
+      expect(wrapper.find('[data-task-id="1"]').attributes('tabindex')).toBe('-1')
+      expect(wrapper.find('[data-task-id="2"]').attributes('tabindex')).toBe('0')
+    })
+
+    it('el aria-label describe la tarea y anade Solo lectura. sin permiso', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      expect(wrapper.find('[data-task-id="1"]').attributes('aria-label')).toBe(
+        'Programacion SCADA Ana Del 2 de nov al 6 de nov de 2026. 50 % de avance.',
+      )
+
+      await mountView()
+      setupFetchEdicion({ ambito: { ...AMBITO, editable_project_ids: [2] } })
+      const { wrapper: soloLectura } = await mountView()
+      expect(
+        soloLectura.find('[data-task-id="1"]').attributes('aria-label'),
+      ).toBe(
+        'Programacion SCADA Ana Del 2 de nov al 6 de nov de 2026. 50 % de avance. Solo lectura.',
+      )
+      expect(soloLectura.find('[data-task-id="1"]').attributes('aria-disabled')).toBe('true')
+    })
+
+    it('ArrowRight mueve la tarea un dia con un PATCH conservando la duracion', async () => {
+      const calls = setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barra = await enfocar(wrapper, 1)
+      await barra.trigger('keydown', { key: 'ArrowRight' })
+      await settle()
+
+      const patch = calls.find((call) => call.method === 'PATCH')
+      expect(patch).toBeDefined()
+      expect(patch.url).toBe('/api/tasks/1')
+      expect(JSON.parse(patch.body)).toEqual({
+        start_date: '2026-11-03',
+        end_date: '2026-11-07',
+      })
+    })
+
+    it('Mayus+ArrowRight mueve solo el fin un dia y el inicio se queda', async () => {
+      const calls = setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barra = await enfocar(wrapper, 1)
+      await barra.trigger('keydown', { key: 'ArrowRight', shiftKey: true })
+      await settle()
+
+      const patch = calls.find((call) => call.method === 'PATCH')
+      expect(patch).toBeDefined()
+      expect(JSON.parse(patch.body)).toEqual({
+        start_date: '2026-11-02',
+        end_date: '2026-11-07',
+      })
+    })
+
+    it('Enter abre el detalle de la tarea enfocada', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barra = await enfocar(wrapper, 2)
+      await barra.trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+
+      expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+    })
+
+    it('sin permiso de escritura las flechas no hacen PATCH', async () => {
+      const calls = setupFetchEdicion({ ambito: { ...AMBITO, editable_project_ids: [2] } })
+      const { wrapper } = await mountView()
+      const barra = await enfocar(wrapper, 1)
+      await barra.trigger('keydown', { key: 'ArrowRight' })
+      await barra.trigger('keydown', { key: 'ArrowRight', shiftKey: true })
+      await settle()
+
+      expect(calls.find((call) => call.method === 'PATCH')).toBeUndefined()
+    })
+
+    it('ArrowDown mueve el foco a la siguiente barra visible', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const primera = await enfocar(wrapper, 1)
+      // El foco real del DOM lo comprueba el tabindex: jsdom no aplica el
+      // .focus() contra el selector del grid, pero el roving tabindex si.
+      await primera.trigger('keydown', { key: 'ArrowDown' })
+      await flushPromises()
+
+      expect(wrapper.find('[data-task-id="1"]').attributes('tabindex')).toBe('-1')
+      expect(wrapper.find('[data-task-id="2"]').attributes('tabindex')).toBe('0')
+    })
+  })
+
+  describe('menu contextual, globo y alta en el hueco', () => {
+    /** Items del menu contextual en texto, en orden. */
+    function itemsDelMenu(wrapper) {
+      return wrapper.findAll('[data-testid="context-menu-item"]').map((item) => item.text())
+    }
+
+    it('el clic derecho en la barra abre el menu de la tarea', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      await wrapper.find('[data-task-id="1"]').trigger('contextmenu', { clientX: 70, clientY: 90 })
+      await flushPromises()
+
+      const menu = wrapper.find('[data-testid="context-menu"]')
+      expect(menu.exists()).toBe(true)
+      expect(menu.attributes('aria-label')).toBe('Menú de la tarea')
+      expect(itemsDelMenu(wrapper)).toEqual([
+        'Abrir detalle',
+        'Mover un día antes',
+        'Mover un día después',
+        'Acortar un día',
+        'Alargar un día',
+      ])
+    })
+
+    it('Abrir detalle abre el dialogo de la tarea y el menu se cierra', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      await wrapper.find('[data-task-id="1"]').trigger('contextmenu', { clientX: 70, clientY: 90 })
+      await flushPromises()
+
+      await wrapper
+        .findAll('[data-testid="context-menu-item"]')
+        .find((item) => item.text() === 'Abrir detalle')
+        .trigger('click')
+      await flushPromises()
+
+      expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+      expect(wrapper.find('[data-testid="context-menu"]').exists()).toBe(false)
+    })
+
+    it('Mover un día después hace un PATCH con las fechas un dia mas adelante', async () => {
+      const calls = setupFetchEdicion()
+      const { wrapper } = await mountView()
+      await wrapper.find('[data-task-id="1"]').trigger('contextmenu', { clientX: 70, clientY: 90 })
+      await flushPromises()
+
+      await wrapper
+        .findAll('[data-testid="context-menu-item"]')
+        .find((item) => item.text() === 'Mover un día después')
+        .trigger('click')
+      await settle()
+
+      const patch = calls.find((call) => call.method === 'PATCH')
+      expect(patch).toBeDefined()
+      expect(patch.url).toBe('/api/tasks/1')
+      expect(JSON.parse(patch.body)).toEqual({
+        start_date: '2026-11-03',
+        end_date: '2026-11-07',
+      })
+    })
+
+    it('sin permiso de escritura el menu de la barra no da los items de mover', async () => {
+      setupFetchEdicion({ ambito: { ...AMBITO, editable_project_ids: [2] } })
+      const { wrapper } = await mountView()
+      await wrapper.find('[data-task-id="1"]').trigger('contextmenu', { clientX: 70, clientY: 90 })
+      await flushPromises()
+
+      expect(itemsDelMenu(wrapper)).toEqual(['Abrir detalle'])
+    })
+
+    it('el clic derecho en un hueco abre el menu del dia', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView({ project: '1' })
+      // El lunes de la segunda semana del mes no lleva tareas: hueco completo.
+      const celda = wrapper.find('[data-testid="calendar-month-table"] td[data-day="2026-11-09"]')
+      await celda.trigger('contextmenu', { clientX: 30, clientY: 40 })
+      await flushPromises()
+
+      const menu = wrapper.find('[data-testid="context-menu"]')
+      expect(menu.exists()).toBe(true)
+      expect(menu.attributes('aria-label')).toBe('Menú del día')
+      expect(itemsDelMenu(wrapper)).toEqual(['Ver el día', 'Crear tarea en este día'])
+    })
+
+    it('sin permiso de escritura el menu del hueco no ofrece el alta', async () => {
+      // El proyecto 1 no es editable para quien entra: el alta no se puede.
+      setupFetchEdicion({ ambito: { ...AMBITO, editable_project_ids: [2] } })
+      const { wrapper } = await mountView({ project: '1' })
+      const celda = wrapper.find('[data-testid="calendar-month-table"] td[data-day="2026-11-09"]')
+      await celda.trigger('contextmenu', { clientX: 30, clientY: 40 })
+      await flushPromises()
+
+      expect(itemsDelMenu(wrapper)).toEqual(['Ver el día'])
+    })
+
+    it('Ver el día abre la vista de dia de esa fecha', async () => {
+      setupFetchEdicion()
+      const { wrapper, router } = await mountView({ project: '1' })
+      const celda = wrapper.find('[data-testid="calendar-month-table"] td[data-day="2026-11-09"]')
+      await celda.trigger('contextmenu', { clientX: 30, clientY: 40 })
+      await flushPromises()
+
+      await wrapper
+        .findAll('[data-testid="context-menu-item"]')
+        .find((item) => item.text() === 'Ver el día')
+        .trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toMatchObject({ view: 'day', day: '2026-11-09' })
+    })
+
+    it('doble clic en un hueco abre el modal de alta con la fecha del dia', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView({ project: '1' })
+      const celda = wrapper.find('[data-testid="calendar-month-table"] td[data-day="2026-11-09"]')
+      await celda.trigger('dblclick')
+      await flushPromises()
+
+      const formulario = wrapper.findComponent(TaskForm)
+      expect(formulario.exists()).toBe(true)
+      expect(formulario.props('task').start_date).toBe('2026-11-09')
+      expect(formulario.props('task').end_date).toBe('2026-11-09')
+    })
+
+    it('pasar el puntero por la barra muestra el globo y al salir lo oculta', async () => {
+      setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barra = wrapper.find('[data-task-id="1"]')
+      await barra.trigger('mouseenter', { clientX: 70, clientY: 90 })
+      await flushPromises()
+
+      const globo = wrapper.find('[data-testid="calendar-tooltip"]')
+      expect(globo.exists()).toBe(true)
+      expect(globo.text()).toContain('Programacion SCADA')
+
+      await barra.trigger('mouseleave')
+      await flushPromises()
+      expect(wrapper.find('[data-testid="calendar-tooltip"]').exists()).toBe(false)
+    })
   })
 })

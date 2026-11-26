@@ -23,21 +23,22 @@
  * Quien no puede escribir en ese proyecto lo ve en solo lectura.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import { calendarApi, meApi, overviewApi, peopleApi, tasksApi } from '../api/client'
-import { useArrastre } from '../composables/useArrastre'
+import { useCalendarioDrag } from '../composables/useCalendarioDrag'
+import { useCalendarioEstado } from '../composables/useCalendarioEstado'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import ContextMenu from '../components/common/ContextMenu.vue'
 import FilterField from '../components/common/FilterField.vue'
 import SegmentedControl from '../components/common/SegmentedControl.vue'
 import VisibilityPanel from '../components/common/VisibilityPanel.vue'
-import WeekLanes from '../components/common/WeekLanes.vue'
+import CalendarGrid from '../components/calendar/CalendarGrid.vue'
 import DayDetail from '../components/DayDetail.vue'
-import WeekGrid from '../components/WeekGrid.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
@@ -45,38 +46,42 @@ import TaskForm from '../components/TaskForm.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
-import { dateChangePayload, diffDays } from '../utils/ganttScale'
-import { moveRange } from '../utils/ganttLayout'
-import {
-  currentMonthKey,
-  localDateKey,
-  longDateLabel,
-  monthGrid,
-  monthLabel,
-  shiftDay,
-  shiftMonth,
-} from '../utils/month'
+import { useToastStore } from '../stores/toast'
+import { dateChangePayload } from '../utils/ganttScale'
+import { moveRange, resizeRange } from '../utils/ganttLayout'
+import { longDateLabel, monthGrid, monthLabel } from '../utils/month'
 import { sortByDepartment } from '../utils/people'
-import {
-  currentWeekKey,
-  isoWeekKey,
-  shiftWeek,
-  weekDays,
-  weekRangeLabel,
-  weekWorkdays,
-  weekWithTasksNear,
-} from '../utils/weeks'
+import { weekDays, weekRangeLabel, weekWithTasksNear } from '../utils/weeks'
 
 const auth = useAuthStore()
 const route = useRoute()
-const router = useRouter()
 const store = useProjectsStore()
 const statusStore = useTaskStatusesStore()
+const toast = useToastStore()
 
-const view = ref('month')
-const month = ref(currentMonthKey())
-const week = ref(currentWeekKey())
-const day = ref(localDateKey())
+/**
+ * Vista y fecha en pantalla, con su ida y vuelta con la URL.
+ *
+ * El composable es el unico sitio que sabe de la URL del estado: la URL manda
+ * al abrir y al navegar, y cada cambio de vista o fecha se escribe de vuelta.
+ * El scroll del mes, que es del DOM, queda en la vista.
+ */
+const {
+  view,
+  month,
+  week,
+  day,
+  query,
+  VISTAS,
+  updateQuery,
+  aplicarEstadoDeLaUrl,
+  escribirEstado,
+  step,
+  setView,
+  openDay,
+  goToday,
+} = useCalendarioEstado()
+
 const tasks = ref([])
 const members = ref([])
 const undatedTaskIds = ref([])
@@ -90,29 +95,13 @@ const scope = ref(null)
 const selectedTaskId = ref(null)
 /** Proyecto abierto en el alta del dia, con la fecha del dia. */
 const altaDelDia = ref(null)
+/** Menu contextual abierto: {items, x, y, abridor, label}. */
+const menuContexto = ref(null)
 const saving = ref(false)
 /** Aviso que no tapa el calendario: un rechazo del servidor al guardar. */
 const aviso = ref(null)
 /** Contenedor vertical de la tabla del mes, para desplazarlo a la semana con trabajo. */
 const mesScroll = ref(null)
-
-const query = computed(() => route.query ?? {})
-
-/**
- * Escribe el estado de la vista en la URL.
- *
- * Los valores vacios se quitan: una URL con lo puesto es la que se copia para
- * compartir la vista. Lo usan los filtros y el estado de la vista (que vista
- * se ve y en que fecha).
- */
-async function updateQuery(patch) {
-  const next = { ...query.value }
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === '' || value === null || value === undefined) delete next[key]
-    else next[key] = String(value)
-  }
-  await router.replace({ query: next })
-}
 
 /** Proyecto que fija la ruta, cuando la vista esta en el espacio del proyecto. */
 const proyectoDeLaRuta = useProyectoFiltro()
@@ -133,71 +122,6 @@ const departmentFilter = computed({
   get: () => query.value.department ?? '',
   set: (value) => updateQuery({ department: value }),
 })
-
-/** Vistas del calendario, para el selector comun. */
-const VISTAS = [
-  { value: 'month', label: 'Mes' },
-  { value: 'week', label: 'Semana' },
-  { value: 'day', label: 'Día' },
-]
-
-/**
- * Estado del calendario segun la URL.
- *
- * La vista y la fecha en pantalla viajan en la URL, como en el resto de vistas:
- * `?view=` dice si se ve el mes, la semana o el dia; `?month=` es el mes
- * abierto (YYYY-MM) y `?day=` el dia abierto (YYYY-MM-DD), que en la vista de
- * semana es el lunes de la semana en pantalla. Los valores por defecto no se
- * escriben: el mes en curso, el dia de hoy y la vista de mes son lo que se ve
- * sin nada en la URL.
- */
-const MES_EN_URL = /^\d{4}-\d{2}$/
-const DIA_EN_URL = /^\d{4}-\d{2}-\d{2}$/
-
-/** Semana ISO a la que pertenece un dia. */
-function semanaDe(dia) {
-  return isoWeekKey(new Date(`${dia}T00:00:00Z`))
-}
-
-/**
- * Aplica el estado de la URL a la vista.
- *
- * La URL manda: recargar o compartir el enlace reproduce la misma vista. Un
- * parametro que no vale se ignora, y lo que falta se queda en su defecto.
- */
-function aplicarEstadoDeLaUrl() {
-  const q = query.value
-  const vista = VISTAS.find((item) => item.value === q.view)?.value ?? 'month'
-  const mes =
-    typeof q.month === 'string' && MES_EN_URL.test(q.month) ? q.month : currentMonthKey()
-  const dia = typeof q.day === 'string' && DIA_EN_URL.test(q.day) ? q.day : localDateKey()
-  view.value = vista
-  month.value = mes
-  day.value = dia
-  // La semana se ancla en el dia: es la semana que lo contiene.
-  if (vista === 'week') week.value = semanaDe(dia)
-}
-
-/**
- * Escribe la vista y la fecha en pantalla en la URL.
- *
- * Es lo que hace que el enlace se pueda compartir: al abrirlo, el calendario
- * se abre como estaba.
- */
-async function escribirEstado() {
-  const patch = { view: undefined, month: undefined, day: undefined }
-  if (view.value !== 'month') patch.view = view.value
-  if (view.value === 'month') {
-    if (month.value !== currentMonthKey()) patch.month = month.value
-  } else if (view.value === 'day') {
-    if (day.value !== localDateKey()) patch.day = day.value
-  } else {
-    // En la vista de semana, el dia es el lunes de la semana en pantalla.
-    const lunes = weekDays(week.value)[0].date
-    if (lunes !== weekDays(currentWeekKey())[0].date) patch.day = lunes
-  }
-  await updateQuery(patch)
-}
 
 /** Opciones de los filtros: la de "todos" delante y las visibles detras. */
 const opcionesDepartamento = computed(() => [
@@ -375,98 +299,205 @@ async function irASemanaConTrabajo() {
   await escribirEstado()
 }
 
-/**
- * Arrastrar una barra a otro dia: la tarea se mueve a ese dia conservando su
- * duracion, y se guarda con el mismo PATCH que el Gantt al mover una barra.
- *
- * La soltura se resuelve contra la tabla en pantalla: con `table-fixed` las
- * siete columnas de dia tienen el mismo ancho, de modo que el dia destino es
- * el que cae bajo el puntero, medido desde el borde de la columna de nombres.
- * La semana destino la da la altura del puntero: cada semana del mes es un
- * <tbody> con su `data-semana`, y en la vista semanal el unico <tbody> es la
- * semana de la vista.
- */
-function diaBajoPuntero(x, y) {
-  const tabla = document.querySelector(
-    '[data-testid="calendar-month-table"], [data-testid="week-grid"] table',
-  )
-  if (!tabla) return null
-  const caja = tabla.getBoundingClientRect()
-  if (x < caja.left || x > caja.right || y < caja.top || y > caja.bottom) return null
-  const nombre = tabla.querySelector('th')
-  const anchoNombre = nombre ? nombre.getBoundingClientRect().right - caja.left : 0
-  const anchoDia = (caja.right - caja.left - anchoNombre) / 7
-  const columnas = Math.min(6, Math.max(0, Math.floor((x - caja.left - anchoNombre) / anchoDia)))
-  // La semana es la del <tbody> que contiene la altura del puntero: la fila de
-  // cabecera de dias pertenece a su <tbody>, asi que soltar sobre ella cae en
-  // esa semana.
-  const cuerpos = [...tabla.querySelectorAll('tbody')]
-  const cuerpo = cuerpos.find((tbody) => {
-    const recta = tbody.getBoundingClientRect()
-    return y >= recta.top && y <= recta.bottom
-  })
-  if (!cuerpo) return null
-  return { columnas, semana: Number(cuerpo.dataset.semana) }
-}
-
-/** Fecha concreta al que cae el puntero: el dia sobre la semana soltada. */
-function diaDestino(pendiente, event) {
-  const destino = diaBajoPuntero(event.clientX, event.clientY)
-  if (!destino) return null
-  const semana =
-    view.value === 'week'
-      ? weekDays(week.value)
-      : semanasDelMes.value[destino.semana] ?? null
-  if (!semana) return null
-  return semana[destino.columnas]?.date ?? null
-}
-
 /** Dia de la semana en pantalla que queda bajo el puntero, para sombrearlo. */
 const hoverDay = ref(null)
 
-function fantasmaDe(pendiente, event) {
-  return { x: event.clientX, y: event.clientY, tarea: pendiente.datos.tarea }
-}
-
-function alMover(pendiente, event) {
-  hoverDay.value = diaDestino(pendiente, event)
-}
+/**
+ * Ref a la rejilla del calendario en pantalla: mes o semana. La geometria
+ * del arrastre se mide contra esta tabla al empezar el gesto (`medir`), no
+ * contra el DOM por selector.
+ */
+const gridRef = ref(null)
 
 /**
- * Soltar la barra: la tarea pasa a los nuevos dias y se guarda con el mismo
- * PATCH que el Gantt al mover una barra. Si el puntero no cae sobre una
- * columna de dia, `dentroDe` deja que el esqueleto tumbe el gesto.
+ * Guardar las fechas de una tarea con el mismo PATCH que el Gantt al mover
+ * una barra: `dateChangePayload` y recarga. El exito confirma con un toast,
+ * como el Gantt; el fallo se queda en el banner en linea, sin cerrar la
+ * sesion: un fallo, un aviso. Sin cambio de fechas no hay PATCH. Lo usan el
+ * arrastre, el teclado y el menu contextual; es la unica puerta al guardado
+ * de fechas.
  */
-async function alSoltar(pendiente, event) {
-  hoverDay.value = null
-  const destino = diaDestino(pendiente, event)
-  const tarea = pendiente.datos.tarea
-  if (!destino || destino === tarea.start) return
-  const nuevo = moveRange(tarea.start, tarea.end, diffDays(tarea.start, destino))
+async function guardarFechas(taskId, start, end) {
+  const tarea = tasks.value.find((task) => task.id === taskId)
+  if (!tarea || (start === tarea.start && end === tarea.end)) return
   try {
-    await tasksApi.update(auth.token, tarea.id, dateChangePayload(nuevo.start, nuevo.end))
+    await tasksApi.update(auth.token, taskId, dateChangePayload(start, end))
+    toast.success(`Fechas actualizadas: del ${start} al ${end}.`, { key: 'calendario-fechas' })
   } catch (err) {
     aviso.value = `No se ha podido mover la tarea: ${err.message}`
   }
   await load()
 }
 
-function alAnular() {
+/** Soltar la barra: la tarea pasa a los nuevos dias, con el mismo guardado. */
+async function alConfirmar({ taskId, start, end }) {
   hoverDay.value = null
+  await guardarFechas(taskId, start, end)
 }
 
-const drag = useArrastre({
-  fantasmaDe,
-  alMover,
-  alConfirmar: alSoltar,
-  dentroDe: (pendiente, event) => diaBajoPuntero(event.clientX, event.clientY) !== null,
-  alAnular,
+/**
+ * Teclado de la barra enfocada: el grid sube la tecla y la vista decide, con
+ * la misma semantica que el Gantt pero en dias, que es la unidad del eje del
+ * calendario.
+ *
+ * Izquierda/derecha mueven la tarea un dia (`moveRange`) y guardan. Mayus mas
+ * izquierda/derecha (o arriba/abajo) redimensionan el extremo final un dia
+ * (`resizeRange`), como en el Gantt. Intro abre el detalle de la tarea. Sin
+ * permiso de escritura en el proyecto de la tarea no se cambia nada: el
+ * teclado no mueve ni redimensiona, pero Intro si abre el detalle.
+ */
+async function alPulsarTecla(event, id) {
+  const tarea = tasks.value.find((item) => item.id === id)
+  if (!tarea) return
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    selectedTaskId.value = id
+    return
+  }
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (!editableProjects.value.includes(Number(tarea.project_id))) return
+    const delta = event.key === 'ArrowRight' ? 1 : -1
+    if (event.shiftKey) {
+      const rango = resizeRange(tarea.start, tarea.end, 'end', delta)
+      await guardarFechas(id, rango.start, rango.end)
+      return
+    }
+    const rango = moveRange(tarea.start, tarea.end, delta)
+    await guardarFechas(id, rango.start, rango.end)
+    return
+  }
+  if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.shiftKey) {
+    event.preventDefault()
+    if (!editableProjects.value.includes(Number(tarea.project_id))) return
+    const rango = resizeRange(tarea.start, tarea.end, 'end', event.key === 'ArrowDown' ? 1 : -1)
+    await guardarFechas(id, rango.start, rango.end)
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Menu contextual: la rejilla sube el contexto, la vista lo decide.  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La rejilla avisa de que se ha pedido un menu contextual.
+ *
+ * El grid sabe de donde viene (una barra o un hueco); la vista arma el arbol
+ * de items segun ese contexto y ejecuta la accion elegida. Sin items no hay
+ * menu: un menu vacio no dice nada.
+ */
+function abrirMenuContexto(contexto) {
+  const items = itemsDeContexto(contexto)
+  if (!items.length) return
+  menuContexto.value = {
+    items,
+    x: contexto.x,
+    y: contexto.y,
+    abridor: contexto.abridor ?? null,
+    label: contexto.tipo === 'barra' ? 'Menú de la tarea' : 'Menú del día',
+  }
+}
+
+/** Arbol de items del menu, segun el contexto. */
+function itemsDeContexto(contexto) {
+  if (contexto.tipo === 'barra') return itemsDeBarra(contexto.tarea)
+  return itemsDeHueco(contexto.fecha)
+}
+
+/**
+ * Items del menu de una barra: abrir el detalle y, solo con permiso de
+ * escritura en el proyecto de la tarea, mover o redimensionar un dia. Los
+ * cuatro ultimos guardan con el mismo PATCH que el teclado.
+ */
+function itemsDeBarra(tarea) {
+  const items = [{ label: 'Abrir detalle', accion: 'detalle', dato: tarea.id }]
+  if (!editableProjects.value.includes(Number(tarea.project_id))) return items
+  items.push(
+    { label: 'Mover un día antes', accion: 'mover', dato: { id: tarea.id, delta: -1 } },
+    { label: 'Mover un día después', accion: 'mover', dato: { id: tarea.id, delta: 1 } },
+    { label: 'Acortar un día', accion: 'redimensionar', dato: { id: tarea.id, delta: -1 } },
+    { label: 'Alargar un día', accion: 'redimensionar', dato: { id: tarea.id, delta: 1 } },
+  )
+  return items
+}
+
+/**
+ * Items del menu de un hueco: siempre `Ver el día`, y el alta solo si se
+ * puede crear: proyecto en contexto y permiso de escritura, como el Gantt,
+ * que no ofrece el item de alta cuando no se puede hacer.
+ */
+function itemsDeHueco(fecha) {
+  const items = [{ label: 'Ver el día', accion: 'ver-dia', dato: fecha }]
+  if (dayCanEdit.value) {
+    items.push({ label: 'Crear tarea en este día', accion: 'crear', dato: fecha })
+  }
+  return items
+}
+
+/**
+ * Accion elegida en el menu contextual.
+ *
+ * Cada accion es una operacion que ya existe: el detalle es el dialogo de la
+ * vista, mover y redimensionar guardan con el mismo PATCH que el teclado, el
+ * dia abre la vista de dia y la creacion es el alta de la vista.
+ */
+async function ejecutarAccion(item) {
+  const accion = item?.accion
+  const dato = item?.dato
+  if (accion === 'detalle') {
+    selectedTaskId.value = dato
+    return
+  }
+  if (accion === 'mover' || accion === 'redimensionar') {
+    const tarea = tasks.value.find((t) => t.id === dato.id)
+    if (!tarea) return
+    const rango =
+      accion === 'mover'
+        ? moveRange(tarea.start, tarea.end, dato.delta)
+        : resizeRange(tarea.start, tarea.end, 'end', dato.delta)
+    await guardarFechas(dato.id, rango.start, rango.end)
+    return
+  }
+  if (accion === 'ver-dia') {
+    await openDay(dato)
+    return
+  }
+  if (accion === 'crear') {
+    await openCreacion(dato)
+  }
+}
+
+/**
+ * Arrastre de la barra: mover el cuerpo o redimensionar un extremo.
+ *
+ * La geometria la mide la rejilla en pantalla al empezar el gesto y se fija
+ * durante el gesto: el mes desplazado no cambia la escala a mitad. El
+ * destino sale de la geometria (no del DOM) y el PATCH es el mismo que el
+ * Gantt al mover una barra.
+ */
+const drag = useCalendarioDrag({
+  geometriaDe: () => gridRef.value?.medir() ?? null,
+  alConfirmar,
 })
 const fantasma = drag.fantasma
+const previsualizacion = drag.previsualizacion
 
-/** Agarrar una barra: el destino de la soltura lo resuelve la vista. */
-function onBarDragStart({ tarea, event }) {
-  drag.empezarArrastre({ contexto: { tarea }, event })
+// El dia destino se sombrea mientras dura el gesto: la previsualizacion lleva
+// la fecha donde cae la barra. Al terminar el gesto se tumba.
+watch(
+  () => previsualizacion.value,
+  (pre) => {
+    hoverDay.value = pre?.fecha ?? null
+  },
+)
+
+/**
+ * Agarrar una barra: arranca el gesto con la zona agarrada (cuerpo o asa) y
+ * los dias de la semana de la barra. El destino de la soltura lo resuelve el
+ * composable contra la geometria medida.
+ */
+function onBarDragStart({ tarea, zona, event, dias }) {
+  drag.empezarArrastre({ barra: { tarea }, zona, event, dias })
 }
 
 /**
@@ -541,62 +572,6 @@ async function load() {
   }
 }
 
-async function step(delta) {
-  if (view.value === 'day') {
-    day.value = shiftDay(day.value, delta)
-    await escribirEstado()
-    return
-  }
-  if (view.value === 'week') {
-    week.value = shiftWeek(week.value, delta)
-    await escribirEstado()
-    return
-  }
-  month.value = shiftMonth(month.value, delta)
-  await nextTick()
-  desplazarMesASemanaConTrabajo()
-  await escribirEstado()
-}
-
-/**
- * Cambia entre las vistas de mes, semana y dia.
- *
- * Al cambiar de vista cada una se coloca donde le toca: si el mes que se estaba
- * viendo es el mes en curso, la semana es la de hoy; si no, la del primer dia
- * de ese mes. Al volver al mes, el mes es el de la semana en pantalla. Desde
- * el dia se sale a su semana y a su mes, que es donde estaba el usuario.
- */
-async function setView(next) {
-  if (next === view.value) return
-  if (next === 'day') {
-    day.value = localDateKey()
-  } else if (next === 'week') {
-    if (view.value === 'day') {
-      week.value = semanaDe(day.value)
-    } else {
-      const [year, monthNumber] = month.value.split('-').map(Number)
-      const now = new Date()
-      const sameMonth = now.getFullYear() === year && now.getMonth() === monthNumber - 1
-      const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-      const first = new Date(Date.UTC(year, monthNumber - 1, 1))
-      week.value = isoWeekKey(sameMonth ? today : first)
-    }
-  } else if (view.value === 'day') {
-    month.value = day.value.slice(0, 7)
-  } else {
-    month.value = weekWorkdays(week.value)[0].date.slice(0, 7)
-  }
-  view.value = next
-  await escribirEstado()
-}
-
-/** Abre el detalle de un dia. */
-async function openDay(date) {
-  day.value = date
-  view.value = 'day'
-  await escribirEstado()
-}
-
 /**
  * Abre el detalle de una tarea.
  *
@@ -663,17 +638,6 @@ function onTaskDeleted() {
   load()
 }
 
-async function goToday() {
-  month.value = currentMonthKey()
-  week.value = currentWeekKey()
-  day.value = localDateKey()
-  if (view.value === 'month') {
-    await nextTick()
-    desplazarMesASemanaConTrabajo()
-  }
-  await escribirEstado()
-}
-
 /** Vuelve a pedir los datos y enseña el esqueleto mientras llegan. */
 async function reintentar() {
   loading.value = true
@@ -691,6 +655,18 @@ onBeforeUnmount(() => drag.anular())
 watch(
   () => route.query,
   () => aplicarEstadoDeLaUrl(),
+)
+
+// Al cambiar de mes, la tabla del mes se desplaza a la primera semana con
+// trabajo. Es del DOM y no va en el composable: reacciona al mes que este
+// cambia, con nextTick para que la rejilla nueva ya este pintada.
+watch(
+  () => month.value,
+  async () => {
+    if (view.value !== 'month') return
+    await nextTick()
+    desplazarMesASemanaConTrabajo()
+  },
 )
 
 // El proyecto cambia con la ruta del proyecto o con el filtro de la URL.
@@ -844,25 +820,22 @@ watch(
           class="max-h-[80vh] overflow-y-auto overflow-x-auto"
           data-testid="calendar-month-scroll"
         >
-        <table
-          class="w-full min-w-[42rem] table-fixed border-collapse text-sm"
-          data-testid="calendar-month-table"
-        >
-          <template v-for="(semana, indice) in semanasDelMes" :key="indice">
-            <WeekLanes
-              :days="semana"
-              :people="personasVisibles"
-              :tasks="visibleTasks"
-              :non-working-days="nonWorkingDays"
-              :editable-project-ids="editableProjects"
-              :hover-day="hoverDay"
-              :semana-indice="indice"
-              @open-day="openDay"
-              @open-task="openTask"
-              @drag-start="onBarDragStart"
-            />
-          </template>
-        </table>
+        <CalendarGrid
+          ref="gridRef"
+          :weeks="semanasDelMes"
+          testid="calendar-month-table"
+          :people="personasVisibles"
+          :tasks="visibleTasks"
+          :non-working-days="nonWorkingDays"
+          :editable-project-ids="editableProjects"
+          :hover-day="hoverDay"
+          @open-day="openDay"
+          @open-task="openTask"
+          @drag-start="onBarDragStart"
+          @tecla="alPulsarTecla"
+          @contexto="abrirMenuContexto"
+          @crear="openCreacion"
+        />
         </div>
       </div>
 
@@ -888,18 +861,27 @@ watch(
         </button>
       </AlertBanner>
 
-      <WeekGrid
+      <div
         v-else-if="view === 'week'"
-        :week-key="week"
-        :people="personasVisibles"
-        :tasks="visibleTasks"
-        :non-working-days="nonWorkingDays"
-        :editable-project-ids="editableProjects"
-        :hover-day="hoverDay"
-        @open-day="openDay"
-        @open-task="openTask"
-        @drag-start="onBarDragStart"
-      />
+        class="overflow-x-auto rounded border border-slate-200 bg-white"
+        data-testid="week-grid"
+      >
+        <CalendarGrid
+          ref="gridRef"
+          :weeks="[weekDays(week)]"
+          :people="personasVisibles"
+          :tasks="visibleTasks"
+          :non-working-days="nonWorkingDays"
+          :editable-project-ids="editableProjects"
+          :hover-day="hoverDay"
+          @open-day="openDay"
+          @open-task="openTask"
+          @drag-start="onBarDragStart"
+          @tecla="alPulsarTecla"
+          @contexto="abrirMenuContexto"
+          @crear="openCreacion"
+        />
+      </div>
 
       <DayDetail
         v-else
@@ -984,9 +966,22 @@ watch(
       }"
     >
       <p class="truncate text-sm font-medium text-slate-900">{{ fantasma.tarea.title }}</p>
-      <p class="mt-1 text-xs text-slate-500">
-        {{ fantasma.tarea.start }} → {{ fantasma.tarea.end }}
-      </p>
+      <p class="mt-1 text-xs text-slate-500">{{ fantasma.rango }}</p>
     </div>
+
+    <!--
+      Menu contextual de la barra o del hueco. La rejilla sube el contexto y
+      la vista arma los items y ejecuta la accion elegida.
+    -->
+    <ContextMenu
+      v-if="menuContexto"
+      :items="menuContexto.items"
+      :x="menuContexto.x"
+      :y="menuContexto.y"
+      :abridor="menuContexto.abridor"
+      :label="menuContexto.label"
+      @select="ejecutarAccion"
+      @close="menuContexto = null"
+    />
   </div>
 </template>

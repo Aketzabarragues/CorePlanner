@@ -5,7 +5,29 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+
+- **frontend**: el calendario deja de ser una rejilla de solo lectura y gana el
+  mismo juego de interacciones que el diagrama de Gantt: mover una tarea a
+  otro dia arrastrarla, redimensionarla por sus dos extremos, moverla y
+  redimensionarla con el teclado, un menu contextual con las acciones de la
+  tarea, el globo de la tarea al pasar el puntero y el alta de tarea en un dia
+  concreto con doble clic en un hueco. La rejilla pasa a ser un motor propio
+  (`frontend/src/components/calendar/`), como el del Gantt: el reparto de
+  tareas en filas por persona y en carriles vive en un modulo puro
+  (`frontend/src/utils/calendarLayout.js`), el destino de un arrastre se decide
+  con una geometria medida sobre la tabla
+  (`frontend/src/utils/calendarGeometry.js`) en vez de consultar el DOM por
+  selector, y la barra lleva las asas, el foco unico y la etiqueta accesible
+  que ya tenia el Gantt. `WeekLanes.vue` y `WeekGrid.vue` se sustituyen: no
+  quedan alias ni envoltorios.
+
 ### Changed
+
+- **frontend**: el estado de la vista del calendario (que vista se ve, el mes,
+  la semana y el dia, y su ida y vuelta con la URL) pasa a un composable
+  propio (`frontend/src/composables/useCalendarioEstado.js`) con sus tests, y
+  el guardado de fechas se confirma con un aviso flotante, como en el Gantt.
 
 - **frontend**: los estados de tarea dejan de ser una constante del frontend: la
   lista sale del backend y es por proyecto. El tablero, la lista de tareas, mi

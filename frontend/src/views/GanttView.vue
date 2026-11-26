@@ -1881,7 +1881,7 @@ useTaskReload(load)
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle">
+    <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle" ayuda="Planificación temporal de las tareas del proyecto. Agrupa por proyecto, persona o departamento y resalta la ruta crítica.">
       <template #actions>
         <button
           v-if="projectFilter"

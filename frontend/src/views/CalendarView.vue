@@ -754,7 +754,7 @@ watch(
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Calendario" :subtitle="subtitle">
+    <PageHeader class="shrink-0" title="Calendario" :subtitle="subtitle" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
       <template #filters>
         <FilterField
           label="Departamento"

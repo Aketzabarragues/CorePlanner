@@ -49,6 +49,7 @@ import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
 import FilterField from './common/FilterField.vue'
+import HelpTip from './common/HelpTip.vue'
 import SegmentedControl from './common/SegmentedControl.vue'
 import SidePanel from './common/SidePanel.vue'
 import VisibilityPanel from './common/VisibilityPanel.vue'
@@ -1214,7 +1215,12 @@ watch(
   <div>
     <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold text-primario-fuerte">Capacidad</h1>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-xl font-semibold text-primario-fuerte">Capacidad</h1>
+          <HelpTip
+            texto="Reparto semanal de horas de todos los proyectos visibles. Pulsa una celda para ver el desglose por proyecto."
+          />
+        </div>
         <p v-if="project" class="mt-1 text-sm text-texto-tenue">{{ project.name }}</p>
         <p v-else class="mt-1 text-sm text-texto-tenue">
           Reparto de horas de todos los proyectos visibles.

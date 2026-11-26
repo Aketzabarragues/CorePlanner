@@ -105,6 +105,7 @@ onMounted(load)
     <PageHeader
       title="Personas y Competencias"
       subtitle="Perfiles, horarios versionados y habilidades del equipo."
+      ayuda="Perfiles, horarios vigentes y competencias técnicas del equipo para la semana seleccionada."
     >
       <template #filters>
         <FilterField

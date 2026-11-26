@@ -168,7 +168,11 @@ watch(
 
 <template>
   <div>
-    <PageHeader :title="pageTitle" :subtitle="pageSubtitle" />
+    <PageHeader
+      :title="pageTitle"
+      :subtitle="pageSubtitle"
+      ayuda="Administración del calendario laboral, las personas, los roles, los departamentos, los proyectos, los miembros, las competencias y las políticas de capacidad."
+    />
 
     <AsyncState
       :loading="loading"

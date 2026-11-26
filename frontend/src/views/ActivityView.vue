@@ -196,7 +196,11 @@ watch(
 
 <template>
   <div>
-    <PageHeader title="Actividad" :subtitle="subtitle" />
+    <PageHeader
+      title="Actividad"
+      :subtitle="subtitle"
+      ayuda="Registro cronológico de cambios en tareas, checklists y estados sobre los proyectos visibles."
+    />
 
     <AsyncState
       :loading="loading"

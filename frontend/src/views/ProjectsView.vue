@@ -256,6 +256,7 @@ onMounted(load)
     <PageHeader
       title="Proyectos"
       subtitle="Proyectos visibles, agrupados por el departamento que los gestiona."
+      ayuda="Los proyectos visibles agrupados por el departamento que los gestiona, con el avance de tareas y la carga de la semana."
     >
       <template #filters>
         <label class="inline-flex flex-col gap-1">

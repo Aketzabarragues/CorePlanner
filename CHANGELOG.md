@@ -7,6 +7,8 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: el calendario tiene modo ampliado: la rejilla ocupa la ventana entera, por encima
+  del armazon, y `Escape` sale. Es el mismo boton que el del diagrama de Gantt.
 - **frontend**: el calendario deja de ser una rejilla de solo lectura y gana el
   mismo juego de interacciones que el diagrama de Gantt: mover una tarea a
   otro dia arrastrarla, redimensionarla por sus dos extremos, moverla y
@@ -243,6 +245,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: la vista mensual del calendario ya no pinta la vista de dia debajo. La cadena de
+  vistas estaba mal atada (`v-else` colgaba del aviso de "semana sin tareas"), de modo que el mes
+  acababa en la lista de tareas del dia. Ahora cada vista se pinta sola.
+- **frontend**: el calendario tiene un solo scroll vertical, como el diagrama de Gantt. La vista
+  ocupa el alto disponible y la rejilla se desplaza dentro de su marco; antes la pagina y la
+  rejilla se desplazaban las dos.
 - **frontend**: el calendario conserva la duracion en dias laborables al mover una
   tarea. Una tarea de lunes a viernes movida al jueves acababa en lunes: el fin de
   semana se comia dos de los cinco dias, porque la duracion se contaba en dias

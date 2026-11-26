@@ -362,6 +362,10 @@ geometria medida sobre la rejilla, no con el DOM consultado por selector.
   el del hueco (ver el dia, crear tarea en ese dia).
 - El **globo** de la tarea al pasar el puntero por encima.
 - El **alta de tarea en un dia concreto**, con doble clic en un hueco.
+- El **modo ampliado**: la rejilla ocupa la ventana entera, por encima del
+  armazon. `Escape` sale.
+- **Un solo scroll vertical**: la pagina no crece y la rejilla se desplaza
+  dentro de su marco, como en el Gantt.
 
 ### Que no entra
 
@@ -2765,6 +2769,9 @@ El calendario deja de ser un par de componentes que pintan una tabla y pasa a se
 13. **El estado de la vista vive en la URL** (`view`, `month`, `day`) y lo lleva un composable. Los valores por defecto no se escriben, los parametros invalidos se ignoran y los filtros de proyecto y departamento no se tocan.
 14. **El guardado se confirma con un aviso flotante** y el fallo sale en el banner de la vista: un fallo, un aviso. Ningun error cierra la sesion.
 15. **El motor no calcula horas ni capacidad.** Solo coloca la tarea en las columnas que ocupa.
+16. **La vista ocupa el alto disponible y no hay scroll de pagina.** La raiz de la vista es una columna flex (`h-full min-h-0`): la cabecera y los filtros no encogen y la rejilla se queda con lo que sobra, desplazandose dentro de su marco. Es el mismo contrato que el Gantt: un solo scroll vertical.
+17. **El modo ampliado** saca la vista del armazon (`fixed inset-0`) y la pone en la ventana entera. `Escape` sale, salvo que haya un dialogo abierto o un arrastre en curso: en esos casos el Escape es del dialogo o del gesto.
+18. **Cada vista se pinta sola.** La rejilla mensual, la semanal y la de dia son excluyentes: la vista de dia no aparece debajo del mes.
 
 ### Que no entra
 

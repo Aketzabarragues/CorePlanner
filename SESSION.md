@@ -87,7 +87,7 @@ ficheros y 1024 tests.
 - **Un fallo, un aviso**: el exito se confirma con toast y el fallo sale en el
   banner de la vista. Ningun error cierra la sesion.
 
-## Cambios de esta sesion (correcciones F7a-F7c)
+## Cambios de esta sesion (correcciones F7a-F7d)
 
 - **Cabecera en tres filas** (`CalendarDayHeader.vue`): nombre del dia, numero
   solo y los eventos (hoy y festivos) en una tercera fila con altura minima.
@@ -100,10 +100,19 @@ ficheros y 1024 tests.
   proyecto, la etiqueta y el rango; la barra arrastrada al 60 %; banda de
   destino en la fila de la persona (antes se sombreaba la columna entera); y el
   globo escondido durante el gesto. `hoverDay` desaparece.
+- **La vista de dia ya no se pinta bajo el mes**: la cadena `v-if`/`v-else` de
+  mes, semana y dia colgaba del aviso de "semana sin tareas", de modo que el mes
+  acababa en la lista de tareas del dia.
+- **Modo ampliado**: boton `calendar-fullscreen` en la cabecera (el mismo icono
+  y el mismo `Escape` que el del Gantt; el Escape no sale si hay un dialogo
+  abierto o un arrastre en curso).
+- **Un solo scroll vertical**: la vista es una columna flex de alto disponible
+  (`h-full min-h-0`), la cabecera y los filtros no encogen y la rejilla se
+  desplaza dentro de su marco. Se quita `max-h-[80vh]` del mes.
 - Documentacion: `docs/especificaciones.md` (§14 y §60), `CHANGELOG.md`,
   `README.md` y `.operator/specs/calendar-engine.md`.
-- Capturas nuevas en `docs/capturas/` (arrastre, cabecera, menu, proyecto,
-  semana, tarea movida) y `calendario.png` regenerada.
+- Capturas en `docs/capturas/` (arrastre, cabecera, menu, proyecto, semana,
+  tarea movida, scroll unico, ampliado) y `calendario.png` regenerada.
 
 ## Pendientes / Siguiente paso inmediato
 

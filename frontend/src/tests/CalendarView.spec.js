@@ -2801,3 +2801,112 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     })
   })
 })
+
+describe('CalendarView: raíz y modo ampliado', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+    setupFetch()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 6))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('las vistas no pintan el detalle de dia debajo', async () => {
+    const { wrapper } = await mountView()
+
+    // Mes: la cadena de vistas se cierra en la rejilla del mes.
+    expect(wrapper.find('[data-testid="calendar-month-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="week-grid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="calendar-view-day"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="day-view"]').exists()).toBe(true)
+  })
+
+  it('la raíz ocupa el alto disponible y el mes se desplaza dentro de su marco', async () => {
+    const { wrapper } = await mountView()
+
+    const raiz = wrapper.element.firstElementChild
+    expect(raiz.classList.contains('h-full')).toBe(true)
+    expect(raiz.classList.contains('min-h-0')).toBe(true)
+
+    // Sin el alto fijo de antes: el contenedor se queda con el espacio que
+    // sobra del marco del mes y es el único que se desplaza.
+    const contenedor = wrapper.find('[data-testid="calendar-month-scroll"]').element
+    expect([...contenedor.classList]).not.toContain('max-h-[80vh]')
+    expect([...contenedor.classList]).toContain('min-h-0')
+    expect([...contenedor.classList]).toContain('flex-1')
+    expect([...contenedor.classList]).toContain('overflow-auto')
+  })
+
+  it('el boton de modo ampliado ocupa la ventana entera y Escape lo salta', async () => {
+    const { wrapper } = await mountView()
+
+    const raiz = () => wrapper.element.firstElementChild
+    const boton = () => wrapper.get('[data-testid="calendar-fullscreen"]')
+
+    expect(raiz().classList.contains('fixed')).toBe(false)
+    expect(boton().attributes('aria-label')).toBe('Ampliar a pantalla completa')
+    expect(boton().attributes('aria-pressed')).toBe('false')
+
+    await boton().trigger('click')
+    await flushPromises()
+
+    expect(raiz().classList.contains('fixed')).toBe(true)
+    expect(raiz().classList.contains('inset-0')).toBe(true)
+    expect(raiz().classList.contains('z-40')).toBe(true)
+    expect(boton().attributes('aria-label')).toBe('Salir de la vista ampliada')
+    expect(boton().attributes('aria-pressed')).toBe('true')
+
+    // Escape sale del modo ampliado y el boton vuelve a ser de entrada.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+
+    expect(raiz().classList.contains('fixed')).toBe(false)
+    expect(boton().attributes('aria-label')).toBe('Ampliar a pantalla completa')
+    expect(boton().attributes('aria-pressed')).toBe('false')
+
+    // El boton sigue haciendo de entrada y de salida con el mismo elemento.
+    await boton().trigger('click')
+    await flushPromises()
+    expect(raiz().classList.contains('fixed')).toBe(true)
+  })
+
+  it('Escape no sale del modo ampliado con el detalle de tarea abierto', async () => {
+    const { wrapper } = await mountView()
+
+    const raiz = () => wrapper.element.firstElementChild
+    await wrapper.get('[data-testid="calendar-fullscreen"]').trigger('click')
+    await flushPromises()
+    expect(raiz().classList.contains('fixed')).toBe(true)
+
+    // Con el dialogo abierto el Escape es del dialogo, no de la vista.
+    await wrapper
+      .find('[data-testid="calendar-month-table"] [data-testid="week-task"]')
+      .trigger('click')
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(true)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+
+    expect(raiz().classList.contains('fixed')).toBe(true)
+
+    // Con el dialogo cerrado, el Escape vuelve a salir del ampliado.
+    wrapper.findComponent(TaskDetailDialog).vm.$emit('close')
+    await flushPromises()
+    expect(wrapper.findComponent(TaskDetailDialog).props('open')).toBe(false)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(raiz().classList.contains('fixed')).toBe(false)
+  })
+})

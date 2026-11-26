@@ -31,6 +31,7 @@ import { useCalendarioEstado } from '../composables/useCalendarioEstado'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useTaskReload } from '../composables/useTaskReload'
 import { useVisibilidad } from '../composables/useVisibilidad'
+import AppIcon from '../components/AppIcon.vue'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import ContextMenu from '../components/common/ContextMenu.vue'
@@ -102,6 +103,13 @@ const saving = ref(false)
 const aviso = ref(null)
 /** Contenedor vertical de la tabla del mes, para desplazarlo a la semana con trabajo. */
 const mesScroll = ref(null)
+/**
+ * Calendario en modo ampliado: ocupa la ventana entera, por encima del
+ * armazon. La vista se sale del armazon con `fixed inset-0` (no hay
+ * `Teleport` ni ancestro con `transform`), de modo que los dialogos que se
+ * abren desde aqui siguen viendo la ventana y quedan por encima.
+ */
+const ampliado = ref(false)
 
 /** Proyecto que fija la ruta, cuando la vista esta en el espacio del proyecto. */
 const proyectoDeLaRuta = useProyectoFiltro()
@@ -503,6 +511,36 @@ const previsualizacion = drag.previsualizacion
 const arrastrando = computed(() => fantasma.value !== null || previsualizacion.value !== null)
 
 /**
+ * El boton de la barra de herramientas hace de entrada y de salida, y es el
+ * mismo elemento en los dos casos: el foco no se pierde al entrar ni al
+ * salir, porque el control que lo tiene sigue siendo el mismo.
+ */
+function alternarAmpliado() {
+  ampliado.value = !ampliado.value
+}
+
+/**
+ * Escape sale del modo ampliado.
+ *
+ * Con el detalle de una tarea, el alta del dia o el menu contextual abiertos
+ * el Escape es del dialogo o del menu, y con un gesto de arrastre en juego
+ * es del gesto: en ninguno de los dos casos se sale del modo ampliado, para
+ * que no se esconda el calendario a la vez.
+ */
+function alTeclaGlobal(event) {
+  if (event.key !== 'Escape') return
+  if (
+    selectedTaskId.value !== null ||
+    altaDelDia.value !== null ||
+    menuContexto.value !== null ||
+    arrastrando.value
+  ) {
+    return
+  }
+  ampliado.value = false
+}
+
+/**
  * Agarrar una barra: arranca el gesto con la zona agarrada (cuerpo o asa) y
  * los dias de la semana de la barra. El destino de la soltura lo resuelve el
  * composable contra la geometria medida.
@@ -659,7 +697,16 @@ async function reintentar() {
 aplicarEstadoDeLaUrl()
 onMounted(load)
 useTaskReload(load)
-onBeforeUnmount(() => drag.anular())
+// El Escape solo se escucha en modo ampliado: fuera de el no hay nada que
+// cerrar y la tecla es de los dialogos y del arrastre de barras.
+watch(ampliado, (activo) => {
+  if (activo) document.addEventListener('keydown', alTeclaGlobal)
+  else document.removeEventListener('keydown', alTeclaGlobal)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', alTeclaGlobal)
+  drag.anular()
+})
 
 // La URL manda sobre la vista: al cambiarla (por enlace, por historial o por
 // la propia vista) se aplica lo que dice.
@@ -694,8 +741,20 @@ watch(
 </script>
 
 <template>
-  <div>
-    <PageHeader title="Calendario" :subtitle="subtitle">
+  <!--
+    La vista ocupa el alto disponible (`h-full`) y es una columna flex: el
+    calendario se queda con el espacio que sobra y encoge con el que falta.
+    Los avisos en linea no empujan el calendario fuera de la vista.
+
+    En modo ampliado la vista sale del armazon (`fixed inset-0`) y ocupa la
+    ventana entera. No hay `Teleport` ni ancestro con `transform`, asi que
+    los dialogos que se abren desde aqui siguen viendo la ventana.
+  -->
+  <div
+    class="flex h-full min-h-0 flex-col"
+    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-slate-50 p-3 sm:p-6' : ''"
+  >
+    <PageHeader class="shrink-0" title="Calendario" :subtitle="subtitle">
       <template #actions>
           <SegmentedControl
             :model-value="view"
@@ -752,13 +811,32 @@ watch(
             Hoy
           </button>
 
+          <!--
+            Modo ampliado: el calendario a pantalla completa, por encima del
+            armazon. El boton es el mismo al entrar y al salir, de modo que
+            el foco no se pierde en ninguno de los dos momentos.
+          -->
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
+            :aria-pressed="ampliado"
+            :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
+            data-testid="calendar-fullscreen"
+            @click="alternarAmpliado"
+          >
+            <span class="inline-flex h-4 w-4">
+              <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+            </span>
+          </button>
+
       </template>
     </PageHeader>
 
     <AlertBanner
       v-if="aviso"
       variant="warning"
-      class="mb-2"
+      class="mb-2 shrink-0"
       data-testid="calendar-warning"
       dismissible
       @dismiss="aviso = null"
@@ -767,13 +845,14 @@ watch(
     </AlertBanner>
 
     <AsyncState
+      class="flex min-h-0 flex-1 flex-col"
       :loading="loading"
       :error="error"
       error-test-id="calendar-error"
       loading-label="Cargando el calendario"
       @retry="reintentar"
     >
-      <div class="mb-4 flex flex-wrap items-end gap-3">
+      <div class="mb-4 flex shrink-0 flex-wrap items-end gap-3">
         <FilterField
           label="Departamento"
           :options="opcionesDepartamento"
@@ -806,110 +885,121 @@ watch(
       <AlertBanner
         v-if="hayFiltros && !visibleTasks.length"
         variant="info"
-        class="mb-3"
+        class="mb-3 shrink-0"
         data-testid="calendar-no-match"
       >
         Ninguna tarea coincide con los filtros.
       </AlertBanner>
 
-      <p v-if="undatedTaskIds.length" class="mb-3 text-xs text-amber-700">
+      <p v-if="undatedTaskIds.length" class="mb-3 shrink-0 text-xs text-amber-700">
         {{ avisoSinFechas }}
       </p>
 
-      <div
-        v-if="view === 'month'"
-        class="rounded border border-slate-200 bg-white"
-        data-testid="calendar-month-view"
-      >
-        <!--
-          Contenedor vertical de la tabla: permite desplazar la rejilla hasta
-          la primera semana con trabajo. El desbordamiento horizontal queda en
-          el marco exterior, como antes.
-        -->
+      <!--
+        Las tres vistas comparten el mismo marco: la vista que esta en pantalla
+        se queda con el espacio que sobra y se desplaza dentro de el. El mes
+        y la semana son la misma rejilla de filas, con un grupo de semanas o
+        una; el dia es el detalle de un solo dia.
+      -->
+      <div class="flex min-h-[200px] flex-1 flex-col">
         <div
-          ref="mesScroll"
-          class="max-h-[80vh] overflow-y-auto overflow-x-auto"
-          data-testid="calendar-month-scroll"
+          v-if="view === 'month'"
+          class="flex min-h-0 flex-1 flex-col rounded border border-slate-200 bg-white"
+          data-testid="calendar-month-view"
         >
-        <CalendarGrid
-          ref="gridRef"
-          :weeks="semanasDelMes"
-          testid="calendar-month-table"
-          :people="personasVisibles"
-          :tasks="visibleTasks"
-          :non-working-days="nonWorkingDays"
-          :editable-project-ids="editableProjects"
-          :destino="previsualizacion"
-          :arrastrando="arrastrando"
-          @open-day="openDay"
-          @open-task="openTask"
-          @drag-start="onBarDragStart"
-          @tecla="alPulsarTecla"
-          @contexto="abrirMenuContexto"
-          @crear="openCreacion"
-        />
+          <!--
+            Contenedor vertical de la tabla: permite desplazar la rejilla hasta
+            la primera semana con trabajo. El desbordamiento horizontal queda
+            en este mismo marco.
+          -->
+          <div
+            ref="mesScroll"
+            class="min-h-0 flex-1 overflow-auto"
+            data-testid="calendar-month-scroll"
+          >
+            <CalendarGrid
+              ref="gridRef"
+              :weeks="semanasDelMes"
+              testid="calendar-month-table"
+              :people="personasVisibles"
+              :tasks="visibleTasks"
+              :non-working-days="nonWorkingDays"
+              :editable-project-ids="editableProjects"
+              :destino="previsualizacion"
+              :arrastrando="arrastrando"
+              @open-day="openDay"
+              @open-task="openTask"
+              @drag-start="onBarDragStart"
+              @tecla="alPulsarTecla"
+              @contexto="abrirMenuContexto"
+              @crear="openCreacion"
+            />
+          </div>
+        </div>
+
+        <!--
+          La semana en pantalla no tiene tareas: se dice y se ofrece saltar a
+          la semana visible mas cercana con trabajo, si la hay.
+        -->
+        <template v-else-if="view === 'week'">
+          <AlertBanner
+            v-if="semanaSinTareas"
+            variant="info"
+            class="mb-3 shrink-0"
+            data-testid="calendar-week-empty"
+          >
+            No hay tareas en esta semana
+            <button
+              v-if="semanaConTrabajo"
+              type="button"
+              class="rounded border border-slate-300 bg-white px-2 py-0.5 text-sm font-normal"
+              data-testid="calendar-goto-busy-week"
+              @click="irASemanaConTrabajo"
+            >
+              Ir a la semana con trabajo
+            </button>
+          </AlertBanner>
+
+          <div
+            v-else
+            class="min-h-0 flex-1 overflow-auto rounded border border-slate-200 bg-white"
+            data-testid="week-grid"
+          >
+            <CalendarGrid
+              ref="gridRef"
+              :weeks="[weekDays(week)]"
+              :people="personasVisibles"
+              :tasks="visibleTasks"
+              :non-working-days="nonWorkingDays"
+              :editable-project-ids="editableProjects"
+              :destino="previsualizacion"
+              :arrastrando="arrastrando"
+              @open-day="openDay"
+              @open-task="openTask"
+              @drag-start="onBarDragStart"
+              @tecla="alPulsarTecla"
+              @contexto="abrirMenuContexto"
+              @crear="openCreacion"
+            />
+          </div>
+        </template>
+
+        <div v-else class="min-h-0 flex-1 overflow-auto">
+          <DayDetail
+            :date="day"
+            :people="personasVisibles"
+            :tasks="visibleTasks"
+            :non-working-days="nonWorkingDays"
+            :members="store.members"
+            :can-edit="dayCanEdit"
+            @open-task="openTask"
+            @cambiar="cambiarTarea"
+            @crear="openCreacion"
+          />
         </div>
       </div>
 
-      <!--
-        La semana en pantalla no tiene tareas: se dice y se ofrece saltar a la
-        semana visible mas cercana con trabajo, si la hay.
-      -->
-      <AlertBanner
-        v-if="view === 'week' && semanaSinTareas"
-        variant="info"
-        class="mb-3"
-        data-testid="calendar-week-empty"
-      >
-        No hay tareas en esta semana
-        <button
-          v-if="semanaConTrabajo"
-          type="button"
-          class="rounded border border-slate-300 bg-white px-2 py-0.5 text-sm font-normal"
-          data-testid="calendar-goto-busy-week"
-          @click="irASemanaConTrabajo"
-        >
-          Ir a la semana con trabajo
-        </button>
-      </AlertBanner>
-
-      <div
-        v-else-if="view === 'week'"
-        class="overflow-x-auto rounded border border-slate-200 bg-white"
-        data-testid="week-grid"
-      >
-        <CalendarGrid
-          ref="gridRef"
-          :weeks="[weekDays(week)]"
-          :people="personasVisibles"
-          :tasks="visibleTasks"
-          :non-working-days="nonWorkingDays"
-          :editable-project-ids="editableProjects"
-          :destino="previsualizacion"
-          :arrastrando="arrastrando"
-          @open-day="openDay"
-          @open-task="openTask"
-          @drag-start="onBarDragStart"
-          @tecla="alPulsarTecla"
-          @contexto="abrirMenuContexto"
-          @crear="openCreacion"
-        />
-      </div>
-
-      <DayDetail
-        v-else
-        :date="day"
-        :people="personasVisibles"
-        :tasks="visibleTasks"
-        :non-working-days="nonWorkingDays"
-        :members="store.members"
-        :can-edit="dayCanEdit"
-        @open-task="openTask"
-        @cambiar="cambiarTarea"
-        @crear="openCreacion"
-      />
-
-      <p class="mt-3 text-xs text-slate-500">
+      <p v-if="view !== 'day'" class="mt-3 shrink-0 text-xs text-slate-500">
         Las tareas se ven de lunes a viernes: el motor de capacidad solo reparte
         horas entre días laborables. El fin de semana queda vacío.
       </p>

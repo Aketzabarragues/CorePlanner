@@ -2,18 +2,17 @@
 /**
  * Cabecera de una pantalla.
  *
- * Titulo, insignia de contexto, ayuda, filtros opcionales y acciones,
- * siempre en el mismo orden y con el mismo aspecto en todas las pantallas.
- * Las migas se quedan en el shell, que ya las pinta encima de la vista:
- * repetirlas aqui seria verlas dos veces.
+ * Titulo a la izquierda y acciones a la derecha, siempre en la primera linea
+ * (las acciones se separan del titulo con `ml-auto` y ceden sitio en cascada:
+ * icono antes que desaparecer). Los filtros van en linea tras el titulo
+ * cuando caben a su lado; por debajo de `xl` no caben junto al titulo, así
+ * que ocupan una fila propia debajo (con `w-full`) y se envuelven dentro de
+ * si.
  *
- * La insignia de contexto sale del prop `contexto` ({ texto, punto }) o del
- * slot `contexto`, que gana si se pasa. El texto de ayuda sale del prop
- * `ayuda` y se pinta en el boton `?`.
+ * La regla vertical marca el hueco solo cuando los filtros van en linea.
  *
- * El slot `filters` es aditivo: si no se pasa, no se pinta ni el separador
- * ni el hueco, de modo que las vistas que solo piden titulo/subtitulo y
- * acciones no cambian de aspecto.
+ * Los slots `filters` y `actions` son aditivos: si no se pasan, no se pinta ni
+ * el separador ni el hueco.
  */
 import HelpTip from './HelpTip.vue'
 
@@ -24,16 +23,20 @@ defineProps({
   contexto: { type: Object, default: null },
   /** Texto del boton de ayuda; sin el, no se pinta el boton. */
   ayuda: { type: String, default: '' },
+  /** `data-testid` del contenedor de filtros (para las vistas que lo tenian). */
+  filtersTestid: { type: String, default: '' },
 })
 </script>
 
 <template>
-  <header class="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-borde pb-3">
-    <!-- IZQUIERDA: titulo + contexto + ayuda + separador + filtros -->
-    <div class="flex min-w-0 flex-wrap items-center gap-2.5">
+  <header
+    class="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde pb-3"
+  >
+    <!-- Titulo: siempre a la izquierda, en la primera linea -->
+    <div class="flex min-w-0 shrink items-center gap-2">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
-          <h1 class="font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
+          <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
             {{ title }}
           </h1>
 
@@ -55,22 +58,37 @@ defineProps({
           <HelpTip v-if="ayuda" :texto="ayuda" />
         </div>
 
-        <p v-if="subtitle" class="mt-0.5 text-cp-xs text-texto-tenue">{{ subtitle }}</p>
-      </div>
-
-      <span
-        v-if="$slots.filters"
-        class="hidden h-6 w-px flex-none bg-borde md:block"
-        aria-hidden="true"
-      ></span>
-
-      <div v-if="$slots.filters" class="flex flex-wrap items-end gap-2">
-        <slot name="filters" />
+        <p
+          v-if="subtitle"
+          class="mt-0.5 max-w-[140px] truncate text-cp-xs text-texto-tenue 2xl:max-w-[220px]"
+          :title="subtitle"
+        >
+          {{ subtitle }}
+        </p>
       </div>
     </div>
 
-    <!-- DERECHA: acciones -->
-    <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2">
+    <!--
+      Filtros: en linea tras el titulo cuando caben a su lado (y la regla
+      vertical marca el hueco). A `xl` van antes que las acciones (fila del
+      titulo + acciones abajo); por debajo de `xl` no caben junto al titulo,
+      así que `w-full` les da la fila de abajo y van tras las acciones.
+    -->
+    <div
+      v-if="$slots.filters"
+      class="flex min-w-0 flex-wrap items-center gap-2 max-xl:order-2 max-xl:w-full xl:order-1"
+      :data-testid="filtersTestid || undefined"
+    >
+      <span class="hidden h-6 w-px flex-none bg-borde xl:block"></span>
+      <slot name="filters" />
+    </div>
+
+    <!-- Acciones: a la derecha. A `xl` bajan a la segunda linea; por debajo
+         de `xl` se quedan en la linea del titulo y los filtros bajan -->
+    <div
+      v-if="$slots.actions"
+      class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-xl:order-1 xl:order-2"
+    >
       <slot name="actions" />
     </div>
   </header>

@@ -53,4 +53,38 @@ describe('FilterField', () => {
 
     expect(wrapper.emitted('update:modelValue')).toEqual([['2']])
   })
+
+  it('sin etiquetaVisible la etiqueta es para el lector de pantalla', () => {
+    const wrapper = montar()
+
+    const span = wrapper.get('label span')
+    expect(span.classes()).toContain('sr-only')
+    expect(span.text()).toBe('Departamento')
+  })
+
+  it('con etiquetaVisible la etiqueta se ve a la izquierda, nunca encima', () => {
+    const wrapper = montar({ etiquetaVisible: true })
+
+    const label = wrapper.get('label')
+    expect(label.classes()).toContain('inline-flex')
+    expect(label.classes()).not.toContain('flex-col')
+
+    const span = wrapper.get('label span')
+    expect(span.classes()).not.toContain('sr-only')
+    expect(span.text()).toBe('Departamento')
+  })
+
+  it('el desplegable lleva el ancho pasado por prop y el title con el valor', () => {
+    const wrapper = montar({ ancho: 'max-w-[160px]', modelValue: '2' })
+
+    const select = wrapper.get('select')
+    expect(select.classes()).toContain('max-w-[160px]')
+    expect(select.attributes('title')).toBe('Departamento: Energia')
+  })
+
+  it('sin prop de ancho el desplegable queda en el maximo por defecto', () => {
+    const wrapper = montar()
+
+    expect(wrapper.get('select').classes()).toContain('max-w-[176px]')
+  })
 })

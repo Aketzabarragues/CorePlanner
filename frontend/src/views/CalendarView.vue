@@ -758,6 +758,7 @@ watch(
       <template #filters>
         <FilterField
           label="Departamento"
+          ancho="max-w-[144px]"
           :options="opcionesDepartamento"
           :model-value="departmentFilter"
           testid="filter-department"
@@ -768,6 +769,7 @@ watch(
         <FilterField
           v-if="!route.params.id"
           label="Proyecto"
+          ancho="max-w-[160px]"
           :options="opcionesProyecto"
           :model-value="projectFilter"
           testid="filter-project"

@@ -72,13 +72,19 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-sm font-medium text-texto-suave"
+      class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:w-auto 2xl:gap-2 2xl:px-3"
+      :class="
+        ocultosCount
+          ? 'border-primario-fuerte text-primario-fuerte'
+          : 'border-borde-fuerte'
+      "
       :aria-expanded="abierto"
+      :aria-pressed="ocultosCount > 0"
       data-testid="toggle-visibility"
       @click="abierto = !abierto"
     >
-      <span class="h-4 w-4 text-texto-tenue"><AppIcon name="users" /></span>
-      Mostrar/ocultar
+      <span class="inline-flex h-4 w-4 2xl:hidden"><AppIcon name="users" /></span>
+      <span class="hidden text-cp-sm font-medium 2xl:inline">Mostrar/ocultar</span>
       <span
         v-if="ocultosCount"
         class="rounded-pastilla bg-primario-fuerte px-1.5 text-[10px] font-semibold text-texto-inverso"

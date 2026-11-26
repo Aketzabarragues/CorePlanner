@@ -47,4 +47,23 @@ describe('PageHeader', () => {
     expect(wrapper.find('h1').classes()).toContain('text-cp-titulo')
     expect(wrapper.find('h1').classes()).toContain('text-texto-marca')
   })
+
+  it('los filtros van en su grupo, con el testid de la vista', () => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Gantt', filtersTestid: 'gantt-filters' },
+      slots: { filters: '<select data-testid="filtro"></select>' },
+    })
+
+    const grupo = wrapper.get('[data-testid="gantt-filters"]')
+    expect(grupo.find('select').exists()).toBe(true)
+    expect(grupo.classes()).toContain('flex-wrap')
+    expect(grupo.classes()).not.toContain('items-end')
+  })
+
+  it('sin filtros no sale el grupo ni el separador', () => {
+    const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
+
+    expect(wrapper.find('[data-testid="gantt-filters"]').exists()).toBe(false)
+    expect(wrapper.find('header span[aria-hidden="true"]').exists()).toBe(false)
+  })
 })

@@ -111,6 +111,7 @@ onMounted(load)
         <FilterField
           v-if="departments.length > 1"
           label="Departamento"
+          ancho="max-w-[144px]"
           :options="opcionesDepartamento"
           :model-value="filtroDepartamento"
           testid="filter-department"

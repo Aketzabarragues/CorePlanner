@@ -520,7 +520,8 @@ describe('CapacityMatrix', () => {
 
     const select = wrapper.get('[data-testid="capacity-filter-project"]')
     const etiqueta = select.element.closest('label')
-    expect(etiqueta.className).toContain('inline-flex flex-col gap-1')
+    expect(etiqueta.className).toContain('inline-flex')
+    expect(etiqueta.className).not.toContain('flex-col')
     expect(etiqueta.querySelector('span').className).toContain('text-cp-xs font-medium text-texto-suave')
     expect(etiqueta.querySelector('span').textContent).toBe('Proyecto')
     expect(select.classes().join(' ')).toContain(
@@ -540,7 +541,8 @@ describe('CapacityMatrix', () => {
     for (const [testid, texto] of filtros) {
       const select = wrapper.get(`[data-testid="${testid}"]`)
       const etiqueta = select.element.closest('label')
-      expect(etiqueta.className).toContain('inline-flex flex-col gap-1')
+      expect(etiqueta.className).toContain('inline-flex')
+      expect(etiqueta.className).not.toContain('flex-col')
       expect(etiqueta.className).not.toContain('rounded-full')
 
       const span = etiqueta.querySelector('span')

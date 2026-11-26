@@ -35,7 +35,7 @@ const emit = defineEmits(['update:modelValue'])
       v-for="item in options"
       :key="item.value"
       type="button"
-      class="min-h-10 rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+      class="min-h-10 rounded-control px-2 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:px-3"
       :class="
         modelValue === item.value
           ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'

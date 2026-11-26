@@ -259,12 +259,11 @@ onMounted(load)
       ayuda="Los proyectos visibles agrupados por el departamento que los gestiona, con el avance de tareas y la carga de la semana."
     >
       <template #filters>
-        <label class="inline-flex flex-col gap-1">
-          <span class="text-cp-xs font-medium text-texto-suave">Buscar</span>
-          <span class="relative inline-flex items-center">
-            <span
-              class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue"
-            >
+        <!-- Buscador: el primero del grupo, con la lupa a la izquierda. -->
+        <label class="inline-flex min-w-0 items-center gap-1.5">
+          <span class="sr-only">Buscar</span>
+          <span class="relative inline-flex min-w-0 items-center">
+            <span class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue">
               <AppIcon name="search" />
             </span>
             <input
@@ -279,6 +278,7 @@ onMounted(load)
 
         <FilterField
           label="Departamento"
+          ancho="max-w-[144px]"
           :options="opcionesDepartamento"
           :model-value="filtroDepartamento"
           testid="filter-department"
@@ -287,6 +287,7 @@ onMounted(load)
 
         <FilterField
           label="Estado"
+          ancho="max-w-[144px]"
           :options="opcionesEstado"
           :model-value="filtroEstado"
           testid="filter-status"

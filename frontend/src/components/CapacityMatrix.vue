@@ -49,7 +49,7 @@ import CellBreakdown from './CellBreakdown.vue'
 import AlertBanner from './common/AlertBanner.vue'
 import AsyncState from './common/AsyncState.vue'
 import FilterField from './common/FilterField.vue'
-import HelpTip from './common/HelpTip.vue'
+import PageHeader from './common/PageHeader.vue'
 import SegmentedControl from './common/SegmentedControl.vue'
 import SidePanel from './common/SidePanel.vue'
 import VisibilityPanel from './common/VisibilityPanel.vue'
@@ -1213,112 +1213,116 @@ watch(
 
 <template>
   <div>
-    <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-xl font-semibold text-primario-fuerte">Capacidad</h1>
-          <HelpTip
-            texto="Reparto semanal de horas de todos los proyectos visibles. Pulsa una celda para ver el desglose por proyecto."
-          />
-        </div>
-        <p v-if="project" class="mt-1 text-sm text-texto-tenue">{{ project.name }}</p>
-        <p v-else class="mt-1 text-sm text-texto-tenue">
-          Reparto de horas de todos los proyectos visibles.
-        </p>
-      </div>
+    <PageHeader
+      title="Capacidad"
+      :subtitle="project ? project.name : 'Reparto de horas de todos los proyectos visibles.'"
+      ayuda="Reparto semanal de horas de todos los proyectos visibles. Pulsa una celda para ver el desglose por proyecto."
+      filters-testid="capacity-filters"
+    >
+      <template #filters>
+        <FilterField
+          v-if="store.departments.length > 1"
+          label="Departamento"
+          ancho="max-w-[144px]"
+          :options="opcionesDepartamento"
+          :model-value="departmentFilter"
+          testid="capacity-filter-department"
+          @update:model-value="departmentFilter = $event"
+        />
 
-      <SegmentedControl
-        v-model="mode"
-        :options="MODES"
-        label="Modo de la celda"
-        testid-prefix="mode"
-      />
-    </header>
+        <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
+        <FilterField
+          v-if="store.projects.length && !route.params.id"
+          label="Proyecto"
+          ancho="max-w-[160px]"
+          :options="opcionesProyecto"
+          :model-value="projectFilter"
+          testid="capacity-filter-project"
+          @update:model-value="projectFilter = $event"
+        />
 
-    <div class="mb-4 flex flex-wrap items-end gap-3">
-      <FilterField
-        v-if="store.departments.length > 1"
-        label="Departamento"
-        :options="opcionesDepartamento"
-        :model-value="departmentFilter"
-        testid="capacity-filter-department"
-        @update:model-value="departmentFilter = $event"
-      />
+        <VisibilityPanel
+          :personas="personasVisibilidad"
+          :ids-ocultos="idsOcultos"
+          :departamentos-ocultos="departamentosOcultos"
+          :ocultos-count="ocultosCount"
+          @alternar-persona="alternarPersona"
+          @alternar-departamento="alternarDepartamento"
+          @mostrar-todos="mostrarTodos"
+        />
 
-      <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
-      <FilterField
-        v-if="store.projects.length && !route.params.id"
-        label="Proyecto"
-        :options="opcionesProyecto"
-        :model-value="projectFilter"
-        testid="capacity-filter-project"
-        @update:model-value="projectFilter = $event"
-      />
-
-      <VisibilityPanel
-        :personas="personasVisibilidad"
-        :ids-ocultos="idsOcultos"
-        :departamentos-ocultos="departamentosOcultos"
-        :ocultos-count="ocultosCount"
-        @alternar-persona="alternarPersona"
-        @alternar-departamento="alternarDepartamento"
-        @mostrar-todos="mostrarTodos"
-      />
-
-      <label
-        v-if="hayProvisional"
-        class="flex items-center gap-2 text-xs font-medium text-texto-suave"
-        data-testid="provisional-filter-label"
-      >
-        <span>Contar lo provisional</span>
-        <button
-          type="button"
-          role="switch"
-          :aria-checked="countProvisional"
-          data-testid="provisional-filter"
-          class="relative h-5 w-9 rounded-pastilla transition-colors"
-          :class="countProvisional ? 'bg-primario-fuerte' : 'bg-borde-fuerte'"
-          @click="countProvisional = !countProvisional"
+        <!-- Interruptor de provisional: el objetivo es el boton, la pista es de 20 px. -->
+        <label
+          v-if="hayProvisional"
+          class="inline-flex min-h-10 items-center gap-2 rounded-control px-1.5 text-cp-xs font-medium text-texto-suave"
+          data-testid="provisional-filter-label"
         >
+          <span class="sr-only xl:not-sr-only">Contar lo provisional</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="countProvisional"
+            data-testid="provisional-filter"
+            class="relative h-5 w-9 rounded-pastilla transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            :class="countProvisional ? 'bg-primario-fuerte' : 'bg-borde-fuerte'"
+            @click="countProvisional = !countProvisional"
+          >
+            <span
+              class="absolute top-0.5 h-4 w-4 rounded-pastilla bg-tarjeta transition-all"
+              :class="countProvisional ? 'left-[18px]' : 'left-0.5'"
+            ></span>
+          </button>
+        </label>
+      </template>
+
+      <template #actions>
+        <SegmentedControl
+          v-model="mode"
+          :options="MODES"
+          label="Modo de la celda"
+          testid-prefix="mode"
+        />
+
+        <!-- Navegador de periodo -->
+        <div class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            aria-label="Semanas anteriores"
+            data-testid="range-previous"
+            @click="moveRange(-1)"
+          >
+            <span class="inline-flex h-3.5 w-3.5"><AppIcon name="chevronLeft" /></span>
+          </button>
+
           <span
-            class="absolute top-0.5 h-4 w-4 rounded-pastilla bg-tarjeta transition-all"
-            :class="countProvisional ? 'left-[18px]' : 'left-0.5'"
-          ></span>
-        </button>
-      </label>
+            class="min-w-[96px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca"
+            data-testid="range-label"
+          >
+            {{ rangeLabel }}
+          </span>
 
-      <div class="flex items-center gap-1">
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            aria-label="Semanas siguientes"
+            data-testid="range-next"
+            @click="moveRange(1)"
+          >
+            <span class="inline-flex h-3.5 w-3.5"><AppIcon name="chevronRight" /></span>
+          </button>
+        </div>
+
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave"
-          aria-label="Semanas anteriores"
-          data-testid="range-previous"
-          @click="moveRange(-1)"
-        >
-          <span class="h-4 w-4"><AppIcon name="chevronLeft" /></span>
-        </button>
-        <button
-          type="button"
-          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-sm font-medium text-texto"
+          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="range-today"
           @click="goToday"
         >
           Hoy
         </button>
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave"
-          aria-label="Semanas siguientes"
-          data-testid="range-next"
-          @click="moveRange(1)"
-        >
-          <span class="h-4 w-4"><AppIcon name="chevronRight" /></span>
-        </button>
-        <span class="ml-1 text-xs text-texto-tenue" data-testid="range-label">
-          {{ rangeLabel }}
-        </span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

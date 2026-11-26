@@ -137,13 +137,15 @@ function atajoCuatroSemanas() {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex h-8 items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto"
+      class="inline-flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto 2xl:h-8 2xl:w-auto 2xl:justify-start 2xl:gap-2 2xl:px-3"
       :aria-expanded="abierto"
+      aria-label="Elegir el rango de fechas"
+      title="Elegir el rango de fechas"
       data-testid="gantt-toggle-range"
       @click="alternar"
     >
       <span class="h-4 w-4 text-texto-tenue"><AppIcon name="calendar" /></span>
-      Rango
+      <span class="hidden text-cp-sm font-medium 2xl:inline">Rango</span>
       <span
         v-if="diasElegidos"
         class="rounded-pastilla bg-primario-fuerte px-1.5 text-cp-micro font-semibold text-sobre-primario"

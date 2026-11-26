@@ -420,10 +420,10 @@ describe('GanttView', () => {
       const label = select.element.closest('label')
       expect(label).not.toBeNull()
 
-      // La etiqueta lleva el titulo encima y el select es un control normal.
-      const clasesLabel = label.className
-      expect(clasesLabel).toContain('inline-flex flex-col gap-1')
-      expect(clasesLabel).not.toContain('rounded-full')
+      // La etiqueta va en linea a la izquierda, nunca encima del select.
+      expect(label.className).toContain('inline-flex')
+      expect(label.className).not.toContain('flex-col')
+      expect(label.className).not.toContain('rounded-full')
 
       const span = label.querySelector('span')
       expect(span.className).toContain('text-cp-xs font-medium text-texto-suave')
@@ -436,6 +436,19 @@ describe('GanttView', () => {
       expect(clasesSelect).not.toContain('rounded-full')
       expect(clasesSelect).not.toContain('bg-transparent')
     }
+
+    // "Agrupar por" es el unico filtro con la etiqueta visible: las demas
+    // opciones se nombran solas y su etiqueta queda para el lector de pantalla.
+    const agrupa = wrapper.get('[data-testid="gantt-group-by"]').element.closest('label')
+    const etiqAgrupar = agrupa.querySelector('span')
+    expect(etiqAgrupar.className).not.toContain('sr-only')
+    const etiquetaProyecto =
+      wrapper.get('[data-testid="gantt-filter-project"]').element.closest('label').querySelector('span')
+    expect(etiquetaProyecto.className).toContain('sr-only')
+
+    // El desplegable se lee entero en el title: etiqueta y valor seleccionado.
+    const proyecto = wrapper.get('[data-testid="gantt-filter-project"]')
+    expect(proyecto.attributes('title')).toContain('Proyecto:')
   })
 
   it('los filtros se separan con el hueco del resto de la app', async () => {
@@ -443,9 +456,10 @@ describe('GanttView', () => {
 
     const { wrapper } = await mountGantt()
 
+    // La banda de filtros es el grupo del slot de la cabecera.
     const contenedor = wrapper.get('[data-testid="gantt-filters"]')
-    expect(contenedor.classes()).toContain('gap-3')
-    expect(contenedor.classes()).not.toContain('gap-2')
+    expect(contenedor.element.tagName).toBe('DIV')
+    expect(contenedor.classes()).toContain('gap-2')
   })
 
   it('dibuja una barra por tarea con el color de su persona', async () => {

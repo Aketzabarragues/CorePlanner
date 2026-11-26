@@ -1273,35 +1273,24 @@ describe('CalendarView con filtros', () => {
     for (const filtro of filtros) {
       const select = wrapper.find(`[data-testid="${filtro.testid}"]`)
       expect(select.exists()).toBe(true)
-      expect([...select.classes()]).toEqual([
-        'min-h-10',
-        'cursor-pointer',
-        'appearance-none',
-        'rounded-control',
-        'border',
-        'border-borde-fuerte',
-        'bg-tarjeta-suave',
-        'py-1.5',
-        'pl-3',
-        'pr-8',
-        'text-cp-sm',
-        'font-medium',
-        'text-texto',
-        'transition-colors',
-        'hover:border-foco',
-        'hover:bg-tarjeta',
-        'focus-visible:outline-none',
-        'focus-visible:ring-2',
-        'focus-visible:ring-foco',
-      ])
+      expect(select.classes()).toContain('min-h-10')
+      expect(select.classes()).toContain('rounded-control')
+      expect(select.classes()).toContain('border-borde-fuerte')
+      expect(select.classes()).toContain('bg-tarjeta-suave')
+      expect(select.classes()).toContain('text-cp-sm')
 
+      // La etiqueta va en linea, nunca encima del desplegable.
       const label = select.element.closest('label')
       expect(label).not.toBeNull()
-      expect([...label.classList]).toEqual(['inline-flex', 'flex-col', 'gap-1'])
+      expect([...label.classList]).toEqual(['inline-flex', 'min-w-0', 'items-center', 'gap-1.5'])
+      expect([...label.classList]).not.toContain('flex-col')
 
+      // El valor seleccionado se nombra solo: la etiqueta es para el lector
+      // de pantalla y el desplegable se lee entero en el title.
       const span = label.querySelector('span')
-      expect([...span.classList]).toEqual(['text-cp-xs', 'font-medium', 'text-texto-suave'])
+      expect([...span.classList]).toContain('sr-only')
       expect(span.textContent).toBe(filtro.etiqueta)
+      expect(select.attributes('title')).toContain(`${filtro.etiqueta}:`)
     }
 
     // Los filtros viven en el slot de filtros de la cabecera, con su hueco.

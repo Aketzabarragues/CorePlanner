@@ -36,13 +36,15 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto"
+      class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto 2xl:w-auto 2xl:gap-2 2xl:px-3"
       :aria-expanded="abierto"
+      aria-label="Columnas del panel de nombres"
+      title="Columnas del panel de nombres"
       data-testid="gantt-toggle-columns"
       @click="abierto = !abierto"
     >
       <span class="h-4 w-4 text-texto-tenue"><AppIcon name="columns" /></span>
-      Columnas
+      <span class="hidden text-cp-sm font-medium 2xl:inline">Columnas</span>
       <span
         v-if="props.seleccionadas.length"
         class="rounded-pastilla bg-primario-fuerte px-1.5 text-cp-micro font-semibold text-sobre-primario"

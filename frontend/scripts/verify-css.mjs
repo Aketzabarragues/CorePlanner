@@ -28,7 +28,12 @@ function collectFiles(dir, extensions) {
 
 /** Escapa una clase de Tailwind como lo hace el generador de CSS. */
 function escapeClassName(name) {
-  return name.replace(/[.,:/[\]()%&#!@'"~>+=$^|<>?*\\]/g, (char) => `\\${char}`)
+  let escaped = name.replace(/[.,:/[\]()%&#!@'"~>+=$^|<>?*\\]/g, (char) => `\\${char}`)
+  // El dígito inicial de un identificador CSS se escapa como código hex: `2xl:px-3` -> `\32xl\:px-3`.
+  if (/^\d/.test(escaped)) {
+    escaped = `\\${escaped[0].charCodeAt(0).toString(16).toUpperCase()}` + escaped.slice(1)
+  }
+  return escaped
 }
 
 function extractClasses(content) {

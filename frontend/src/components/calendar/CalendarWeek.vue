@@ -57,8 +57,12 @@ const props = defineProps({
    * `data-semana`, de modo que la soltura del arrastre sepa en que semana cae.
    */
   semanaIndice: { type: Number, default: 0 },
-  /** Dia bajo el puntero mientras dura el arrastre, para sombrearlo. */
-  hoverDay: { type: String, default: null },
+  /**
+   * Banda de destino del arrastre: {taskId, start, end, personaId}. La semana
+   * sombrea los dias del rango que caen en la fila de la persona del destino;
+   * el resto de filas no se sombrea.
+   */
+  destino: { type: Object, default: null },
   /** Barra enfocada (id de tarea): la unica con `tabindex` 0 de la rejilla. */
   barraEnfocada: { type: [Number, String, null], default: null },
 })
@@ -96,6 +100,24 @@ function celdasDe(carril) {
 /** Si una columna es de fin de semana, que se pinta atenuada. */
 function esFinDeSemana(indice) {
   return Boolean(props.days[indice]?.weekend)
+}
+
+/**
+ * Si la celda cae en la banda de destino: la fila es la de la persona del
+ * destino y alguno de los dias que cubre la celda esta dentro del rango nuevo.
+ *
+ * Un solo criterio para la banda: la semana sombrea los dias del rango que le
+ * tocan, de modo que un rango que abarca dos semanas se ve completo en cada
+ * una. Sin destino no hay banda.
+ */
+function dentroDeLaBanda(fila, inicio, span) {
+  const destino = props.destino
+  if (!destino || fila.id !== destino.personaId) return false
+  for (let offset = 0; offset < span; offset += 1) {
+    const fecha = props.days[inicio + offset]?.date
+    if (fecha && fecha >= destino.start && fecha <= destino.end) return true
+  }
+  return false
 }
 
 /** Titulo con todos los datos de una tarea, para el aviso al pasar el raton. */
@@ -174,7 +196,7 @@ function alCrearHueco(event) {
     <CalendarDayHeader
       :days="days"
       :non-working-days="nonWorkingDays"
-      :hover-day="hoverDay"
+      :destino="destino"
       @open-day="emit('open-day', $event)"
     />
 
@@ -208,7 +230,7 @@ function alCrearHueco(event) {
           :class="
             esFinDeSemana(celda.inicio)
               ? 'bg-slate-50'
-              : hoverDay === days[celda.inicio]?.date
+              : dentroDeLaBanda(fila, celda.inicio, celda.span)
                 ? 'bg-amber-50'
                 : ''
           "
@@ -224,6 +246,7 @@ function alCrearHueco(event) {
             :puede-redimensionar-inicio="extremoVisible(celda.barra.tarea, 'start')"
             :puede-redimensionar-fin="extremoVisible(celda.barra.tarea, 'end')"
             :title="tituloTarea(celda.barra.tarea)"
+            :previsualizada="destino !== null && destino.taskId === celda.barra.tarea.id"
             :seleccionada="barraEnfocada === celda.barra.tarea.id"
             :etiqueta-aria="etiquetaAriaDe(celda.barra.tarea, esEditable(celda.barra.tarea))"
             @drag-start="emit('drag-start', { ...$event, dias: days })"

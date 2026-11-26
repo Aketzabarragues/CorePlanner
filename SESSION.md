@@ -2,13 +2,12 @@
 
 ## Objetivo actual
 
-Motor propio del calendario de la planificacion: el calendario deja de ser un
-par de componentes que pintan una tabla y pasa a tener la misma arquitectura y
-el mismo juego de interacciones que el diagrama de Gantt (mover, redimensionar,
-teclado, menu contextual, globo, alta en un dia concreto).
+Correcciones del calendario tras el motor propio (commit `31ca51b`, ya
+pusheado): la cabecera en tres filas, la duracion en dias laborables al mover
+una tarea y el arrastre con la misma pinta que el del Gantt.
 
-**Implementado y verificado** en el frontend. El backend no cambia: el
-calendario sigue leyendo el feed del Gantt y los dias no laborables.
+**Implementado y verificado** con la suite de Vitest (1042 tests) y con una
+prueba de Playwright contra una copia de la base (`/root/proyectos/_informes/24_prueba_calendario.md`).
 
 Sin commit: el trabajo esta en el arbol, pendiente de que el usuario lo
 apruebe.
@@ -88,13 +87,28 @@ ficheros y 1024 tests.
 - **Un fallo, un aviso**: el exito se confirma con toast y el fallo sale en el
   banner de la vista. Ningun error cierra la sesion.
 
+## Cambios de esta sesion (correcciones F7a-F7c)
+
+- **Cabecera en tres filas** (`CalendarDayHeader.vue`): nombre del dia, numero
+  solo y los eventos (hoy y festivos) en una tercera fila con altura minima.
+- **Duracion en dias laborables** (`utils/calendarGeometry.js`):
+  `desplazarLaborable`, `diasLaborablesEntre` y `moverRangoLaborable`. El
+  arrastre, el teclado y el menu las comparten: una tarea de lunes a viernes
+  movida al jueves acaba el miercoles de la semana siguiente. Los festivos no se
+  saltan; solo el fin de semana.
+- **Arrastre con la pinta del Gantt**: pilora con la franja del color del
+  proyecto, la etiqueta y el rango; la barra arrastrada al 60 %; banda de
+  destino en la fila de la persona (antes se sombreaba la columna entera); y el
+  globo escondido durante el gesto. `hoverDay` desaparece.
+- Documentacion: `docs/especificaciones.md` (§14 y §60), `CHANGELOG.md`,
+  `README.md` y `.operator/specs/calendar-engine.md`.
+- Capturas nuevas en `docs/capturas/` (arrastre, cabecera, menu, proyecto,
+  semana, tarea movida) y `calendario.png` regenerada.
+
 ## Pendientes / Siguiente paso inmediato
 
-1. Commit pendiente de aprobacion: `feat(calendario): motor propio con mover,
-   redimensionar, teclado, menu y globo`.
-2. Sin smoker en navegador (no hay herramienta de navegador en esta sesion):
-   la evidencia es la suite de Vitest (1024 tests), `npm run verify:css` y
-   `npm run build`. Conviene una prueba manual con `python iniciar.py` y la
-   semilla: mover una barra en el mes, redimensionarla, usar el teclado, abrir
-   el menu y crear una tarea con doble clic.
+1. Commit pendiente de aprobacion: `fix(calendario): duracion en dias
+   laborables, cabecera en tres filas y arrastre con la pinta del Gantt`.
+2. Limite conocido, sin corregir: una tarea cuyo final cae fuera de la rejilla
+   del mes abierto no se ve hasta que se navega al mes siguiente.
 3. El `.ics` sigue pendiente (esta planificado y fuera del alcance de v1).

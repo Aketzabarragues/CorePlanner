@@ -243,6 +243,18 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: el calendario conserva la duracion en dias laborables al mover una
+  tarea. Una tarea de lunes a viernes movida al jueves acababa en lunes: el fin de
+  semana se comia dos de los cinco dias, porque la duracion se contaba en dias
+  naturales. Ahora acaba el miercoles de la semana siguiente, y las flechas del
+  teclado y los items del menu mueven y alargan tambien un dia laborable.
+- **frontend**: la cabecera del calendario pone el dia, el numero y el evento en
+  tres filas. El numero y la pilora de festivo salian pegados en la misma linea.
+- **frontend**: el arrastre del calendario se ve como el del diagrama de Gantt:
+  pilora con la franja del color del proyecto, la etiqueta y el rango; la barra
+  arrastrada baja al 60 %; el rango nuevo se sombrea en la fila de la persona de
+  la tarea y no en la columna entera; y el globo se esconde mientras dura el
+  gesto.
 - **frontend**: el guard `verify:css` escapa tambien la coma al buscar una
   clase en el bundle: las clases arbitrarias con comas estan en el CSS con las
   comas escapadas y el guard las daba por ausentes.

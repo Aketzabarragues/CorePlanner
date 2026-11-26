@@ -18,8 +18,8 @@ const props = defineProps({
   days: { type: Array, required: true },
   /** Dias no laborables de toda la empresa y de cada departamento. */
   nonWorkingDays: { type: Array, default: () => [] },
-  /** Dia bajo el puntero mientras dura el arrastre, para sombrearlo. */
-  hoverDay: { type: String, default: null },
+  /** Destino del arrastre, para sombrear la banda en su rango de fechas. */
+  destino: { type: Object, default: null },
 })
 
 const emit = defineEmits(['open-day'])
@@ -69,7 +69,11 @@ const noLaborablesPorFecha = computed(() => {
       :key="dia.date"
       class="border-b border-l border-slate-200 px-2 py-1.5 text-left align-top"
       :class="
-        dia.weekend ? 'bg-slate-50' : hoverDay === dia.date ? 'bg-amber-50' : ''
+        dia.weekend
+          ? 'bg-slate-50'
+          : destino && dia.date >= destino.start && dia.date <= destino.end
+            ? 'bg-amber-50'
+            : ''
       "
       scope="col"
       :data-testid="`week-lane-head-${dia.date}`"
@@ -79,42 +83,46 @@ const noLaborablesPorFecha = computed(() => {
       </span>
       <button
         type="button"
-        class="text-sm font-semibold text-siemens-900 hover:underline"
+        class="block w-full text-left text-sm font-semibold text-siemens-900 hover:underline"
         :title="`Ver el día ${dia.date}`"
         :data-testid="`week-day-${dia.date}`"
         @click="emit('open-day', dia.date)"
       >
         {{ dia.day }}
       </button>
-      <span
-        v-if="dia.date === hoy"
-        class="mt-0.5 mr-1 inline-block rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
-        data-testid="week-lane-today"
-      >
-        Hoy
+      <!-- Tercera fila: hoy y dias no laborables; altura minima para que todas las
+           celdas midan igual aunque no tengan evento. -->
+      <span class="mt-0.5 flex min-h-[1.25rem] flex-wrap gap-1">
+        <span
+          v-if="dia.date === hoy"
+          class="rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+          data-testid="week-lane-today"
+        >
+          Hoy
+        </span>
+        <template v-for="festivo in noLaborablesPorFecha.get(dia.date) ?? []" :key="festivo.id">
+          <span
+            v-if="festivo.scope === 'global'"
+            class="max-w-full truncate rounded-full border border-slate-300 bg-white px-1.5 py-px text-[10px] font-medium text-slate-700"
+            :title="festivo.name"
+            data-testid="week-lane-holiday"
+          >
+            {{ festivo.name }}
+          </span>
+          <span
+            v-else
+            class="max-w-full truncate rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800"
+            :title="
+              festivo.department_name
+                ? `${festivo.name} (${festivo.department_name})`
+                : festivo.name
+            "
+            data-testid="week-lane-holiday"
+          >
+            {{ festivo.name }}
+          </span>
+        </template>
       </span>
-      <template v-for="festivo in noLaborablesPorFecha.get(dia.date) ?? []" :key="festivo.id">
-        <span
-          v-if="festivo.scope === 'global'"
-          class="mt-0.5 mr-1 inline-block rounded-full border border-slate-300 bg-white px-1.5 py-px text-[10px] font-medium text-slate-700"
-          :title="festivo.name"
-          data-testid="week-lane-holiday"
-        >
-          {{ festivo.name }}
-        </span>
-        <span
-          v-else
-          class="mt-0.5 mr-1 inline-block rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800"
-          :title="
-            festivo.department_name
-              ? `${festivo.name} (${festivo.department_name})`
-              : festivo.name
-          "
-          data-testid="week-lane-holiday"
-        >
-          {{ festivo.name }}
-        </span>
-      </template>
     </th>
   </tr>
 </template>

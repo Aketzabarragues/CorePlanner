@@ -436,6 +436,29 @@ describe('CalendarView', () => {
     expect(marcados[1].text()).toBe('Fiesta local')
   })
 
+  it('la celda de cada dia lleva nombre, numero y eventos en tres filas', async () => {
+    const { wrapper } = await mountView()
+
+    // El lunes 2 es festivo global: nombre, numero y la fila de eventos, en orden.
+    const lunes = wrapper.find('[data-testid="week-lane-head-2026-11-02"]')
+    const hijos = lunes.element.children
+    expect(hijos).toHaveLength(3)
+    expect(hijos[0].tagName).toBe('SPAN')
+    expect(hijos[0].textContent?.trim()).toBe('Lun')
+    expect(hijos[1].tagName).toBe('BUTTON')
+    expect(hijos[1].textContent?.trim()).toBe('2')
+    // El festivo no va pegado al numero: esta en la tercera fila.
+    expect(hijos[1].textContent).not.toContain('Puente')
+    expect(hijos[2].tagName).toBe('SPAN')
+    const festivo = hijos[2].querySelector('[data-testid="week-lane-holiday"]')
+    expect(festivo?.textContent?.trim()).toBe('Puente')
+
+    // Hoy (viernes 6): la pilora "Hoy" tambien esta en la tercera fila.
+    const hoy = wrapper.find('[data-testid="week-lane-head-2026-11-06"]')
+    const pilora = hoy.element.children[2].querySelector('[data-testid="week-lane-today"]')
+    expect(pilora?.textContent?.trim()).toBe('Hoy')
+  })
+
   it('la fila de sin asignar sale solo donde hay tareas sin persona', async () => {
     const { wrapper } = await mountView()
 
@@ -1740,6 +1763,83 @@ describe('CalendarWeek', () => {
     expect(celdas).toContain('2026-11-02')
     expect(celdas).toContain('2026-11-07')
   })
+
+  it('la banda de destino sombrea solo la fila de la persona y los dias del rango', () => {
+    const wrapper = monta({
+      tasks: [
+        tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2),
+        tarea(9, 'Sin persona', '2026-11-03', '2026-11-03', null),
+      ],
+      destino: {
+        taskId: 1,
+        start: '2026-11-04',
+        end: '2026-11-10',
+        fecha: '2026-11-04',
+        personaId: 2,
+      },
+    })
+
+    // La fila de Ana sombrea la celda de la barra, que cubre dias del rango
+    // nuevo (del miercoles 4 al lunes 10: el 4 y el 5 caen aqui). El resto de
+    // la fila, el fin de semana y las cabeceras no.
+    const celdasAna = wrapper.findAll('[data-testid="week-lane-row-2-0"] td[data-day]')
+    expect(celdasAna.filter((celda) => celda.classes().includes('bg-amber-50'))).toHaveLength(1)
+    expect(
+      celdasAna
+        .filter((celda) => celda.classes().includes('bg-amber-50'))[0]
+        .classes()
+        .includes('bg-slate-50'),
+    ).toBe(false)
+    // El fin de semana no se sombrea: la banda no toca el fondo de fin de semana.
+    celdasAna
+      .filter((celda) => celda.classes().includes('bg-slate-50'))
+      .forEach((celda) => expect(celda.classes()).not.toContain('bg-amber-50'))
+
+    // La fila de Beto (sin tareas) y la de sin asignar no se somborean.
+    expect(
+      wrapper.findAll('[data-testid="week-lane-row-3-0"] td').filter((celda) =>
+        celda.classes().includes('bg-amber-50'),
+      ),
+    ).toHaveLength(0)
+    expect(
+      wrapper
+        .findAll('[data-testid="week-lane-row-sin-asignar-0"] td')
+        .filter((celda) => celda.classes().includes('bg-amber-50')),
+    ).toHaveLength(0)
+  })
+
+  it('la cabecera sombrea los dias del rango y la barra arrastrada se atenua', () => {
+    const wrapper = monta({
+      tasks: [tarea(1, 'Programacion', '2026-11-02', '2026-11-06', 2)],
+      destino: {
+        taskId: 1,
+        start: '2026-11-04',
+        end: '2026-11-10',
+        fecha: '2026-11-04',
+        personaId: 2,
+      },
+    })
+
+    // El rango nuevo es del 4 al 10: en la cabecera se sombrea lo que cae en
+    // la semana; el fin de semana sigue con su fondo, sin banda encima.
+    expect(
+      wrapper.find('[data-testid="week-lane-head-2026-11-03"]').classes().includes('bg-amber-50'),
+    ).toBe(false)
+    for (const fecha of ['2026-11-04', '2026-11-05', '2026-11-06']) {
+      expect(
+        wrapper.find(`[data-testid="week-lane-head-${fecha}"]`).classes().includes('bg-amber-50'),
+      ).toBe(true)
+    }
+    for (const fecha of ['2026-11-07', '2026-11-08']) {
+      const cabecera = wrapper.find(`[data-testid="week-lane-head-${fecha}"]`)
+      expect(cabecera.classes()).toContain('bg-slate-50')
+      expect(cabecera.classes()).not.toContain('bg-amber-50')
+    }
+    // La barra arrastrada se atenua y deja de capturar el puntero.
+    const barra = wrapper.find('[data-testid="week-task"]')
+    expect(barra.classes()).toContain('opacity-60')
+    expect(barra.classes()).toContain('pointer-events-none')
+  })
 })
 
 describe('DayDetail: edicion inline y alta del dia', () => {
@@ -1982,14 +2082,15 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     await settle()
   }
 
-  it('arrastrar la barra a otro dia la mueve conservando su duracion con un PATCH', async () => {
+  it('arrastrar la barra a otro dia la mueve conservando su duracion en dias laborables', async () => {
     const calls = setupFetchEdicion()
     const { wrapper } = await mountView()
     stubTabla(wrapper)
 
-    // La barra va del lunes 2 al viernes 6 (5 dias), en la segunda semana del
-    // mes (y 150). El martes 3 es la columna 1 de esa semana: el delta de un
-    // dia desplaza el rango al 3 - 7 y la duracion se conserva.
+    // La barra va del lunes 2 al viernes 6 (5 dias laborables), en la segunda
+    // semana del mes (y 150). El martes 3 es la columna 1 de esa semana:
+    // cinco dias laborables desde el 3 caen al lunes 9 y la duracion se
+    // conserva, aunque el fin de semana se salte.
     await arrastrarBarra(wrapper, 100 + 1 * 85.5 + 40, 150)
 
     const patch = calls.find((call) => call.method === 'PATCH')
@@ -1997,12 +2098,31 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(patch.url).toBe('/api/tasks/1')
     expect(JSON.parse(patch.body)).toEqual({
       start_date: '2026-11-03',
-      end_date: '2026-11-07',
+      end_date: '2026-11-09',
     })
     // El exito del guardado confirma con un toast flotante, como el Gantt.
     expect(useToastStore().items.map((item) => item.message)).toContain(
-      'Fechas actualizadas: del 2026-11-03 al 2026-11-07.',
+      'Fechas actualizadas: del 2026-11-03 al 2026-11-09.',
     )
+  })
+
+  it('una tarea de lunes a viernes movida al jueves acaba el miercoles de la semana siguiente', async () => {
+    const calls = setupFetchEdicion()
+    const { wrapper } = await mountView()
+    stubTabla(wrapper)
+
+    // La barra va del lunes 2 al viernes 6 (5 dias laborables). Suelta sobre
+    // el jueves 5 (columna 3, y 150): el fin de semana no come la duracion,
+    // asi que los cinco dias laborables caen del jueves 5 al miercoles 11.
+    await arrastrarBarra(wrapper, 100 + 3 * 85.5 + 40, 150)
+
+    const patch = calls.find((call) => call.method === 'PATCH')
+    expect(patch).toBeDefined()
+    expect(patch.url).toBe('/api/tasks/1')
+    expect(JSON.parse(patch.body)).toEqual({
+      start_date: '2026-11-05',
+      end_date: '2026-11-11',
+    })
   })
 
   it('el toast de fechas del arrastre lleva la clave calendario-fechas', async () => {
@@ -2037,7 +2157,7 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     stubTabla(wrapper)
 
     // La segunda barra es de la semana del 9 al 15 (y 250): el jueves 12 es
-    // la columna 3. El delta de 3 dias mueve el rango al 12 - 13.
+    // la columna 3. Dos dias laborables desde el jueves 12 caen al 12 - 13.
     const barra = wrapper
       .findAll('[data-testid="calendar-month-table"] [data-testid="week-task"]')[1]
     await barra.trigger('mousedown', { button: 0, clientX: 10, clientY: 10 })
@@ -2060,8 +2180,8 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
 
     // La barra va del lunes 2 al viernes 6 (semana del 2 al 8). Se suelta en
     // la tercera semana del mes (la del 16 al 22, y 350) en el mismo dia de
-    // la semana: el delta de 14 dias desplaza el rango al 16 - 20 y la
-    // duracion de cinco dias se conserva.
+    // la semana: cinco dias laborables desde el lunes 16 caen al viernes 20 y
+    // la duracion se conserva.
     await arrastrarBarra(wrapper, 100 + 0 * 85.5 + 40, 350)
 
     const patch = calls.find((call) => call.method === 'PATCH')
@@ -2167,15 +2287,16 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     const { wrapper } = await mountView()
     stubTabla(wrapper)
 
-    // La barra va del lunes 2 al viernes 6. Suelta sobre el sabado 7
-    // (columna 5): el dia laborable es el viernes 6 y el rango cae al 6 - 10.
+    // La barra va del lunes 2 al viernes 6 (5 dias laborables). Suelta sobre
+    // el sabado 7 (columna 5): el dia laborable es el viernes 6 y los cinco
+    // dias laborables desde el 6 caen al jueves 12.
     await arrastrarBarra(wrapper, 100 + 5 * 85.5 + 40, 150)
 
     const patch = calls.find((call) => call.method === 'PATCH')
     expect(patch).toBeDefined()
     expect(JSON.parse(patch.body)).toEqual({
       start_date: '2026-11-06',
-      end_date: '2026-11-10',
+      end_date: '2026-11-12',
     })
   })
 
@@ -2201,8 +2322,8 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     await flushPromises()
     stubSemana(wrapper)
 
-    // La barra va del lunes 2 al viernes 6 (5 dias). El martes 3 es la
-    // columna 1: el delta de un dia desplaza el rango al 3 - 7.
+    // La barra va del lunes 2 al viernes 6 (5 dias laborables). El martes 3
+    // es la columna 1: cinco dias laborables desde el 3 caen al lunes 9.
     const barra = wrapper.find('[data-testid="week-task"]')
     await barra.trigger('mousedown', { button: 0, clientX: 10, clientY: 10 })
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 100 + 1 * 85.5 + 40, clientY: 500 }))
@@ -2213,30 +2334,68 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(patch).toBeDefined()
     expect(JSON.parse(patch.body)).toEqual({
       start_date: '2026-11-03',
-      end_date: '2026-11-07',
+      end_date: '2026-11-09',
     })
   })
 
-  it('la vista semanal sombrea el dia bajo el puntero mientras dura el arrastre', async () => {
+  it('mientras dura el arrastre: banda en la fila de la persona, barra atenuada, fantasma de pilora y sin globo', async () => {
     setupFetchEdicion()
     const { wrapper } = await mountView()
     await wrapper.find('[data-testid="calendar-view-week"]').trigger('click')
     await flushPromises()
     stubSemana(wrapper)
 
+    // La barra va del lunes 2 al viernes 6 (5 dias laborables). Suelta sobre
+    // el miercoles 4 (columna 2): los cinco dias laborables caen del 4 al
+    // lunes 10, de modo que la banda nueva es del 4 al 10.
     const barra = wrapper.find('[data-testid="week-task"]')
     await barra.trigger('mousedown', { button: 0, clientX: 10, clientY: 10 })
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 100 + 2 * 85.5 + 40, clientY: 500 }))
     await flushPromises()
 
+    // La banda sombrea la celda de la barra (cubre dias del 4 al 10) en la
+    // fila de la persona (Ana, assigned_to 2) y los dias del rango en la
+    // cabecera.
+    const celdasAna = wrapper.findAll('[data-testid="week-lane-row-2-0"] td[data-day]')
+    expect(celdasAna.filter((celda) => celda.classes().includes('bg-amber-50'))).toHaveLength(1)
     expect(
       wrapper.find('[data-testid="week-lane-head-2026-11-04"]').classes().join(' '),
     ).toContain('bg-amber-50')
+    expect(
+      wrapper.find('[data-testid="week-lane-head-2026-11-03"]').classes().join(' '),
+    ).not.toContain('bg-amber-50')
+
+    // La barra que se esta arrastrando se atenua y deja de capturar el puntero.
+    expect(barra.classes()).toContain('opacity-60')
+    expect(barra.classes()).toContain('pointer-events-none')
+
+    // El fantasma es la pilora del Gantt: etiqueta de la tarea, rango nuevo y
+    // tira de color del proyecto.
+    const fantasma = wrapper.find('[data-testid="calendar-drag-ghost"]')
+    expect(fantasma.exists()).toBe(true)
+    expect(fantasma.text()).toContain('Programacion SCADA')
+    expect(fantasma.text()).toContain('2026-11-04 → 2026-11-10')
+    expect(fantasma.html()).toContain('border-siemens-500')
+    expect(fantasma.html()).toContain('bg-white')
+    const tira = fantasma.find('span[style*="background-color"]')
+    expect(tira.exists()).toBe(true)
+    esperaColor(tira, '#1f6feb')
+
+    // El globo no se pinta mientras dura el arrastre.
+    expect(wrapper.find('[data-testid="calendar-tooltip"]').exists()).toBe(false)
+
+    // Al soltar, todo se limpia: banda, atenuacion, fantasma.
     window.dispatchEvent(new MouseEvent('mouseup', { clientX: 100 + 2 * 85.5 + 40, clientY: 500 }))
     await settle()
     expect(
+      wrapper.findAll('[data-testid="week-lane-row-2-0"] td').filter((celda) =>
+        celda.classes().includes('bg-amber-50'),
+      ),
+    ).toHaveLength(0)
+    expect(
       wrapper.find('[data-testid="week-lane-head-2026-11-04"]').classes().join(' '),
     ).not.toContain('bg-amber-50')
+    expect(wrapper.find('[data-testid="calendar-drag-ghost"]').exists()).toBe(false)
   })
 
   it('el alta del dia abre el formulario con las fechas del dia y lo POSTea al proyecto del filtro', async () => {
@@ -2411,34 +2570,56 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
       expect(soloLectura.find('[data-task-id="1"]').attributes('aria-disabled')).toBe('true')
     })
 
-    it('ArrowRight mueve la tarea un dia con un PATCH conservando la duracion', async () => {
+    it('ArrowRight mueve la tarea un dia laborable con un PATCH conservando la duracion', async () => {
       const calls = setupFetchEdicion()
       const { wrapper } = await mountView()
       const barra = await enfocar(wrapper, 1)
       await barra.trigger('keydown', { key: 'ArrowRight' })
       await settle()
 
+      // La tarea va del lunes 2 al viernes 6 (5 dias laborables); un dia
+      // laborable adelante, con destino martes 3, cae al lunes 9.
       const patch = calls.find((call) => call.method === 'PATCH')
       expect(patch).toBeDefined()
       expect(patch.url).toBe('/api/tasks/1')
       expect(JSON.parse(patch.body)).toEqual({
         start_date: '2026-11-03',
-        end_date: '2026-11-07',
+        end_date: '2026-11-09',
       })
     })
 
-    it('Mayus+ArrowRight mueve solo el fin un dia y el inicio se queda', async () => {
+    it('Mayus+ArrowRight alarga el fin un dia laborable y el inicio se queda', async () => {
       const calls = setupFetchEdicion()
       const { wrapper } = await mountView()
       const barra = await enfocar(wrapper, 1)
       await barra.trigger('keydown', { key: 'ArrowRight', shiftKey: true })
       await settle()
 
+      // El fin va del viernes 6 un dia laborable adelante: lunes 9, saltando
+      // el fin de semana.
       const patch = calls.find((call) => call.method === 'PATCH')
       expect(patch).toBeDefined()
       expect(JSON.parse(patch.body)).toEqual({
         start_date: '2026-11-02',
-        end_date: '2026-11-07',
+        end_date: '2026-11-09',
+      })
+    })
+
+    it('Mayus+ArrowLeft acorta el fin un dia laborable y no cruza el inicio', async () => {
+      const calls = setupFetchEdicion()
+      const { wrapper } = await mountView()
+      const barra = await enfocar(wrapper, 2)
+      await barra.trigger('keydown', { key: 'ArrowLeft', shiftKey: true })
+      await settle()
+
+      // La tarea 2 va del lunes 9 al martes 10: un dia laborable atras el fin
+      // cae en el lunes 9, que es el propio inicio: la tarea queda de un dia.
+      const patch = calls.find((call) => call.method === 'PATCH')
+      expect(patch).toBeDefined()
+      expect(patch.url).toBe('/api/tasks/2')
+      expect(JSON.parse(patch.body)).toEqual({
+        start_date: '2026-11-09',
+        end_date: '2026-11-09',
       })
     })
 
@@ -2517,7 +2698,7 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
       expect(wrapper.find('[data-testid="context-menu"]').exists()).toBe(false)
     })
 
-    it('Mover un día después hace un PATCH con las fechas un dia mas adelante', async () => {
+    it('Mover un día después mueve un dia laborable con un PATCH', async () => {
       const calls = setupFetchEdicion()
       const { wrapper } = await mountView()
       await wrapper.find('[data-task-id="1"]').trigger('contextmenu', { clientX: 70, clientY: 90 })
@@ -2529,12 +2710,14 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
         .trigger('click')
       await settle()
 
+      // Mismo calculo que ArrowRight: destino martes 3, cinco dias laborables
+      // hasta el lunes 9.
       const patch = calls.find((call) => call.method === 'PATCH')
       expect(patch).toBeDefined()
       expect(patch.url).toBe('/api/tasks/1')
       expect(JSON.parse(patch.body)).toEqual({
         start_date: '2026-11-03',
-        end_date: '2026-11-07',
+        end_date: '2026-11-09',
       })
     })
 

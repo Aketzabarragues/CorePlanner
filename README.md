@@ -52,6 +52,14 @@ redimensionan por sus extremos, se mueven y redimensionan con el teclado, y
 tienen menu contextual y globo. Con doble clic en un hueco se crea una tarea
 ese dia.
 
+Mover una tarea conserva los dias laborables que ocupaba: una tarea de lunes a
+viernes movida al jueves acaba el miercoles de la semana siguiente.
+
+![Una tarea de Color al arrastrarla: la pilora con el rango nuevo, la barra atenuada y el rango sombreado en la fila de la persona](docs/capturas/calendario-arrastre.png)
+
+Con el teclado, las flechas mueven la barra un dia laborable y `Mayus` con las
+flechas la alarga o la acorta.
+
 ### Tablero: las tareas por estado
 
 ![El tablero del proyecto con sus cuatro columnas y las tarjetas de cada una](docs/capturas/tablero.png)

@@ -41,6 +41,8 @@ const props = defineProps({
   title: { type: String, default: '' },
   /** Barra enfocada: lleva el `tabindex` 0 y el `aria-current`. */
   seleccionada: { type: Boolean, default: false },
+  /** Barra que se esta arrastrando: atenuada y sin capturar el puntero. */
+  previsualizada: { type: Boolean, default: false },
   /** Etiqueta aria completa: titulo, persona, fechas, avance, permiso. */
   etiquetaAria: { type: String, default: '' },
 })
@@ -91,6 +93,7 @@ function alMenuContexto(event) {
         ? 'border border-dashed border-slate-500 text-slate-700'
         : 'text-white',
       editable ? 'cursor-grab' : 'cursor-pointer',
+      previsualizada ? 'opacity-60 pointer-events-none' : '',
     ]"
     :style="{
       backgroundColor:

@@ -52,8 +52,13 @@ const props = defineProps({
   nonWorkingDays: { type: Array, default: () => [] },
   /** Proyectos en los que quien entra puede escribir: con esa barra, arrastre. */
   editableProjectIds: { type: Array, default: () => [] },
-  /** Dia bajo el puntero mientras dura el arrastre, para sombrearlo. */
-  hoverDay: { type: String, default: null },
+  /**
+   * Banda de destino del arrastre: {taskId, start, end, personaId}, o null si
+   * no hay arrastre. Se sombrea solo en la fila de la persona de la tarea.
+   */
+  destino: { type: Object, default: null },
+  /** Arrastre en curso: con el, el globo no se pinta, que estorba al arrastre. */
+  arrastrando: { type: Boolean, default: false },
   /** Testid de la tabla; sin el, la tabla no lleva testid. */
   testid: { type: String, default: null },
 })
@@ -267,7 +272,7 @@ defineExpose({ medir })
       :filas="layout.filas"
       :non-working-days="nonWorkingDays"
       :editable-project-ids="editableProjectIds"
-      :hover-day="hoverDay"
+      :destino="destino"
       :semana-indice="indice"
       :barra-enfocada="idEnfocado"
       @open-day="emit('open-day', $event)"
@@ -284,7 +289,13 @@ defineExpose({ medir })
 
   <!--
     Globo de la tarea bajo el puntero: decorativo, no intercede con el
-    arrastre. Vive aqui, no en la vista, porque es quien ve las barras.
+    arrastre. No se pinta mientras dura el arrastre, que estorba, como en el
+    Gantt. Vive aqui, no en la vista, porque es quien ve las barras.
   -->
-  <CalendarTooltip :datos="globo" :x="globo?.x ?? 0" :y="globo?.y ?? 0" />
+  <CalendarTooltip
+    v-if="!arrastrando"
+    :datos="globo"
+    :x="globo?.x ?? 0"
+    :y="globo?.y ?? 0"
+  />
 </template>

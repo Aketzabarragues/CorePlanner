@@ -47,8 +47,8 @@ import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
+import { desplazarLaborable, moverRangoLaborable } from '../utils/calendarGeometry'
 import { dateChangePayload } from '../utils/ganttScale'
-import { moveRange, resizeRange } from '../utils/ganttLayout'
 import { longDateLabel, monthGrid, monthLabel } from '../utils/month'
 import { sortByDepartment } from '../utils/people'
 import { weekDays, weekRangeLabel, weekWithTasksNear } from '../utils/weeks'
@@ -299,9 +299,6 @@ async function irASemanaConTrabajo() {
   await escribirEstado()
 }
 
-/** Dia de la semana en pantalla que queda bajo el puntero, para sombrearlo. */
-const hoverDay = ref(null)
-
 /**
  * Ref a la rejilla del calendario en pantalla: mes o semana. La geometria
  * del arrastre se mide contra esta tabla al empezar el gesto (`medir`), no
@@ -331,20 +328,39 @@ async function guardarFechas(taskId, start, end) {
 
 /** Soltar la barra: la tarea pasa a los nuevos dias, con el mismo guardado. */
 async function alConfirmar({ taskId, start, end }) {
-  hoverDay.value = null
   await guardarFechas(taskId, start, end)
 }
 
 /**
- * Teclado de la barra enfocada: el grid sube la tecla y la vista decide, con
- * la misma semantica que el Gantt pero en dias, que es la unidad del eje del
- * calendario.
+ * Mover la tarea `delta` dias laborables (positivo adelante, negativo atras),
+ * conservando la duracion en dias laborables. Un solo calculo para el teclado
+ * y el menu contextual: la flecha y "Mover un dia antes/despues" son lo mismo.
+ */
+function moverDiasLaborables(tarea, delta) {
+  return moverRangoLaborable(tarea.start, tarea.end, desplazarLaborable(tarea.start, delta))
+}
+
+/**
+ * Mover el fin de la tarea `delta` dias laborables: "Acortar/Alargar un dia".
  *
- * Izquierda/derecha mueven la tarea un dia (`moveRange`) y guardan. Mayus mas
- * izquierda/derecha (o arriba/abajo) redimensionan el extremo final un dia
- * (`resizeRange`), como en el Gantt. Intro abre el detalle de la tarea. Sin
- * permiso de escritura en el proyecto de la tarea no se cambia nada: el
- * teclado no mueve ni redimensiona, pero Intro si abre el detalle.
+ * El fin nunca puede quedar antes del inicio: acortar hasta cruzar el inicio
+ * deja la tarea de un solo dia en el inicio.
+ */
+function moverFinDiasLaborables(tarea, delta) {
+  const fin = desplazarLaborable(tarea.end, delta)
+  return { start: tarea.start, end: fin < tarea.start ? tarea.start : fin }
+}
+
+/**
+ * Teclado de la barra enfocada: el grid sube la tecla y la vista decide, con
+ * la misma semantica que el Gantt pero en dias laborables, que es la unidad
+ * del eje del calendario.
+ *
+ * Izquierda/derecha mueven la tarea un dia laborable y guardan. Mayus mas
+ * izquierda/derecha (o arriba/abajo) alargan o acortan el extremo final un
+ * dia laborable. Intro abre el detalle de la tarea. Sin permiso de escritura
+ * en el proyecto de la tarea no se cambia nada: el teclado no mueve ni
+ * redimensiona, pero Intro si abre el detalle.
  */
 async function alPulsarTecla(event, id) {
   const tarea = tasks.value.find((item) => item.id === id)
@@ -358,19 +374,16 @@ async function alPulsarTecla(event, id) {
     event.preventDefault()
     if (!editableProjects.value.includes(Number(tarea.project_id))) return
     const delta = event.key === 'ArrowRight' ? 1 : -1
-    if (event.shiftKey) {
-      const rango = resizeRange(tarea.start, tarea.end, 'end', delta)
-      await guardarFechas(id, rango.start, rango.end)
-      return
-    }
-    const rango = moveRange(tarea.start, tarea.end, delta)
+    const rango = event.shiftKey
+      ? moverFinDiasLaborables(tarea, delta)
+      : moverDiasLaborables(tarea, delta)
     await guardarFechas(id, rango.start, rango.end)
     return
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.shiftKey) {
     event.preventDefault()
     if (!editableProjects.value.includes(Number(tarea.project_id))) return
-    const rango = resizeRange(tarea.start, tarea.end, 'end', event.key === 'ArrowDown' ? 1 : -1)
+    const rango = moverFinDiasLaborables(tarea, event.key === 'ArrowDown' ? 1 : -1)
     await guardarFechas(id, rango.start, rango.end)
   }
 }
@@ -406,8 +419,9 @@ function itemsDeContexto(contexto) {
 
 /**
  * Items del menu de una barra: abrir el detalle y, solo con permiso de
- * escritura en el proyecto de la tarea, mover o redimensionar un dia. Los
- * cuatro ultimos guardan con el mismo PATCH que el teclado.
+ * escritura en el proyecto de la tarea, mover o redimensionar un dia
+ * laborable, con el mismo calculo que el teclado. Los cuatro ultimos guardan
+ * con el mismo PATCH que el teclado.
  */
 function itemsDeBarra(tarea) {
   const items = [{ label: 'Abrir detalle', accion: 'detalle', dato: tarea.id }]
@@ -453,8 +467,8 @@ async function ejecutarAccion(item) {
     if (!tarea) return
     const rango =
       accion === 'mover'
-        ? moveRange(tarea.start, tarea.end, dato.delta)
-        : resizeRange(tarea.start, tarea.end, 'end', dato.delta)
+        ? moverDiasLaborables(tarea, dato.delta)
+        : moverFinDiasLaborables(tarea, dato.delta)
     await guardarFechas(dato.id, rango.start, rango.end)
     return
   }
@@ -482,14 +496,11 @@ const drag = useCalendarioDrag({
 const fantasma = drag.fantasma
 const previsualizacion = drag.previsualizacion
 
-// El dia destino se sombrea mientras dura el gesto: la previsualizacion lleva
-// la fecha donde cae la barra. Al terminar el gesto se tumba.
-watch(
-  () => previsualizacion.value,
-  (pre) => {
-    hoverDay.value = pre?.fecha ?? null
-  },
-)
+/**
+ * El gesto de arrastre en curso: fantasma o previsualizacion no nulos. Es el
+ * que apaga el globo del grid, que estorba al arrastre, como en el Gantt.
+ */
+const arrastrando = computed(() => fantasma.value !== null || previsualizacion.value !== null)
 
 /**
  * Agarrar una barra: arranca el gesto con la zona agarrada (cuerpo o asa) y
@@ -828,7 +839,8 @@ watch(
           :tasks="visibleTasks"
           :non-working-days="nonWorkingDays"
           :editable-project-ids="editableProjects"
-          :hover-day="hoverDay"
+          :destino="previsualizacion"
+          :arrastrando="arrastrando"
           @open-day="openDay"
           @open-task="openTask"
           @drag-start="onBarDragStart"
@@ -873,7 +885,8 @@ watch(
           :tasks="visibleTasks"
           :non-working-days="nonWorkingDays"
           :editable-project-ids="editableProjects"
-          :hover-day="hoverDay"
+          :destino="previsualizacion"
+          :arrastrando="arrastrando"
           @open-day="openDay"
           @open-task="openTask"
           @drag-start="onBarDragStart"
@@ -952,21 +965,23 @@ watch(
     </ModalDialog>
 
     <!--
-      Copia de la barra que se arrastra: sigue al cursor mientras dura el
-      gesto y deja ver a que dia va a caer. No intercepta el raton, para que
-      la columna de destino se siga calculando por debajo.
+      Fantasma del arrastre: la pilora del Gantt. No intercepta el raton,
+      para que la banda de destino se siga calculando por debajo.
     -->
     <div
       v-if="fantasma"
-      data-testid="calendar-drag-ghost"
-      class="pointer-events-none fixed z-50 max-w-64 select-none rounded border border-siemens-500 bg-white p-2 shadow-lg"
+      class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded border border-siemens-500 bg-white pl-1.5 pr-2 shadow-lg"
       :style="{
         left: `${fantasma.x}px`,
         top: `${fantasma.y}px`,
       }"
+      data-testid="calendar-drag-ghost"
     >
-      <p class="truncate text-sm font-medium text-slate-900">{{ fantasma.tarea.title }}</p>
-      <p class="mt-1 text-xs text-slate-500">{{ fantasma.rango }}</p>
+      <span class="h-4 w-1 shrink-0 rounded-sm" :style="{ backgroundColor: fantasma.color }" />
+      <span class="text-[11px] font-medium text-slate-900">{{ fantasma.etiqueta }}</span>
+      <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+        {{ fantasma.rango }}
+      </span>
     </div>
 
     <!--

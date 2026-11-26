@@ -13,6 +13,7 @@ function tareaNueva(overrides = {}) {
     title: 'Programacion SCADA WinCC',
     start: '2026-11-02',
     end: '2026-11-06',
+    assigned_to: 7,
     ...overrides,
   }
 }
@@ -63,25 +64,28 @@ function agarrar(drag, { zona = 'body', x = 200, y = 100 } = {}) {
 }
 
 describe('useCalendarioDrag', () => {
-  it('mover el cuerpo desplaza el rango y lo confirma al soltar', () => {
+  it('mover el cuerpo conserva la duracion en dias laborables y confirma al soltar', () => {
     const confirmado = vi.fn()
     const { drag, mover, soltar } = lanzar(confirmado)
 
+    // Cinco dias laborables (lunes 2 a viernes 6) con destino martes 3:
+    // cae del 3 al lunes 9, que son los mismos cinco dias laborables.
     agarrar(drag)
     mover(228.25, 100) // Columna 1: martes 3.
     expect(drag.previsualizacion.value).toEqual({
       taskId: 10,
       start: '2026-11-03',
-      end: '2026-11-07',
+      end: '2026-11-09',
       fecha: '2026-11-03',
+      personaId: 7,
     })
-    expect(drag.fantasma.value.rango).toBe('2026-11-03 → 2026-11-07')
+    expect(drag.fantasma.value.rango).toBe('2026-11-03 → 2026-11-09')
     soltar(228.25, 100)
 
     expect(confirmado).toHaveBeenCalledWith({
       taskId: 10,
       start: '2026-11-03',
-      end: '2026-11-07',
+      end: '2026-11-09',
     })
     expect(drag.fantasma.value).toBeNull()
     expect(drag.previsualizacion.value).toBeNull()
@@ -98,6 +102,7 @@ describe('useCalendarioDrag', () => {
       start: '2026-11-04',
       end: '2026-11-06',
       fecha: '2026-11-04',
+      personaId: 7,
     })
     soltar(313.75, 100)
 
@@ -119,6 +124,7 @@ describe('useCalendarioDrag', () => {
       start: '2026-11-02',
       end: '2026-11-05',
       fecha: '2026-11-05',
+      personaId: 7,
     })
     soltar(399.25, 100)
 
@@ -150,18 +156,20 @@ describe('useCalendarioDrag', () => {
 
     agarrar(drag)
     mover(570.25, 100) // Columna 5: sabado 7.
+    // Dia laborable: viernes 6; cinco dias laborables desde el 6: jueves 12.
     expect(drag.previsualizacion.value).toEqual({
       taskId: 10,
       start: '2026-11-06',
-      end: '2026-11-10',
+      end: '2026-11-12',
       fecha: '2026-11-06',
+      personaId: 7,
     })
-    expect(drag.fantasma.value.rango).toBe('2026-11-06 → 2026-11-10')
+    expect(drag.fantasma.value.rango).toBe('2026-11-06 → 2026-11-12')
     soltar(570.25, 100)
     expect(confirmado).toHaveBeenCalledWith({
       taskId: 10,
       start: '2026-11-06',
-      end: '2026-11-10',
+      end: '2026-11-12',
     })
 
     const { drag: drag2, mover: mover2, soltar: soltar2 } = lanzar(confirmado)
@@ -172,6 +180,7 @@ describe('useCalendarioDrag', () => {
       start: '2026-11-09',
       end: '2026-11-13',
       fecha: '2026-11-09',
+      personaId: 7,
     })
     soltar2(655.75, 100)
     expect(confirmado).toHaveBeenLastCalledWith({

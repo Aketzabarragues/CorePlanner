@@ -349,9 +349,11 @@ geometria medida sobre la rejilla, no con el DOM consultado por selector.
   ven junto a las tareas.
 - Las **tareas sin fecha**, listadas aparte: la planificacion incompleta tiene
   que ser visible.
-- **Mover una tarea a otro dia** arrastrándola: conserva la duracion y se
-  guarda con el mismo PATCH que el Gantt. El destino cae siempre en dia
-  laborable: un sabado es el viernes y un domingo el lunes.
+- **Mover una tarea a otro dia** arrastrándola: conserva los **dias
+  laborables** que ocupaba y se guarda con el mismo PATCH que el Gantt. El
+  destino cae siempre en dia laborable: un sabado es el viernes y un domingo el
+  lunes. Una tarea de lunes a viernes movida al jueves acaba el miercoles de la
+  semana siguiente: el fin de semana no se come la duracion.
 - **Redimensionar una tarea** por sus dos extremos, con el mismo gesto.
 - El **teclado**: las flechas mueven la barra enfocada un dia, `Mayus` con las
   flechas alarga o acorta, `Intro` abre el detalle y las flechas arriba y abajo
@@ -2752,16 +2754,17 @@ El calendario deja de ser un par de componentes que pintan una tabla y pasa a se
 2. **La geometria se mide en el componente y se decide en un modulo puro.** La tabla mide su caja, el ancho de la columna de nombres, el ancho de columna de dia y el rango vertical de cada semana; con esos numeros, `hitTestDia` decide que dia cae bajo el puntero. La vista no consulta el DOM por selector. La medicion se hace al empezar el gesto y se fija durante el gesto: el desplazamiento del mes no puede cambiar la geometria a mitad de arrastre.
 3. **El fin de semana se ve y no lleva barras.** La semana tiene siete columnas; sabado y domingo salen atenuados. El motor de capacidad solo reparte horas entre dias laborables, de modo que las barras se recortan a ellos: una tarea que empieza un sabado entra el lunes y una que acaba un domingo sale el viernes.
 4. **El destino de un arrastre cae siempre en dia laborable**: un sabado se resuelve al viernes y un domingo al lunes. La barra nunca se queda en un dia que el motor de capacidad no cuenta.
-5. **Mover conserva la duracion y redimensionar recorta al otro extremo**, con las mismas operaciones que el Gantt (`moveRange` y `resizeRange`). El PATCH es el mismo (`dateChangePayload`).
-6. **Las asas solo aparecen donde se ve el extremo.** Una tarea que empieza antes de la semana no se redimensiona por el inicio desde esa semana: el asa se reserva al segmento que contiene el extremo real.
-7. **El permiso es por barra**, igual que en el Gantt: sin permiso de escritura en el proyecto de la tarea no hay arrastre, no hay asas y el teclado no mueve nada; el clic sigue abriendo el detalle.
-8. **El teclado tiene un solo camino**: las flechas mueven la barra un dia, `Mayus` con las flechas alarga o acorta, `Intro` abre el detalle y las flechas arriba y abajo cambian de barra. Una sola barra tiene el foco (`tabindex` 0) y su `aria-label` describe la tarea y si es de solo lectura.
-9. **El menu contextual depende del contexto**: el de la barra abre el detalle y mueve o redimensiona un dia; el del hueco abre el dia y ofrece el alta, que solo aparece si hay proyecto en contexto y permiso de escritura. `Mayus+F10` o la tecla `Menu` abren el de la barra enfocada.
-10. **El globo es decorativo**: repite lo que ya dice la etiqueta accesible de la barra, asi que no captura el puntero ni se anuncia.
-11. **El alta necesita un proyecto en contexto** y permiso de escritura: doble clic en un hueco, o el item del menu. El dia queda puesto en el formulario.
-12. **El estado de la vista vive en la URL** (`view`, `month`, `day`) y lo lleva un composable. Los valores por defecto no se escriben, los parametros invalidos se ignoran y los filtros de proyecto y departamento no se tocan.
-13. **El guardado se confirma con un aviso flotante** y el fallo sale en el banner de la vista: un fallo, un aviso. Ningun error cierra la sesion.
-14. **El motor no calcula horas ni capacidad.** Solo coloca la tarea en las columnas que ocupa.
+5. **Mover conserva los dias laborables y redimensionar recorta al otro extremo.** La duracion se cuenta en dias laborables, no en dias naturales: el fin de semana no se come dias. El PATCH es el mismo (`dateChangePayload`). Las flechas del teclado y los items del menu mueven y alargan tambien un dia laborable.
+6. **El arrastre se ve como el del Gantt**: una pilora con la franja del color del proyecto, la etiqueta de la tarea y el rango; la barra arrastrada baja al 60 %; el rango nuevo se sombrea en la fila de la persona de la tarea, no en la columna entera; y el globo se esconde mientras dura el gesto.
+7. **Las asas solo aparecen donde se ve el extremo.** Una tarea que empieza antes de la semana no se redimensiona por el inicio desde esa semana: el asa se reserva al segmento que contiene el extremo real.
+8. **El permiso es por barra**, igual que en el Gantt: sin permiso de escritura en el proyecto de la tarea no hay arrastre, no hay asas y el teclado no mueve nada; el clic sigue abriendo el detalle.
+9. **El teclado tiene un solo camino**: las flechas mueven la barra un dia laborable, `Mayus` con las flechas alarga o acorta, `Intro` abre el detalle y las flechas arriba y abajo cambian de barra. Una sola barra tiene el foco (`tabindex` 0) y su `aria-label` describe la tarea y si es de solo lectura.
+10. **El menu contextual depende del contexto**: el de la barra abre el detalle y mueve o redimensiona un dia; el del hueco abre el dia y ofrece el alta, que solo aparece si hay proyecto en contexto y permiso de escritura. `Mayus+F10` o la tecla `Menu` abren el de la barra enfocada.
+11. **El globo es decorativo**: repite lo que ya dice la etiqueta accesible de la barra, asi que no captura el puntero ni se anuncia.
+12. **El alta necesita un proyecto en contexto** y permiso de escritura: doble clic en un hueco, o el item del menu. El dia queda puesto en el formulario.
+13. **El estado de la vista vive en la URL** (`view`, `month`, `day`) y lo lleva un composable. Los valores por defecto no se escriben, los parametros invalidos se ignoran y los filtros de proyecto y departamento no se tocan.
+14. **El guardado se confirma con un aviso flotante** y el fallo sale en el banner de la vista: un fallo, un aviso. Ningun error cierra la sesion.
+15. **El motor no calcula horas ni capacidad.** Solo coloca la tarea en las columnas que ocupa.
 
 ### Que no entra
 

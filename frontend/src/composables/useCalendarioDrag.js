@@ -20,9 +20,9 @@
 import { ref } from 'vue'
 
 import { useArrastre } from './useArrastre'
-import { columnaDesdeX, diaLaborable, hitTestDia } from '../utils/calendarGeometry'
+import { columnaDesdeX, diaLaborable, hitTestDia, moverRangoLaborable } from '../utils/calendarGeometry'
 import { diffDays } from '../utils/ganttScale'
-import { moveRange, resizeRange } from '../utils/ganttLayout'
+import { resizeRange } from '../utils/ganttLayout'
 
 /**
  * Crea el arrastre de barras para la rejilla del calendario.
@@ -60,17 +60,27 @@ export function useCalendarioDrag({ geometriaDe, alConfirmar }) {
     return columna === null ? null : diaLaborable(dias[columna].date)
   }
 
-  /** Rango de la barra en la posicion del puntero: null si no hay destino. */
+  /**
+   * Rango de la barra en la posicion del puntero: null si no hay destino.
+   *
+   * El cuerpo conserva la duracion en dias laborables (`moverRangoLaborable`);
+   * las asas redimensionan un extremo sobre el dia de la columna. La
+   * previsualizacion y el fantasma salen de este mismo calculo, asi que lo
+   * que se ve es lo que se guarda.
+   */
   function rangoDe(pendiente, clientX, clientY) {
     const { barra, zona } = pendiente.datos
     const destino = fechaDestino(pendiente, clientX, clientY)
     if (destino === null) return null
     const { start, end } = barra.tarea
-    if (zona === 'body') return { ...moveRange(start, end, diffDays(start, destino)), fecha: destino }
+    if (zona === 'body') return { ...moverRangoLaborable(start, end, destino), fecha: destino }
     return { ...resizeRange(start, end, zona, diffDays(zona === 'start' ? start : end, destino)), fecha: destino }
   }
 
-  /** Previsualiza el destino del arrastre: el rango nuevo y el dia destino. */
+  /**
+   * Previsualiza el destino del arrastre: el rango nuevo, el dia destino y la
+   * persona de la tarea, para que la banda de destino se pinte en su fila.
+   */
   function alMover(pendiente, event) {
     const { barra } = pendiente.datos
     barraActiva.value = barra.tarea.id
@@ -78,7 +88,13 @@ export function useCalendarioDrag({ geometriaDe, alConfirmar }) {
     previsualizacion.value =
       rango === null
         ? null
-        : { taskId: barra.tarea.id, start: rango.start, end: rango.end, fecha: rango.fecha }
+        : {
+            taskId: barra.tarea.id,
+            start: rango.start,
+            end: rango.end,
+            fecha: rango.fecha,
+            personaId: barra.tarea.assigned_to ?? null,
+          }
   }
 
   /** Lo que el gesto deja de previsualizar al anularse o terminar. */
@@ -87,13 +103,19 @@ export function useCalendarioDrag({ geometriaDe, alConfirmar }) {
     barraActiva.value = null
   }
 
+  /**
+   * Datos del fantasma: la pilora del Gantt. El color es el del proyecto, la
+   * etiqueta es el titulo y el rango, el previsualizado si lo hay o el
+   * original si el puntero esta fuera de la rejilla.
+   */
   function fantasmaDe(pendiente, event) {
     const { barra } = pendiente.datos
     const rango = rangoDe(pendiente, event.clientX, event.clientY)
     return {
       x: event.clientX + 12,
       y: event.clientY - 12,
-      tarea: barra.tarea,
+      color: barra.tarea.project_color,
+      etiqueta: barra.tarea.title,
       rango: rango ? `${rango.start} → ${rango.end}` : `${barra.tarea.start} → ${barra.tarea.end}`,
     }
   }

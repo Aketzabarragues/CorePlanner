@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { columnaDesdeX, diaLaborable, esLaborable, hitTestDia } from '../utils/calendarGeometry'
+import {
+  columnaDesdeX,
+  diaLaborable,
+  desplazarLaborable,
+  diasLaborablesEntre,
+  esLaborable,
+  hitTestDia,
+  moverRangoLaborable,
+} from '../utils/calendarGeometry'
 import { weekDays } from '../utils/weeks'
 
 // 2026-W45: lunes 2 de noviembre a domingo 8 de noviembre de 2026. La
@@ -103,5 +111,80 @@ describe('dia laborable', () => {
   it('el sabado a fin de mes cae en el viernes de ese mes', () => {
     // 2026-12-05 es sabado; el viernes anterior es 2026-12-04.
     expect(diaLaborable('2026-12-05')).toBe('2026-12-04')
+  })
+})
+
+describe('desplazar en dias laborables', () => {
+  it('nulo devuelve la propia fecha', () => {
+    expect(desplazarLaborable('2026-11-02', 0)).toBe('2026-11-02')
+  })
+
+  it('viernes mas uno es el lunes siguiente', () => {
+    expect(desplazarLaborable('2026-11-06', 1)).toBe('2026-11-09')
+  })
+
+  it('lunes menos uno es el viernes anterior', () => {
+    expect(desplazarLaborable('2026-11-09', -1)).toBe('2026-11-06')
+  })
+
+  it('jueves mas cuatro es el miercoles siguiente', () => {
+    expect(desplazarLaborable('2026-11-05', 4)).toBe('2026-11-11')
+  })
+
+  it('la partida en sabado o domingo se normaliza con el dia laborable', () => {
+    // Sabado 7 -> viernes 6, y de ahi un dia adelante: lunes 9.
+    expect(desplazarLaborable('2026-11-07', 1)).toBe('2026-11-09')
+    // Domingo 8 -> lunes 9, y de ahi un dia atras: viernes 6.
+    expect(desplazarLaborable('2026-11-08', -1)).toBe('2026-11-06')
+  })
+})
+
+describe('dias laborables entre dos fechas', () => {
+  it('lunes a viernes cuenta cinco', () => {
+    expect(diasLaborablesEntre('2026-11-02', '2026-11-06')).toBe(5)
+  })
+
+  it('viernes a lunes siguiente cuenta dos', () => {
+    expect(diasLaborablesEntre('2026-11-06', '2026-11-09')).toBe(2)
+  })
+
+  it('un rango solo de fin de semana cuenta cero', () => {
+    expect(diasLaborablesEntre('2026-11-07', '2026-11-08')).toBe(0)
+  })
+
+  it('si el inicio no va antes del fin, cuenta cero', () => {
+    expect(diasLaborablesEntre('2026-11-06', '2026-11-02')).toBe(0)
+  })
+})
+
+describe('mover un rango conservando los dias laborables', () => {
+  it('lunes a viernes con destino jueves cae jueves a miercoles siguiente', () => {
+    expect(moverRangoLaborable('2026-11-02', '2026-11-06', '2026-11-05')).toEqual({
+      start: '2026-11-05',
+      end: '2026-11-11',
+    })
+  })
+
+  it('el caso del bug: lunes 30 nov a viernes 4 dic con destino jueves 3 dic', () => {
+    expect(moverRangoLaborable('2026-11-30', '2026-12-04', '2026-12-03')).toEqual({
+      start: '2026-12-03',
+      end: '2026-12-09',
+    })
+  })
+
+  it('una tarea de un solo dia se mueve sin estirarse', () => {
+    expect(moverRangoLaborable('2026-11-02', '2026-11-02', '2026-11-05')).toEqual({
+      start: '2026-11-05',
+      end: '2026-11-05',
+    })
+  })
+
+  it('una tarea que empieza en sabado conserva los dias laborables', () => {
+    // Del sabado 7 al miercoles 11 hay tres dias laborables (9, 10 y 11);
+    // con destino jueves 5 cae del 5 al 9.
+    expect(moverRangoLaborable('2026-11-07', '2026-11-11', '2026-11-05')).toEqual({
+      start: '2026-11-05',
+      end: '2026-11-09',
+    })
   })
 })

@@ -9,6 +9,11 @@ const semanas = [
   { week: '2026-W47', hours: 22.72, capacity: 36, utilization: 63, holidays: [{ name: 'Formacion interna', half_day: true }] },
 ]
 
+const semanasConDesconocidas = [
+  { week: '2026-W47', hours: 18, capacity: 40, utilization: 45, unknown_capacity_users: 1 },
+  { week: '2026-W48', hours: 0, capacity: 80, utilization: 0, unknown_capacity_users: 2 },
+]
+
 function montar(props = {}) {
   return mount(LoadBars, { props: { weeks: semanas, ...props } })
 }
@@ -67,5 +72,33 @@ describe('LoadBars', () => {
     expect(wrapper.attributes('role')).toBe('img')
     expect(wrapper.attributes('aria-label')).toContain('semana 45')
     expect(wrapper.attributes('aria-label')).toContain('113 %')
+  })
+
+  it('el tooltip y el aria-label avisan de las personas sin capacidad conocida', () => {
+    const wrapper = montar({ weeks: semanasConDesconocidas, title: 'Uso del equipo por semana', totalPersonas: 12 })
+
+    const columnas = wrapper.findAll('div[title]')
+    expect(columnas[0].attributes('title')).toBe('45 % (capacidad conocida de 11 de 12 personas)')
+    expect(columnas[1].attributes('title')).toBe('0 % (capacidad conocida de 10 de 12 personas)')
+
+    const aria = wrapper.attributes('aria-label')
+    expect(aria).toContain('semana 47: 45 % (capacidad conocida de 11 de 12 personas)')
+    expect(aria).toContain('semana 48: 0 % (capacidad conocida de 10 de 12 personas)')
+  })
+
+  it('sin total de personas no se anade la nota de capacidad', () => {
+    const wrapper = montar({ weeks: semanasConDesconocidas })
+
+    const columnas = wrapper.findAll('div[title]')
+    expect(columnas[0].attributes('title')).toBe('45 %')
+    expect(wrapper.attributes('aria-label')).not.toContain('capacidad conocida')
+  })
+
+  it('sin unknown_capacity_users no se anade nota ninguna', () => {
+    const wrapper = montar()
+
+    const columnas = wrapper.findAll('div[title]')
+    expect(columnas[0].attributes('title')).toBe('100 %')
+    expect(wrapper.attributes('aria-label')).not.toContain('capacidad conocida')
   })
 })

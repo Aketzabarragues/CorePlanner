@@ -525,6 +525,7 @@ useTaskReload(load)
             :weeks="weeks"
             title="Uso del equipo por semana"
             test-id="panel-bars"
+            :total-personas="panel.total_people"
           />
         </BaseCard>
 

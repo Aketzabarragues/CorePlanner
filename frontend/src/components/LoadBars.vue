@@ -20,6 +20,9 @@ const props = defineProps({
   title: { type: String, default: 'Carga por semana' },
   height: { type: Number, default: 136 },
   testId: { type: String, default: 'load-bars' },
+  // Personas de la matriz; con ellas la nota dice de cuantas es la capacidad
+  // conocida. Opcional: sin total no hay nota.
+  totalPersonas: { type: Number, default: null },
 })
 
 /** Escala del grafico: la barra llena es el tope y la linea marca el 100 %. */
@@ -29,6 +32,22 @@ const LINE = 100
 const MIN_BAR = 3
 
 const hoy = currentWeekKey()
+
+/**
+ * Nota de las personas sin capacidad conocida en la semana.
+ *
+ * El campo es opcional: sin dato (o sin total de personas) no hay nota. El
+ * grafico publica la suma de lo conocido, asi que la nota dice de cuantas
+ * personas es esa capacidad.
+ */
+function desconocidasNota(semana) {
+  const desconocidas = Number(semana.unknown_capacity_users)
+  if (!Number.isInteger(desconocidas) || desconocidas <= 0) return ''
+  if (!Number.isInteger(props.totalPersonas) || props.totalPersonas <= desconocidas) return ''
+  const conocidas = props.totalPersonas - desconocidas
+  const plural = conocidas === 1 ? 'persona' : 'personas'
+  return `capacidad conocida de ${conocidas} de ${props.totalPersonas} ${plural}`
+}
 
 /**
  * Etiqueta del festivo de la semana.
@@ -55,6 +74,8 @@ const items = computed(() =>
     const aspect = loadAspect(state)
     const ratio = loadRatio(semana.hours, semana.capacity)
     const alto = ratio === null ? 0 : Math.min(ratio, MAX_SCALE)
+    const nota = desconocidasNota(semana)
+    const cifra = ratio === null ? `${semana.hours ?? 0} h` : `${ratio} %`
     return {
       week: semana.week,
       horas: Number(semana.hours ?? 0),
@@ -64,9 +85,13 @@ const items = computed(() =>
       // practica) la pista de la barra vacia.
       clases: aspect.bar || 'bg-carga-vacio-barra',
       altura: `${Math.max(MIN_BAR, (alto / MAX_SCALE) * 100)}%`,
-      texto: ratio === null ? `${semana.hours ?? 0} h` : `${ratio} %`,
+      texto: cifra,
       festivo: festivoEtiqueta(semana.holidays),
       tituloFestivo: festivoTitulo(semana.holidays),
+      // Quien queda fuera del denominador, si el backend lo dice.
+      nota,
+      // Tooltip por semana: la cifra y, si hay, la nota de capacidad.
+      titulo: nota ? `${cifra} (${nota})` : cifra,
     }
   }),
 )
@@ -74,8 +99,10 @@ const items = computed(() =>
 /** Lo que se lee en voz alta: las cifras de todas las semanas. */
 const ariaLabel = computed(() => {
   const partes = items.value.map((item) => {
+    const numero = item.week.split('-W')[1]
     const cifra = item.ratio === null ? `${item.horas} h` : `${item.ratio} %`
-    return `semana ${item.week.split('-W')[1]}: ${cifra}`
+    const nota = item.nota ? ` (${item.nota})` : ''
+    return `semana ${numero}: ${cifra}${nota}`
   })
   return `${props.title}: ${partes.join('; ')}`
 })
@@ -95,6 +122,7 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
       v-for="item in items"
       :key="item.week"
       class="flex min-w-0 flex-1 flex-col items-center gap-1"
+      :title="item.titulo"
     >
       <div class="relative w-full" :style="{ height: `${height}px` }">
         <div

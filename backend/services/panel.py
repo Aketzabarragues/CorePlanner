@@ -51,12 +51,18 @@ class PanelDepartment:
 
 @dataclass(frozen=True, slots=True)
 class PanelWeek:
-    """Uso del equipo en una semana del periodo."""
+    """Uso del equipo en una semana del periodo.
+
+    capacity_units es la suma de las capacidades conocidas; unknown_users
+    cuenta a quien no la tiene, para que el grafico diga cuanto se queda
+    fuera del denominador.
+    """
 
     week: str
     units: int
-    capacity_units: int | None
+    capacity_units: int
     utilization: int | None
+    unknown_users: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,12 +147,9 @@ class Panel:
                 {
                     "week": item.week,
                     "hours": from_units(item.units),
-                    "capacity": (
-                        from_units(item.capacity_units)
-                        if item.capacity_units is not None
-                        else None
-                    ),
+                    "capacity": from_units(item.capacity_units),
                     "utilization": item.utilization,
+                    "unknown_capacity_users": item.unknown_users,
                 }
                 for item in self.weeks
             ],
@@ -221,29 +224,32 @@ def reference_week(weeks: Sequence[str], today: date | None = None) -> str | Non
 def team_weeks(report: CapacityReport) -> tuple[PanelWeek, ...]:
     """Uso del equipo en cada semana del periodo.
 
-    Una semana en la que alguien no tiene capacidad conocida no se cuenta como
-    capacidad cero: no se sabe, y por eso el porcentaje tampoco se publica.
+    La capacidad de la semana es la suma de las capacidades conocidas, como
+    en week_usage: quien no tiene capacidad conocida no anula la del resto,
+    pero se cuenta en unknown_users para que el grafico no mienta. Cuando
+    nadie la tiene, la suma queda en cero y el porcentaje no se publica.
     """
     rows: list[PanelWeek] = []
     for week in report.weeks:
         units = 0
         capacity = 0
-        unknown = False
+        unknown = 0
         for row in report.rows:
             cell = next((item for item in row.cells if item.week == week), None)
             if cell is None:
                 continue
             units += cell.units
             if cell.capacity_units is None:
-                unknown = True
+                unknown += 1
                 continue
             capacity += cell.capacity_units
         rows.append(
             PanelWeek(
                 week=week,
                 units=units,
-                capacity_units=None if unknown else capacity,
-                utilization=None if unknown else utilization_percent(units, capacity),
+                capacity_units=capacity,
+                utilization=utilization_percent(units, capacity),
+                unknown_users=unknown,
             )
         )
     return tuple(rows)

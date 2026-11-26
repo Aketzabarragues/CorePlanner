@@ -7,7 +7,9 @@ matriz y que la semana de referencia sea la del periodo con actividad.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -53,6 +55,139 @@ async def client():
     finally:
         app.dependency_overrides.pop(get_db, None)
     await engine.dispose()
+
+
+async def _seed_sin_horarios(session, con_base: bool) -> None:
+    """Matriz con una persona sin capacidad conocida.
+
+    Luis es miembro del proyecto y no tiene capacidad definida: ni horario
+    ni horas base, de modo que su celda sale desconocida. con_base añade Ana
+    y Jorge, que si la tienen (40 h semanales), para ver la suma.
+    """
+    rol = Role(name="Ingeniero", permissions_json=["capacity.read", "gantt.read"])
+    session.add(rol)
+    await session.flush()
+
+    admin = User(
+        name="Admin",
+        email="admin@example.com",
+        hashed_password=hash_password(PASSWORD),
+        is_global_admin=True,
+        weekly_base_hours=Decimal("40"),
+    )
+    luis = User(
+        name="Luis",
+        email="luis@example.com",
+        hashed_password=hash_password(PASSWORD),
+        weekly_base_hours=Decimal("0"),
+    )
+    session.add_all([admin, luis])
+    await session.flush()
+
+    linea = Project(name="Linea Pasteurizadora", status="active")
+    session.add(linea)
+    await session.flush()
+
+    miembros = [
+        ProjectMember(user_id=luis.id, project_id=linea.id, role_id=rol.id),
+    ]
+    lunes = week_start_from_key(current_week_key())
+
+    if con_base:
+        ana = User(
+            name="Ana",
+            email="ana@example.com",
+            hashed_password=hash_password(PASSWORD),
+            weekly_base_hours=Decimal("40"),
+        )
+        jorge = User(
+            name="Jorge",
+            email="jorge@example.com",
+            hashed_password=hash_password(PASSWORD),
+            weekly_base_hours=Decimal("40"),
+        )
+        session.add_all([ana, jorge])
+        await session.flush()
+        miembros += [
+            ProjectMember(user_id=ana.id, project_id=linea.id, role_id=rol.id),
+            ProjectMember(user_id=jorge.id, project_id=linea.id, role_id=rol.id),
+        ]
+        tareas = [
+            Task(
+                project_id=linea.id,
+                assigned_to=ana.id,
+                title="Programacion SCADA",
+                status=TaskStatus.IN_PROGRESS.value,
+                start_date=lunes,
+                end_date=lunes + timedelta(days=4),
+                estimated_hours=10,
+            ),
+            Task(
+                project_id=linea.id,
+                assigned_to=jorge.id,
+                title="Planos de tuberias",
+                status=TaskStatus.BACKLOG.value,
+                start_date=lunes,
+                end_date=lunes + timedelta(days=4),
+                estimated_hours=10,
+            ),
+        ]
+    else:
+        tareas = []
+
+    tareas.append(
+        Task(
+            project_id=linea.id,
+            assigned_to=luis.id,
+            title="Montaje de cuadros",
+            status=TaskStatus.BACKLOG.value,
+            start_date=lunes,
+            end_date=lunes + timedelta(days=4),
+            estimated_hours=10,
+        )
+    )
+    session.add_all(miembros + tareas)
+    await session.flush()
+    await session.commit()
+
+
+@asynccontextmanager
+async def _crear_client(con_base: bool):
+    """Cliente HTTP con la matriz de _seed_sin_horarios."""
+    engine = create_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def override_get_db():
+        async with factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with factory() as session:
+            await _seed_sin_horarios(session, con_base)
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as http:
+            http.week = current_week_key()
+            yield http
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+    await engine.dispose()
+
+
+@pytest.fixture
+async def client_con_base():
+    """Matriz con Ana y Jorge (40 h de base) y Luis (sin capacidad)."""
+    async with _crear_client(True) as http:
+        yield http
+
+
+@pytest.fixture
+async def client_solo_desconocido():
+    """Matriz solo con Luis: nadie tiene capacidad conocida."""
+    async with _crear_client(False) as http:
+        yield http
 
 
 async def _seed(session) -> dict[str, int]:
@@ -295,3 +430,61 @@ async def test_el_panel_de_una_persona_sin_proyectos_no_inventa_datos(
     assert data["projects"] == []
     assert data["total_tasks"] == 0
     assert data["pending"] == []
+
+
+async def test_la_semana_publica_la_capacidad_conocida_y_cuenta_a_quien_se_queda_fuera(
+    client_con_base: AsyncClient,
+):
+    """Una persona sin capacidad no anula la capacidad del equipo.
+
+    Ana y Jorge tienen 40 h de capacidad cada uno y Luis no tiene ninguna
+    definida: la semana publica la suma de lo conocido (80 h), el porcentaje
+    sobre esa suma y el numero de personas fuera del denominador.
+    """
+    headers = await _auth(client_con_base, "admin@example.com")
+    semana = client_con_base.week
+    siguiente = current_week_key(week_start_from_key(semana) + timedelta(weeks=1))
+
+    response = await client_con_base.get(
+        f"/api/panel?from={semana}&to={siguiente}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    semanas = response.json()["weeks"]
+    assert len(semanas) == 2
+    primera, segunda = semanas
+    # 30 h planificadas (10 h por persona) frente a 80 h de capacidad conocida.
+    assert primera["hours"] == 30
+    assert primera["capacity"] == 80
+    assert primera["utilization"] == 38
+    assert primera["unknown_capacity_users"] == 1
+    # La semana sin actividad es la misma: capacidad conocida y porcentaje cero.
+    assert segunda["hours"] == 0
+    assert segunda["capacity"] == 80
+    assert segunda["utilization"] == 0
+    assert segunda["unknown_capacity_users"] == 1
+
+
+async def test_una_semana_sin_capacidad_conocida_no_publica_porcentaje(
+    client_solo_desconocido: AsyncClient,
+):
+    """Si nadie tiene capacidad conocida, la semana no publica porcentaje.
+
+    Solo Luis esta en la matriz y su capacidad es desconocida: la suma de lo
+    conocido es cero y el porcentaje no se publica, sin inventar un limite.
+    """
+    headers = await _auth(client_solo_desconocido, "admin@example.com")
+    semana = client_solo_desconocido.week
+    siguiente = current_week_key(week_start_from_key(semana) + timedelta(weeks=1))
+
+    response = await client_solo_desconocido.get(
+        f"/api/panel?from={semana}&to={siguiente}", headers=headers
+    )
+
+    assert response.status_code == 200, response.text
+    semanas = response.json()["weeks"]
+    assert len(semanas) == 2
+    for item in semanas:
+        assert item["capacity"] == 0
+        assert item["utilization"] is None
+        assert item["unknown_capacity_users"] == 1

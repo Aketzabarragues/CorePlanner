@@ -647,12 +647,18 @@ class PanelOverloadOut(BaseModel):
 
 
 class PanelWeekOut(BaseModel):
-    """Uso del equipo en una semana del periodo."""
+    """Uso del equipo en una semana del periodo.
+
+    capacity es la suma de las capacidades conocidas; unknown_capacity_users
+    cuenta a quien no la tiene, para que el grafico diga cuanto se queda fuera
+    del denominador.
+    """
 
     week: str
     hours: Hours
     capacity: Hours | None = None
     utilization: int | None = None
+    unknown_capacity_users: int = 0
 
 
 class PanelPendingOut(BaseModel):

@@ -31,6 +31,7 @@
 import { computed } from 'vue'
 
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
+import { textoSobre } from '../../utils/statusColor'
 
 const props = defineProps({
   /** Barra del layout: { taskId, x, width, label, title, color, status,
@@ -65,8 +66,25 @@ const emit = defineEmits([
 /** Ancho minimo de barra, para que una tarea de un dia siga siendo agarrable. */
 const anchoBarra = computed(() => Math.max(6, props.barra.width))
 
-/** La etiqueta solo sale si cabe: no se recorta a la mitad. */
+/** La etiqueta solo sale si cabe: el recorte no es un segundo nivel de aviso. */
 const mostrarEtiqueta = computed(() => anchoBarra.value >= GANTT_METRICS.labelMinWidth)
+
+/**
+ * Id del clip de la etiqueta, unico por barra.
+ *
+ * Dos barras con el mismo id de clip se pisarian en el recorte: el id lleva el
+ * identificador de la tarea, que es unico dentro del diagrama.
+ */
+const clipId = computed(() => `gantt-bar-clip-${props.barra.taskId}`)
+
+/**
+ * Color del texto de la etiqueta: el que llega a 4.5:1 sobre el color del
+ * proyecto (dato del backend). Sin color de proyecto (provisional o sin
+ * color) no hay decision que tomar: se queda el blanco de la clase.
+ */
+const colorTexto = computed(() =>
+  props.barra.projectColor ? textoSobre(props.barra.projectColor) : null,
+)
 
 /** Zona sensible del asa: el resto del cuerpo es la barra. */
 function zonaDe(event) {
@@ -171,14 +189,25 @@ function alMenuContexto(event) {
       data-testid="gantt-bar-critical"
     />
 
-    <!-- Etiqueta: solo si cabe entera. -->
-    <text
-      v-if="mostrarEtiqueta"
-      :x="GANTT_METRICS.labelPadding"
-      :y="GANTT_METRICS.barHeight / 2 + 4"
-      class="gantt__barra-etiqueta"
-      pointer-events="none"
-    >{{ barra.label }}</text>
+    <!--
+      Etiqueta: solo si cabe entera y recortada al ancho de la barra: la cola
+      del titulo no puede salirse. El clip vive en el <g> de la barra y su id
+      es unico por barra (ver clipId), para que dos barras no se recorten con
+      el mismo rect.
+    -->
+    <g v-if="mostrarEtiqueta">
+      <clipPath :id="clipId">
+        <rect :width="anchoBarra" :height="GANTT_METRICS.barHeight" />
+      </clipPath>
+      <text
+        :x="GANTT_METRICS.labelPadding"
+        :y="GANTT_METRICS.barHeight / 2 + 4"
+        :clip-path="`url(#${clipId})`"
+        :style="colorTexto ? { fill: colorTexto } : undefined"
+        class="gantt__barra-etiqueta"
+        pointer-events="none"
+      >{{ barra.label }}</text>
+    </g>
 
     <!-- Marca de violacion: triangulo en la esquina superior derecha, dentro
          de la barra. Distingue por forma, no por color; el motivo va en la

@@ -9,6 +9,10 @@
  * El texto de la pildora se oscurece hasta tener contraste de 4.5:1 contra su
  * propio fondo (WCAG 2.1 AA, texto normal): cualquier color de la paleta
  * cerrada queda legible.
+ *
+ * La misma matematica sirve para el texto sobre el color de un proyecto
+ * (la barra del Gantt y la del calendario): `textoSobre` elige el color del
+ * texto para que llegue a 4.5:1 contra el fondo, que es dato del backend.
  */
 
 /**
@@ -103,4 +107,32 @@ export function pildora(hex) {
 /** Estilo en linea de la barra de un estado: el color tal cual. */
 export function barra(hex) {
   return hexACanal(hex) === null ? NEUTRO_BARRA : { backgroundColor: hex }
+}
+
+function canalAHex(canal) {
+  return canal.toString(16).padStart(2, '0')
+}
+
+/**
+ * Color del texto sobre un fondo de color: el blanco por defecto, y el texto
+ * oscuro (`--cp-texto`) cuando el fondo es claro y el blanco no llega al
+ * contraste de 4.5:1 (WCAG 2.1 AA, texto normal).
+ *
+ * El fondo es dato del backend (el color del proyecto, que llega en hex):
+ * aqui solo se decide el texto, nunca el fondo. Sin color valido no hay
+ * decision que tomar: se devuelve el blanco, el valor por defecto.
+ *
+ * El oscuro es el token `--cp-texto` (rgb 15 23 42), no el negro puro: da
+ * contraste en todos los fondos de la paleta cerrada donde el blanco no
+ * llega. La decision se hace con los hex de trabajo y se devuelve como
+ * token, nunca como hex suelto.
+ */
+export function textoSobre(hex) {
+  const BLANCO = 'rgb(255 255 255)'
+  if (hexACanal(hex) === null) return BLANCO
+  const blanco = `#${canalAHex(255)}${canalAHex(255)}${canalAHex(255)}`
+  const oscuro = `#${canalAHex(15)}${canalAHex(23)}${canalAHex(42)}`
+  if ((contraste(blanco, hex) ?? 0) >= 4.5) return BLANCO
+  if ((contraste(oscuro, hex) ?? 0) >= 4.5) return 'rgb(var(--cp-texto))'
+  return BLANCO
 }

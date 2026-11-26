@@ -1103,3 +1103,41 @@ describe('GanttChart menu contextual', () => {
     expect(contexto.fila.rowIndex).toBe(0)
   })
 })
+
+describe('GanttBar etiqueta', () => {
+  it('se recorta al ancho de la barra: clip-path apunta a un clipPath propio del ancho de la barra', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { width: 112, label: 'Titulo que se sale del ancho de la barra' }),
+      barraNueva(11, { rowIndex: 1, width: 84 }),
+    ]))
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    // El clip es unico por barra: cada etiqueta apunta a su clipPath y el
+    // rect del clip mide lo que mide la barra.
+    expect(barras[0].get('.gantt__barra-etiqueta').attributes('clip-path')).toBe('url(#gantt-bar-clip-10)')
+    expect(barras[1].get('.gantt__barra-etiqueta').attributes('clip-path')).toBe('url(#gantt-bar-clip-11)')
+    expect(barras[0].get('#gantt-bar-clip-10 rect').attributes('width')).toBe('112')
+    expect(barras[1].get('#gantt-bar-clip-11 rect').attributes('width')).toBe('84')
+  })
+
+  it('con color de proyecto el relleno del texto es el que llega a 4.5:1 sobre el fondo', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { width: 112, projectColor: '#1f6feb' }),
+      barraNueva(11, { rowIndex: 1, width: 112, projectColor: '#bf8700' }),
+    ]))
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    expect(barras[0].get('.gantt__barra-etiqueta').attributes('style')).toContain(
+      'fill: rgb(255, 255, 255)',
+    )
+    expect(barras[1].get('.gantt__barra-etiqueta').attributes('style')).toContain(
+      'fill: rgb(var(--cp-texto))',
+    )
+  })
+
+  it('sin color de proyecto el texto se queda con el blanco de la clase', () => {
+    const wrapper = montar(layoutDe([barraNueva(10, { width: 112 })]))
+
+    expect(wrapper.get('.gantt__barra-etiqueta').attributes('style')).toBeUndefined()
+  })
+})

@@ -8,6 +8,7 @@ import {
   NEUTRO_BARRA,
   NEUTRO_PILDORA,
   pildora,
+  textoSobre,
 } from '../utils/statusColor'
 
 describe('luminancia y contraste (WCAG 2.1)', () => {
@@ -63,5 +64,44 @@ describe('barra', () => {
   it('sin color valido, el neutro', () => {
     expect(barra(null)).toEqual(NEUTRO_BARRA)
     expect(barra('#zzzzzz')).toEqual(NEUTRO_BARRA)
+  })
+})
+
+/**
+ * Dato de test: el valor de los dos colores que devuelve `textoSobre` en hex,
+ * para que `contraste` pueda parsearlos (el oscuro es `--cp-texto`, rgb 15
+ * 23 42).
+ */
+function resolverTexto(texto) {
+  return texto === 'rgb(var(--cp-texto))' ? '#0f172a' : '#ffffff'
+}
+
+describe('textoSobre', () => {
+  it('fondo oscuro: el texto se queda blanco', () => {
+    expect(textoSobre('#0a3d91')).toBe('rgb(255 255 255)')
+    expect(textoSobre('#1f6feb')).toBe('rgb(255 255 255)')
+    expect(textoSobre('#3f4c5a')).toBe('rgb(255 255 255)')
+  })
+
+  it('fondo claro donde el blanco no llega a 4.5:1: texto oscuro', () => {
+    expect(textoSobre('#bf8700')).toBe('rgb(var(--cp-texto))')
+  })
+
+  it('fondo donde el blanco si llega a 4.5:1: se queda blanco', () => {
+    expect(textoSobre('#b45309')).toBe('rgb(255 255 255)')
+    expect(textoSobre('#4d7c0f')).toBe('rgb(255 255 255)')
+  })
+
+  it('sin color valido, el blanco por defecto', () => {
+    expect(textoSobre(null)).toBe('rgb(255 255 255)')
+    expect(textoSobre('nada')).toBe('rgb(255 255 255)')
+  })
+
+  it('todos los colores de la paleta cerrada: el texto devuelto llega a 4.5:1', () => {
+    for (const { hex, label } of PALETTE) {
+      const texto = textoSobre(hex)
+      const ratio = contraste(resolverTexto(texto), hex)
+      expect(ratio, label).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })

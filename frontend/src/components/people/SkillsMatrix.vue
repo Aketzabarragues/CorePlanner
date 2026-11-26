@@ -32,14 +32,14 @@ const rows = computed(() =>
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+  <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta">
     <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+      <thead class="bg-tarjeta-suave text-left text-xs uppercase tracking-wide text-texto-tenue">
         <tr>
           <th class="px-3 py-2 font-medium">Habilidad</th>
           <th v-for="person in people" :key="person.id" class="px-3 py-2 text-center font-medium">
             <span
-              class="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-siemens-900 text-xs font-semibold text-white"
+              class="mx-auto flex h-8 w-8 items-center justify-center rounded-avatar bg-primario-fuerte text-xs font-semibold text-texto-inverso"
               :title="person.name"
             >
               {{ initials(person.name) }}
@@ -47,22 +47,22 @@ const rows = computed(() =>
           </th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100">
+      <tbody class="divide-y divide-borde-suave">
         <tr v-for="row in rows" :key="row.id" data-testid="skill-row">
-          <td class="px-3 py-2 text-slate-700">{{ row.name }}</td>
+          <td class="px-3 py-2 text-texto-suave">{{ row.name }}</td>
           <td v-for="(level, index) in row.cells" :key="index" class="px-3 py-2">
             <span class="flex justify-center gap-0.5">
               <span
                 v-for="dot in 3"
                 :key="dot"
                 class="h-2 w-2 rounded-full"
-                :class="dot <= level ? 'bg-siemens-700' : 'bg-slate-200'"
+                :class="dot <= level ? 'bg-primario-medio' : 'bg-borde'"
               ></span>
             </span>
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="people.length + 1" class="px-3 py-6 text-center text-sm text-slate-500">
+          <td :colspan="people.length + 1" class="px-3 py-6 text-center text-sm text-texto-tenue">
             Todavía no hay competencias en el catálogo.
           </td>
         </tr>

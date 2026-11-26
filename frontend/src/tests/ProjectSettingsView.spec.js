@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useToastStore } from '../stores/toast'
@@ -103,6 +104,16 @@ function setupFetch({ isManager = true, estadosList = estados, postError = null,
 }
 
 async function mountView() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/projects/:id', name: 'project', component: { render: () => null } },
+      { path: '/projects/:id/members', name: 'members', component: { render: () => null } },
+      { path: '/projects/:id/settings', name: 'project-settings', component: { render: () => null } },
+    ],
+  })
+  await router.push('/projects/1/settings')
+  await router.isReady()
   const pinia = createPinia()
   setActivePinia(pinia)
   // En el cuerpo del documento: la vista localiza botones por `data-testid`
@@ -111,7 +122,7 @@ async function mountView() {
   document.body.appendChild(contenedor)
   const wrapper = mount(ProjectSettingsView, {
     props: { id: 1 },
-    global: { plugins: [pinia] },
+    global: { plugins: [pinia, router] },
     attachTo: contenedor,
   })
   await flushPromises()
@@ -250,7 +261,11 @@ describe('ProjectSettingsView · estados de tarea', () => {
 
     await wrapper.find('[data-testid="task-status-label-input"]').setValue('Planificación')
     await wrapper.find('[data-testid="task-status-progress-input"]').setValue('25')
-    await wrapper.find('[data-testid="color-swatch-#1f6feb"]').trigger('click')
+    // El selector de color va en el dialogo: hay otro picker (el color del
+    // proyecto) en la seccion general, que se pinta antes en el DOM.
+    await wrapper
+      .find('#form-estado-tarea [data-testid="color-swatch-#1f6feb"]')
+      .trigger('click')
     await wrapper.find('[data-testid="task-status-save"]').trigger('click')
     await flushPromises()
     await flushPromises()
@@ -280,8 +295,11 @@ describe('ProjectSettingsView · estados de tarea', () => {
     expect(wrapper.text()).toContain('Clave en_desarrollo: no se puede cambiar')
     expect(wrapper.find('[data-testid="task-status-label-input"]').element.value).toBe('En Desarrollo')
     expect(wrapper.find('[data-testid="task-status-progress-input"]').element.value).toBe('50')
+    // El picker del dialogo, no el de la seccion general.
     expect(
-      wrapper.find('[data-testid="color-swatch-#1a7f37"]').attributes('aria-checked'),
+      wrapper
+        .find('#form-estado-tarea [data-testid="color-swatch-#1a7f37"]')
+        .attributes('aria-checked'),
     ).toBe('true')
     expect(
       wrapper.find('[data-testid="task-status-clear-color"]').exists(),
@@ -471,5 +489,30 @@ describe('ProjectSettingsView · estados de tarea', () => {
     expect(
       useToastStore().items.map((item) => item.message),
     ).not.toContain('El orden no coincide con los estados del proyecto')
+  })
+
+  it('tarjetas, campos y botones llevan la piel de tokens', async () => {
+    const wrapper = await mountView()
+
+    const nombre = wrapper.find('[data-testid="project-name"]')
+    for (const clase of ['rounded-control', 'border-borde-fuerte', 'bg-tarjeta', 'text-cp-sm']) {
+      expect(nombre.classes()).toContain(clase)
+    }
+
+    const guardar = wrapper.find('[data-testid="save-project"]')
+    for (const clase of ['bg-primario-fuerte', 'text-sobre-primario', 'shadow-primaria']) {
+      expect(guardar.classes()).toContain(clase)
+    }
+
+    const seccion = wrapper.find('[data-testid="task-statuses-section"]')
+    for (const clase of ['rounded-tarjeta', 'border-borde', 'bg-tarjeta', 'shadow-tarjeta']) {
+      expect(seccion.classes()).toContain(clase)
+    }
+    expect(seccion.find('thead tr').classes()).toContain('uppercase')
+
+    const borrar = wrapper.find('[data-testid="task-status-delete"]')
+    for (const clase of ['bg-tarjeta', 'text-peligro-texto', 'border-peligro-borde']) {
+      expect(borrar.classes()).toContain(clase)
+    }
   })
 })

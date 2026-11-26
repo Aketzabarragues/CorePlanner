@@ -422,16 +422,16 @@ describe('GanttView', () => {
 
       // La etiqueta lleva el titulo encima y el select es un control normal.
       const clasesLabel = label.className
-      expect(clasesLabel).toContain('text-xs font-medium text-slate-600')
+      expect(clasesLabel).toContain('inline-flex flex-col gap-1')
       expect(clasesLabel).not.toContain('rounded-full')
 
       const span = label.querySelector('span')
-      expect(span.className).toContain('mb-1 block')
+      expect(span.className).toContain('text-cp-xs font-medium text-texto-suave')
       expect(span.textContent).toBe(texto)
 
       const clasesSelect = select.classes().join(' ')
       expect(clasesSelect).toContain(
-        'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
+        'rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-3 pr-8 text-cp-sm',
       )
       expect(clasesSelect).not.toContain('rounded-full')
       expect(clasesSelect).not.toContain('bg-transparent')

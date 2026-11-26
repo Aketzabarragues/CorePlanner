@@ -752,9 +752,38 @@ watch(
   -->
   <div
     class="flex h-full min-h-0 flex-col"
-    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-slate-50 p-3 sm:p-6' : ''"
+    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
     <PageHeader class="shrink-0" title="Calendario" :subtitle="subtitle">
+      <template #filters>
+        <FilterField
+          label="Departamento"
+          :options="opcionesDepartamento"
+          :model-value="departmentFilter"
+          testid="filter-department"
+          @update:model-value="departmentFilter = $event"
+        />
+
+        <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
+        <FilterField
+          v-if="!route.params.id"
+          label="Proyecto"
+          :options="opcionesProyecto"
+          :model-value="projectFilter"
+          testid="filter-project"
+          @update:model-value="projectFilter = $event"
+        />
+
+        <VisibilityPanel
+          :personas="personasVisibilidad"
+          :ids-ocultos="idsOcultos"
+          :departamentos-ocultos="departamentosOcultos"
+          :ocultos-count="ocultosCount"
+          @alternar-persona="alternarPersona"
+          @alternar-departamento="alternarDepartamento"
+          @mostrar-todos="mostrarTodos"
+        />
+      </template>
       <template #actions>
           <SegmentedControl
             :model-value="view"
@@ -764,47 +793,46 @@ watch(
             @update:model-value="setView"
           />
 
+          <!-- Navegador de periodo: anterior / etiqueta central / siguiente. -->
+          <div
+            class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control"
+          >
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              aria-label="Periodo anterior"
+              data-testid="calendar-prev"
+              @click="step(-1)"
+            >
+              <span class="inline-flex h-3.5 w-3.5">
+                <AppIcon name="chevronLeft" />
+              </span>
+            </button>
+
+            <span class="min-w-[112px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca">
+              <span v-if="view === 'month'" data-testid="calendar-month">{{ monthLabel(month) }}</span>
+              <span v-else-if="view === 'week'" data-testid="calendar-week">
+                {{ weekRangeLabel(week) }}
+                <span class="font-normal text-texto-tenue">{{ week }}</span>
+              </span>
+              <span v-else data-testid="calendar-day">{{ longDateLabel(day) }}</span>
+            </span>
+
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              aria-label="Periodo siguiente"
+              data-testid="calendar-next"
+              @click="step(1)"
+            >
+              <span class="inline-flex h-3.5 w-3.5">
+                <AppIcon name="chevronRight" />
+              </span>
+            </button>
+          </div>
           <button
             type="button"
-            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-            data-testid="calendar-prev"
-            @click="step(-1)"
-          >
-            ‹
-          </button>
-          <span
-            v-if="view === 'month'"
-            class="min-w-36 text-center text-sm font-medium text-siemens-900"
-            data-testid="calendar-month"
-          >
-            {{ monthLabel(month) }}
-          </span>
-          <span
-            v-else-if="view === 'week'"
-            class="min-w-44 text-center text-sm font-medium text-siemens-900"
-            data-testid="calendar-week"
-          >
-            {{ weekRangeLabel(week) }}
-            <span class="ml-1 text-xs font-normal text-slate-400">{{ week }}</span>
-          </span>
-          <span
-            v-else
-            class="min-w-44 text-center text-sm font-medium text-siemens-900"
-            data-testid="calendar-day"
-          >
-            {{ longDateLabel(day) }}
-          </span>
-          <button
-            type="button"
-            class="rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700"
-            data-testid="calendar-next"
-            @click="step(1)"
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            class="rounded border border-siemens-900 bg-siemens-900 px-3 py-1.5 text-sm text-white"
+            class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="calendar-today"
             @click="goToday"
           >
@@ -818,7 +846,7 @@ watch(
           -->
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
             :aria-pressed="ampliado"
             :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
@@ -852,36 +880,6 @@ watch(
       loading-label="Cargando el calendario"
       @retry="reintentar"
     >
-      <div class="mb-4 flex shrink-0 flex-wrap items-end gap-3">
-        <FilterField
-          label="Departamento"
-          :options="opcionesDepartamento"
-          :model-value="departmentFilter"
-          testid="filter-department"
-          @update:model-value="departmentFilter = $event"
-        />
-
-        <!-- En el espacio del proyecto el proyecto ya viene de la ruta. -->
-        <FilterField
-          v-if="!route.params.id"
-          label="Proyecto"
-          :options="opcionesProyecto"
-          :model-value="projectFilter"
-          testid="filter-project"
-          @update:model-value="projectFilter = $event"
-        />
-
-        <VisibilityPanel
-          :personas="personasVisibilidad"
-          :ids-ocultos="idsOcultos"
-          :departamentos-ocultos="departamentosOcultos"
-          :ocultos-count="ocultosCount"
-          @alternar-persona="alternarPersona"
-          @alternar-departamento="alternarDepartamento"
-          @mostrar-todos="mostrarTodos"
-        />
-      </div>
-
       <AlertBanner
         v-if="hayFiltros && !visibleTasks.length"
         variant="info"
@@ -891,7 +889,7 @@ watch(
         Ninguna tarea coincide con los filtros.
       </AlertBanner>
 
-      <p v-if="undatedTaskIds.length" class="mb-3 shrink-0 text-xs text-amber-700">
+      <p v-if="undatedTaskIds.length" class="mb-3 shrink-0 text-cp-xs text-aviso-texto">
         {{ avisoSinFechas }}
       </p>
 
@@ -904,7 +902,7 @@ watch(
       <div class="flex min-h-[200px] flex-1 flex-col">
         <div
           v-if="view === 'month'"
-          class="flex min-h-0 flex-1 flex-col rounded border border-slate-200 bg-white"
+          class="flex min-h-0 flex-1 flex-col rounded-tarjeta border border-borde bg-tarjeta"
           data-testid="calendar-month-view"
         >
           <!--
@@ -923,6 +921,7 @@ watch(
               testid="calendar-month-table"
               :people="personasVisibles"
               :tasks="visibleTasks"
+              :departments="store.departments"
               :non-working-days="nonWorkingDays"
               :editable-project-ids="editableProjects"
               :destino="previsualizacion"
@@ -952,7 +951,7 @@ watch(
             <button
               v-if="semanaConTrabajo"
               type="button"
-              class="rounded border border-slate-300 bg-white px-2 py-0.5 text-sm font-normal"
+              class="rounded-control border border-borde-fuerte bg-tarjeta px-2 py-0.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave"
               data-testid="calendar-goto-busy-week"
               @click="irASemanaConTrabajo"
             >
@@ -962,7 +961,7 @@ watch(
 
           <div
             v-else
-            class="min-h-0 flex-1 overflow-auto rounded border border-slate-200 bg-white"
+            class="min-h-0 flex-1 overflow-auto rounded-tarjeta border border-borde bg-tarjeta"
             data-testid="week-grid"
           >
             <CalendarGrid
@@ -970,6 +969,7 @@ watch(
               :weeks="[weekDays(week)]"
               :people="personasVisibles"
               :tasks="visibleTasks"
+              :departments="store.departments"
               :non-working-days="nonWorkingDays"
               :editable-project-ids="editableProjects"
               :destino="previsualizacion"
@@ -999,7 +999,7 @@ watch(
         </div>
       </div>
 
-      <p v-if="view !== 'day'" class="mt-3 shrink-0 text-xs text-slate-500">
+      <p v-if="view !== 'day'" class="mt-3 shrink-0 text-cp-xs text-texto-tenue">
         Las tareas se ven de lunes a viernes: el motor de capacidad solo reparte
         horas entre días laborables. El fin de semana queda vacío.
       </p>
@@ -1038,7 +1038,7 @@ watch(
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          class="rounded border border-borde-fuerte px-3 py-2 text-sm"
           @click="altaDelDia = null"
         >
           Cancelar
@@ -1047,7 +1047,7 @@ watch(
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded bg-primario-fuerte px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           {{ saving ? 'Guardando...' : 'Guardar' }}
         </button>
@@ -1060,7 +1060,7 @@ watch(
     -->
     <div
       v-if="fantasma"
-      class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded border border-siemens-500 bg-white pl-1.5 pr-2 shadow-lg"
+      class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded-control border border-borde bg-tarjeta pl-1.5 pr-2 shadow-flotante"
       :style="{
         left: `${fantasma.x}px`,
         top: `${fantasma.y}px`,
@@ -1068,8 +1068,8 @@ watch(
       data-testid="calendar-drag-ghost"
     >
       <span class="h-4 w-1 shrink-0 rounded-sm" :style="{ backgroundColor: fantasma.color }" />
-      <span class="text-[11px] font-medium text-slate-900">{{ fantasma.etiqueta }}</span>
-      <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+      <span class="text-cp-xs font-medium text-texto">{{ fantasma.etiqueta }}</span>
+      <span class="rounded-pastilla bg-primario-fuerte px-1.5 py-0.5 text-cp-micro font-semibold text-sobre-primario">
         {{ fantasma.rango }}
       </span>
     </div>

@@ -11,6 +11,7 @@
  * termina en una recarga desde el servidor.
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { configApi, meApi, taskStatusesApi } from '../api/client'
 import AlertBanner from '../components/common/AlertBanner.vue'
@@ -22,8 +23,10 @@ import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
+import { formatHours } from '../utils/kanban'
 import { PALETTE } from '../utils/palette'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
+import { plural } from '../utils/plural'
 import { barra, pildora } from '../utils/statusColor'
 
 const props = defineProps({
@@ -48,6 +51,14 @@ const project = computed(
 
 const departments = computed(() => store.departments)
 
+/** Miembros del proyecto, para el resumen con enlace de la seccion. */
+const members = computed(() => store.members)
+
+/** Capacidad base del equipo: la suma de las horas semanales de cada miembro. */
+const totalHoras = computed(() =>
+  members.value.reduce((sum, member) => sum + Number(member.weekly_base_hours ?? 0), 0),
+)
+
 /** Rellena el formulario con los datos del proyecto. */
 function fillForm(current) {
   form.value = {
@@ -65,6 +76,9 @@ async function load() {
     const scope = await meApi.get(token)
     isManager.value = scope.is_manager === true
     await store.ensureProjects(token)
+    // Miembros del proyecto, para el resumen de la seccion: si no llegan,
+    // el resumen queda a cero, sin tapar la configuracion.
+    await store.ensureMembers(token, props.id).catch(() => [])
     const current = store.projects.find((item) => String(item.id) === String(props.id))
     if (current) fillForm(current)
     if (isManager.value) {
@@ -302,7 +316,19 @@ watch(() => props.id, load)
       loading-label="Cargando la configuración del proyecto"
       @retry="load"
     >
-      <div class="rounded border border-slate-200 bg-white p-5">
+      <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta" aria-labelledby="general-titulo">
+        <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+          <div class="min-w-0">
+            <h2 id="general-titulo" class="font-titulo text-cp-titulo font-bold text-texto-marca">
+              General
+            </h2>
+            <p class="mt-0.5 text-cp-xs text-texto-tenue">
+              Nombre, estado, responsable y color del proyecto.
+            </p>
+          </div>
+        </header>
+
+        <div class="p-4">
         <AlertBanner
           v-if="error"
           variant="error"
@@ -312,22 +338,22 @@ watch(() => props.id, load)
           {{ error }}
         </AlertBanner>
         <form @submit.prevent="save">
-          <div class="grid grid-cols-2 gap-3">
-            <label class="block text-sm font-medium">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="block text-cp-sm font-medium text-texto">
               Nombre
               <input
                 v-model="form.name"
                 :disabled="!isManager"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
                 data-testid="project-name"
               />
             </label>
-            <label class="block text-sm font-medium">
+            <label class="block text-cp-sm font-medium text-texto">
               Estado
               <select
                 v-model="form.status"
                 :disabled="!isManager"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
                 data-testid="project-status"
               >
                 <option v-for="status in PROJECT_STATUSES" :key="status.value" :value="status.value">
@@ -335,12 +361,12 @@ watch(() => props.id, load)
                 </option>
               </select>
             </label>
-            <label class="block text-sm font-medium">
+            <label class="block text-cp-sm font-medium text-texto">
               Departamento que lo gestiona
               <select
                 v-model="form.department_id"
                 :disabled="!isManager"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
                 data-testid="project-department"
               >
                 <option value="">Sin departamento</option>
@@ -353,12 +379,12 @@ watch(() => props.id, load)
                 </option>
               </select>
             </label>
-            <label class="block text-sm font-medium">
+            <label class="block text-cp-sm font-medium text-texto">
               Responsable
               <select
                 v-model="form.owner_id"
                 :disabled="!isManager"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
                 data-testid="project-owner"
               >
                 <option value="">Sin responsable</option>
@@ -369,49 +395,60 @@ watch(() => props.id, load)
             </label>
           </div>
 
+          <div class="mt-4 border-t border-borde-suave pt-4">
+            <ColorPicker v-model="form.color" label="Color del proyecto" />
+            <p class="mt-1.5 text-cp-xs text-texto-tenue">
+              El color lo elige el gerente de la paleta cerrada de la organización.
+            </p>
+          </div>
+
           <div v-if="isManager" class="mt-4 flex gap-2">
             <button
               type="submit"
               :disabled="saving"
-              class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+              class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="save-project"
             >
-              Guardar cambios
+              {{ saving ? 'Guardando...' : 'Guardar cambios' }}
             </button>
           </div>
-          <p v-else class="mt-4 text-sm text-slate-500">
+          <p v-else class="mt-4 text-cp-xs text-texto-tenue">
             Solo el gerente puede cambiar los datos del proyecto.
           </p>
         </form>
-      </div>
+        </div>
+      </section>
 
       <!-- Sección de estados de tarea: solo el gerente la ve y la edita. -->
       <section
         v-if="isManager"
-        class="mt-5 rounded border border-slate-200 bg-white p-5"
+        class="mt-4 rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta"
         aria-labelledby="estados-titulo"
         data-testid="task-statuses-section"
       >
-        <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <header
+          class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3"
+        >
           <div class="min-w-0">
-            <h2 id="estados-titulo" class="text-base font-semibold text-siemens-900">
+            <h2 id="estados-titulo" class="font-titulo text-cp-titulo font-bold text-texto-marca">
               Estados de tarea
             </h2>
-            <p class="mt-1 text-sm text-slate-500">
+            <p class="mt-0.5 text-cp-xs text-texto-tenue">
               Los estados del tablero de este proyecto. El primero es el estado en el que nacen las
               tareas nuevas y el orden es el de las columnas.
             </p>
           </div>
           <button
             type="button"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+            class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="new-task-status"
             @click="abrirAlta"
           >
             Nuevo estado
           </button>
-        </div>
+        </header>
 
+        <div class="p-4">
         <AsyncState
           :loading="estadosCargando"
           :error="estadosError"
@@ -428,9 +465,9 @@ watch(() => props.id, load)
         >
           <template #loading>
             <div class="animate-pulse space-y-2 motion-reduce:animate-none" aria-hidden="true">
-              <div class="h-12 rounded bg-slate-100"></div>
-              <div class="h-12 rounded bg-slate-100"></div>
-              <div class="h-12 rounded bg-slate-100"></div>
+              <div class="h-12 rounded-control bg-tarjeta-suave"></div>
+              <div class="h-12 rounded-control bg-tarjeta-suave"></div>
+              <div class="h-12 rounded-control bg-tarjeta-suave"></div>
             </div>
           </template>
 
@@ -444,34 +481,22 @@ watch(() => props.id, load)
           </AlertBanner>
 
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[680px] text-sm" data-testid="task-statuses-table">
+            <table class="w-full min-w-[680px] text-cp-sm" data-testid="task-statuses-table">
               <caption class="sr-only">
                 Estados de tarea del proyecto, en el orden en que aparecen en el tablero
               </caption>
               <thead>
-                <tr class="border-b border-slate-200 text-left">
-                  <th
-                    scope="col"
-                    class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
+                <tr class="bg-tarjeta-suave text-cp-xs font-semibold uppercase tracking-wider text-texto-tenue">
+                  <th scope="col" class="border-b border-borde px-3 py-2 text-left">
                     Estado
                   </th>
-                  <th
-                    scope="col"
-                    class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
+                  <th scope="col" class="border-b border-borde px-3 py-2 text-left">
                     Avance
                   </th>
-                  <th
-                    scope="col"
-                    class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
+                  <th scope="col" class="border-b border-borde px-3 py-2 text-left">
                     Tareas
                   </th>
-                  <th
-                    scope="col"
-                    class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
+                  <th scope="col" class="border-b border-borde px-3 py-2 text-right">
                     Acciones
                   </th>
                 </tr>
@@ -480,19 +505,19 @@ watch(() => props.id, load)
                 <tr
                   v-for="(estado, indice) in estados"
                   :key="estado.id"
-                  class="border-b border-slate-100 last:border-0"
+                  class="border-b border-borde-suave transition-colors hover:bg-tarjeta-suave/60"
                   data-testid="task-status-row"
                   :data-status-key="estado.key"
                 >
                   <!-- Etiqueta, color y clave -->
                   <td class="px-3 py-3">
                     <span
-                      class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
+                      class="inline-flex items-center rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
                       :style="pildora(estado.color)"
                       data-testid="task-status-label"
                     >{{ estado.label }}</span>
                     <span
-                      class="mt-1 block text-xs text-slate-400"
+                      class="mt-1 block font-mono text-cp-micro text-texto-tenue"
                       data-testid="task-status-key"
                       :title="`Clave del estado (no se puede cambiar) y color: ${estado.key}`"
                     >{{ estado.key }} · {{ nombreColor(estado.color) }}</span>
@@ -502,17 +527,17 @@ watch(() => props.id, load)
                   <td class="px-3 py-3">
                     <div class="flex items-center gap-2">
                       <span
-                        class="h-1.5 w-16 flex-none overflow-hidden rounded bg-slate-100"
+                        class="h-1.5 w-16 flex-none overflow-hidden rounded-pastilla bg-tarjeta-suave"
                         aria-hidden="true"
                       >
                         <span
-                          class="block h-full rounded"
+                          class="block h-full rounded-pastilla"
                           :style="[barra(estado.color), { width: `${estado.progress}%` }]"
                           data-testid="task-status-progress-bar"
                         ></span>
                       </span>
                       <span
-                        class="text-xs tabular-nums text-slate-600"
+                        class="font-mono text-cp-xs tabular-nums text-texto"
                         data-testid="task-status-progress"
                       >{{ estado.progress }} %</span>
                     </div>
@@ -520,7 +545,7 @@ watch(() => props.id, load)
 
                   <!-- Tareas que lo usan -->
                   <td
-                    class="px-3 py-3 text-sm tabular-nums text-slate-600"
+                    class="px-3 py-3 font-mono text-cp-xs tabular-nums text-texto"
                     data-testid="task-status-count"
                   >{{ estado.task_count }}</td>
 
@@ -529,7 +554,7 @@ watch(() => props.id, load)
                     <div class="flex flex-wrap items-center justify-end gap-1.5">
                       <button
                         type="button"
-                        class="rounded border border-slate-300 px-3 py-2.5 text-sm text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
+                        class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-2.5 py-1.5 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
                         :disabled="indice === 0 || moviendo"
                         :aria-label="`Subir ${estado.label}`"
                         data-testid="task-status-up"
@@ -540,7 +565,7 @@ watch(() => props.id, load)
                       </button>
                       <button
                         type="button"
-                        class="rounded border border-slate-300 px-3 py-2.5 text-sm text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
+                        class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-2.5 py-1.5 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
                         :disabled="indice === estados.length - 1 || moviendo"
                         :aria-label="`Bajar ${estado.label}`"
                         data-testid="task-status-down"
@@ -551,7 +576,7 @@ watch(() => props.id, load)
                       </button>
                       <button
                         type="button"
-                        class="rounded border border-slate-300 px-3 py-2.5 text-sm text-slate-600"
+                        class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-2.5 py-1.5 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                         :aria-label="`Editar ${estado.label}`"
                         data-testid="task-status-edit"
                         :data-status-key="estado.key"
@@ -561,7 +586,7 @@ watch(() => props.id, load)
                       </button>
                       <button
                         type="button"
-                        class="rounded border border-red-300 px-3 py-2.5 text-sm font-medium text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-tarjeta px-2.5 py-1.5 text-cp-xs font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:opacity-60"
                         :disabled="estados.length === 1"
                         :title="estados.length === 1 ? 'El proyecto necesita al menos un estado' : ''"
                         :aria-label="
@@ -584,12 +609,13 @@ watch(() => props.id, load)
 
           <p
             v-if="estados.length === 1"
-            class="mt-3 text-xs text-slate-500"
+            class="mt-3 text-cp-xs text-texto-tenue"
             data-testid="task-statuses-last-note"
           >
             El proyecto necesita al menos un estado: no se puede borrar el único que queda.
           </p>
         </AsyncState>
+        </div>
 
         <ModalDialog
           :open="formAbierto"
@@ -600,18 +626,18 @@ watch(() => props.id, load)
           size="md"
           @close="cerrarFormulario"
         >
-          <form id="form-estado-tarea" @submit.prevent="guardarEstado">
-            <label class="block text-sm font-medium">
+          <form id="form-estado-tarea" class="space-y-3" @submit.prevent="guardarEstado">
+            <label class="block text-cp-sm font-medium text-texto">
               Etiqueta
               <input
                 v-model="estadoForm.label"
                 maxlength="60"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="task-status-label-input"
               />
             </label>
 
-            <label class="mt-3 block text-sm font-medium">
+            <label class="block text-cp-sm font-medium text-texto">
               Avance (%)
               <input
                 v-model.number="estadoForm.progress"
@@ -619,26 +645,26 @@ watch(() => props.id, load)
                 min="0"
                 max="100"
                 step="1"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="task-status-progress-input"
               />
             </label>
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="text-cp-xs text-texto-tenue">
               De 0 a 100. El diagrama de Gantt lo usa para pintar la barra de la tarea.
             </p>
 
-            <div class="mt-3 flex items-end justify-between gap-3">
+            <div class="flex items-end justify-between gap-3 border-t border-borde-suave pt-3">
               <ColorPicker v-model="estadoForm.color" label="Color" />
               <button
                 v-if="estadoForm.color"
                 type="button"
-                class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="task-status-clear-color"
                 @click="estadoForm.color = null"
               >
                 Sin color
               </button>
-              <span v-else class="pb-2 text-xs text-slate-500">Sin color</span>
+              <span v-else class="pb-2 text-cp-xs text-texto-tenue">Sin color</span>
             </div>
 
             <AlertBanner
@@ -654,7 +680,7 @@ watch(() => props.id, load)
           <template #footer="{ submit }">
             <button
               type="button"
-              class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+              class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="task-status-cancel"
               @click="cerrarFormulario"
             >
@@ -663,7 +689,7 @@ watch(() => props.id, load)
             <button
               type="button"
               :disabled="guardandoEstado"
-              class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+              class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="task-status-save"
               @click="submit"
             >
@@ -679,7 +705,7 @@ watch(() => props.id, load)
           size="sm"
           @close="cerrarBorrado"
         >
-          <p class="text-sm text-slate-700">
+          <p class="text-cp-sm text-texto-suave">
             <template v-if="(borrando?.task_count ?? 0) > 0">
               «{{ borrando.label }}» tiene {{ borrando.task_count }}
               {{ borrando.task_count === 1 ? 'tarea' : 'tareas' }}. Al borrarlo, sus tareas pasan al
@@ -692,12 +718,12 @@ watch(() => props.id, load)
 
           <label
             v-if="(borrando?.task_count ?? 0) > 0"
-            class="mt-3 block text-sm font-medium"
+            class="mt-3 block text-cp-sm font-medium text-texto"
           >
             Estado de destino
             <select
               v-model="destino"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="task-status-reassign-select"
             >
               <option value="">Elige un estado</option>
@@ -708,7 +734,7 @@ watch(() => props.id, load)
           </label>
           <p
             v-if="(borrando?.task_count ?? 0) > 0"
-            class="mt-1 text-xs text-slate-500"
+            class="mt-1.5 text-cp-xs text-texto-tenue"
           >
             Obligatorio: las {{ borrando.task_count }} tareas de «{{ borrando.label }}» pasan a este estado.
           </p>
@@ -725,7 +751,7 @@ watch(() => props.id, load)
           <template #footer>
             <button
               type="button"
-              class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+              class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="task-status-delete-cancel"
               @click="cerrarBorrado"
             >
@@ -734,7 +760,7 @@ watch(() => props.id, load)
             <button
               type="button"
               :disabled="borrandoGuardando || ((borrando?.task_count ?? 0) > 0 && !destino)"
-              class="rounded border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-60"
+              class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-peligro-fondo px-3 py-1.5 text-cp-sm font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="task-status-delete-confirm"
               @click="borrarEstado"
             >
@@ -742,6 +768,29 @@ watch(() => props.id, load)
             </button>
           </template>
         </ModalDialog>
+      </section>
+
+      <!--
+        Miembros: Ajustes no los administra; aqui va el resumen con enlace a la
+        vista de Miembros, sin duplicar su tabla.
+      -->
+      <section class="mt-4 rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Miembros</h2>
+            <p class="mt-0.5 text-cp-xs text-texto-tenue">
+              {{ plural(members.length, 'persona asignada', 'personas asignadas') }} ·
+              {{ formatHours(totalHoras) }} de capacidad base
+            </p>
+          </div>
+
+          <RouterLink
+            :to="`/projects/${project?.id}/members`"
+            class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          >
+            Gestionar miembros
+          </RouterLink>
+        </div>
       </section>
     </AsyncState>
   </div>

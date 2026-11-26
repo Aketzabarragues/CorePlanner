@@ -137,6 +137,25 @@ const team = computed(() =>
 
 const totalHours = computed(() => team.value.reduce((sum, item) => sum + item.hours, 0))
 
+/** Tareas hechas: las que estan en un estado con avance completo (100 %). */
+const hechas = computed(
+  () =>
+    tasks.value.filter((task) => {
+      const estado = estados.value.find((item) => item.key === task.status)
+      return (estado?.progress ?? 0) === 100
+    }).length,
+)
+
+/** Porcentaje de tareas hechas, redondeado al entero mas cercano. */
+const avance = computed(() =>
+  totalTasks.value ? Math.round((hechas.value / totalTasks.value) * 100) : 0,
+)
+
+/** Horas del proyecto en la semana en curso: la que el motor ya repartio. */
+const cargaSemana = computed(
+  () => weekHours.value.find((item) => item.week === currentWeekKey())?.hours ?? 0,
+)
+
 /** Lo que se lee en voz alta de la barra de estados. */
 const ariaTareas = computed(
   () =>
@@ -186,18 +205,26 @@ function weekBarWidth(item) {
   return Math.round((item.hours / maxWeekHours.value) * 100)
 }
 
-/** Color de la pila del estado del proyecto. */
-function projectStatusPill(tone) {
-  if (tone === 'active') return 'bg-emerald-100 text-emerald-700'
-  if (tone === 'paused') return 'bg-amber-100 text-amber-700'
-  return 'bg-slate-100 text-slate-600'
+// Clases literales por tono del estado del proyecto (verify:css las exige en el bundle).
+const PILDORA_ESTADO = {
+  active: 'bg-ok-fondo text-ok-texto',
+  paused: 'bg-aviso-fondo text-aviso-texto',
+  neutral: 'bg-neutro-fondo text-neutro-texto',
 }
+const PUNTO_ESTADO = {
+  active: 'bg-ok-punto',
+  paused: 'bg-aviso-punto',
+  neutral: 'bg-neutro-punto',
+}
+
+/** Pestana activa de este espacio: la vista es la propia seccion. */
+const tab = computed(() => 'Resumen')
 
 /** Aspecto de una pestana, segun sea la abierta o no. */
 function tabClass(name) {
-  return name === 'Resumen'
-    ? 'border-siemens-900 font-medium text-siemens-900'
-    : 'border-transparent text-slate-500 hover:text-slate-700'
+  return tab.value === name
+    ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+    : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
 }
 
 onMounted(load)
@@ -221,22 +248,27 @@ useTaskReload(load)
           <template #actions>
             <div class="flex flex-wrap items-center gap-2">
               <span
-                class="rounded-full px-2.5 py-1 text-xs font-semibold"
-                :class="projectStatusPill(status.tone)"
+                class="inline-flex items-center gap-1.5 rounded-pastilla px-2.5 py-1 text-cp-xs font-semibold"
+                :class="PILDORA_ESTADO[status.tone]"
                 data-testid="project-status"
               >
+                <span
+                  class="h-1.5 w-1.5 flex-none rounded-full"
+                  :class="PUNTO_ESTADO[status.tone]"
+                  aria-hidden="true"
+                ></span>
                 {{ status.label }}
               </span>
               <RouterLink
                 :to="`/capacity?project=${project.id}`"
-                class="flex h-10 items-center rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-siemens-900"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="project-go-capacity"
               >
                 Ver su capacidad
               </RouterLink>
               <RouterLink
                 :to="`/gantt?project=${project.id}`"
-                class="flex h-10 items-center rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-siemens-900"
+                class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="project-go-gantt"
               >
                 Ver su Gantt
@@ -245,19 +277,19 @@ useTaskReload(load)
           </template>
         </PageHeader>
 
-        <p class="mb-3 text-sm text-slate-500">
+        <p class="mb-3 text-cp-sm text-texto-tenue">
           Responsable: {{ project.owner_name ?? 'sin asignar' }}
         </p>
 
         <nav
           aria-label="Secciones del proyecto"
-          class="mb-4 flex flex-wrap gap-1 border-b border-slate-200"
+          class="mb-4 inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-control bg-tarjeta-suave p-1"
         >
           <RouterLink
             v-for="item in TABS"
             :key="item.name"
             :to="item.to()"
-            class="border-b-2 px-3 py-2 text-sm"
+            class="inline-flex min-h-9 whitespace-nowrap rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             :class="tabClass(item.name)"
             :data-testid="`project-tab-${item.name.toLowerCase()}`"
           >
@@ -265,20 +297,94 @@ useTaskReload(load)
           </RouterLink>
         </nav>
 
+        <div class="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          <article class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
+            <span class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
+              Avance
+            </span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="font-mono text-cp-kpi font-bold tabular-nums text-texto-marca">
+                {{ avance }} %
+              </span>
+              <span class="font-mono text-cp-sm text-texto-tenue">
+                {{ hechas }}/{{ totalTasks }}
+              </span>
+            </div>
+            <div class="mt-3 h-1.5 w-full overflow-hidden rounded-pastilla bg-tarjeta-suave">
+              <div class="h-full rounded-pastilla bg-primario" :style="{ width: `${avance}%` }"></div>
+            </div>
+          </article>
+
+          <article class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
+            <span class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
+              Carga de la semana
+            </span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="font-mono text-cp-kpi font-bold tabular-nums text-texto-marca">
+                {{ formatHours(cargaSemana) }}
+              </span>
+              <span class="font-mono text-cp-sm text-texto-tenue">h</span>
+            </div>
+            <p class="mt-2.5 text-cp-xs text-texto-tenue">
+              {{ formatHours(totalHours) }} en el proyecto
+            </p>
+          </article>
+
+          <article class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
+            <span class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
+              Personas
+            </span>
+            <div class="mt-2 flex items-baseline gap-2">
+              <span class="font-mono text-cp-kpi font-bold tabular-nums text-texto-marca">
+                {{ team.length }}
+              </span>
+              <span class="text-cp-sm text-texto-tenue">
+                {{ team.length === 1 ? 'persona' : 'personas' }}
+              </span>
+            </div>
+            <p class="mt-2.5 text-cp-xs text-texto-tenue">
+              {{ formatHours(totalHours) }} repartidas
+            </p>
+          </article>
+
+          <article class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
+            <span class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
+              Tareas por estado
+            </span>
+            <div class="mt-2 space-y-1">
+              <div
+                v-for="item in statusSegments"
+                :key="item.status"
+                class="flex items-center justify-between gap-2"
+              >
+                <span
+                  class="inline-flex items-center rounded-pastilla px-2 py-0.5 text-cp-micro font-semibold"
+                  :style="statusPill(item.status, estados.value)"
+                >
+                  {{ item.label }}
+                </span>
+                <span class="font-mono text-cp-sm font-bold tabular-nums text-texto-marca">
+                  {{ item.count }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+
         <div class="grid gap-4 lg:grid-cols-3">
           <section
             aria-label="Estado de las tareas"
-            class="rounded border border-slate-200 bg-white p-4 lg:col-span-2"
+            class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta lg:col-span-2"
           >
             <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 class="text-sm font-semibold text-siemens-900">Estado de las tareas</h2>
-              <span class="text-xs text-slate-500">
+              <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Estado de las tareas</h2>
+              <span class="text-cp-xs text-texto-tenue">
                 {{ plural(totalTasks, 'tarea', 'tareas') }} en el proyecto
               </span>
             </div>
 
             <div
-              class="flex h-3 overflow-hidden rounded-full"
+              class="flex h-3 overflow-hidden rounded-pastilla"
               role="img"
               :aria-label="ariaTareas"
               data-testid="project-status-bar"
@@ -294,23 +400,23 @@ useTaskReload(load)
               <div
                 v-for="item in statusSegments"
                 :key="item.status"
-                class="rounded border border-slate-200 p-2"
+                class="rounded-control border border-borde bg-tarjeta-suave p-2.5"
                 data-testid="project-status-count"
               >
                 <span
-                  class="inline-block rounded-full px-2 py-0.5 text-xs font-semibold"
+                  class="inline-flex items-center rounded-pastilla px-2 py-0.5 text-cp-micro font-semibold"
                   :style="statusPill(item.status, estados.value)"
                 >
                   {{ item.label }}
                 </span>
-                <p class="mt-1 text-xl font-semibold tabular-nums text-siemens-900">
+                <p class="mt-1.5 font-mono text-cp-titulo font-bold tabular-nums text-texto-marca">
                   {{ item.count }}
                 </p>
               </div>
             </div>
 
-            <div class="mt-4 border-t border-slate-200 pt-3">
-              <p class="mb-2 text-xs font-semibold text-slate-700">
+            <div class="mt-4 border-t border-borde pt-3">
+              <p class="mb-2 text-cp-xs font-semibold text-texto">
                 Horas del proyecto por semana
               </p>
               <div
@@ -324,16 +430,16 @@ useTaskReload(load)
                   :key="item.week"
                   class="flex min-w-0 flex-1 flex-col items-center gap-1"
                 >
-                  <span class="text-xs font-semibold tabular-nums text-slate-700">
+                  <span class="text-cp-xs font-semibold tabular-nums text-texto">
                     {{ formatHours(item.hours) }}
                   </span>
-                  <span class="flex h-24 w-full items-end rounded bg-slate-100">
+                  <span class="flex h-24 w-full items-end rounded bg-tarjeta-suave">
                     <span
-                      class="w-full rounded-t bg-siemens-700"
+                      class="w-full rounded-t bg-primario-medio"
                       :style="{ height: `${Math.max(2, weekBarWidth(item))}%` }"
                     />
                   </span>
-                  <span class="text-[11px] text-slate-500">
+                  <span class="text-cp-micro text-texto-tenue">
                     Sem {{ weekNumber(item.week) }}
                   </span>
                 </div>
@@ -341,12 +447,12 @@ useTaskReload(load)
             </div>
           </section>
 
-          <section aria-label="Equipo del proyecto" class="rounded border border-slate-200 bg-white p-4">
+          <section aria-label="Equipo del proyecto" class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta">
             <div class="mb-2 flex items-center justify-between gap-2">
-              <h2 class="text-sm font-semibold text-siemens-900">Equipo</h2>
+              <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Equipo</h2>
               <RouterLink
                 :to="`/projects/${project.id}/members`"
-                class="text-xs font-semibold text-siemens-700"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               >
                 Gestionar miembros
               </RouterLink>
@@ -356,34 +462,34 @@ useTaskReload(load)
                 v-for="member in team"
                 :key="member.user_id"
                 role="listitem"
-                class="flex items-center gap-3 border-t border-slate-100 py-2 first:border-t-0"
+                class="flex items-center gap-3 border-t border-borde-suave py-2 first:border-t-0"
                 data-testid="project-team-row"
               >
                 <span
-                  class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700"
+                  class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar bg-tarjeta-suave text-cp-xs font-semibold text-texto"
                 >
                   {{ member.name.slice(0, 1) }}
                 </span>
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-semibold text-slate-800">{{ member.name }}</p>
-                  <p class="truncate text-xs text-slate-500">{{ member.role }}</p>
+                  <p class="truncate text-cp-sm font-semibold text-texto">{{ member.name }}</p>
+                  <p class="truncate text-cp-xs text-texto-tenue">{{ member.role }}</p>
                 </div>
-                <span class="text-sm tabular-nums text-slate-700">
+                <span class="text-cp-sm tabular-nums text-texto">
                   {{ formatHours(member.hours) }}
                 </span>
               </div>
-              <p v-if="!team.length" class="py-2 text-sm text-slate-500">
+              <p v-if="!team.length" class="py-2 text-cp-sm text-texto-tenue">
                 Todavía no hay nadie en el proyecto.
               </p>
             </div>
-            <p class="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-500">
+            <p class="mt-2 border-t border-borde pt-2 text-cp-xs text-texto-tenue">
               {{ formatHours(totalHours) }} repartidas entre {{ plural(team.length, 'persona', 'personas') }}.
             </p>
           </section>
         </div>
       </template>
 
-      <p v-else class="rounded border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+      <p v-else class="rounded-tarjeta border border-dashed border-borde-fuerte bg-tarjeta p-6 text-center text-cp-sm text-texto-tenue">
         No se ha encontrado el proyecto.
       </p>
     </AsyncState>

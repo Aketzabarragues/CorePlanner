@@ -1879,14 +1879,14 @@ useTaskReload(load)
   -->
   <div
     class="flex h-full min-h-0 flex-col"
-    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-slate-50 p-3 sm:p-6' : ''"
+    :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
     <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle">
       <template #actions>
         <button
           v-if="projectFilter"
           type="button"
-          class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm text-texto disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
           :disabled="exportandoIcs"
           data-testid="gantt-export-ics"
           @click="exportarIcs"
@@ -1911,7 +1911,7 @@ useTaskReload(load)
         >
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
             aria-label="Menos detalle"
             :disabled="zoom <= ZOOM_MIN"
             data-testid="gantt-zoom-out"
@@ -1921,7 +1921,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
             aria-label="Ajustar al ancho"
             :disabled="zoom === 1"
             data-testid="gantt-zoom-fit"
@@ -1931,7 +1931,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
             aria-label="Más detalle"
             :disabled="zoom >= ZOOM_MAX"
             data-testid="gantt-zoom-in"
@@ -1947,7 +1947,7 @@ useTaskReload(load)
         -->
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave hover:bg-tarjeta-suave"
           :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
           :aria-pressed="ampliado"
           :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
@@ -2024,7 +2024,7 @@ useTaskReload(load)
       >
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm text-texto disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
           :disabled="!clavesDeGrupos.length"
           data-testid="gantt-collapse-all"
           @click="colapsarTodo"
@@ -2033,7 +2033,7 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm text-texto disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
           :disabled="!colapsados.size"
           data-testid="gantt-expand-all"
           @click="expandirTodo"
@@ -2070,11 +2070,11 @@ useTaskReload(load)
       -->
       <button
         type="button"
-        class="h-8 rounded border px-3 text-sm font-medium"
+        class="h-8 rounded-control border px-3 text-cp-sm font-medium"
         :class="
           rutaCriticaActiva
-            ? 'border-siemens-900 bg-siemens-900 text-white'
-            : 'border-slate-300 bg-white text-slate-700'
+            ? 'border-primario-fuerte bg-primario-fuerte text-sobre-primario'
+            : 'border-borde-fuerte bg-tarjeta text-texto'
         "
         :aria-pressed="rutaCriticaActiva"
         data-testid="gantt-critical-toggle"
@@ -2096,7 +2096,7 @@ useTaskReload(load)
         />
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
           aria-label="Periodo anterior"
           :disabled="rangoCompleto"
           data-testid="range-previous"
@@ -2106,7 +2106,7 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto"
           data-testid="range-today"
           @click="goHoy"
         >
@@ -2114,7 +2114,7 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
           aria-label="Periodo siguiente"
           :disabled="rangoCompleto"
           data-testid="range-next"
@@ -2124,14 +2124,14 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 px-3 text-sm font-medium text-slate-700"
-          :class="rangoCompleto ? 'border-siemens-900 bg-siemens-900 text-white' : 'bg-white'"
+          class="h-8 rounded-control border border-borde-fuerte px-3 text-cp-sm font-medium text-texto"
+          :class="rangoCompleto ? 'border-primario-fuerte bg-primario-fuerte text-sobre-primario' : 'bg-tarjeta'"
           data-testid="range-complete"
           @click="goCompleto"
         >
           Completo
         </button>
-        <span class="ml-1 text-xs text-slate-500" data-testid="range-label">
+        <span class="ml-1 text-cp-micro text-texto-tenue" data-testid="range-label">
           {{ rangoLabel }}
         </span>
       </div>
@@ -2146,7 +2146,7 @@ useTaskReload(load)
       error-test-id="gantt-warning"
       @retry="reintentar"
     >
-      <p v-if="saving" class="shrink-0 text-sm text-slate-500">Guardando fechas...</p>
+      <p v-if="saving" class="shrink-0 text-cp-sm text-texto-tenue">Guardando fechas...</p>
 
       <!-- Fallo de guardado: la carga salio bien, el PATCH no. Con "Reintentar"
            repite el ultimo arrastre; el alta no se reintenta. -->
@@ -2174,7 +2174,7 @@ useTaskReload(load)
 
       <ul
         v-if="miembrosVisibles.length || hayProvisional"
-        class="mb-3 flex shrink-0 flex-wrap gap-3 text-xs text-slate-600"
+        class="mb-3 flex shrink-0 flex-wrap gap-3 text-cp-micro text-texto-suave"
         data-testid="gantt-legend"
       >
         <li
@@ -2182,12 +2182,12 @@ useTaskReload(load)
           :key="member.user_id"
           class="flex items-center gap-1.5"
         >
-          <span :class="['inline-block h-3 w-3 rounded-sm', member.css_class]" />
+          <span :class="['inline-block h-3 w-3 rounded-pastilla', member.css_class]" />
           {{ member.name }}
         </li>
         <li v-if="hayProvisional" class="flex items-center gap-1.5" data-testid="gantt-legend-provisional">
           <span
-            class="inline-block h-3 w-3 rounded-sm border border-dashed border-slate-500 bg-white"
+            class="inline-block h-3 w-3 rounded-pastilla border border-dashed border-borde-fuerte bg-tarjeta"
           />
           Provisional
         </li>
@@ -2281,7 +2281,7 @@ useTaskReload(load)
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          class="rounded-control border border-borde-fuerte px-3 py-2 text-cp-sm"
           @click="cerrarAlta"
         >
           Cancelar
@@ -2290,7 +2290,7 @@ useTaskReload(load)
           type="button"
           @click="submit"
           :disabled="savingAlta"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-medium text-sobre-primario disabled:opacity-60"
         >
           {{ savingAlta ? 'Guardando...' : 'Guardar' }}
         </button>
@@ -2312,11 +2312,11 @@ useTaskReload(load)
       size="md"
       @close="cerrarCascada"
     >
-      <p class="text-sm text-slate-600">
+      <p class="text-cp-sm text-texto-suave">
         Propuesta: si se acepta, se guardan la tarea arrastrada y estas con
         sus fechas nuevas.
       </p>
-      <ul class="mt-3 space-y-1 text-sm" data-testid="cascada-moves">
+      <ul class="mt-3 space-y-1 text-cp-sm" data-testid="cascada-moves">
         <li
           v-for="mov in cascada?.propuestas ?? []"
           :key="mov.task_id"
@@ -2324,13 +2324,13 @@ useTaskReload(load)
           :data-testid="`cascada-move-${mov.task_id}`"
         >
           <span class="truncate">{{ tituloTarea(mov.task_id) }}</span>
-          <span class="shrink-0 text-xs text-slate-500">{{ mov.start_date }} a {{ mov.end_date }}</span>
+          <span class="shrink-0 text-cp-micro text-texto-tenue">{{ mov.start_date }} a {{ mov.end_date }}</span>
         </li>
       </ul>
       <template #footer>
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          class="rounded-control border border-borde-fuerte px-3 py-2 text-cp-sm"
           :disabled="saving"
           data-testid="cascada-solo-esta"
           @click="guardarSoloEsta"
@@ -2339,7 +2339,7 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-medium text-sobre-primario disabled:opacity-60"
           :disabled="saving"
           data-testid="cascada-aceptar"
           @click="aceptarCascada"

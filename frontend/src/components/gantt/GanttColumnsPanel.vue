@@ -36,16 +36,16 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+      class="inline-flex items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto"
       :aria-expanded="abierto"
       data-testid="gantt-toggle-columns"
       @click="abierto = !abierto"
     >
-      <span class="h-4 w-4 text-slate-500"><AppIcon name="columns" /></span>
+      <span class="h-4 w-4 text-texto-tenue"><AppIcon name="columns" /></span>
       Columnas
       <span
         v-if="props.seleccionadas.length"
-        class="rounded-full bg-siemens-900 px-1.5 text-[10px] font-semibold text-white"
+        class="rounded-pastilla bg-primario-fuerte px-1.5 text-cp-micro font-semibold text-sobre-primario"
         data-testid="gantt-columns-count"
       >
         {{ props.seleccionadas.length }}
@@ -54,17 +54,17 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
     <div
       v-if="abierto"
-      class="absolute left-0 z-30 mt-1 w-52 rounded-md bg-white p-3 shadow-lg ring-1 ring-slate-200"
+      class="absolute left-0 z-30 mt-1 w-52 rounded-control bg-tarjeta p-3 shadow-flotante ring-1 ring-borde"
       data-testid="gantt-columns-panel"
     >
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span class="text-cp-micro font-semibold uppercase tracking-wide text-texto-tenue">
         Columnas
       </span>
 
       <label
         v-for="columna in props.columnas"
         :key="columna.key"
-        class="mt-2 flex items-center gap-2 text-sm text-slate-700"
+        class="mt-2 flex items-center gap-2 text-cp-sm text-texto"
       >
         <input
           type="checkbox"

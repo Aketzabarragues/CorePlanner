@@ -137,16 +137,16 @@ function atajoCuatroSemanas() {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex h-8 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700"
+      class="inline-flex h-8 items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto"
       :aria-expanded="abierto"
       data-testid="gantt-toggle-range"
       @click="alternar"
     >
-      <span class="h-4 w-4 text-slate-500"><AppIcon name="calendar" /></span>
+      <span class="h-4 w-4 text-texto-tenue"><AppIcon name="calendar" /></span>
       Rango
       <span
         v-if="diasElegidos"
-        class="rounded-full bg-siemens-900 px-1.5 text-[10px] font-semibold text-white"
+        class="rounded-pastilla bg-primario-fuerte px-1.5 text-cp-micro font-semibold text-sobre-primario"
         data-testid="gantt-range-days"
       >
         {{ diasElegidos }}
@@ -155,49 +155,49 @@ function atajoCuatroSemanas() {
 
     <div
       v-if="abierto"
-      class="absolute left-0 z-30 mt-1 w-72 rounded-md bg-white p-3 shadow-lg ring-1 ring-slate-200"
+      class="absolute left-0 z-30 mt-1 w-72 rounded-control bg-tarjeta p-3 shadow-flotante ring-1 ring-borde"
       data-testid="gantt-range-panel"
     >
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span class="text-cp-micro font-semibold uppercase tracking-wide text-texto-tenue">
         Rango de fechas
       </span>
 
-      <p class="mt-1 text-sm text-slate-700" data-testid="gantt-range-texto">
+      <p class="mt-1 text-cp-sm text-texto" data-testid="gantt-range-texto">
         {{ props.texto }}
       </p>
-      <p class="mt-1 text-xs text-slate-500" data-testid="gantt-range-modo">
+      <p class="mt-1 text-cp-micro text-texto-tenue" data-testid="gantt-range-modo">
         {{ esPlan ? 'Todo el plan' : 'Rango elegido' }}
       </p>
 
       <div class="mt-3 grid grid-cols-2 gap-2">
         <label class="block">
-          <span class="text-sm font-medium">Desde</span>
+          <span class="text-cp-sm font-medium">Desde</span>
           <input
             v-model="desdeInput"
             type="date"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            class="mt-1 w-full rounded-control border border-borde-fuerte px-3 py-2 text-cp-sm"
             data-testid="gantt-range-from"
           />
         </label>
         <label class="block">
-          <span class="text-sm font-medium">Hasta</span>
+          <span class="text-cp-sm font-medium">Hasta</span>
           <input
             v-model="hastaInput"
             type="date"
-            class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+            class="mt-1 w-full rounded-control border border-borde-fuerte px-3 py-2 text-cp-sm"
             data-testid="gantt-range-to"
           />
         </label>
       </div>
 
-      <p v-if="error" class="mt-2 text-sm text-red-600" data-testid="gantt-range-error">
+      <p v-if="error" class="mt-2 text-cp-sm text-peligro-texto" data-testid="gantt-range-error">
         {{ error }}
       </p>
 
       <div class="mt-3 flex flex-wrap gap-1">
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-2 text-cp-micro font-medium text-texto hover:bg-tarjeta-suave"
           data-testid="gantt-range-shortcut-plan"
           @click="atajoPlan"
         >
@@ -205,7 +205,7 @@ function atajoCuatroSemanas() {
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-2 text-cp-micro font-medium text-texto hover:bg-tarjeta-suave"
           data-testid="gantt-range-shortcut-week"
           @click="atajoSemana"
         >
@@ -213,7 +213,7 @@ function atajoCuatroSemanas() {
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-2 text-cp-micro font-medium text-texto hover:bg-tarjeta-suave"
           data-testid="gantt-range-shortcut-month"
           @click="atajoMes"
         >
@@ -221,7 +221,7 @@ function atajoCuatroSemanas() {
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-2 text-cp-micro font-medium text-texto hover:bg-tarjeta-suave"
           data-testid="gantt-range-shortcut-4weeks"
           @click="atajoCuatroSemanas"
         >
@@ -231,7 +231,7 @@ function atajoCuatroSemanas() {
 
       <button
         type="button"
-        class="mt-3 w-full rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white hover:bg-siemens-700"
+        class="mt-3 w-full rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-medium text-sobre-primario hover:bg-primario-medio"
         data-testid="gantt-range-apply"
         @click="aplicar"
       >

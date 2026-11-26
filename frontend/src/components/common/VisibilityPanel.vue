@@ -72,16 +72,16 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+      class="inline-flex items-center gap-2 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-sm font-medium text-texto-suave"
       :aria-expanded="abierto"
       data-testid="toggle-visibility"
       @click="abierto = !abierto"
     >
-      <span class="h-4 w-4 text-slate-500"><AppIcon name="users" /></span>
+      <span class="h-4 w-4 text-texto-tenue"><AppIcon name="users" /></span>
       Mostrar/ocultar
       <span
         v-if="ocultosCount"
-        class="rounded-full bg-siemens-900 px-1.5 text-[10px] font-semibold text-white"
+        class="rounded-pastilla bg-primario-fuerte px-1.5 text-[10px] font-semibold text-texto-inverso"
         data-testid="hidden-count"
       >
         {{ ocultosCount }} {{ ocultosCount === 1 ? 'oculto' : 'ocultos' }}
@@ -90,17 +90,17 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
     <div
       v-if="abierto"
-      class="absolute left-0 z-30 mt-1 w-72 rounded-md bg-white p-3 shadow-lg ring-1 ring-slate-200"
+      class="absolute left-0 z-30 mt-1 w-72 rounded-control bg-tarjeta p-3 shadow-flotante ring-1 ring-borde"
       data-testid="visibility-panel"
     >
       <div class="flex items-center justify-between gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span class="text-xs font-semibold uppercase tracking-wide text-texto-tenue">
           Visibilidad
         </span>
         <button
           v-if="ocultosCount"
           type="button"
-          class="text-xs font-medium text-siemens-700 underline"
+          class="text-xs font-medium text-primario-medio underline"
           data-testid="show-all"
           @click="emit('mostrar-todos')"
         >
@@ -109,7 +109,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
       </div>
 
       <div v-for="grupo in grupos" :key="grupo.id" class="mt-2">
-        <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <label class="flex items-center gap-2 text-sm font-medium text-texto-suave">
           <input
             type="checkbox"
             class="h-4 w-4"
@@ -122,7 +122,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
         <label
           v-for="persona in grupo.personas"
           :key="persona.id"
-          class="ml-5 mt-1 flex items-center gap-2 text-sm text-slate-600"
+          class="ml-5 mt-1 flex items-center gap-2 text-sm text-texto-suave"
         >
           <input
             type="checkbox"

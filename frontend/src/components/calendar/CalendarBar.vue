@@ -83,22 +83,46 @@ function alMenuContexto(event) {
     abridor: event.currentTarget,
   })
 }
+
+/** Oscurecer un hex un 28 %: el borde de la barra repite el color del proyecto. */
+function oscurecer(hex, factor = 0.72) {
+  const canal = (valor) =>
+    Math.round(Math.min(255, Math.max(0, valor * factor))).toString(16).padStart(2, '0')
+  const limpio = (hex ?? '').replace('#', '')
+  if (limpio.length < 6) return hex
+  return `#${canal(parseInt(limpio.slice(0, 2), 16))}${canal(parseInt(limpio.slice(2, 4), 16))}${canal(parseInt(limpio.slice(4, 6), 16))}`
+}
+
+/**
+ * Estilo en linea de la barra: el color del proyecto en el fondo y ese mismo
+ * color oscurecido como borde izquierdo, para que la barra se lea como una
+ * etiqueta de proyecto. En linea porque el color llega en hex del backend.
+ *
+ * La barra provisional no lleva relleno ni borde de color: el fondo `bg-tarjeta`
+ * y el contorno punteado lo da la clase; un estilo en linea del proyecto
+ * le pintaria por encima.
+ */
+function estiloBarra(tarea) {
+  if (tarea.is_provisional) return { backgroundColor: 'transparent' }
+  const color = tarea.project_color
+  return {
+    backgroundColor: color,
+    borderLeftColor: oscurecer(color),
+  }
+}
 </script>
 
 <template>
   <div
-    class="relative flex min-w-0 flex-col justify-center overflow-hidden rounded px-1.5 py-0.5"
+    class="relative flex min-w-0 flex-col justify-center overflow-hidden rounded-control border-l-[3px] px-1.5 py-0.5"
     :class="[
       barra.tarea.is_provisional
-        ? 'border border-dashed border-slate-500 text-slate-700'
-        : 'text-white',
+        ? 'border border-dashed border-borde-fuerte bg-tarjeta text-texto'
+        : 'text-sobre-primario',
       editable ? 'cursor-grab' : 'cursor-pointer',
       previsualizada ? 'opacity-60 pointer-events-none' : '',
     ]"
-    :style="{
-      backgroundColor:
-        barra.tarea.is_provisional ? 'transparent' : barra.tarea.project_color,
-    }"
+    :style="estiloBarra(barra.tarea)"
     :title="title"
     :data-task-id="barra.tarea.id"
     :data-lane="barra.carril"
@@ -117,10 +141,10 @@ function alMenuContexto(event) {
     @mouseenter="emit('entrar', $event)"
     @mouseleave="emit('salir')"
   >
-    <span class="truncate text-[11px] font-medium leading-tight">
+    <span class="truncate text-cp-xs font-medium leading-tight">
       {{ barra.tarea.title }}
     </span>
-    <span class="truncate text-[10px] leading-tight opacity-80">
+    <span class="truncate text-cp-micro leading-tight opacity-80">
       {{ barra.tarea.project_name }}
     </span>
 

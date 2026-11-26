@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="raiz"
-    class="gantt__nombres relative shrink-0 border-r border-slate-200"
+    class="gantt__nombres relative shrink-0 border-r border-borde"
     :style="estiloRaiz"
     data-testid="gantt-names"
     @mouseleave="alSalir"
@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
     -->
     <div
       ref="cabecera"
-      class="gantt__nombres-cabecera grid border-b border-slate-200 bg-slate-100"
+      class="gantt__nombres-cabecera grid border-b border-borde bg-tarjeta-suave"
       :style="{
         height: `${GANTT_METRICS.headerHeight}px`,
         gridTemplateColumns: plantillaColumnas,
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
         v-for="columna in encabezados"
         :key="columna.key"
         type="button"
-        class="flex items-center gap-1 text-left text-xs font-semibold text-siemens-900 hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500"
+        class="flex items-center gap-1 text-left text-cp-xs font-semibold text-texto-marca transition-colors hover:bg-tarjeta focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foco"
         :class="claseDeCabecera(columna.key)"
         :aria-sort="ariaSortDe(columna.key)"
         :title="tituloDeOrden(columna.key)"
@@ -319,7 +319,7 @@ onBeforeUnmount(() => {
         @click="emit('ordenar', columna.key)"
       >
         <span class="truncate">{{ columna.label }}</span>
-        <span v-if="sentidoDe(columna.key)" aria-hidden="true" class="text-[10px]">
+        <span v-if="sentidoDe(columna.key)" aria-hidden="true" class="text-cp-micro">
           {{ sentidoDe(columna.key) === 'asc' ? '↑' : '↓' }}
         </span>
       </button>
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
           <button
             v-if="fila.type === 'group'"
             type="button"
-            class="flex h-9 w-full items-center gap-1.5 border-b border-slate-200 bg-slate-100 px-3 text-left hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500"
+            class="flex h-9 w-full items-center gap-1.5 border-b border-borde bg-tarjeta-suave px-3 text-left transition-colors hover:bg-tarjeta focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foco"
             :class="claseDeFila(fila)"
             :aria-expanded="!fila.colapsado"
             :title="fila.colapsado ? 'Expandir grupo' : 'Colapsar grupo'"
@@ -351,18 +351,18 @@ onBeforeUnmount(() => {
             @mouseleave="alSalir"
           >
             <span
-              class="h-3 w-3 shrink-0 text-slate-500 transition-transform"
+              class="h-3 w-3 shrink-0 text-texto-tenue transition-transform"
               :class="fila.colapsado ? '' : 'rotate-90'"
             >
               <AppIcon name="chevronRight" />
             </span>
             <span
               v-if="fila.color || fila.colorClass"
-              class="h-4 w-1 shrink-0 rounded-full"
+              class="h-4 w-1 shrink-0 rounded-pastilla"
               :class="fila.colorClass"
               :style="fila.color ? { backgroundColor: fila.color } : undefined"
             />
-            <span class="truncate text-[13px] font-semibold text-siemens-900">
+            <span class="truncate text-cp-sm font-semibold text-texto-marca">
               {{ fila.label }}
             </span>
           </button>
@@ -376,24 +376,24 @@ onBeforeUnmount(() => {
           <div
             v-else
             aria-hidden="true"
-            class="grid h-9 items-center border-b border-slate-100"
+            class="grid h-9 items-center border-b border-borde-suave"
             :class="claseDeFila(fila)"
             :style="{ gridTemplateColumns: plantillaColumnas }"
             @mouseenter="alEntrar(fila)"
             @mouseleave="alSalir"
           >
             <div class="flex min-w-0 flex-col justify-center px-3">
-              <span class="truncate text-xs font-medium text-slate-700" :title="fila.title">
+              <span class="truncate text-cp-xs font-medium text-texto" :title="fila.title">
                 {{ fila.title }}
               </span>
-              <span class="truncate text-[10px] text-slate-400">
+              <span class="truncate text-cp-micro text-texto-tenue">
                 {{ fila.assignedName ?? 'Sin asignar' }} · {{ fila.projectName }}
               </span>
             </div>
             <span
               v-for="columna in elegidas"
               :key="columna.key"
-              class="truncate px-2 text-[11px] text-slate-600"
+              class="truncate px-2 text-cp-micro text-texto-suave"
               :title="fila.celdas?.[columna.key]"
               :data-testid="`gantt-celda-${columna.key}`"
             >
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
       :aria-valuemax="maximo"
       aria-label="Ancho de la columna de tareas"
       tabindex="0"
-      class="group absolute inset-y-0 right-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-siemens-500"
+      class="group absolute inset-y-0 right-0 z-10 w-2 -translate-x-1/2 cursor-col-resize touch-none select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-foco"
       data-testid="gantt-names-handle"
       @pointerdown="alAgarrar"
       @pointermove="alArrastrar"
@@ -426,7 +426,7 @@ onBeforeUnmount(() => {
       @keydown="alTecla"
     >
       <span
-        class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-slate-300 transition-colors group-hover:bg-siemens-500"
+        class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-borde-fuerte transition-colors group-hover:bg-primario"
       />
     </div>
   </div>

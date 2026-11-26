@@ -198,8 +198,8 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
-    expect(celda.classes()).toContain('bg-red-200')
-    expect(celda.classes()).toContain('text-red-900')
+    expect(celda.classes()).toContain('bg-carga-sobrecarga-alta-fondo')
+    expect(celda.classes()).toContain('text-carga-sobrecarga-alta-texto')
     // 48 h de 40 h: el 120 % y el triangulo que la marca sin depender del color.
     expect(celda.text()).toContain('48/40')
     expect(celda.text()).toContain('120 %')
@@ -229,8 +229,8 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
-    expect(celda.classes()).not.toContain('bg-blue-100')
-    expect(celda.classes()).not.toContain('bg-red-200')
+    expect(celda.classes()).not.toContain('bg-carga-libre-fondo')
+    expect(celda.classes()).not.toContain('bg-carga-sobrecarga-alta-fondo')
     expect(celda.text()).toContain('48')
     expect(celda.text()).toContain('sin capacidad')
   })
@@ -288,9 +288,9 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     const texto = wrapper.text()
-    expect(texto).toContain('Libre (menos del 50 %)')
-    expect(texto).toContain('Óptimo (85–100 %)')
-    expect(texto).toContain('Sobrecarga alta ▲ (más del 110 %)')
+    expect(texto).toContain('Libre')
+    expect(texto).toContain('Óptimo')
+    expect(texto).toContain('Sobrecarga alta')
   })
 
   it('avisa de las tareas que caen enteramente en dias no laborables', async () => {
@@ -520,11 +520,11 @@ describe('CapacityMatrix', () => {
 
     const select = wrapper.get('[data-testid="capacity-filter-project"]')
     const etiqueta = select.element.closest('label')
-    expect(etiqueta.className).toContain('text-xs font-medium text-slate-600')
-    expect(etiqueta.querySelector('span').className).toContain('mb-1 block')
+    expect(etiqueta.className).toContain('inline-flex flex-col gap-1')
+    expect(etiqueta.querySelector('span').className).toContain('text-cp-xs font-medium text-texto-suave')
     expect(etiqueta.querySelector('span').textContent).toBe('Proyecto')
     expect(select.classes().join(' ')).toContain(
-      'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
+      'rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-3 pr-8 text-cp-sm',
     )
   })
 
@@ -540,15 +540,15 @@ describe('CapacityMatrix', () => {
     for (const [testid, texto] of filtros) {
       const select = wrapper.get(`[data-testid="${testid}"]`)
       const etiqueta = select.element.closest('label')
-      expect(etiqueta.className).toContain('text-xs font-medium text-slate-600')
+      expect(etiqueta.className).toContain('inline-flex flex-col gap-1')
       expect(etiqueta.className).not.toContain('rounded-full')
 
       const span = etiqueta.querySelector('span')
-      expect(span.className).toContain('mb-1 block')
+      expect(span.className).toContain('text-cp-xs font-medium text-texto-suave')
       expect(span.textContent).toBe(texto)
 
       expect(select.classes().join(' ')).toContain(
-        'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm',
+        'rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-3 pr-8 text-cp-sm',
       )
     }
   })
@@ -608,7 +608,10 @@ describe('CapacityMatrix', () => {
     })
     const wrapper = await mountMatrix()
 
-    esperaColor(wrapper.get('[data-testid="department-stripe-1"]'), '#94a3b8')
+    // El gris de reserva no es un hex fijo: sale del token neutro.
+    expect(
+      wrapper.get('[data-testid="department-stripe-1"]').attributes('style'),
+    ).toContain('rgb(var(--cp-neutro-punto))')
     expect(wrapper.find('[data-testid="department-name-1"]').exists()).toBe(false)
   })
 
@@ -1087,7 +1090,7 @@ describe('CapacityMatrix', () => {
 
     const ajeno = wrapper.get('[data-testid="cell-3-2026-W46"]')
     expect(ajeno.text()).toContain('No es miembro')
-    expect(ajeno.classes()).toContain('cp-striped')
+    expect(ajeno.classes()).toContain('cp-trama-rayado')
   })
 
   it('soltar una tarea en otra celda reasigna la tarea', async () => {
@@ -1349,7 +1352,7 @@ describe('provisional', () => {
     expect(celda.text()).toContain('48/40')
     expect(celda.text()).toContain('120 %')
     expect(celda.text()).toContain('libre -8 h')
-    expect(celda.classes()).toContain('bg-red-200')
+    expect(celda.classes()).toContain('bg-carga-sobrecarga-alta-fondo')
     // Lo que se esta leyendo incluye lo provisional: contorno punteado.
     expect(celda.classes().join(' ')).toContain('border-dashed')
     // El estado queda en la URL.
@@ -1480,8 +1483,8 @@ describe('veredicto de politica de capacidad', () => {
 
     const marca = wrapper.get('[data-testid="cell-policy-aviso"]')
     expect(marca.attributes('data-testid')).toBe('cell-policy-aviso')
-    expect(marca.classes().join(' ')).toContain('bg-amber-200')
-    expect(marca.classes().join(' ')).toContain('text-amber-900')
+    expect(marca.classes().join(' ')).toContain('bg-aviso-fondo')
+    expect(marca.classes().join(' ')).toContain('text-aviso-texto')
     // Simbolo y texto: la marca se lee sin color.
     expect(marca.find('svg').exists()).toBe(true)
     expect(marca.text()).toContain('aviso')
@@ -1492,8 +1495,8 @@ describe('veredicto de politica de capacidad', () => {
     const wrapper = await mountMatrix()
 
     const marca = wrapper.get('[data-testid="cell-policy-aprobacion"]')
-    expect(marca.classes().join(' ')).toContain('bg-red-200')
-    expect(marca.classes().join(' ')).toContain('text-red-900')
+    expect(marca.classes().join(' ')).toContain('bg-peligro-fondo')
+    expect(marca.classes().join(' ')).toContain('text-peligro-texto')
     expect(marca.find('svg').exists()).toBe(true)
     expect(marca.text()).toContain('aprobación')
   })
@@ -1512,13 +1515,13 @@ describe('veredicto de politica de capacidad', () => {
 
     // 48 h de 40 h: sobrecarga alta, con o sin veredicto.
     const sobrecargada = wrapper.get('[data-testid="cell-2-2026-W46"]')
-    expect(sobrecargada.classes()).toContain('bg-red-200')
-    expect(sobrecargada.classes()).toContain('text-red-900')
+    expect(sobrecargada.classes()).toContain('bg-carga-sobrecarga-alta-fondo')
+    expect(sobrecargada.classes()).toContain('text-carga-sobrecarga-alta-texto')
     // 20 h de 40 h: carga media, con su aviso de politica.
     const media = wrapper.get('[data-testid="cell-1-2026-W46"]')
-    expect(media.classes()).toContain('bg-slate-100')
+    expect(media.classes()).toContain('bg-carga-media-fondo')
     // El ambar de la marca es de la insignia, no del fondo de la celda.
-    expect(media.classes().join(' ')).not.toContain('bg-amber-200')
+    expect(media.classes().join(' ')).not.toContain('bg-aviso-fondo')
   })
 
   it('la celda en aviso se lee en voz alta con su veredicto', async () => {

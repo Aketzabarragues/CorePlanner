@@ -7,7 +7,19 @@
  * de la app mientras la lista no ha cargado o la peticion ha fallado.
  */
 
+import { PALETTE } from './palette'
 import { barra as barraColor, pildora as pildoraColor } from './statusColor'
+
+/**
+ * Colores de los cuatro estados por defecto, tomados de la paleta cerrada de
+ * la organizacion por su etiqueta: el hex solo existe en `palette.js`.
+ */
+const COLOR_DEFECTO = {
+  backlog: PALETTE.find((item) => item.label === 'Pizarra').hex,
+  in_progress: PALETTE.find((item) => item.label === 'Azul').hex,
+  testing: PALETTE.find((item) => item.label === 'Ocre').hex,
+  done: PALETTE.find((item) => item.label === 'Verde').hex,
+}
 
 /**
  * Estados por defecto, en el orden en que se muestran.
@@ -17,10 +29,10 @@ import { barra as barraColor, pildora as pildoraColor } from './statusColor'
  * version anterior.
  */
 export const DEFAULT_TASK_STATUSES = [
-  { key: 'backlog', label: 'Backlog', color: '#57606a', progress: 0 },
-  { key: 'in_progress', label: 'En Desarrollo', color: '#1f6feb', progress: 50 },
-  { key: 'testing', label: 'Pruebas (FAT/SAT)', color: '#bf8700', progress: 75 },
-  { key: 'done', label: 'Completado', color: '#1a7f37', progress: 100 },
+  { key: 'backlog', label: 'Backlog', color: COLOR_DEFECTO.backlog, progress: 0 },
+  { key: 'in_progress', label: 'En Desarrollo', color: COLOR_DEFECTO.in_progress, progress: 50 },
+  { key: 'testing', label: 'Pruebas (FAT/SAT)', color: COLOR_DEFECTO.testing, progress: 75 },
+  { key: 'done', label: 'Completado', color: COLOR_DEFECTO.done, progress: 100 },
 ]
 
 /** Estado de la lista por su clave, o null si no esta. */

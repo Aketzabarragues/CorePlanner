@@ -111,70 +111,73 @@ async function save() {
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="flex justify-end">
+  <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Personas</h2>
       <button
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         data-testid="new-person"
         @click="openCreate"
       >
         Nueva persona
       </button>
-    </div>
+    </header>
 
-    <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th class="px-2 py-2 font-medium">Nombre</th>
-            <th class="px-2 py-2 font-medium">Rol</th>
-            <th class="px-2 py-2 font-medium">Puesto</th>
-            <th class="px-2 py-2 font-medium">Departamento</th>
-            <th class="px-2 py-2 font-medium">Contrato</th>
-            <th class="px-2 py-2 font-medium">Horas</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
-            <td class="px-2 py-2">
-              <div class="flex items-center gap-2">
-                <span
-                  class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-siemens-900 text-xs font-semibold text-white"
+    <div class="p-4">
+      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
+        <table class="w-full text-cp-sm">
+          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+            <tr>
+              <th class="px-3 py-2.5 font-semibold">Nombre</th>
+              <th class="px-3 py-2.5 font-semibold">Rol</th>
+              <th class="px-3 py-2.5 font-semibold">Puesto</th>
+              <th class="px-3 py-2.5 font-semibold">Departamento</th>
+              <th class="px-3 py-2.5 font-semibold">Contrato</th>
+              <th class="px-3 py-2.5 font-semibold">Horas</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-borde-suave">
+            <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar bg-primario-fuerte text-cp-xs font-semibold text-texto-inverso"
+                  >
+                    {{ initials(person.name) }}
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block truncate font-medium text-texto">{{ person.name }}</span>
+                    <span class="block truncate text-cp-xs text-texto-tenue">{{ person.email }}</span>
+                  </span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-texto-suave">{{ person.company_role_label }}</td>
+              <td class="px-3 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
+              <td class="px-3 py-2 text-texto-suave">
+                {{ person.department_name ?? 'Sin departamento' }}
+              </td>
+              <td class="px-3 py-2 text-texto-suave">{{ person.employment_type_label }}</td>
+              <td class="px-3 py-2 text-texto-suave">{{ person.weekly_base_hours }} h</td>
+              <td class="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                  @click="edit(person)"
                 >
-                  {{ initials(person.name) }}
-                </span>
-                <span class="min-w-0">
-                  <span class="block truncate font-medium text-slate-900">{{ person.name }}</span>
-                  <span class="block truncate text-xs text-slate-500">{{ person.email }}</span>
-                </span>
-              </div>
-            </td>
-            <td class="px-2 py-2 text-slate-600">{{ person.company_role_label }}</td>
-            <td class="px-2 py-2 text-slate-600">{{ person.job_title ?? '—' }}</td>
-            <td class="px-2 py-2 text-slate-600">
-              {{ person.department_name ?? 'Sin departamento' }}
-            </td>
-            <td class="px-2 py-2 text-slate-600">{{ person.employment_type_label }}</td>
-            <td class="px-2 py-2 text-slate-600">{{ person.weekly_base_hours }} h</td>
-            <td class="px-2 py-2 text-right">
-              <button
-                type="button"
-                class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-                @click="edit(person)"
-              >
-                Editar
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!props.people.length">
-            <td colspan="7" class="px-3 py-6 text-center text-sm text-slate-500">
-              No hay personas en la organización.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  Editar
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!props.people.length">
+              <td colspan="7" class="px-3 py-6 text-center text-cp-sm text-texto-tenue">
+                No hay personas en la organización.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <ModalDialog
@@ -185,45 +188,45 @@ async function save() {
     >
       <form id="form-persona" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Nombre
             <input
               v-model="form.name"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Correo
             <input
               v-model="form.email"
               type="email"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label v-if="!editing" class="block text-sm font-medium">
+          <label v-if="!editing" class="block text-cp-sm font-medium text-texto">
             Contraseña
             <input
               v-model="form.password"
               type="password"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Rol de empresa
             <select
               v-model="form.company_role"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option v-for="role in props.companyRoles" :key="role.value" :value="role.value">
                 {{ role.label }}
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Departamento
             <select
               v-model="form.department_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Sin departamento</option>
               <option
@@ -235,28 +238,28 @@ async function save() {
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Horas base semanales
             <input
               v-model="form.weekly_base_hours"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Puesto
             <input
               v-model="form.job_title"
               maxlength="120"
               placeholder="Ingeniero PLC, Project Manager..."
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco placeholder:text-texto-tenue"
               data-testid="person-job-title"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Nivel
             <select
               v-model="form.seniority"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="person-seniority"
             >
               <option value="">Sin nivel</option>
@@ -265,11 +268,11 @@ async function save() {
               <option value="senior">Senior</option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Tipo de contrato
             <select
               v-model="form.employment_type"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="person-employment-type"
             >
               <option value="objetivo">Objetivo</option>
@@ -287,7 +290,7 @@ async function save() {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -296,7 +299,7 @@ async function save() {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         >
           {{ editing ? 'Guardar cambios' : 'Dar de alta' }}
         </button>

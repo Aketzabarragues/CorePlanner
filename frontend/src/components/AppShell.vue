@@ -268,15 +268,15 @@ watch(() => route.fullPath, () => {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden bg-slate-50">
+  <div class="flex h-screen overflow-hidden bg-lienzo">
     <div
       v-if="menuAbierto"
-      class="fixed inset-0 z-40 bg-slate-900/50 sm:hidden"
+      class="fixed inset-0 z-40 bg-overlay/50 sm:hidden"
       data-testid="menu-overlay"
       @click="menuAbierto = false"
     ></div>
     <aside
-      class="flex shrink-0 flex-col bg-slate-900 text-slate-300 transition-all duration-200"
+      class="flex shrink-0 flex-col bg-lateral-fondo text-lateral-texto transition-all duration-200"
       :class="sideClasses"
     >
       <div
@@ -284,17 +284,17 @@ watch(() => route.fullPath, () => {
         :class="menuCompacto ? 'flex-col gap-2 px-2' : ''"
       >
         <span
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-siemens-500 text-sm font-bold text-white"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-primario text-sm font-bold text-sobre-primario"
         >
           CP
         </span>
         <span v-if="!menuCompacto" class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-semibold text-white">CorePlanner</span>
-          <span class="block text-[11px] leading-tight text-slate-400">v0.1</span>
+          <span class="block truncate text-sm font-semibold text-texto-inverso">CorePlanner</span>
+          <span class="block font-mono text-[11px] leading-tight text-lateral-texto-tenue">v0.1</span>
         </span>
         <button
           type="button"
-          class="hidden h-11 w-11 items-center justify-center rounded text-slate-400 hover:bg-slate-800 hover:text-white sm:flex"
+          class="hidden h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue hover:bg-lateral-hover hover:text-texto-inverso sm:flex"
           :title="collapsed ? 'Expandir el menú' : 'Colapsar el menú'"
           data-testid="sidebar-toggle"
           @click="toggleSidebar"
@@ -305,27 +305,29 @@ watch(() => route.fullPath, () => {
         </button>
       </div>
 
-      <div class="border-b border-slate-800 px-3 pb-3" data-testid="sidebar-context">
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {{ enProyecto ? 'Proyecto' : 'Espacio Global' }}
-        </p>
-        <p class="truncate text-sm text-white">
-          {{ currentProject?.name ?? 'Toda la organización' }}
-        </p>
-        <p class="truncate text-xs text-slate-400">
-          {{
-            enProyecto
-              ? (department?.name ?? 'Sin departamento')
-              : 'Consolidado de todos los proyectos'
-          }}
-        </p>
+      <div class="px-3 pb-3" data-testid="sidebar-context">
+        <div class="rounded-control border border-lateral-borde bg-lateral-hover/40 px-3 py-2">
+          <p class="text-lateral-titulo-seccion text-[10px] uppercase tracking-wider">
+            {{ enProyecto ? 'Proyecto' : 'Espacio Global' }}
+          </p>
+          <p class="truncate text-sm text-texto-inverso">
+            {{ currentProject?.name ?? 'Toda la organización' }}
+          </p>
+          <p class="truncate text-xs text-lateral-texto-tenue">
+            {{
+              enProyecto
+                ? (department?.name ?? 'Sin departamento')
+                : 'Consolidado de todos los proyectos'
+            }}
+          </p>
+        </div>
       </div>
 
       <nav class="flex-1 overflow-y-auto px-2 py-2">
         <template v-for="section in sections" :key="section.title">
           <p
             v-if="!menuCompacto && sections.length > 1"
-            class="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+            class="px-3 pb-1 pt-3 text-lateral-titulo-seccion text-[10px] uppercase tracking-wider"
           >
             {{ section.title }}
           </p>
@@ -333,15 +335,22 @@ watch(() => route.fullPath, () => {
             v-for="item in section.items"
             :key="item.name"
             :to="linkFor(item)"
-            class="flex min-h-11 items-center gap-3 rounded-r-md border-l-4 px-3 py-2 text-sm transition-colors"
+            class="flex min-h-11 items-center gap-3 rounded-control border px-3 py-2 text-sm transition-colors"
             :class="
               activeView === item.name
-                ? 'border-indigo-500 bg-slate-800 pl-3 font-medium text-white'
-                : 'border-transparent pl-3 text-slate-400 hover:bg-slate-800 hover:text-white'
+                ? 'border-lateral-activo-borde/30 bg-lateral-activo-fondo/20 font-semibold text-lateral-activo-texto'
+                : 'border-transparent text-lateral-texto hover:bg-lateral-hover/60 hover:text-texto-inverso'
             "
             :title="menuCompacto ? item.label : undefined"
           >
-            <span class="inline-flex h-5 w-5 shrink-0">
+            <span
+              class="inline-flex h-5 w-5 shrink-0"
+              :class="
+                activeView === item.name
+                  ? 'text-lateral-activo-icono'
+                  : 'text-lateral-texto-tenue'
+              "
+            >
               <AppIcon :name="item.icon" />
             </span>
             <span v-if="!menuCompacto" class="flex-1 truncate">{{ item.label }}</span>
@@ -351,33 +360,35 @@ watch(() => route.fullPath, () => {
         <RouterLink
           v-if="enProyecto"
           :to="globalTarget"
-          class="flex min-h-11 items-center gap-3 rounded-r-md border-l-4 border-transparent px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          class="flex min-h-11 items-center gap-3 rounded-control border border-transparent px-3 py-2 text-sm text-lateral-texto transition-colors hover:bg-lateral-hover hover:text-texto-inverso"
           data-testid="volver-global"
         >
-          <span class="inline-flex h-5 w-5 shrink-0">
+          <span class="inline-flex h-5 w-5 shrink-0 text-lateral-texto-tenue">
             <AppIcon name="arrowLeft" />
           </span>
           <span v-if="!menuCompacto" class="flex-1 truncate">Volver a vista global</span>
         </RouterLink>
       </nav>
 
-      <div class="flex items-center gap-2 border-t border-slate-800 p-3">
+      <div class="flex items-center gap-2 border-t border-lateral-borde p-3">
         <span
           data-testid="user-avatar"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-siemens-500 text-xs font-semibold text-white"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lateral-avatar text-xs font-semibold text-texto-inverso"
         >
           {{ initials }}
         </span>
         <span v-if="!menuCompacto" class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-medium text-white">{{ auth.user?.name }}</span>
-          <span class="block truncate text-xs text-slate-400">
+          <span class="block truncate text-sm font-medium text-texto-inverso">
+            {{ auth.user?.name }}
+          </span>
+          <span class="block truncate text-xs text-lateral-texto-tenue">
             {{ roleLabel || userDepartment?.name || 'Sin departamento' }}
           </span>
         </span>
         <button
           v-if="!menuCompacto"
           type="button"
-          class="flex h-11 w-11 items-center justify-center rounded text-slate-400 hover:bg-slate-800 hover:text-white"
+          class="flex h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue hover:bg-lateral-hover hover:text-texto-inverso"
           title="Cerrar sesión"
           data-testid="logout"
           @click="logout"
@@ -396,10 +407,12 @@ watch(() => route.fullPath, () => {
       pagina ganaria un scroll que no debe existir.
     -->
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header class="flex h-14 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
+      <header
+        class="flex h-14 items-center justify-between gap-4 border-b border-borde bg-cabecera px-4 sm:px-6"
+      >
         <button
           type="button"
-          class="flex h-11 w-11 flex-none items-center justify-center rounded border border-slate-300 bg-white text-slate-700 sm:hidden"
+          class="flex h-11 w-11 flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave sm:hidden"
           aria-label="Abrir el menú"
           :aria-expanded="menuAbierto"
           data-testid="menu-toggle"
@@ -411,13 +424,13 @@ watch(() => route.fullPath, () => {
         </button>
         <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Migas de pan">
           <template v-if="enProyecto">
-            <span class="truncate text-slate-500">{{ department?.name ?? 'Sin departamento' }}</span>
-            <span class="text-slate-300">/</span>
-            <span class="truncate text-slate-500">{{ currentProjectName }}</span>
-            <span class="text-slate-300">/</span>
-            <span class="truncate font-medium text-slate-900">{{ currentViewLabel }}</span>
+            <span class="truncate text-texto-tenue">{{ department?.name ?? 'Sin departamento' }}</span>
+            <span class="text-texto-tenue">/</span>
+            <span class="truncate text-texto-tenue">{{ currentProjectName }}</span>
+            <span class="text-texto-tenue">/</span>
+            <span class="truncate font-medium text-texto">{{ currentViewLabel }}</span>
           </template>
-          <span v-else class="truncate text-slate-500">{{ currentViewLabel }}</span>
+          <span v-else class="truncate text-texto-tenue">{{ currentViewLabel }}</span>
         </nav>
 
         <div class="flex shrink-0 items-center gap-3">
@@ -425,25 +438,25 @@ watch(() => route.fullPath, () => {
             <div class="flex items-center gap-3">
               <span
                 v-if="status.tone === 'active'"
-                class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700"
+                class="rounded-pastilla bg-ok-fondo px-2.5 py-1 text-xs font-medium text-ok-texto"
               >
                 {{ status.label }}
               </span>
               <span
                 v-else-if="status.tone === 'paused'"
-                class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700"
+                class="rounded-pastilla bg-aviso-fondo px-2.5 py-1 text-xs font-medium text-aviso-texto"
               >
                 {{ status.label }}
               </span>
               <span
                 v-else
-                class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs font-medium text-neutro-texto"
               >
                 {{ status.label }}
               </span>
               <span
                 v-if="!canEdit"
-                class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs font-medium text-neutro-texto"
                 title="No tienes permiso de escritura en este proyecto"
               >
                 Solo lectura
@@ -453,7 +466,7 @@ watch(() => route.fullPath, () => {
             <button
               v-if="canEdit"
               type="button"
-              class="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white hover:bg-siemens-700"
+              class="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded bg-primario-fuerte px-3 py-2 text-sm font-medium text-sobre-primario hover:bg-primario-medio"
               data-testid="new-task"
               @click="openNewTask"
             >
@@ -470,7 +483,7 @@ watch(() => route.fullPath, () => {
         `min-h-0`: la vista se desplaza por dentro de `main` cuando su
         contenido no cabe; la pagina (`html`) nunca crece.
       -->
-      <main class="flex-1 min-h-0 overflow-auto bg-slate-50 p-3 sm:p-6">
+      <main class="flex-1 min-h-0 overflow-auto bg-lienzo p-3 sm:p-6">
         <AlertBanner v-if="error" variant="error" class="mb-3">
           {{ error }}
         </AlertBanner>
@@ -493,7 +506,7 @@ watch(() => route.fullPath, () => {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          class="rounded border border-borde-fuerte px-3 py-2 text-sm"
           @click="showNewTask = false"
         >
           Cancelar
@@ -502,7 +515,7 @@ watch(() => route.fullPath, () => {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded bg-primario-fuerte px-3 py-2 text-sm font-medium text-sobre-primario disabled:opacity-60"
         >
           {{ saving ? 'Guardando...' : 'Guardar' }}
         </button>

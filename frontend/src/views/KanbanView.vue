@@ -29,6 +29,7 @@ import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
+import { useProjectsStore } from '../stores/projects'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
 import {
@@ -37,6 +38,7 @@ import {
   columnLabel,
   estadosCon,
   formatHours,
+  statusPill,
 } from '../utils/kanban'
 import { localDateKey } from '../utils/month'
 
@@ -90,6 +92,7 @@ const altaAbierta = ref(null)
 const titleInput = ref(null)
 
 const auth = useAuthStore()
+const store = useProjectsStore()
 const toast = useToastStore()
 const statusStore = useTaskStatusesStore()
 
@@ -107,6 +110,20 @@ const clavesUsadas = computed(() => [...new Set(tasks.value.map((task) => task.s
 const estados = computed(() => {
   const lista = statusStore.statesOf(props.id)
   return estadosCon(lista.length ? lista : DEFAULT_TASK_STATUSES, clavesUsadas.value)
+})
+
+/** Si el tablero entero esta vacio: aviso de primera carga, sin columnas. */
+const tieneTarjetas = computed(() => tasks.value.length > 0)
+
+/**
+ * Color del proyecto para la franja de la tarjeta.
+ *
+ * Lo da la tienda de proyectos (color de cada proyecto); sin color ni sin
+ * proyecto cargado, la franja queda transparente.
+ */
+const estiloProyecto = computed(() => {
+  const proyecto = store.projects.find((item) => String(item.id) === String(props.id))
+  return proyecto?.color ? { backgroundColor: proyecto.color } : { backgroundColor: 'transparent' }
 })
 
 /** Cada columna con formulario nuevo se asegura su formulario al llegar. */
@@ -449,6 +466,9 @@ async function load() {
       meApi.get(token).catch(() => null),
       projectsApi.members(token, props.id).catch(() => []),
       statusStore.loadProject(token, props.id).catch(() => []),
+      // La franja de la tarjeta lleva el color del proyecto: se asegura la
+      // lista, y si no llega, la franja queda transparente.
+      store.ensureProjects(token).catch(() => []),
     ])
     columnas.value = data.columns ?? []
     tasks.value = columnas.value.flatMap((column) => column.tasks ?? [])
@@ -480,7 +500,7 @@ onBeforeUnmount(() => drag.anular())
   <div>
     <PageHeader title="Tablero Kanban" :subtitle="subtitle">
       <template #actions>
-        <p v-if="saving" class="text-sm text-slate-500">Guardando...</p>
+        <p v-if="saving" class="text-cp-xs text-texto-tenue">Guardando...</p>
       </template>
     </PageHeader>
 
@@ -503,17 +523,23 @@ onBeforeUnmount(() => drag.anular())
       @retry="reintentar"
     >
       <!-- El numero de columnas lo da la lista de estados, no una constante. -->
+      <div v-if="!tieneTarjetas" class="mb-4 rounded-tarjeta border border-dashed border-borde-fuerte bg-tarjeta p-6 text-center">
+        <p class="text-cp-sm font-semibold text-texto-marca">Este proyecto todavía no tiene tareas</p>
+        <p class="mt-1 text-cp-xs text-texto-tenue">
+          Las tareas que crees aparecerán en la primera columna del tablero.
+        </p>
+      </div>
       <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))]">
         <section
           v-for="(columna, index) in board"
           :key="columna.status"
           :ref="(element) => (columnElements[index] = element)"
-          class="flex min-h-32 flex-col rounded border bg-slate-100 p-2"
-          :class="hoverColumn === columna.status ? 'border-siemens-500 bg-slate-200' : 'border-slate-200'"
+          class="flex min-h-32 flex-col rounded-control border bg-tarjeta-suave p-2 transition-colors"
+          :class="hoverColumn === columna.status ? 'border-primario bg-tarjeta' : 'border-borde'"
         >
-          <h2 class="mb-2 flex items-center justify-between text-xs font-semibold text-slate-700">
-            {{ columna.label }}
-            <span class="rounded bg-white px-1.5 py-0.5 text-slate-500">
+          <h2 class="mb-2 flex items-center justify-between gap-2 text-cp-sm font-semibold text-texto">
+            <span class="truncate">{{ columna.label }}</span>
+            <span class="shrink-0 rounded-pastilla bg-tarjeta px-2 py-0.5 font-mono text-cp-micro tabular-nums text-texto-suave">
               {{ columna.task_count }}
               {{ columna.task_count === 1 ? 'tarea' : 'tareas' }} ·
               {{ formatHours(columna.estimated_hours) }}
@@ -523,7 +549,7 @@ onBeforeUnmount(() => drag.anular())
           <article
             v-for="task in columna.tasks"
             :key="task.id"
-            class="mb-2 select-none rounded border border-slate-200 bg-white p-3 shadow-sm last:mb-0"
+            class="group relative mb-2 select-none overflow-hidden rounded-control border border-borde bg-tarjeta p-3 shadow-control transition-shadow last:mb-0 hover:shadow-tarjeta"
             :class="[
               canEdit ? 'cursor-grab' : 'cursor-default',
               draggingId === task.id ? 'opacity-60' : '',
@@ -533,9 +559,16 @@ onBeforeUnmount(() => drag.anular())
             @mousedown="empezarArrastre(task, $event)"
             @click="onCardClick(task, $event)"
           >
+            <!-- Franja de color del proyecto: el color lo decide el backend -->
+            <span
+              class="absolute inset-y-0 left-0 w-1"
+              :style="estiloProyecto"
+              aria-hidden="true"
+            ></span>
+
             <p
               v-if="!(editando && editando.id === task.id && editando.campo === 'title')"
-              class="text-sm font-medium text-slate-900"
+              class="pl-2 text-cp-sm font-semibold text-texto"
               @dblclick="abrirEdicion(task, 'title')"
             >
               {{ task.title }}
@@ -544,18 +577,18 @@ onBeforeUnmount(() => drag.anular())
               v-else
               :value="editando.valor"
               type="text"
-              class="w-full rounded border border-slate-300 px-1 py-0.5 text-sm"
+              class="w-full rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1 text-cp-sm text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               @input="editando.valor = $event.target.value"
               @keyup.enter="guardarEdicion(task)"
               @keyup.esc="editando = null"
               @blur="guardarEdicion(task)"
               @dblclick.stop
             />
-            <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <div class="mt-2 flex flex-wrap items-center gap-1.5 pl-2">
               <select
                 :value="task.assigned_to ?? ''"
                 :disabled="!canEdit"
-                class="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-slate-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                class="min-h-10 max-w-[9rem] rounded-control border border-borde-fuerte bg-tarjeta-suave px-1.5 py-0.5 text-cp-xs text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:border-borde disabled:bg-tarjeta-suave disabled:text-texto-tenue"
                 :title="canEdit ? 'Cambiar el responsable de la tarea' : 'Solo lectura'"
                 @change="asignar(task, $event)"
               >
@@ -566,7 +599,7 @@ onBeforeUnmount(() => drag.anular())
               </select>
               <span
                 v-if="!(editando && editando.id === task.id && editando.campo === 'estimated_hours')"
-                class="rounded bg-siemens-900 px-1.5 py-0.5 text-white"
+                class="rounded-control bg-primario-fuerte px-1.5 py-0.5 font-mono text-cp-xs font-semibold tabular-nums text-sobre-primario"
                 @dblclick="abrirEdicion(task, 'estimated_hours')"
               >
                 {{ formatHours(task.estimated_hours) }}
@@ -577,21 +610,22 @@ onBeforeUnmount(() => drag.anular())
                 type="number"
                 min="0"
                 step="0.25"
-                class="w-16 rounded border border-slate-300 px-1 py-0.5 text-white"
+                class="w-16 rounded-control border border-borde-fuerte bg-tarjeta px-1.5 py-0.5 font-mono text-cp-xs text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 @input="editando.valor = $event.target.value"
                 @keyup.enter="guardarEdicion(task)"
                 @keyup.esc="editando = null"
                 @blur="guardarEdicion(task)"
                 @dblclick.stop
               />
+              <span v-if="task.start_date" class="font-mono text-cp-xs text-texto-tenue">
+                {{ task.start_date }} &rarr; {{ task.end_date }}
+              </span>
             </div>
-            <p v-if="task.start_date" class="mt-1 text-xs text-slate-500">
-              {{ task.start_date }} &rarr; {{ task.end_date }}
-            </p>
             <select
               :value="task.status"
               :disabled="!canEdit"
-              class="mt-2 w-full rounded border border-slate-300 bg-white px-1.5 py-1 text-xs text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              class="mt-2 ml-2 w-full min-h-10 rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:opacity-70"
+              :style="statusPill(task.status, estados)"
               :title="canEdit ? 'Cambiar el estado de la tarea' : 'Solo lectura'"
               @change="moveFromSelect(task, $event)"
             >
@@ -606,10 +640,28 @@ onBeforeUnmount(() => drag.anular())
             fantasma; al pulsarlo se monta el formulario de esa columna y el
             de las demas se cierra. Escape lo cierra sin crear nada.
           -->
+          <!--
+            Hueco de destino: la tarjeta cae al pie de las tarjetas de la columna
+            de destino. La posicion exacta dentro de la columna la calcula el
+            arrastre al soltar.
+          -->
+          <div
+            v-if="draggingId !== null && hoverColumn === columna.status"
+            class="mb-2 flex min-h-14 items-center justify-center rounded-control border border-dashed border-primario bg-primario-suave text-cp-xs font-medium text-primario-fuerte"
+            aria-hidden="true"
+          >
+            Soltar aquí
+          </div>
+          <div
+            v-if="!columna.tasks.length"
+            class="flex min-h-14 flex-1 items-center justify-center rounded-control border border-dashed border-borde px-3 py-4 text-center text-cp-xs text-texto-tenue"
+          >
+            Sin tareas
+          </div>
           <button
             v-if="canEdit && altaAbierta !== columna.status"
             type="button"
-            class="mt-2 w-full rounded px-1 py-1 text-left text-xs text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-siemens-500"
+            class="mt-2 inline-flex min-h-10 w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-cp-xs font-medium text-texto-tenue transition-colors hover:bg-tarjeta hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="kanban-add-task"
             @click="abrirAlta(columna.status)"
           >
@@ -617,7 +669,7 @@ onBeforeUnmount(() => drag.anular())
           </button>
           <form
             v-if="canEdit && altaAbierta === columna.status"
-            class="mt-2 border-t border-slate-200 pt-2"
+            class="mt-2 space-y-1.5 border-t border-borde pt-2"
             data-testid="kanban-new-task"
             @submit.prevent="crearTarea(columna.status)"
             @keydown.esc="cerrarAlta()"
@@ -627,27 +679,30 @@ onBeforeUnmount(() => drag.anular())
               ref="titleInput"
               type="text"
               placeholder="Nueva tarea"
-              class="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+              class="w-full rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1.5 text-cp-sm text-texto placeholder:text-texto-tenue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
-            <div class="mt-1 flex items-center gap-1">
+            <div class="flex items-center gap-1.5">
               <input
                 v-model="nuevas[columna.status].hours"
                 type="number"
                 min="0"
                 step="0.25"
                 placeholder="Horas"
-                class="w-16 rounded border border-slate-300 px-1.5 py-1 text-xs"
+                class="w-16 rounded-control border border-borde-fuerte bg-tarjeta px-1.5 py-1.5 font-mono text-cp-xs text-texto placeholder:text-texto-tenue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               />
               <select
                 v-model="nuevas[columna.status].assigned_to"
-                class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs"
+                class="min-h-10 min-w-0 flex-1 rounded-control border border-borde-fuerte bg-tarjeta px-1.5 py-1.5 text-cp-xs text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               >
                 <option value="">Sin asignar</option>
                 <option v-for="member in members" :key="member.user_id" :value="member.user_id">
                   {{ member.name }}
                 </option>
               </select>
-              <button type="submit" class="rounded bg-siemens-700 px-2 py-1 text-xs text-white">
+              <button
+                type="submit"
+                class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-2.5 py-1.5 text-cp-xs font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              >
                 Crear
               </button>
             </div>
@@ -677,22 +732,22 @@ onBeforeUnmount(() => drag.anular())
     <div
       v-if="fantasma"
       data-testid="kanban-drag-ghost"
-      class="pointer-events-none fixed z-50 w-64 select-none rounded border border-siemens-500 bg-white p-3 shadow-lg"
+      class="pointer-events-none fixed z-50 w-64 select-none rounded-control border border-primario bg-tarjeta p-3 shadow-flotante"
       :style="{
         left: `${fantasma.x}px`,
         top: `${fantasma.y}px`,
       }"
     >
-      <p class="text-sm font-medium text-slate-900">{{ fantasma.tarea.title }}</p>
-      <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">
+      <p class="text-cp-sm font-semibold text-texto">{{ fantasma.tarea.title }}</p>
+      <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <span class="rounded-control bg-tarjeta-suave px-1.5 py-0.5 text-cp-xs text-texto-suave">
           {{ fantasma.tarea.assigned_name ?? 'Sin asignar' }}
         </span>
-        <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-white">
+        <span class="rounded-control bg-primario-fuerte px-1.5 py-0.5 font-mono text-cp-xs font-semibold tabular-nums text-sobre-primario">
           {{ formatHours(fantasma.tarea.estimated_hours) }}
         </span>
       </div>
-      <p v-if="fantasma.tarea.start_date" class="mt-1 text-xs text-slate-500">
+      <p v-if="fantasma.tarea.start_date" class="mt-1 font-mono text-cp-xs text-texto-tenue">
         {{ fantasma.tarea.start_date }} &rarr; {{ fantasma.tarea.end_date }}
       </p>
     </div>

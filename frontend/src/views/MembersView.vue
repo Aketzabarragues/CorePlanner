@@ -142,19 +142,18 @@ watch(() => props.id, loadMembers)
       subtitle="Personas asignadas al proyecto, con su rol y sus horas base."
     >
       <template #actions>
-          <p v-if="!loading && members.length" class="text-sm text-slate-500">
-            {{ plural(members.length, 'persona', 'personas') }} · {{ totalHours }} h base en total
-          </p>
-          <button
-            v-if="isManager"
-            type="button"
-            class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
-            data-testid="new-member"
-            @click="openCreate"
-          >
-            Añadir persona
-          </button>
-
+        <p v-if="!loading && members.length" class="text-cp-sm text-texto-tenue">
+          {{ plural(members.length, 'persona', 'personas') }} · {{ totalHours }} h base en total
+        </p>
+        <button
+          v-if="isManager"
+          type="button"
+          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          data-testid="new-member"
+          @click="openCreate"
+        >
+          Añadir persona
+        </button>
       </template>
     </PageHeader>
 
@@ -165,30 +164,34 @@ watch(() => props.id, loadMembers)
       loading-label="Cargando los miembros"
       @retry="reintentar"
     >
-      <div class="overflow-x-auto rounded border border-slate-200 bg-white">
-        <table class="w-full border-collapse text-sm">
+      <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+        <table class="w-full border-collapse text-cp-sm">
           <thead>
-            <tr class="bg-slate-100">
-              <th class="border border-slate-200 px-3 py-2 text-left">Persona</th>
-              <th class="border border-slate-200 px-3 py-2 text-left">Correo</th>
-              <th class="border border-slate-200 px-3 py-2 text-left">Rol</th>
-              <th class="border border-slate-200 px-3 py-2 text-right">Horas base</th>
-              <th v-if="isManager" class="border border-slate-200 px-3 py-2 text-right">
+            <tr class="bg-tarjeta-suave">
+              <th class="border border-borde px-3 py-2 text-left">Persona</th>
+              <th class="border border-borde px-3 py-2 text-left">Correo</th>
+              <th class="border border-borde px-3 py-2 text-left">Rol</th>
+              <th class="border border-borde px-3 py-2 text-right">Horas base</th>
+              <th v-if="isManager" class="border border-borde px-3 py-2 text-right">
                 Acciones
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="member in members" :key="member.user_id" data-testid="member-row">
-              <th class="border border-slate-200 bg-white px-3 py-2 text-left font-medium">
+              <th
+                class="border border-borde bg-tarjeta px-3 py-2 text-left font-medium text-texto"
+              >
                 {{ member.name }}
               </th>
-              <td class="border border-slate-200 px-3 py-2 text-slate-600">{{ member.email }}</td>
-              <td class="border border-slate-200 px-3 py-2 text-slate-600">
+              <td class="border border-borde px-3 py-2 text-texto-suave">
+                {{ member.email }}
+              </td>
+              <td class="border border-borde px-3 py-2 text-texto-suave">
                 <select
                   v-if="isManager"
                   :value="member.role_id"
-                  class="rounded border border-slate-300 px-2 py-1 text-sm"
+                  class="min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta-suave px-2.5 py-1.5 text-cp-sm text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                   :data-testid="`member-role-${member.user_id}`"
                   @change="changeRole(member, $event.target.value)"
                 >
@@ -198,13 +201,15 @@ watch(() => props.id, loadMembers)
                 </select>
                 <span v-else>{{ member.role_name }}</span>
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
+              <td
+                class="border border-borde px-3 py-2 text-right font-mono tabular-nums text-texto"
+              >
                 {{ member.weekly_base_hours }} h/semana
               </td>
-              <td v-if="isManager" class="border border-slate-200 px-3 py-2 text-right">
+              <td v-if="isManager" class="border border-borde px-3 py-2 text-right">
                 <button
                   type="button"
-                  class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
+                  class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                   :data-testid="`remove-member-${member.user_id}`"
                   @click="removeMember(member)"
                 >
@@ -213,7 +218,7 @@ watch(() => props.id, loadMembers)
               </td>
             </tr>
             <tr v-if="!members.length">
-              <td colspan="5" class="px-3 py-4 text-center text-sm text-slate-500">
+              <td colspan="5" class="px-3 py-4 text-center text-cp-sm text-texto-tenue">
                 No hay personas asignadas al proyecto.
               </td>
             </tr>
@@ -225,11 +230,11 @@ watch(() => props.id, loadMembers)
     <ModalDialog :open="formOpen" title="Añadir persona al proyecto" @close="closeForm">
       <form id="form-miembro-proyecto" @submit.prevent="addMember">
         <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Persona
             <select
               v-model="selection.user_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full min-h-10 rounded-control border border-borde-fuerte bg-tarjeta-suave px-2.5 py-1.5 text-cp-sm text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="member-person"
             >
               <option value="">Elige una persona</option>
@@ -238,11 +243,11 @@ watch(() => props.id, loadMembers)
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Rol
             <select
               v-model="selection.role_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full min-h-10 rounded-control border border-borde-fuerte bg-tarjeta-suave px-2.5 py-1.5 text-cp-sm text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="member-role"
             >
               <option v-for="role in roles" :key="role.id" :value="String(role.id)">
@@ -254,7 +259,7 @@ watch(() => props.id, loadMembers)
 
         <p
           v-if="formError"
-          class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          class="mt-3 rounded-control border border-peligro-borde bg-peligro-fondo p-3 text-cp-sm text-peligro-texto"
           data-testid="member-form-error"
         >
           {{ formError }}
@@ -264,7 +269,7 @@ watch(() => props.id, loadMembers)
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -272,7 +277,7 @@ watch(() => props.id, loadMembers)
         <button
           type="button"
           @click="submit"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="add-member"
         >
           Añadir

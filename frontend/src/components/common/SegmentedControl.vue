@@ -5,7 +5,12 @@
  * Es el control de una sola eleccion de la aplicacion: el contenedor lleva
  * `role="group"` con su nombre accesible y cada boton, `aria-pressed`, para que
  * un lector de pantalla sepa cual es el activo. El aspecto es el mismo en
- * todos los usos (escala del Gantt, modo de la celda, vista del calendario).
+ * todos los usos (escala del Gantt, modo de la celda, vista del calendario):
+ * pastilla agrupada, pista `bg-tarjeta-suave` y opcion activa en `bg-tarjeta`
+ * con `shadow-control`.
+ *
+ * Altura: las opciones miden 40 px (`min-h-10`) y la pista completa 44 px
+ * (`p-1`): la zona tactil es la cabecera entera.
  *
  * `testidPrefix` existe para que el boton conserve el `data-testid` que ya
  * buscan las pruebas de la vista que lo usa.
@@ -25,16 +30,16 @@ const emit = defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <div class="flex items-center gap-1" role="group" :aria-label="label">
+  <div class="inline-flex items-center gap-0.5 rounded-control bg-tarjeta-suave p-1" role="group" :aria-label="label">
     <button
       v-for="item in options"
       :key="item.value"
       type="button"
-      class="rounded border px-3 py-1.5 text-sm"
+      class="min-h-10 rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
       :class="
         modelValue === item.value
-          ? 'border-siemens-900 bg-siemens-900 text-white'
-          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+          ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+          : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
       "
       :aria-pressed="modelValue === item.value"
       :data-testid="testidPrefix ? `${testidPrefix}-${item.value}` : undefined"

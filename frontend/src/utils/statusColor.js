@@ -14,16 +14,16 @@
 /**
  * Neutro para un estado sin color.
  *
- * Equivalencias con lo que hay en las plantillas: `#f1f5f9` es bg-slate-100
- * y `#334155` text-slate-700; el par da 7.4:1 de contraste.
+ * Toma el par neutro del sistema de tokens (`--cp-neutro-fondo` y
+ * `--cp-neutro-texto`), que da 7.4:1 de contraste.
  */
 export const NEUTRO_PILDORA = {
-  backgroundColor: '#f1f5f9',
-  color: '#334155',
+  backgroundColor: 'rgb(var(--cp-neutro-fondo))',
+  color: 'rgb(var(--cp-neutro-texto))',
 }
 
-/** Neutro de la barra: #94a3b8 es bg-slate-400. */
-export const NEUTRO_BARRA = { backgroundColor: '#94a3b8' }
+/** Neutro de la barra: el punto neutro del sistema de tokens. */
+export const NEUTRO_BARRA = { backgroundColor: 'rgb(var(--cp-neutro-punto))' }
 
 function hexACanal(hex) {
   const limpio = String(hex ?? '').trim().replace(/^#/, '')

@@ -38,7 +38,7 @@
  *
  * Una clase por concepto, no por color: el SVG no lleva hex, ni `fill` ni
  * `stroke` a mano, sino clases que salen del sistema de diseno (las
- * utilidades de Tailwind y la escala de marca `siemens`). Asi el diagrama
+ * utilidades de Tailwind y la escala de marca `primario-*`). Asi el diagrama
  * habla el mismo idioma que el resto de la aplicacion, y cambiar un color
  * es cambiar una clase.
  *
@@ -55,15 +55,15 @@
 
 /* Lienzo: el papel donde se dibuja todo. */
 .gantt__lienzo {
-  @apply fill-white;
+  @apply fill-tarjeta;
 }
 
 /* Cabecera del eje: fondo opaco (tapa lo que pasa por debajo) y borde. */
 .gantt__eje-fondo {
-  @apply fill-slate-100;
+  @apply fill-tarjeta-suave;
 }
 .gantt__eje-borde {
-  @apply stroke-slate-200;
+  @apply stroke-borde;
 }
 
 /*
@@ -73,19 +73,19 @@
  * la semana, semanas dentro del mes) y es mas clara.
  */
 .gantt__rejilla-linea {
-  @apply stroke-slate-200;
+  @apply stroke-borde;
 }
 .gantt__rejilla-linea-fina {
-  @apply stroke-slate-100;
+  @apply stroke-borde-suave;
 }
 /* Borde derecho: cierra la rejilla en el ultimo pixel del lienzo. */
 .gantt__rejilla-borde {
-  @apply fill-slate-200;
+  @apply fill-borde;
 }
 
 /* Separador de mes: mas marcado que la rejilla, para que se vea el cambio. */
 .gantt__separador-mes {
-  @apply stroke-slate-300;
+  @apply stroke-borde-fuerte;
 }
 
 /*
@@ -95,13 +95,28 @@
  * un dia no laborable no se puede trabajar.
  */
 .gantt__banda-fin-de-semana {
-  @apply fill-slate-50;
+  fill: rgb(var(--cp-trama-a));
+}
+/*
+ * Trama diagonal del fin de semana: la banda se rellena con el `pattern` de
+ * `GanttChart` (una `background-image` de CSS no llega al `<rect>` del SVG).
+ * El fondo del pattern es la trama A y la franja, la trama B.
+ */
+.gantt__trama-b {
+  fill: rgb(var(--cp-trama-b));
 }
 .gantt__banda-festivo {
-  @apply fill-amber-50;
+  @apply fill-aviso-fondo;
 }
 .gantt__banda-arrastre {
-  @apply fill-siemens-500/[0.08];
+  fill: url(#cp-trama-rayado);
+}
+/* Rayado del destino de arrastre, las dos tintas de la trama. */
+.gantt__rayado-a {
+  fill: rgb(var(--cp-trama-rayado-a));
+}
+.gantt__rayado-b {
+  fill: rgb(var(--cp-trama-rayado-b));
 }
 
 /*
@@ -109,7 +124,7 @@
  * la cruz de fecha (que va en el azul claro y es de otro signo).
  */
 .gantt__hoy {
-  @apply stroke-siemens-900;
+  @apply stroke-primario-fuerte;
   pointer-events: none;
 }
 
@@ -120,14 +135,14 @@
  * barra que hay debajo.
  */
 .gantt__cruz {
-  @apply stroke-siemens-500/[0.45];
+  @apply stroke-primario/45;
   pointer-events: none;
 }
 .gantt__cruz-caja {
-  @apply fill-white stroke-slate-300;
+  @apply fill-tarjeta stroke-borde-fuerte;
 }
 .gantt__cruz-fecha {
-  @apply fill-siemens-900 text-[10px] font-semibold;
+  @apply fill-primario-fuerte text-cp-micro font-semibold;
 }
 .gantt__cruz-etiqueta {
   pointer-events: none;
@@ -135,7 +150,7 @@
 
 /* Flechas de dependencias: el trazo del vinculo y la punta que lo cierra. */
 .gantt__flecha {
-  @apply fill-none stroke-slate-600;
+  @apply fill-none stroke-texto-suave;
 }
 /*
  * Flecha de la cadena critica: mas trazo y tinta mas oscura.
@@ -145,7 +160,7 @@
  * no admite estilo por elemento.
  */
 .gantt__flecha--critica {
-  @apply stroke-siemens-900;
+  @apply stroke-primario-fuerte;
 }
 /* Van encima de las barras y no capturan el puntero, para no estorbar el
    arrastre. */
@@ -153,18 +168,18 @@
   pointer-events: none;
 }
 .gantt__punta {
-  @apply fill-slate-600;
+  @apply fill-texto-suave;
 }
 .gantt__punta-critica {
-  @apply fill-siemens-900;
+  @apply fill-primario-fuerte;
 }
 
 /* Fila de grupo: el fondo y el separador que la cierra. */
 .gantt__grupo-fondo {
-  @apply fill-slate-100;
+  @apply fill-tarjeta-suave;
 }
 .gantt__grupo-separador {
-  @apply stroke-slate-200;
+  @apply stroke-borde;
 }
 
 /*
@@ -188,11 +203,11 @@
  * Es de solo lectura: no captura el puntero ni se arrastra.
  */
 .gantt__resumen-cuerpo {
-  fill: var(--gantt-color-grupo, theme('colors.slate.400'));
+  fill: var(--gantt-color-grupo, rgb(var(--cp-borde-fuerte)));
   fill-opacity: 0.5;
 }
 .gantt__resumen-remate {
-  fill: var(--gantt-color-grupo, theme('colors.slate.400'));
+  fill: var(--gantt-color-grupo, rgb(var(--cp-borde-fuerte)));
 }
 .gantt__resumen {
   pointer-events: none;
@@ -206,22 +221,22 @@
  * lleva tipografia a mano.
  */
 .gantt__titulo-eje {
-  @apply fill-siemens-900 text-xs font-semibold;
+  @apply fill-primario-fuerte text-cp-sm font-semibold;
 }
 .gantt__subtitulo-eje {
-  @apply fill-slate-500 text-[10px];
+  @apply fill-texto-tenue text-cp-micro;
 }
 .gantt__insignia-hoy-caja {
-  @apply fill-siemens-900;
+  @apply fill-primario-fuerte;
 }
 .gantt__insignia-hoy-texto {
-  @apply fill-white text-[10px] font-semibold;
+  @apply fill-sobre-primario text-cp-micro font-semibold;
 }
 .gantt__insignia-festivo-caja {
-  @apply fill-white stroke-slate-300;
+  @apply fill-aviso-fondo stroke-aviso-borde;
 }
 .gantt__insignia-festivo-texto {
-  @apply fill-slate-600 text-[10px] font-medium;
+  @apply fill-aviso-texto text-cp-micro font-medium;
 }
 
 /*
@@ -232,15 +247,14 @@
  */
 .gantt__barra-cuerpo {
   /*
-   * Reserva del cuerpo de barra (tarea sin persona): antes era `#b8c2cc` y
-   * ahora es el `slate-300` de la paleta. Es un gris un poco mas claro: un
-   * cambio de tono minimo y deliberado, para que la reserva sea un token y
-   * no un color suelto.
+   * Reserva del cuerpo de barra (tarea sin persona): el gris de
+   * `borde-fuerte`, token y no color suelto.
    */
-  fill: var(--persona-color, theme('colors.slate.300'));
+  fill: var(--persona-color, rgb(var(--cp-borde-fuerte)));
 }
 .gantt__barra-avance {
-  @apply fill-black/[0.28];
+  /* Oscurecido 28 %: `fill-black/28` no existe en la escala de Tailwind. */
+  fill: rgb(0 0 0 / 0.28);
   pointer-events: none;
 }
 /*
@@ -249,12 +263,12 @@
  * de la paleta son demasiado claros para un texto oscuro encima.
  */
 .gantt__barra-etiqueta {
-  @apply fill-white;
+  @apply fill-sobre-primario;
   pointer-events: none;
 }
 /* Marca de violacion: no captura el puntero. */
 .gantt__barra-violacion {
-  @apply fill-slate-600 stroke-white;
+  @apply fill-peligro-texto stroke-sobre-primario;
   pointer-events: none;
 }
 /*
@@ -266,7 +280,7 @@
  * discontinuo del provisional (que va justo sobre el borde del cuerpo).
  */
 .gantt__barra-critica {
-  @apply fill-none stroke-siemens-900;
+  @apply fill-none stroke-primario-fuerte;
   stroke-width: 2;
   pointer-events: none;
 }
@@ -282,19 +296,20 @@
  * UNA fila de alto y ocupa todo el ancho del lienzo. No captura el puntero:
  * estorbaria al arrastre.
  */
+/* Opacidades fuera de la escala de Tailwind (8 y 12): CSS directo. */
 .gantt__fila-resaltada {
-  @apply fill-siemens-500/[0.08];
+  fill: rgb(var(--cp-primario) / 0.08);
   pointer-events: none;
 }
 .gantt__fila-activa {
-  @apply fill-siemens-500/[0.12];
+  fill: rgb(var(--cp-primario) / 0.12);
   pointer-events: none;
 }
 .gantt__nombre-fila--resaltada {
-  @apply bg-siemens-500/[0.08];
+  background-color: rgb(var(--cp-primario) / 0.08);
 }
 .gantt__nombre-fila--activa {
-  @apply bg-siemens-500/[0.12];
+  background-color: rgb(var(--cp-primario) / 0.12);
 }
 
 /*
@@ -401,7 +416,7 @@
 }
 
 /*
- * Foco y seleccion: el anillo exterior siemens-700, para que el color de la
+ * Foco y seleccion: el anillo exterior primario-medio, para que el color de la
  * barra (que es informacion) no se toque.
  *
  * Tailwind no trae `outline-solid`, asi que el trazo va en el atajo y el
@@ -409,7 +424,7 @@
  */
 .gantt__barra:focus,
 .gantt__barra[aria-current="true"] {
-  outline: 2px solid theme('colors.siemens.700');
+  outline: 2px solid rgb(var(--cp-primario-medio));
   outline-offset: 2px;
 }
 
@@ -418,7 +433,7 @@
  */
 @media (hover: hover) and (pointer: fine) {
   .gantt__barra:not(.gantt__barra--solo-lectura):hover .gantt__barra-cuerpo {
-    @apply stroke-slate-400;
+    @apply stroke-borde-fuerte;
     stroke-width: 1;
   }
   .gantt__barra:not(.gantt__barra--solo-lectura) .gantt__barra-cuerpo {
@@ -443,10 +458,11 @@
 
 /*
  * Barra de un proyecto provisional: sin relleno y con el contorno punteado,
- * el mismo slate-500 de la matriz y del calendario para que se lea igual.
+ * el mismo `borde-fuerte` de la matriz y del calendario para que se lea
+ * igual.
  */
 .gantt__barra--provisional .gantt__barra-cuerpo {
-  @apply fill-white stroke-slate-500;
+  @apply fill-tarjeta stroke-borde-fuerte;
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }

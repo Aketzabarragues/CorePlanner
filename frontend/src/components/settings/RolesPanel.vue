@@ -13,41 +13,45 @@ const props = defineProps({
 </script>
 
 <template>
-  <section class="space-y-6">
-    <div class="rounded border border-slate-200 bg-white p-4">
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">Roles de empresa</h3>
-      <ul class="space-y-2">
+  <div class="space-y-4">
+    <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+      <header class="border-b border-borde-suave px-4 py-3">
+        <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Roles de empresa</h2>
+      </header>
+      <ul class="space-y-2 p-4">
         <li
           v-for="role in props.companyRoles"
           :key="role.value"
-          class="rounded border border-slate-100 p-3"
+          class="rounded-control border border-borde bg-tarjeta-suave p-3"
         >
-          <p class="text-sm font-medium text-siemens-900">{{ role.label }}</p>
-          <p class="text-xs text-slate-500">{{ role.scope }}</p>
+          <p class="text-cp-sm font-medium text-texto">{{ role.label }}</p>
+          <p class="mt-0.5 text-cp-xs text-texto-suave">{{ role.scope }}</p>
         </li>
       </ul>
-    </div>
+    </section>
 
-    <div class="rounded border border-slate-200 bg-white p-4">
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">Roles de proyecto</h3>
-      <ul class="space-y-2">
+    <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+      <header class="border-b border-borde-suave px-4 py-3">
+        <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Roles de proyecto</h2>
+      </header>
+      <ul class="space-y-2 p-4">
         <li
           v-for="role in props.projectRoles"
           :key="role.id"
-          class="rounded border border-slate-100 p-3"
+          class="rounded-control border border-borde bg-tarjeta-suave p-3"
         >
-          <p class="text-sm font-medium text-siemens-900">{{ role.name }}</p>
+          <p class="text-cp-sm font-medium text-texto">{{ role.name }}</p>
           <p class="mt-1 flex flex-wrap gap-1">
             <span
               v-for="permission in role.permissions"
               :key="permission"
-              class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600"
+              class="rounded-pastilla bg-tarjeta px-2 py-0.5 text-cp-xs text-texto-suave"
             >
               {{ permission }}
             </span>
           </p>
         </li>
       </ul>
-    </div>
-  </section>
+    </section>
+  </div>
 </template>

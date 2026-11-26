@@ -49,31 +49,31 @@ onMounted(() => {
 <template>
   <main class="flex min-h-screen items-center justify-center p-6">
     <form
-      class="w-full max-w-sm space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+      class="w-full max-w-sm space-y-4 rounded-tarjeta border border-borde bg-tarjeta p-6 shadow-tarjeta"
       @submit.prevent="submit"
     >
-      <h1 class="text-xl font-semibold text-siemens-900">CorePlanner</h1>
-      <p class="text-sm text-slate-500">Acceso al gestor de capacidad.</p>
+      <h1 class="text-cp-titulo font-semibold text-primario-fuerte">CorePlanner</h1>
+      <p class="text-cp-sm text-texto-tenue">Acceso al gestor de capacidad.</p>
 
       <label class="block">
-        <span class="text-sm font-medium">Email</span>
+        <span class="text-cp-sm font-medium text-texto">Email</span>
         <input
           v-model="email"
           type="email"
           required
           autocomplete="username"
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          class="mt-1 w-full min-h-10 rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         />
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium">Contraseña</span>
+        <span class="text-cp-sm font-medium text-texto">Contraseña</span>
         <input
           v-model="password"
           type="password"
           required
           autocomplete="current-password"
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          class="mt-1 w-full min-h-10 rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         />
       </label>
 
@@ -84,7 +84,7 @@ onMounted(() => {
       <button
         type="submit"
         :disabled="pending"
-        class="w-full rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        class="w-full rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-medium text-sobre-primario shadow-primaria disabled:opacity-60"
       >
         {{ pending ? 'Entrando...' : 'Entrar' }}
       </button>

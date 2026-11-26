@@ -69,9 +69,9 @@ describe('escala de carga', () => {
 
   it('el aspecto trae las clases de fondo, texto y barra', () => {
     const aspecto = loadAspect(LOAD_STATE.HIGH_OVERLOAD)
-    expect(aspecto.cell).toContain('bg-red-200')
-    expect(aspecto.text).toContain('text-red-900')
-    expect(aspecto.bar).toContain('bg-red-700')
+    expect(aspecto.cell).toContain('bg-carga-sobrecarga-alta-fondo')
+    expect(aspecto.text).toContain('text-carga-sobrecarga-alta-texto')
+    expect(aspecto.bar).toContain('bg-carga-sobrecarga-alta-barra')
   })
 
   it('el porcentaje se redondea', () => {

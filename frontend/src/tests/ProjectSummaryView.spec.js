@@ -222,4 +222,22 @@ describe('ProjectSummaryView', () => {
     expect(equipo[1].text()).toContain('Jorge')
     expect(equipo[1].text()).toContain('Ingeniero')
   })
+
+  it('pildora, pestanas y secciones llevan la piel de tokens', async () => {
+    const { wrapper } = await mountView()
+
+    const pildora = wrapper.find('[data-testid="project-status"]')
+    expect(pildora.classes()).toContain('rounded-pastilla')
+    expect(pildora.classes()).toContain('bg-ok-fondo')
+    expect(wrapper.find('nav').classes()).toContain('bg-tarjeta-suave')
+
+    const pestana = wrapper.find('[data-testid="project-tab-resumen"]')
+    expect(pestana.classes()).toContain('font-semibold')
+    expect(pestana.classes()).toContain('text-texto-marca')
+
+    const seccion = wrapper.find('section')
+    for (const clase of ['rounded-tarjeta', 'border-borde', 'bg-tarjeta', 'shadow-tarjeta']) {
+      expect(seccion.classes()).toContain(clase)
+    }
+  })
 })

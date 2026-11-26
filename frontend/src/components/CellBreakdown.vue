@@ -128,9 +128,9 @@ const policyLine = computed(() => {
   return null
 })
 
-/** Color del texto de la linea: rojo para aprobacion, ambar para aviso. */
+/** Color del texto de la linea: peligro para aprobacion, aviso para aviso. */
 const policyClass = computed(() =>
-  props.cell.policy_verdict === 'aprobacion' ? 'text-red-700' : 'text-amber-800',
+  props.cell.policy_verdict === 'aprobacion' ? 'text-peligro-texto' : 'text-aviso-texto',
 )
 
 /**
@@ -220,10 +220,10 @@ function onKeydown(task, event) {
       <div class="flex items-baseline justify-between gap-2">
         <p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span class="text-3xl font-semibold tabular-nums">{{ cell.hours }} h</span>
-          <span class="text-sm text-slate-500">de {{ cell.capacity ?? '—' }} h</span>
+          <span class="text-sm text-texto-tenue">de {{ cell.capacity ?? '—' }} h</span>
           <span
             v-if="free !== null"
-            class="text-sm font-medium tabular-nums text-slate-700"
+            class="text-sm font-medium tabular-nums text-texto"
             data-testid="cell-free"
           >
             libre {{ free }} h
@@ -234,7 +234,7 @@ function onKeydown(task, event) {
           -->
           <span
             v-if="diffReal !== null"
-            class="text-sm font-medium tabular-nums text-slate-700"
+            class="text-sm font-medium tabular-nums text-texto"
             data-testid="cell-real"
           >
             registrado {{ formatHours(cell.hours_actual) }} · plan {{ formatHours(cell.hours) }} · {{
@@ -243,7 +243,7 @@ function onKeydown(task, event) {
           </span>
           <span
             v-else-if="cell.hours_actual === null"
-            class="text-sm text-slate-500"
+            class="text-sm text-texto-tenue"
             data-testid="cell-real"
           >
             sin imputar
@@ -257,9 +257,9 @@ function onKeydown(task, event) {
           {{ loadLabel(state) }} · {{ percentage }}
         </span>
       </div>
-      <span class="block h-2 w-full rounded bg-slate-200">
+      <span class="block h-2 w-full rounded-pastilla bg-borde">
         <span
-          class="block h-2 rounded"
+          class="block h-2 rounded-pastilla"
           :class="aspect.bar"
           :style="{ width: `${Math.min(100, ratio ?? 0)}%` }"
         ></span>
@@ -272,7 +272,7 @@ function onKeydown(task, event) {
       >
         {{ policyLine }}
       </p>
-      <p v-if="notes.length" class="text-xs text-slate-500" data-testid="cell-notes">
+      <p v-if="notes.length" class="text-xs text-texto-tenue" data-testid="cell-notes">
         {{ notes.join(' · ') }}
       </p>
     </div>
@@ -292,7 +292,7 @@ function onKeydown(task, event) {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm"
+          class="rounded-control border border-borde-fuerte px-3 py-2 text-sm"
           @click="cerrarForm"
         >
           Cancelar
@@ -301,22 +301,22 @@ function onKeydown(task, event) {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded-control bg-primario-fuerte px-3 py-2 text-sm font-medium text-sobre-primario disabled:opacity-60"
         >
           {{ saving ? 'Guardando...' : 'Guardar' }}
         </button>
       </template>
     </ModalDialog>
 
-    <div v-if="tasks.length === 0" class="rounded border border-dashed border-slate-300 p-3">
+    <div v-if="tasks.length === 0" class="rounded-tarjeta border border-dashed border-borde-fuerte p-3">
       <p class="text-sm font-semibold">Semana libre</p>
-      <p v-if="free !== null && free > 0" class="mt-1 text-xs text-slate-500">
+      <p v-if="free !== null && free > 0" class="mt-1 text-xs text-texto-tenue">
         Puedes asignar hasta {{ free }} h a esta persona sin sobrecargarla.
       </p>
       <button
         v-if="canCreate"
         type="button"
-        class="mt-2 rounded bg-siemens-900 px-3 py-1.5 text-xs font-medium text-white"
+        class="mt-2 rounded-control bg-primario-fuerte px-3 py-1.5 text-xs font-medium text-sobre-primario"
         data-testid="cell-assign"
         @click="startCreate"
       >
@@ -328,8 +328,8 @@ function onKeydown(task, event) {
       <li
         v-for="task in tasks"
         :key="task.id"
-        class="rounded border bg-white p-3"
-        :class="provisionalIds.has(task.project_id) ? 'border-dashed border-slate-500' : 'border-slate-200'"
+        class="rounded-tarjeta border bg-tarjeta p-3"
+        :class="provisionalIds.has(task.project_id) ? 'border-dashed border-borde-fuerte' : 'border-borde'"
         tabindex="0"
         draggable="true"
         data-testid="breakdown-task"
@@ -340,10 +340,10 @@ function onKeydown(task, event) {
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <p class="truncate text-sm font-medium">{{ task.title }}</p>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-texto-tenue">
               <span
                 v-if="projectName(task)"
-                class="rounded bg-slate-100 px-1 py-px text-[11px] font-medium text-slate-600"
+                class="rounded-control bg-neutro-fondo px-1 py-px text-[11px] font-medium text-texto-suave"
               >
                 {{ projectName(task) }}
                 <span v-if="provisionalIds.has(task.project_id)">(provisional)</span>
@@ -359,14 +359,14 @@ function onKeydown(task, event) {
 
         <div
           v-if="reassigning && reassigning.task.id === task.id"
-          class="rounded border border-slate-200 bg-slate-50 p-2"
+          class="rounded-control border border-borde bg-lienzo p-2"
         >
           <label class="block">
             <span class="text-xs font-medium">Reasignar a</span>
             <div class="mt-1 flex gap-2">
               <select
                 v-model="reassigning.target"
-                class="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                class="flex-1 rounded-control border border-borde-fuerte px-2 py-1 text-xs"
                 aria-label="Reasignar tarea"
               >
                 <option v-for="member in otherMembers" :key="member.user_id" :value="member.user_id">
@@ -375,14 +375,14 @@ function onKeydown(task, event) {
               </select>
               <button
                 type="button"
-                class="rounded bg-siemens-900 px-2 py-1 text-xs text-white"
+                class="rounded-control bg-primario-fuerte px-2 py-1 text-xs text-sobre-primario"
                 @click="emit('reassign', reassigning.task, reassigning.target); reassigning = null"
               >
                 Mover
               </button>
               <button
                 type="button"
-                class="rounded border border-slate-300 px-2 py-1 text-xs"
+                class="rounded-control border border-borde-fuerte px-2 py-1 text-xs"
                 @click="reassigning = null"
               >
                 Cancelar
@@ -394,14 +394,14 @@ function onKeydown(task, event) {
         <div v-else class="mt-2 flex flex-wrap gap-2 text-xs">
           <button
             type="button"
-            class="rounded border border-slate-300 px-2 py-1"
+            class="rounded-control border border-borde-fuerte px-2 py-1"
             @click="editing = task"
           >
             Editar
           </button>
           <button
             type="button"
-            class="rounded border border-slate-300 px-2 py-1"
+            class="rounded-control border border-borde-fuerte px-2 py-1"
             :disabled="candidatesFor(task).length === 0"
             @click="reassigning = { task, target: candidatesFor(task)[0]?.user_id ?? null }"
           >
@@ -409,7 +409,7 @@ function onKeydown(task, event) {
           </button>
           <button
             type="button"
-            class="rounded border border-red-300 px-2 py-1 text-red-700"
+            class="rounded-control border border-peligro-borde px-2 py-1 text-peligro-texto"
             @click="emit('delete', task)"
           >
             Eliminar
@@ -417,17 +417,17 @@ function onKeydown(task, event) {
         </div>
       </li>
 
-      <li class="text-xs text-slate-500">
+      <li class="text-xs text-texto-tenue">
         Arrastra una tarea a otra fila para reasignarla. Con el teclado:
         Mayús y las flechas arriba o abajo.
       </li>
     </ul>
 
-    <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+    <div class="flex flex-wrap gap-2 border-t border-borde pt-3">
       <button
         v-if="canCreate"
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-xs font-medium text-white"
+        class="rounded-control bg-primario-fuerte px-3 py-2 text-xs font-medium text-sobre-primario"
         data-testid="cell-new-task"
         @click="startCreate"
       >
@@ -435,7 +435,7 @@ function onKeydown(task, event) {
       </button>
       <RouterLink
         :to="ganttLink"
-        class="rounded border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700"
+        class="rounded-control border border-borde-fuerte px-3 py-2 text-xs font-medium text-texto"
         data-testid="cell-gantt"
       >
         Ver en el Gantt

@@ -89,9 +89,9 @@ const weekImpact = computed(() =>
 
 /** Color de la pila del alcance de un dia no laborable. */
 function scopePill(scope) {
-  if (scope === 'person') return 'bg-violet-100 text-violet-800'
-  if (scope === 'department') return 'bg-amber-100 text-amber-800'
-  return 'bg-slate-200 text-slate-700'
+  if (scope === 'person') return 'bg-info-fondo text-info-texto'
+  if (scope === 'department') return 'bg-aviso-fondo text-aviso-texto'
+  return 'bg-neutro-fondo text-neutro-texto'
 }
 
 /** Tareas que cruzan el dia elegido. */
@@ -206,25 +206,25 @@ onMounted(load)
     <div class="grid gap-4 lg:grid-cols-3">
       <section
         aria-label="Calendario de días no laborables"
-        class="rounded border border-slate-200 bg-white p-4 lg:col-span-2"
+        class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta lg:col-span-2"
       >
-        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="flex h-10 w-10 items-center justify-center rounded border border-slate-300 bg-white text-slate-700"
+              class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-cp-sm text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               aria-label="Mes anterior"
               data-testid="labor-prev"
               @click="step(-1)"
             >
               ‹
             </button>
-            <h2 class="min-w-36 text-center text-sm font-semibold text-siemens-900" data-testid="labor-month">
+            <h2 class="min-w-36 text-center font-titulo text-cp-base font-semibold text-texto-marca" data-testid="labor-month">
               {{ monthLabel(month) }}
             </h2>
             <button
               type="button"
-              class="flex h-10 w-10 items-center justify-center rounded border border-slate-300 bg-white text-slate-700"
+              class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-cp-sm text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               aria-label="Mes siguiente"
               data-testid="labor-next"
               @click="step(1)"
@@ -233,141 +233,145 @@ onMounted(load)
             </button>
             <button
               type="button"
-              class="h-10 rounded border border-siemens-900 bg-siemens-900 px-3 text-sm text-white"
+              class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="labor-today"
               @click="setMonth(currentMonthKey())"
             >
               Hoy
             </button>
           </div>
-          <p class="text-xs text-slate-500">
+          <p class="text-cp-xs text-texto-tenue">
             Pulsa un día para ver a quién afecta y cuántas horas de capacidad se pierden.
           </p>
-        </div>
+        </header>
 
-        <LaborMonthGrid
-          :month="month"
-          :days="days"
-          selectable
-          :selected="selectedDate"
-          @select="selectDate"
-        />
+        <div class="p-4">
+          <LaborMonthGrid
+            :month="month"
+            :days="days"
+            selectable
+            :selected="selectedDate"
+            @select="selectDate"
+          />
+        </div>
       </section>
 
       <aside
         aria-label="Detalle del día"
-        class="rounded border border-slate-200 bg-white p-4"
+        class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta"
         data-testid="labor-detail"
       >
-        <template v-if="!selectedDate">
-          <p class="text-sm text-slate-500">Selecciona un día del mes.</p>
-        </template>
+        <div class="p-4">
+          <template v-if="!selectedDate">
+            <p class="text-cp-sm text-texto-suave">Selecciona un día del mes.</p>
+          </template>
 
-        <template v-else-if="!selectedDays.length">
-          <div class="flex flex-col gap-2 py-4 text-center">
-            <span class="text-base font-semibold text-siemens-900">
-              {{ longDateLabel(selectedDate) }}
-            </span>
-            <p class="text-sm text-slate-500">
-              <template v-if="editable">
-                Día laborable normal. Puedes marcarlo como no laborable para todos, para un
-                departamento o para una persona.
-              </template>
-              <template v-else>Día laborable normal.</template>
-            </p>
-            <button
-              v-if="editable"
-              type="button"
-              class="mx-auto h-10 rounded bg-siemens-900 px-4 text-sm font-semibold text-white"
-              data-testid="labor-add-day"
-              @click="startNewDay"
-            >
-              Añadir día no laborable
-            </button>
-          </div>
-        </template>
-
-        <template v-else>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-slate-500">{{ longDateLabel(selectedDate) }}</span>
-            <span
-              v-for="day in selectedDays"
-              :key="day.id"
-              class="text-lg font-semibold text-siemens-900"
-              data-testid="labor-day-name"
-            >
-              {{ day.name }}
-            </span>
-            <span
-              v-for="day in selectedDays"
-              :key="`scope-${day.id}`"
-              class="mt-1 inline-block self-start rounded-full px-2 py-0.5 text-xs font-semibold"
-              :class="scopePill(day.scope)"
-              data-testid="labor-day-scope"
-            >
-              {{ scopeText(day) }} · {{ jornadaLabel(day.half_day) }}
-            </span>
-          </div>
-
-          <div class="mt-3 border-t border-slate-200 pt-3">
-            <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Impacto en la capacidad semanal
-            </span>
-            <div role="list" class="mt-1 flex flex-col">
-              <div
-                v-for="row in weekImpact"
-                :key="`${row.user_id}-${row.week}`"
-                role="listitem"
-                class="flex items-center gap-2 border-t border-slate-100 py-1.5 first:border-t-0"
-                data-testid="labor-impact-row"
-              >
-                <span class="flex-1 text-sm text-slate-700">{{ row.user_name }}</span>
-                <span class="text-xs tabular-nums text-slate-600">
-                  {{ hoursText(row.capacity_without) }} h →
-                  {{ hoursText(row.capacity_effective) }} h
-                </span>
-                <span
-                  class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700"
-                >
-                  −{{ hoursText(row.difference) }} h
-                </span>
-              </div>
-              <p v-if="!weekImpact.length" class="py-1.5 text-xs text-slate-500">
-                Este festivo no le quita horas a nadie.
+          <template v-else-if="!selectedDays.length">
+            <div class="flex flex-col gap-2 py-4 text-center">
+              <span class="font-titulo text-cp-base font-semibold text-texto-marca">
+                {{ longDateLabel(selectedDate) }}
+              </span>
+              <p class="text-cp-sm text-texto-suave">
+                <template v-if="editable">
+                  Día laborable normal. Puedes marcarlo como no laborable para todos, para un
+                  departamento o para una persona.
+                </template>
+                <template v-else>Día laborable normal.</template>
               </p>
+              <button
+                v-if="editable"
+                type="button"
+                class="mx-auto inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                data-testid="labor-add-day"
+                @click="startNewDay"
+              >
+                Añadir día no laborable
+              </button>
             </div>
-          </div>
+          </template>
 
-          <div
-            v-if="affectedTasks"
-            class="mt-3 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800"
-            data-testid="labor-warning"
-          >
-            <span>
-              Hay {{ affectedTasks }} tarea(s) cuyas fechas cruzan este día. Sus horas se
-              repartirán entre los días que quedan.
-            </span>
-          </div>
+          <template v-else>
+            <div class="flex flex-col gap-1">
+              <span class="text-cp-xs text-texto-tenue">{{ longDateLabel(selectedDate) }}</span>
+              <span
+                v-for="day in selectedDays"
+                :key="day.id"
+                class="font-titulo text-cp-titulo font-semibold text-texto-marca"
+                data-testid="labor-day-name"
+              >
+                {{ day.name }}
+              </span>
+              <span
+                v-for="day in selectedDays"
+                :key="`scope-${day.id}`"
+                class="mt-1 inline-block self-start rounded-pastilla px-2 py-0.5 text-cp-xs font-medium"
+                :class="scopePill(day.scope)"
+                data-testid="labor-day-scope"
+              >
+                {{ scopeText(day) }} · {{ jornadaLabel(day.half_day) }}
+              </span>
+            </div>
 
-          <div v-if="editable" class="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700"
-              data-testid="labor-edit-day"
-              @click="startNewDay"
+            <div class="mt-3 border-t border-borde-suave pt-3">
+              <span class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
+                Impacto en la capacidad semanal
+              </span>
+              <div role="list" class="mt-1 flex flex-col">
+                <div
+                  v-for="row in weekImpact"
+                  :key="`${row.user_id}-${row.week}`"
+                  role="listitem"
+                  class="flex items-center gap-2 border-t border-borde-suave py-1.5 first:border-t-0"
+                  data-testid="labor-impact-row"
+                >
+                  <span class="flex-1 text-cp-sm text-texto">{{ row.user_name }}</span>
+                  <span class="text-cp-xs tabular-nums text-texto-suave">
+                    {{ hoursText(row.capacity_without) }} h →
+                    {{ hoursText(row.capacity_effective) }} h
+                  </span>
+                  <span
+                    class="rounded-pastilla bg-tarjeta-suave px-2 py-0.5 text-cp-xs font-medium tabular-nums text-texto"
+                  >
+                    −{{ hoursText(row.difference) }} h
+                  </span>
+                </div>
+                <p v-if="!weekImpact.length" class="py-1.5 text-cp-xs text-texto-tenue">
+                  Este festivo no le quita horas a nadie.
+                </p>
+              </div>
+            </div>
+
+            <div
+              v-if="affectedTasks"
+              class="mt-3 flex items-start gap-2 rounded-control border border-aviso-borde bg-aviso-fondo p-2.5 text-cp-xs text-aviso-texto"
+              data-testid="labor-warning"
             >
-              Añadir otro
-            </button>
-            <button
-              type="button"
-              class="h-10 rounded border border-red-300 bg-white px-3 text-sm font-semibold text-red-700"
-              data-testid="labor-delete-day"
-              @click="deleting = selectedDays[0]"
-            >
-              Eliminar…
-            </button>
-          </div>
-        </template>
+              <span>
+                Hay {{ affectedTasks }} tarea(s) cuyas fechas cruzan este día. Sus horas se
+                repartirán entre los días que quedan.
+              </span>
+            </div>
+
+            <div v-if="editable" class="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                data-testid="labor-edit-day"
+                @click="startNewDay"
+              >
+                Añadir otro
+              </button>
+              <button
+                type="button"
+                class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                data-testid="labor-delete-day"
+                @click="deleting = selectedDays[0]"
+              >
+                Eliminar…
+              </button>
+            </div>
+          </template>
+        </div>
       </aside>
     </div>
 
@@ -379,32 +383,32 @@ onMounted(load)
     >
       <form id="form-dia-no-laborable" data-testid="non-working-form" @submit.prevent="addDay">
         <div class="grid gap-3 sm:grid-cols-2">
-          <label class="text-xs text-slate-500">
+          <label class="block text-cp-xs font-medium text-texto">
             Fecha
             <input
               v-model="form.date"
               type="date"
               required
-              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="day-date"
             />
           </label>
-          <label class="text-xs text-slate-500">
+          <label class="block text-cp-xs font-medium text-texto">
             Motivo
             <input
               v-model="form.name"
               type="text"
               required
               maxlength="255"
-              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="day-name"
             />
           </label>
-          <label class="text-xs text-slate-500">
+          <label class="block text-cp-xs font-medium text-texto">
             Alcance
             <select
               v-model="form.scope"
-              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="day-scope"
             >
               <option value="global">Global</option>
@@ -412,12 +416,12 @@ onMounted(load)
               <option value="person">Persona</option>
             </select>
           </label>
-          <label v-if="form.scope === 'department'" class="text-xs text-slate-500">
+          <label v-if="form.scope === 'department'" class="block text-cp-xs font-medium text-texto">
             Departamento
             <select
               v-model="form.department_id"
               required
-              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="day-department"
             >
               <option value="" disabled>Selecciona...</option>
@@ -426,12 +430,12 @@ onMounted(load)
               </option>
             </select>
           </label>
-          <label v-else-if="form.scope === 'person'" class="text-xs text-slate-500">
+          <label v-else-if="form.scope === 'person'" class="block text-cp-xs font-medium text-texto">
             Persona
             <select
               v-model="form.user_id"
               required
-              class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="day-user"
             >
               <option value="" disabled>Selecciona...</option>
@@ -441,7 +445,7 @@ onMounted(load)
             </select>
           </label>
         </div>
-        <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+        <label class="mt-3 flex items-center gap-2 text-cp-sm font-medium text-texto">
           <input v-model="form.half_day" type="checkbox" class="h-4 w-4 rounded" data-testid="day-half" />
           Medio día laborable
         </label>
@@ -452,7 +456,7 @@ onMounted(load)
           type="button"
           @click="submit"
           :disabled="saving"
-          class="h-10 rounded bg-siemens-900 px-4 text-sm font-medium text-white disabled:opacity-60"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
           data-testid="save-day"
         >
           Añadir al calendario
@@ -460,45 +464,50 @@ onMounted(load)
       </template>
     </ModalDialog>
 
-    <section class="mt-4 rounded border border-slate-200 bg-white p-4">
-      <h2 class="text-sm font-semibold text-siemens-900">Impacto en la capacidad del mes</h2>
-      <p class="mt-0.5 text-xs text-slate-500">
-        Solo las semanas en las que un día no laborable quita horas.
-      </p>
-      <table class="mt-3 w-full text-sm" data-testid="labor-impact">
-        <thead>
-          <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-            <th class="whitespace-nowrap py-1.5 pr-2 font-medium">Persona</th>
-            <th class="whitespace-nowrap py-1.5 pr-2 font-medium">Semana</th>
-            <th class="whitespace-nowrap py-1.5 pr-2 font-medium">Motivo</th>
-            <th class="whitespace-nowrap py-1.5 pr-2 text-right font-medium">Capacidad sin festivo</th>
-            <th class="whitespace-nowrap py-1.5 pr-2 text-right font-medium">Capacidad efectiva</th>
-            <th class="whitespace-nowrap py-1.5 text-right font-medium">Diferencia</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in impact"
-            :key="`${row.user_id}-${row.week}`"
-            class="border-b border-slate-100"
-            data-testid="labor-impact-month-row"
-          >
-            <td class="py-1.5 pr-2 text-slate-900">{{ row.user_name }}</td>
-            <td class="py-1.5 pr-2 text-slate-700">{{ row.week }}</td>
-            <td class="py-1.5 pr-2 text-slate-700">{{ row.reasons.join(', ') }}</td>
-            <td class="py-1.5 pr-2 text-right text-slate-700">{{ hoursText(row.capacity_without) }}</td>
-            <td class="py-1.5 pr-2 text-right text-slate-700">{{ hoursText(row.capacity_effective) }}</td>
-            <td class="py-1.5 text-right font-medium text-red-600">
-              -{{ hoursText(row.difference) }}
-            </td>
-          </tr>
-          <tr v-if="!impact.length">
-            <td colspan="6" class="py-4 text-center text-slate-500" data-testid="labor-impact-empty">
-              Ningún día no laborable quita horas en este mes.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <section class="mt-4 rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+      <header class="border-b border-borde-suave px-4 py-3">
+        <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Impacto en la capacidad del mes</h2>
+        <p class="mt-0.5 text-cp-xs text-texto-tenue">
+          Solo las semanas en las que un día no laborable quita horas.
+        </p>
+      </header>
+      <div class="p-4">
+        <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta" data-testid="labor-impact">
+          <table class="w-full text-cp-sm">
+            <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+              <tr>
+                <th class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Persona</th>
+                <th class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Semana</th>
+                <th class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Motivo</th>
+                <th class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Capacidad sin festivo</th>
+                <th class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Capacidad efectiva</th>
+                <th class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Diferencia</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-borde-suave">
+              <tr
+                v-for="row in impact"
+                :key="`${row.user_id}-${row.week}`"
+                data-testid="labor-impact-month-row"
+              >
+                <td class="px-3 py-2 text-texto">{{ row.user_name }}</td>
+                <td class="px-3 py-2 text-texto-suave">{{ row.week }}</td>
+                <td class="px-3 py-2 text-texto-suave">{{ row.reasons.join(', ') }}</td>
+                <td class="px-3 py-2 text-right text-texto-suave">{{ hoursText(row.capacity_without) }}</td>
+                <td class="px-3 py-2 text-right text-texto-suave">{{ hoursText(row.capacity_effective) }}</td>
+                <td class="px-3 py-2 text-right font-medium text-peligro-texto">
+                  -{{ hoursText(row.difference) }}
+                </td>
+              </tr>
+              <tr v-if="!impact.length">
+                <td colspan="6" class="px-3 py-4 text-center text-cp-sm text-texto-tenue" data-testid="labor-impact-empty">
+                  Ningún día no laborable quita horas en este mes.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <ModalDialog
@@ -507,7 +516,7 @@ onMounted(load)
       size="sm"
       @close="deleting = null"
     >
-      <p class="text-sm text-slate-700">
+      <p class="text-cp-sm text-texto">
         Se va a eliminar «{{ deleting?.name }}» del {{ deleting?.date }}. Las horas de
         capacidad se recuperan.
       </p>
@@ -515,7 +524,7 @@ onMounted(load)
       <template #footer>
         <button
           type="button"
-          class="h-10 rounded border border-slate-300 bg-white px-3 text-sm text-slate-700"
+          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="labor-cancel-delete"
           @click="deleting = null"
         >
@@ -524,7 +533,7 @@ onMounted(load)
         <button
           type="button"
           :disabled="saving"
-          class="h-10 rounded border border-red-300 bg-white px-3 text-sm font-semibold text-red-700 disabled:opacity-60"
+          class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
           data-testid="labor-confirm-delete"
           @click="removeDay"
         >

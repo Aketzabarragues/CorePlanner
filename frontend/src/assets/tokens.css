@@ -1,0 +1,153 @@
+/*
+ * Fichero unico de tokens de diseno. Colores en canales RGB sin coma, para que
+ * `rgb(var(--cp-*) / <alpha-value>)` permita los modificadores de opacidad.
+ * El selector de tema se anadira mas adelante.
+ */
+:root {
+  /* Marca */
+  --cp-primario: 0 100 180;
+  --cp-primario-medio: 0 74 137;
+  --cp-primario-fuerte: 0 52 102;
+  --cp-primario-suave: 240 246 253;
+  --cp-sobre-primario: 255 255 255;
+
+  /* Superficie */
+  --cp-lienzo: 248 250 252;
+  --cp-tarjeta: 255 255 255;
+  --cp-tarjeta-suave: 241 245 249;
+  --cp-cabecera: 255 255 255;
+  --cp-overlay: 15 23 42;
+
+  /* Texto */
+  --cp-texto: 15 23 42;
+  --cp-texto-suave: 71 85 105;
+  --cp-texto-tenue: 94 106 122;
+  --cp-texto-inverso: 255 255 255;
+  --cp-texto-marca: 0 52 102;
+
+  /* Borde */
+  --cp-borde: 226 232 240;
+  --cp-borde-suave: 241 245 249;
+  --cp-borde-fuerte: 120 133 153;
+  --cp-foco: 0 100 180;
+
+  /* Lateral */
+  --cp-lateral-fondo: 15 23 42;
+  --cp-lateral-texto: 203 213 225;
+  --cp-lateral-texto-tenue: 138 150 168;
+  --cp-lateral-titulo-seccion: 148 163 184;
+  --cp-lateral-borde: 30 41 59;
+  --cp-lateral-hover: 30 41 59;
+  --cp-lateral-hover-opacidad: 0.6;
+  --cp-lateral-activo-fondo: 37 99 235;
+  --cp-lateral-activo-fondo-opacidad: 0.2;
+  --cp-lateral-activo-borde: 59 130 246;
+  --cp-lateral-activo-borde-opacidad: 0.3;
+  --cp-lateral-activo-texto: 255 255 255;
+  --cp-lateral-activo-icono: 96 165 250;
+  --cp-lateral-avatar: 0 111 200;
+
+  /* Estado: fondo, texto, borde, punto */
+  --cp-ok-fondo: 236 253 245;
+  --cp-ok-texto: 6 95 70;
+  --cp-ok-borde: 167 243 208;
+  --cp-ok-punto: 21 128 61;
+  --cp-aviso-fondo: 255 251 235;
+  --cp-aviso-texto: 120 53 15;
+  --cp-aviso-borde: 253 230 138;
+  --cp-aviso-punto: 180 83 9;
+  --cp-peligro-fondo: 254 242 242;
+  --cp-peligro-texto: 153 27 27;
+  --cp-peligro-borde: 254 202 202;
+  --cp-peligro-punto: 220 38 38;
+  --cp-info-fondo: 239 246 255;
+  --cp-info-texto: 30 64 175;
+  --cp-info-borde: 191 219 254;
+  --cp-info-punto: 59 130 246;
+  --cp-neutro-fondo: 241 245 249;
+  --cp-neutro-texto: 51 65 85;
+  --cp-neutro-borde: 226 232 240;
+  --cp-neutro-punto: 100 116 139;
+
+  /* Carga: fondo, texto, barra y borde de cada estado de la celda */
+  --cp-carga-vacio-fondo: 255 255 255;
+  --cp-carga-vacio-texto: 100 116 139;
+  --cp-carga-vacio-barra: 203 213 225;
+  --cp-carga-vacio-borde: 226 232 240;
+  --cp-carga-capacidad-desconocida-fondo: 241 245 249;
+  --cp-carga-capacidad-desconocida-texto: 71 85 105;
+  --cp-carga-capacidad-desconocida-barra: 203 213 225;
+  --cp-carga-capacidad-desconocida-borde: 226 232 240;
+  --cp-carga-libre-fondo: 219 234 254;
+  --cp-carga-libre-texto: 30 58 95;
+  --cp-carga-libre-barra: 30 64 175;
+  --cp-carga-libre-borde: 59 130 246;
+  --cp-carga-media-fondo: 226 232 240;
+  --cp-carga-media-texto: 30 41 59;
+  --cp-carga-media-barra: 71 85 105;
+  --cp-carga-media-borde: 100 116 139;
+  --cp-carga-optimo-fondo: 187 247 208;
+  --cp-carga-optimo-texto: 20 83 45;
+  --cp-carga-optimo-barra: 21 128 61;
+  --cp-carga-optimo-borde: 21 128 61;
+  --cp-carga-sobrecarga-leve-fondo: 254 215 170;
+  --cp-carga-sobrecarga-leve-texto: 120 53 15;
+  --cp-carga-sobrecarga-leve-barra: 194 65 12;
+  --cp-carga-sobrecarga-leve-borde: 180 83 9;
+  --cp-carga-sobrecarga-alta-fondo: 254 202 202;
+  --cp-carga-sobrecarga-alta-texto: 127 29 29;
+  --cp-carga-sobrecarga-alta-barra: 185 28 28;
+  --cp-carga-sobrecarga-alta-borde: 153 27 27;
+
+  /* Medidas */
+  --cp-radio-tarjeta: 1rem;
+  --cp-radio-control: 0.5rem;
+  --cp-radio-pastilla: 9999px;
+  --cp-radio-avatar: 9999px;
+  --cp-sombra-tarjeta: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --cp-sombra-control: 0 1px 3px 0 rgb(15 23 42 / 0.10), 0 1px 2px -1px rgb(15 23 42 / 0.10);
+  --cp-sombra-primaria: 0 1px 2px 0 rgb(0 52 102 / 0.24);
+  --cp-sombra-flotante: 0 12px 32px -8px rgb(15 23 42 / 0.28);
+  --cp-sombra-foco: 0 0 0 3px rgb(0 100 180 / 0.28);
+  --cp-fuente-sans: 'Inter Variable';
+  --cp-fuente-mono: 'JetBrains Mono Variable';
+  --cp-fuente-titulo: 'Space Grotesk Variable';
+  --cp-texto-micro: 0.625rem;
+  --cp-texto-xs: 0.6875rem;
+  --cp-texto-sm: 0.75rem;
+  --cp-texto-base: 0.875rem;
+  --cp-texto-titulo: 1rem;
+  --cp-texto-kpi: 1.5rem;
+  --cp-texto-display: 1.875rem;
+
+  /* Trama */
+  --cp-trama-a: 248 250 252;
+  --cp-trama-b: 241 245 249;
+  --cp-trama-fin-de-semana: repeating-linear-gradient(
+    -45deg,
+    rgb(var(--cp-trama-a)),
+    rgb(var(--cp-trama-a)) 6px,
+    rgb(var(--cp-trama-b)) 6px,
+    rgb(var(--cp-trama-b)) 12px
+  );
+  --cp-trama-rayado-a: 241 245 249;
+  --cp-trama-rayado-b: 226 232 240;
+}
+
+@layer components {
+  /* Trama diagonal de fin de semana: distingue el fin de semana sin color. */
+  .cp-trama-fin-semana {
+    background-color: rgb(var(--cp-trama-a));
+    background-image: var(--cp-trama-fin-de-semana);
+  }
+
+  /* Rayado: destino de arrastre no valido. Sustituye a la clase anterior de
+     main.css, con los mismos valores para no cambiar el aspecto. */
+  .cp-trama-rayado {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgb(var(--cp-trama-rayado-a)) 0 6px,
+      rgb(var(--cp-trama-rayado-b)) 6px 12px
+    );
+  }
+}

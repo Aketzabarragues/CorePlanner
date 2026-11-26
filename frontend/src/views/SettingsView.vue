@@ -178,7 +178,7 @@ watch(
     >
       <nav
         v-if="visibleTabs.length > 1"
-        class="mb-4 flex gap-1 border-b border-slate-200"
+        class="mb-4 inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-control bg-tarjeta-suave p-1"
         aria-label="Secciones de la configuración"
       >
         <button
@@ -186,12 +186,13 @@ watch(
           :key="item.name"
           type="button"
           :data-testid="`tab-${item.name}`"
-          class="border-b-2 px-3 py-2 text-sm"
+          class="min-h-9 whitespace-nowrap rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           :class="
             tab === item.name
-              ? 'border-siemens-900 font-medium text-siemens-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+              : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
           "
+          :aria-pressed="tab === item.name"
           @click="selectTab(item.name)"
         >
           {{ item.label }}

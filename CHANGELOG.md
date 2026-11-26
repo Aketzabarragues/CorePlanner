@@ -7,6 +7,21 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: sistema de tokens de diseño. `frontend/src/assets/tokens.css` pasa a
+  ser el único fichero de valores (105 tokens en variables `--cp-*`) y
+  `tailwind.config.js` los mapea a clases semánticas (`bg-tarjeta`, `text-texto-tenue`,
+  `border-borde`, `bg-primario-fuerte`…). Los tokens se nombran por función, no por
+  tono ni por marca: la escala `siemens` desaparece del código y con ella todas las
+  clases de la paleta por defecto de Tailwind en las plantillas. Un test
+  (`frontend/src/tests/tokens.spec.js`) falla si alguien vuelve a escribir un color
+  a mano en una plantilla.
+- **frontend**: tipografías locales. Inter (cuerpo), JetBrains Mono (cifras, códigos y
+  semanas) y Space Grotesk (títulos) se sirven desde el propio paquete, con los
+  `.woff2` empaquetados por Vite: sin CDN ni peticiones a la red en runtime.
+- **frontend**: tres componentes comunes nuevos: `KpiCard` (tarjeta de indicador,
+  pulsable, con insignia y barra), `BaseCard` (tarjeta de sección con cabecera) y
+  `HelpTip` (botón de ayuda con tooltip que se lee también con teclado).
+
 - **frontend**: el calendario tiene modo ampliado: la rejilla ocupa la ventana entera, por encima
   del armazon, y `Escape` sale. Es el mismo boton que el del diagrama de Gantt.
 - **frontend**: el calendario deja de ser una rejilla de solo lectura y gana el
@@ -25,6 +40,18 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
   quedan alias ni envoltorios.
 
 ### Changed
+
+- **frontend**: toda la interfaz se pinta con tokens: barra lateral, cabeceras de
+  vista, tablas, tarjetas, tablero, calendario, diagrama de Gantt, diálogos y avisos.
+  Sin cambios de comportamiento: rutas, estado en la URL, permisos, `data-testid` y
+  textos visibles siguen igual.
+- **frontend**: la escala de carga de la celda de capacidad pasa a 28 tokens propios,
+  uno por estado, con los contrastes medidos (texto ≥ 4,5:1 y borde ≥ 3:1 contra su
+  propio fondo). La regla no cambia: la sobrecarga lleva triángulo y porcentaje, y la
+  capacidad desconocida no lleva barra ni porcentaje.
+- **frontend**: el calendario laboral, el navegador de periodo y el segmentado de las
+  vistas comparten un mismo aspecto de pastilla; la cabecera de vista admite filtros y
+  el botón de ayuda.
 
 - **frontend**: el estado de la vista del calendario (que vista se ve, el mes,
   la semana y el dia, y su ida y vuelta con la URL) pasa a un composable

@@ -29,9 +29,6 @@ const saving = ref(false)
 
 const STATUSES = PROJECT_STATUSES
 
-/** Color de una fila que todavia no tiene color guardado. */
-const COLOR_SIN_DEFINIR = '#94a3b8'
-
 const empty = () => ({
   id: null,
   name: '',
@@ -127,68 +124,65 @@ async function save() {
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="flex justify-end">
+  <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Proyectos</h2>
       <button
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         data-testid="new-project"
         @click="openCreate"
       >
         Nuevo proyecto
       </button>
-    </div>
+    </header>
 
-    <table class="w-full text-sm" data-testid="projects-table">
-      <thead>
-        <tr class="border-b border-slate-200 text-left">
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Proyecto
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Departamento
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Responsable
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Estado
-          </th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="project in props.projects" :key="project.id" class="border-b border-slate-100">
-          <td class="px-2 py-2 font-medium text-siemens-900">
-            <span
-              class="mr-2 inline-block h-3 w-3 rounded-full align-middle"
-              :style="{ backgroundColor: project.color ?? COLOR_SIN_DEFINIR }"
-              :data-testid="`project-color-${project.id}`"
-            ></span>
-            {{ project.name }}
-            <span
-              v-if="project.is_provisional"
-              class="ml-1 text-[10px] font-medium text-slate-500"
-              data-testid="project-provisional-label"
-            >
-              Provisional
-            </span>
-          </td>
-          <td class="px-2 py-2 text-slate-600">{{ departmentName(project.department_id) }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ personName(project.owner_id) }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ projectStatus(project.status).label }}</td>
-          <td class="px-2 py-2 text-right">
-            <button
-              type="button"
-              class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-              @click="edit(project)"
-            >
-              Editar
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="p-4">
+      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
+        <table class="w-full text-cp-sm" data-testid="projects-table">
+          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+            <tr>
+              <th class="px-3 py-2.5 font-semibold">Proyecto</th>
+              <th class="px-3 py-2.5 font-semibold">Departamento</th>
+              <th class="px-3 py-2.5 font-semibold">Responsable</th>
+              <th class="px-3 py-2.5 font-semibold">Estado</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-borde-suave">
+            <tr v-for="project in props.projects" :key="project.id">
+              <td class="px-3 py-2 font-medium text-texto">
+                <span
+                  class="mr-2 inline-block h-3 w-3 rounded-full align-middle bg-borde-fuerte"
+                  :style="project.color ? { backgroundColor: project.color } : undefined"
+                  :data-testid="`project-color-${project.id}`"
+                ></span>
+                {{ project.name }}
+                <span
+                  v-if="project.is_provisional"
+                  class="ml-1 text-cp-micro font-medium text-texto-tenue"
+                  data-testid="project-provisional-label"
+                >
+                  Provisional
+                </span>
+              </td>
+              <td class="px-3 py-2 text-texto-suave">{{ departmentName(project.department_id) }}</td>
+              <td class="px-3 py-2 text-texto-suave">{{ personName(project.owner_id) }}</td>
+              <td class="px-3 py-2 text-texto-suave">{{ projectStatus(project.status).label }}</td>
+              <td class="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                  @click="edit(project)"
+                >
+                  Editar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <ModalDialog
       :open="formOpen"
@@ -197,29 +191,29 @@ async function save() {
     >
       <form id="form-proyecto" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Nombre
             <input
               v-model="form.name"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Estado
             <select
               v-model="form.status"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option v-for="status in STATUSES" :key="status.value" :value="status.value">
                 {{ status.label }}
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Departamento que lo gestiona
             <select
               v-model="form.department_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Sin departamento</option>
               <option
@@ -231,11 +225,11 @@ async function save() {
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Responsable
             <select
               v-model="form.owner_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Sin responsable</option>
               <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
@@ -247,24 +241,24 @@ async function save() {
 
         <ColorPicker v-if="editing" v-model="form.color" class="mt-3" />
 
-        <label class="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600">
+        <label class="mt-3 flex items-center gap-2 text-cp-sm font-medium text-texto">
           <span>Provisional</span>
           <button
             type="button"
             role="switch"
             :aria-checked="form.is_provisional"
             data-testid="project-provisional-switch"
-            class="relative h-5 w-9 rounded-full transition-colors"
-            :class="form.is_provisional ? 'bg-siemens-900' : 'bg-slate-300'"
+            class="relative h-5 w-9 rounded-pastilla transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            :class="form.is_provisional ? 'bg-primario-fuerte' : 'bg-borde-fuerte'"
             @click="form.is_provisional = !form.is_provisional"
           >
             <span
-              class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+              class="absolute top-0.5 h-4 w-4 rounded-pastilla bg-tarjeta transition-all"
               :class="form.is_provisional ? 'left-[18px]' : 'left-0.5'"
             ></span>
           </button>
         </label>
-        <p class="text-xs text-slate-500">
+        <p class="text-cp-xs text-texto-tenue">
           Proyecto en estudio: sus horas solo se cuentan con «Contar lo provisional».
         </p>
 
@@ -276,7 +270,7 @@ async function save() {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -285,7 +279,7 @@ async function save() {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         >
           {{ editing ? 'Guardar cambios' : 'Crear' }}
         </button>

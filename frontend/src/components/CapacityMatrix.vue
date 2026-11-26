@@ -131,14 +131,20 @@ const breakdownTitle = computed(() =>
 /** Semana en curso, para marcar la columna con la insignia de "Hoy". */
 const currentWeek = computed(() => currentWeekKey())
 
-/** Leyenda de la escala de carga. */
+/**
+ * Leyenda de la escala de carga: los siete estados, con su etiqueta y su
+ * muestra. Sin "vacio" y "capacidad desconocida" la leyenda no cuenta toda la
+ * escala.
+ */
 const LEGEND = [
-  { state: LOAD_STATE.FREE, label: 'Libre (menos del 50 %)' },
-  { state: LOAD_STATE.MID, label: 'Carga media' },
-  { state: LOAD_STATE.OPTIMAL, label: 'Óptimo (85–100 %)' },
-  { state: LOAD_STATE.OVERLOAD, label: 'Sobrecarga leve ▲ (hasta 110 %)' },
-  { state: LOAD_STATE.HIGH_OVERLOAD, label: 'Sobrecarga alta ▲ (más del 110 %)' },
-]
+  LOAD_STATE.EMPTY,
+  LOAD_STATE.UNKNOWN,
+  LOAD_STATE.FREE,
+  LOAD_STATE.MID,
+  LOAD_STATE.OPTIMAL,
+  LOAD_STATE.OVERLOAD,
+  LOAD_STATE.HIGH_OVERLOAD,
+].map((state) => ({ state, label: loadLabel(state) }))
 
 /** Modos de la celda, con su etiqueta. */
 const MODES = [
@@ -148,7 +154,7 @@ const MODES = [
 ]
 
 /** Aspecto de una celda mientras se arrastra una tarea. */
-const PREVIEW_BORDER = 'border-2 border-dashed border-slate-500'
+const PREVIEW_BORDER = 'border-2 border-dashed border-borde-fuerte'
 
 /**
  * Marca del veredicto de la politica de capacidad.
@@ -157,11 +163,11 @@ const PREVIEW_BORDER = 'border-2 border-dashed border-slate-500'
  * veredicto anade su distintivo, con su simbolo para que se lea sin color.
  */
 const VERDICT_BADGE = {
-  aviso: 'border-amber-700 bg-amber-200 text-amber-900',
-  aprobacion: 'border-red-700 bg-red-200 text-red-900',
+  aviso: 'border-aviso-borde bg-aviso-fondo text-aviso-texto',
+  aprobacion: 'border-peligro-borde bg-peligro-fondo text-peligro-texto',
 }
 const PREVIEW_BLOCKED =
-  'border-2 border-dashed border-slate-400 cp-striped text-slate-500 cursor-not-allowed'
+  'border-2 border-dashed border-borde-fuerte cp-trama-rayado text-texto-tenue cursor-not-allowed'
 
 /** Tarea que se esta arrastrando, con su semana y su persona de origen. */
 const dragging = ref(null)
@@ -402,7 +408,7 @@ function previewOf(row, week) {
     return {
       principal: `${centimas(Number(celda.hours ?? 0) - horas)} h`,
       sub: `origen · −${horas} h`,
-      clases: `${PREVIEW_BORDER} bg-white text-slate-700`,
+      clases: `${PREVIEW_BORDER} bg-tarjeta text-texto-suave`,
       permitido: true,
       origen: true,
     }
@@ -547,8 +553,8 @@ const summary = computed(() => {
   }
 })
 
-/** Franja de la persona que no tiene departamento. */
-const DEPARTMENT_COLOR_NONE = '#94a3b8'
+/** Franja de la persona que no tiene departamento: gris neutro por token. */
+const DEPARTMENT_COLOR_NONE = 'rgb(var(--cp-neutro-punto))'
 
 /** Color de la franja de una persona: el que tiene guardado su departamento. */
 function departmentColor(departmentId) {
@@ -1208,9 +1214,9 @@ watch(
   <div>
     <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold text-siemens-900">Capacidad</h1>
-        <p v-if="project" class="mt-1 text-sm text-slate-500">{{ project.name }}</p>
-        <p v-else class="mt-1 text-sm text-slate-500">
+        <h1 class="text-xl font-semibold text-primario-fuerte">Capacidad</h1>
+        <p v-if="project" class="mt-1 text-sm text-texto-tenue">{{ project.name }}</p>
+        <p v-else class="mt-1 text-sm text-texto-tenue">
           Reparto de horas de todos los proyectos visibles.
         </p>
       </div>
@@ -1255,7 +1261,7 @@ watch(
 
       <label
         v-if="hayProvisional"
-        class="flex items-center gap-2 text-xs font-medium text-slate-600"
+        class="flex items-center gap-2 text-xs font-medium text-texto-suave"
         data-testid="provisional-filter-label"
       >
         <span>Contar lo provisional</span>
@@ -1264,12 +1270,12 @@ watch(
           role="switch"
           :aria-checked="countProvisional"
           data-testid="provisional-filter"
-          class="relative h-5 w-9 rounded-full transition-colors"
-          :class="countProvisional ? 'bg-siemens-900' : 'bg-slate-300'"
+          class="relative h-5 w-9 rounded-pastilla transition-colors"
+          :class="countProvisional ? 'bg-primario-fuerte' : 'bg-borde-fuerte'"
           @click="countProvisional = !countProvisional"
         >
           <span
-            class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+            class="absolute top-0.5 h-4 w-4 rounded-pastilla bg-tarjeta transition-all"
             :class="countProvisional ? 'left-[18px]' : 'left-0.5'"
           ></span>
         </button>
@@ -1278,7 +1284,7 @@ watch(
       <div class="flex items-center gap-1">
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600"
+          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave"
           aria-label="Semanas anteriores"
           data-testid="range-previous"
           @click="moveRange(-1)"
@@ -1287,7 +1293,7 @@ watch(
         </button>
         <button
           type="button"
-          class="h-8 rounded border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700"
+          class="h-8 rounded-control border border-borde-fuerte bg-tarjeta px-3 text-sm font-medium text-texto"
           data-testid="range-today"
           @click="goToday"
         >
@@ -1295,14 +1301,14 @@ watch(
         </button>
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600"
+          class="flex h-8 w-8 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave"
           aria-label="Semanas siguientes"
           data-testid="range-next"
           @click="moveRange(1)"
         >
           <span class="h-4 w-4"><AppIcon name="chevronRight" /></span>
         </button>
-        <span class="ml-1 text-xs text-slate-500" data-testid="range-label">
+        <span class="ml-1 text-xs text-texto-tenue" data-testid="range-label">
           {{ rangeLabel }}
         </span>
       </div>
@@ -1330,7 +1336,7 @@ watch(
 
       <div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
         <span
-          class="flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 font-medium text-red-800"
+          class="flex items-center gap-1.5 rounded-pastilla border border-peligro-borde bg-peligro-fondo px-3 py-1.5 font-medium text-peligro-texto"
           data-testid="summary-overload"
         >
           <span class="h-3.5 w-3.5"><AppIcon name="warning" /></span>
@@ -1338,26 +1344,26 @@ watch(
           {{ summary.sobrecargadas === 1 ? 'celda sobrecargada' : 'celdas sobrecargadas' }}
         </span>
         <span
-          class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 font-medium text-blue-900"
+          class="rounded-pastilla border border-info-borde bg-info-fondo px-3 py-1.5 font-medium text-info-texto"
           data-testid="summary-free"
         >
           {{ summary.huecos }}
           {{ summary.huecos === 1 ? 'hueco' : 'huecos' }} de 20 h o más libres
         </span>
         <span
-          class="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700"
+          class="rounded-pastilla border border-borde bg-tarjeta px-3 py-1.5 font-medium text-texto-suave"
           data-testid="summary-average"
         >
           Uso medio del equipo: {{ summary.medio ?? '—' }} %
         </span>
       </div>
 
-      <div class="max-h-[70vh] overflow-auto rounded border border-slate-200 bg-white">
+      <div class="max-h-[70vh] overflow-auto rounded-tarjeta border border-borde bg-tarjeta">
         <table class="w-full border-collapse text-sm">
-          <thead class="sticky top-0 z-20 bg-slate-100">
-            <tr class="bg-slate-100">
+          <thead class="sticky top-0 z-20 bg-tarjeta-suave">
+            <tr class="bg-tarjeta-suave">
               <th
-                class="sticky left-0 top-0 z-20 border border-slate-200 bg-slate-100 px-3 py-2 text-left"
+                class="sticky left-0 top-0 z-20 border border-borde bg-tarjeta-suave px-3 py-2 text-left"
               >
                 Persona
               </th>
@@ -1365,36 +1371,36 @@ watch(
                 v-for="semana in weeks"
                 :key="semana.week"
                 data-testid="capacity-week-header"
-                class="border border-slate-200 px-2 py-2 text-center align-top"
+                class="border border-borde px-2 py-2 text-center align-top"
               >
-                <span class="block text-xs font-semibold text-slate-700">
+                <span class="block text-xs font-semibold text-texto-suave">
                   {{ weekTitle(semana.week) }}
                 </span>
-                <span class="block text-[10px] font-normal text-slate-500">
+                <span class="block text-[10px] font-normal text-texto-tenue">
                   {{ weekRangeLabel(semana.week) }}
                 </span>
                 <span
                   v-if="semana.week === currentWeek"
-                  class="mt-0.5 mr-1 inline-block rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+                  class="mt-0.5 mr-1 inline-block rounded-pastilla bg-primario-fuerte px-1.5 py-px text-[10px] font-semibold text-sobre-primario"
                 >
                   Hoy
                 </span>
                 <span
                   v-if="semana.holidays && semana.holidays.length"
-                  class="mt-0.5 inline-block rounded-full border border-slate-300 bg-slate-50 px-1.5 py-px text-[10px] font-medium text-slate-700"
+                  class="mt-0.5 inline-block rounded-pastilla border border-borde-fuerte bg-lienzo px-1.5 py-px text-[10px] font-medium text-texto-suave"
                   :title="festivoTitulo(semana.holidays)"
                   data-testid="holiday-badge"
                 >
                   {{ festivoEtiqueta(semana.holidays) }}
                 </span>
               </th>
-              <th class="border border-slate-200 px-3 py-2 text-right">Total</th>
+              <th class="border border-borde px-3 py-2 text-right">Total</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="entrada in matrix" :key="entrada.fila.user_id">
               <th
-                class="sticky left-0 z-10 border border-slate-200 bg-white text-left font-medium"
+                class="sticky left-0 z-10 border border-borde bg-tarjeta text-left font-medium"
               >
                 <div class="flex items-stretch gap-2 px-3 py-2">
                   <span
@@ -1404,12 +1410,12 @@ watch(
                   ></span>
                   <span class="min-w-0 flex-1">
                     {{ entrada.fila.name }}
-                    <span class="block text-xs font-normal text-slate-400">
+                    <span class="block text-xs font-normal text-texto-tenue">
                       {{ entrada.fila.weekly_base_hours }} h/semana
                     </span>
                     <span
                       v-if="entrada.fila.department_name"
-                      class="block text-[11px] font-normal text-slate-500"
+                      class="block text-[11px] font-normal text-texto-tenue"
                       :data-testid="`department-name-${entrada.fila.user_id}`"
                     >
                       {{ entrada.fila.department_name }}
@@ -1420,11 +1426,11 @@ watch(
               <td
                 v-for="celda in entrada.celdas"
                 :key="celda.week"
-                class="border border-slate-200 p-1"
+                class="border border-borde p-1"
               >
                 <button
                   type="button"
-                  class="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded border px-1 py-1.5"
+                  class="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
                   :class="celda.clases"
                   :title="`Ver tareas de ${entrada.fila.name} en ${celda.week}`"
                   :aria-label="cellAria(entrada.fila, celda.week)"
@@ -1434,41 +1440,48 @@ watch(
                   @click="onCellClick(entrada.fila, celda.week)"
                   @drop.prevent="dropOn(entrada.fila, celda.week, $event)"
                 >
+                  <svg
+                    v-if="celda.sobrecargada"
+                    class="h-3 w-3 flex-none"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 3 L22 20 H2 Z" />
+                  </svg>
+
                   <template v-if="celda.preview">
-                    <span class="text-sm font-semibold tabular-nums">
+                    <span class="text-cp-sm font-semibold tabular-nums">
                       {{ celda.preview.principal }}
                     </span>
-                    <span class="text-[10px] tabular-nums opacity-80">
+                    <span class="text-cp-micro tabular-nums opacity-80">
                       {{ celda.preview.sub }}
                     </span>
                   </template>
 
                   <template v-else-if="mode === MODE.HOURS">
                     <span class="flex items-center gap-1">
-                      <span v-if="celda.sobrecargada" class="h-3 w-3 shrink-0">
-                        <AppIcon name="warning" />
-                      </span>
-                      <span class="text-sm font-semibold tabular-nums">{{ celda.principal }}</span>
-                      <span class="text-[11px] tabular-nums opacity-80">
+                      <span class="font-mono text-cp-sm font-semibold tabular-nums">{{ celda.principal }}</span>
+                      <span class="font-mono text-cp-micro tabular-nums opacity-80">
                         {{ celda.capacidad }}
                       </span>
                     </span>
-                    <span v-if="celda.porcentaje" class="text-[10px] tabular-nums opacity-80">
+                    <span v-if="celda.porcentaje" class="font-mono text-cp-micro tabular-nums opacity-80">
                       {{ celda.porcentaje }}
                     </span>
                     <span
                       v-if="celda.libre !== null && celda.libre !== ''"
-                      class="text-[10px] tabular-nums opacity-80"
+                      class="font-mono text-cp-micro tabular-nums opacity-80"
                       data-testid="cell-libre"
                     >
                       libre {{ celda.libre }} h
                     </span>
                     <span
                       v-if="celda.muestraBarra"
-                      class="block h-1 w-3/4 rounded bg-slate-900/10"
+                      class="mt-0.5 block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30"
                     >
                       <span
-                        class="block h-1 rounded"
+                        class="block h-1 rounded-pastilla"
                         :class="celda.claseBarra"
                         :style="{ width: `${celda.anchoBarra}%` }"
                       ></span>
@@ -1476,10 +1489,10 @@ watch(
                   </template>
 
                   <template v-else-if="mode === MODE.PERCENT">
-                    <span class="text-sm font-semibold tabular-nums">
+                    <span class="font-mono text-cp-sm font-semibold tabular-nums">
                       {{ celda.porcentaje || '·' }}
                     </span>
-                    <span class="text-[10px] tabular-nums opacity-80">
+                    <span class="font-mono text-cp-micro tabular-nums opacity-80">
                       {{ celda.horasCapacidad }}
                     </span>
                   </template>
@@ -1489,7 +1502,7 @@ watch(
                     <span
                       v-for="proyecto in celda.proyectos"
                       :key="proyecto.id"
-                      class="block max-w-full truncate rounded bg-slate-900/10 px-1 text-[10px] font-medium"
+                      class="block max-w-full truncate rounded-control bg-neutro-fondo px-1 text-[10px] font-medium"
                       :class="proyecto.provisional ? PREVIEW_BORDER : ''"
                       :title="`${proyecto.nombre}: ${proyecto.horas} h${proyecto.provisional ? ' (provisional)' : ''}`"
                       data-testid="cell-project"
@@ -1500,7 +1513,7 @@ watch(
 
                   <span
                     v-if="celda.veredicto"
-                    class="flex items-center gap-0.5 rounded-full border px-1 text-[10px] font-semibold leading-tight"
+                    class="flex items-center gap-0.5 rounded-pastilla border px-1 text-[10px] font-semibold leading-tight"
                     :class="celda.claseVeredicto"
                     :data-testid="`cell-policy-${celda.veredicto}`"
                   >
@@ -1511,40 +1524,40 @@ watch(
                   </span>
                 </button>
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
+              <td class="border border-borde px-3 py-2 text-right tabular-nums">
                 {{ entrada.fila.total_hours }}
               </td>
             </tr>
 
-            <tr class="bg-slate-50">
+            <tr class="bg-lienzo">
               <th
-                class="sticky left-0 z-10 border border-slate-200 bg-slate-50 px-3 py-2 text-left font-medium"
+                class="sticky left-0 z-10 border border-borde bg-lienzo px-3 py-2 text-left font-medium"
               >
                 Equipo
-                <span class="block text-xs font-normal text-slate-400">uso agregado</span>
+                <span class="block text-xs font-normal text-texto-tenue">uso agregado</span>
               </th>
               <td
                 v-for="semana in team"
                 :key="semana.week"
-                class="border border-slate-200 p-1"
+                class="border border-borde p-1"
               >
                 <div
-                  class="flex min-h-14 flex-col items-center justify-center gap-1 rounded border px-1 py-1.5"
+                  class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
                   :class="semana.clases"
                 >
-                  <span class="text-sm font-semibold tabular-nums">
+                  <span class="font-mono text-cp-sm font-semibold tabular-nums">
                     {{ semana.porcentaje || '·' }}
                   </span>
-                  <span class="block h-1 w-3/4 rounded bg-slate-900/10">
+                  <span class="mt-0.5 block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30">
                     <span
-                      class="block h-1 rounded"
+                      class="block h-1 rounded-pastilla"
                       :class="semana.claseBarra"
                       :style="{ width: `${semana.anchoBarra}%` }"
                     ></span>
                   </span>
                 </div>
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums">
+              <td class="border border-borde px-3 py-2 text-right tabular-nums">
                 {{ teamTotal }}
               </td>
             </tr>
@@ -1552,9 +1565,9 @@ watch(
         </table>
       </div>
 
-      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-600">
+      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-texto-suave">
         <span v-for="item in LEGEND" :key="item.state" class="flex items-center gap-1.5">
-          <span class="h-3 w-3 rounded border" :class="legendSwatch(item.state)"></span>
+          <span class="h-3 w-3 rounded-control border" :class="legendSwatch(item.state)"></span>
           {{ item.label }}
         </span>
       </div>
@@ -1562,7 +1575,7 @@ watch(
 
     <p
       v-if="!loading && !error && holidayTaskIds.length"
-      class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+      class="mt-4 rounded-tarjeta border border-aviso-borde bg-aviso-fondo p-3 text-sm text-aviso-texto"
       data-testid="capacity-holiday-warning"
     >
       {{ holidayTaskIds.length }} tarea(s) caen enteramente en días no laborables y no se
@@ -1571,7 +1584,7 @@ watch(
 
     <p
       v-if="!loading && !error && rows.some((r) => r.has_overload)"
-      class="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+      class="mt-4 rounded-tarjeta border border-aviso-borde bg-aviso-fondo p-3 text-sm text-aviso-texto"
     >
       Las celdas con triangulo son las semanas que superan la capacidad de la persona.
       Pulsa una celda para ver y editar las tareas que la componen.
@@ -1585,7 +1598,7 @@ watch(
       @close="closeCell"
     >
       <template #subtitle>
-        <p v-if="breakdown" class="mt-1 text-sm text-slate-500">
+        <p v-if="breakdown" class="mt-1 text-sm text-texto-tenue">
           Semana {{ weekTitle(breakdown.week) }} · {{ weekRangeLabel(breakdown.week) }}
         </p>
       </template>

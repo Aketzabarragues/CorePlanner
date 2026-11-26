@@ -26,7 +26,7 @@ describe('ToastHost', () => {
 
     const toast = wrapper.get('[data-testid="toast"]')
     expect(toast.text()).toContain('Tarea «Cableado» creada.')
-    expect(toast.classes()).toContain('bg-green-50')
+    expect(toast.classes()).toContain('bg-lateral-fondo')
   })
 
   it('el error se pinta con su variante', async () => {
@@ -38,7 +38,7 @@ describe('ToastHost', () => {
 
     const toast = wrapper.get('[data-testid="toast"]')
     expect(toast.text()).toContain('No se ha podido guardar')
-    expect(toast.classes()).toContain('bg-red-50')
+    expect(toast.classes()).toContain('bg-lateral-fondo')
   })
 
   it('el contenedor es una region activa suave por encima del velo del dialogo', () => {

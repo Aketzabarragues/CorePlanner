@@ -59,14 +59,14 @@ const emit = defineEmits(['retry', 'empty-action'])
       v-if="loading"
       role="status"
       aria-live="polite"
-      class="rounded-lg border border-slate-200 bg-white p-4"
+      class="rounded-tarjeta border border-borde bg-tarjeta p-4"
     >
       <slot name="loading">
         <div class="animate-pulse space-y-3 motion-reduce:animate-none">
-          <div class="h-4 w-1/3 rounded bg-slate-200"></div>
-          <div class="h-11 rounded bg-slate-100"></div>
-          <div class="h-11 rounded bg-slate-100"></div>
-          <div class="h-11 rounded bg-slate-100"></div>
+          <div class="h-4 w-1/3 rounded-control bg-borde"></div>
+          <div class="h-11 rounded-control bg-neutro-fondo"></div>
+          <div class="h-11 rounded-control bg-neutro-fondo"></div>
+          <div class="h-11 rounded-control bg-neutro-fondo"></div>
         </div>
       </slot>
       <span class="sr-only">{{ loadingLabel }}</span>
@@ -85,15 +85,15 @@ const emit = defineEmits(['retry', 'empty-action'])
 
     <div
       v-else-if="empty"
-      class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center"
+      class="rounded-tarjeta border border-dashed border-borde-fuerte bg-tarjeta p-6 text-center"
     >
       <slot name="empty">
-        <p class="font-semibold text-siemens-900">{{ emptyTitle }}</p>
-        <p v-if="emptyText" class="mt-1 text-sm text-slate-500">{{ emptyText }}</p>
+        <p class="font-semibold text-primario-fuerte">{{ emptyTitle }}</p>
+        <p v-if="emptyText" class="mt-1 text-sm text-texto-tenue">{{ emptyText }}</p>
         <button
           v-if="emptyAction"
           type="button"
-          class="mt-4 rounded bg-siemens-900 px-4 py-2 text-sm font-medium text-white"
+          class="mt-4 rounded-control bg-primario-fuerte px-4 py-2 text-sm font-medium text-texto-inverso"
           @click="emit('empty-action')"
         >
           {{ emptyAction }}

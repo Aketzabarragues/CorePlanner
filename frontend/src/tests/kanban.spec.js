@@ -69,8 +69,8 @@ describe('statusPill y statusBar', () => {
 
   it('sin lista o sin color, el estilo neutro', () => {
     const pildora = statusPill('backlog', [])
-    expect(pildora.backgroundColor).toBe('#f1f5f9')
-    expect(statusBar('no-existe', MIESTADOS).backgroundColor).toBe('#94a3b8')
+    expect(pildora.backgroundColor).toBe('rgb(var(--cp-neutro-fondo))')
+    expect(statusBar('no-existe', MIESTADOS).backgroundColor).toBe('rgb(var(--cp-neutro-punto))')
   })
 })
 

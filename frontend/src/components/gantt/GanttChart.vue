@@ -756,7 +756,7 @@ defineExpose({ centrarHoy, arrastrando })
     sigue desplazandose cuando las filas no caben.
   -->
   <div
-    class="gantt relative flex max-h-full overflow-hidden rounded border border-slate-200 bg-white"
+    class="gantt relative flex max-h-full overflow-hidden rounded-tarjeta border border-borde bg-tarjeta"
     role="group"
     aria-roledescription="diagrama de Gantt"
     aria-label="Diagrama de Gantt"
@@ -810,8 +810,33 @@ defineExpose({ centrarHoy, arrastrando })
         <title id="gantt-titulo">Diagrama de Gantt</title>
         <desc id="gantt-descripcion">{{ descripcion }}</desc>
 
-        <!-- Punta de flecha de los vinculos precedes; los relates no llevan. -->
+        <!--
+          Tramas de relleno: la diagonal de fin de semana (las variables de
+          trama) y el rayado del destino de arrastre. El `pattern` es el unico
+          relleno de SVG que puede llevar una trama: una `background-image`
+          de CSS no se aplica a un `<rect>`.
+        -->
         <defs>
+          <pattern
+            id="cp-trama-fin-de-semana"
+            width="12"
+            height="12"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(-45)"
+          >
+            <rect width="12" height="12" class="gantt__banda-fin-de-semana" />
+            <rect width="6" height="12" class="gantt__trama-b" />
+          </pattern>
+          <pattern
+            id="cp-trama-rayado"
+            width="12"
+            height="12"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+          >
+            <rect width="12" height="12" class="gantt__rayado-a" />
+            <rect width="6" height="12" class="gantt__rayado-b" />
+          </pattern>
           <marker
             id="gantt-punta"
             viewBox="0 0 10 10"
@@ -1048,13 +1073,13 @@ defineExpose({ centrarHoy, arrastrando })
     <!-- Fantasma del arrastre: mismo patron que el del Kanban. -->
     <div
       v-if="fantasma"
-      class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded border border-siemens-500 bg-white pl-1.5 pr-2 shadow-lg"
+      class="pointer-events-none fixed z-50 flex h-6 select-none items-center gap-1.5 rounded-control border border-primario bg-tarjeta pl-1.5 pr-2 shadow-flotante"
       :style="{ left: `${fantasma.x}px`, top: `${fantasma.y}px` }"
       data-testid="gantt-drag-ghost"
     >
       <span class="h-4 w-1 shrink-0 rounded-sm" :style="{ backgroundColor: fantasma.color }" />
-      <span class="text-[11px] font-medium text-slate-900">{{ fantasma.etiqueta }}</span>
-      <span class="rounded bg-siemens-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+      <span class="text-cp-xs font-medium text-texto">{{ fantasma.etiqueta }}</span>
+      <span class="rounded-pastilla bg-primario-fuerte px-1.5 py-0.5 text-cp-micro font-semibold text-sobre-primario">
         {{ fantasma.rango }}
       </span>
     </div>

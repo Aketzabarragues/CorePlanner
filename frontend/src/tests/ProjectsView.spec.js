@@ -30,8 +30,8 @@ const projects = [
 ]
 
 const departments = [
-  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
-  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana', color: '#005566' },
+  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge', color: '#1f6feb' },
 ]
 
 const summaries = [
@@ -355,5 +355,16 @@ describe('ProjectsView', () => {
     const fila = wrapper.findAll('[data-testid="project-row"]')[0]
     expect(fila.findAll('[data-testid="project-member"]')).toHaveLength(4)
     expect(fila.find('[data-testid="project-members-rest"]').text()).toBe('+1')
+  })
+
+  it('la franja del grupo y los avatares salen con el color del departamento en linea', async () => {
+    const wrapper = await mountView()
+
+    const franja = wrapper.findAll('[data-testid="projects-group"]')[0].find('[style]')
+    expect(franja.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
+
+    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
+    const avatar = fila.find('[data-testid="project-member"]')
+    expect(avatar.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
   })
 })

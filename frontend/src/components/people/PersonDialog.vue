@@ -186,28 +186,28 @@ async function saveSkills() {
         </AlertBanner>
 
         <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <dt class="text-slate-500">Correo</dt>
-          <dd class="text-slate-900">{{ person.email }}</dd>
-          <dt class="text-slate-500">Rol de empresa</dt>
-          <dd class="text-slate-900">{{ person.company_role_label }}</dd>
-          <dt class="text-slate-500">Tipo de contrato</dt>
-          <dd class="text-slate-900">{{ person.employment_type_label }}</dd>
-          <dt class="text-slate-500">Factor de disponibilidad</dt>
-          <dd class="text-slate-900">
+          <dt class="text-texto-tenue">Correo</dt>
+          <dd class="text-texto">{{ person.email }}</dd>
+          <dt class="text-texto-tenue">Rol de empresa</dt>
+          <dd class="text-texto">{{ person.company_role_label }}</dd>
+          <dt class="text-texto-tenue">Tipo de contrato</dt>
+          <dd class="text-texto">{{ person.employment_type_label }}</dd>
+          <dt class="text-texto-tenue">Factor de disponibilidad</dt>
+          <dd class="text-texto">
             {{ person.schedule ? `${person.schedule.availability_factor} %` : '—' }}
           </dd>
-          <dt class="text-slate-500">Capacidad de la semana</dt>
-          <dd class="text-slate-900">
+          <dt class="text-texto-tenue">Capacidad de la semana</dt>
+          <dd class="text-texto">
             {{ person.capacity === null ? 'Sin definir' : `${person.capacity} h` }}
           </dd>
-          <dt class="text-slate-500">Carga de la semana</dt>
-          <dd class="text-slate-900">
+          <dt class="text-texto-tenue">Carga de la semana</dt>
+          <dd class="text-texto">
             {{ person.hours === null ? 'No visible' : `${person.hours} h` }}
           </dd>
         </dl>
 
         <section>
-          <h3 class="mb-2 text-sm font-semibold text-slate-900">Historial de horarios</h3>
+          <h3 class="mb-2 text-sm font-semibold text-texto">Historial de horarios</h3>
           <AsyncState
             :loading="loading"
             :empty="!history.length"
@@ -216,7 +216,7 @@ async function saveSkills() {
             loading-label="Cargando el historial de horarios"
           >
             <table class="w-full text-sm">
-              <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
+              <thead class="text-left text-xs uppercase tracking-wide text-texto-tenue">
                 <tr>
                   <th class="py-1 font-medium">Vigente desde</th>
                   <th class="py-1 font-medium">Días</th>
@@ -225,29 +225,29 @@ async function saveSkills() {
                   <th v-if="isManager" class="py-1 pl-4 font-medium">Acciones</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100">
+              <tbody class="divide-y divide-borde-suave">
                 <tr v-for="entry in history" :key="entry.id" data-testid="schedule-history-row">
-                  <td class="py-2 text-slate-900">{{ entry.valid_from }}</td>
+                  <td class="py-2 text-texto">{{ entry.valid_from }}</td>
                   <td class="py-2">
                     <span class="flex gap-1">
                       <span
                         v-for="day in dayChips(entry)"
                         :key="day.label"
                         class="flex h-6 w-6 items-center justify-center rounded text-xs"
-                        :class="day.active ? 'bg-slate-200 text-siemens-900' : 'bg-slate-50 text-slate-400'"
+                        :class="day.active ? 'bg-borde text-primario-fuerte' : 'bg-tarjeta-suave text-texto-tenue'"
                         :title="`${day.label}: ${day.hours} h`"
                       >
                         {{ day.label }}
                       </span>
                     </span>
                   </td>
-                  <td class="py-2 text-right whitespace-nowrap text-slate-600">{{ entry.availability_factor }} %</td>
-                  <td class="py-2 pl-4 text-slate-500">{{ entry.note ?? '—' }}</td>
+                  <td class="py-2 text-right whitespace-nowrap text-texto-suave">{{ entry.availability_factor }} %</td>
+                  <td class="py-2 pl-4 text-texto-tenue">{{ entry.note ?? '—' }}</td>
                   <td v-if="isManager" class="py-2 pl-4">
                     <span class="flex gap-3 whitespace-nowrap">
                       <button
                         type="button"
-                        class="text-sm font-medium text-siemens-700 hover:underline"
+                        class="text-sm font-medium text-primario-medio hover:underline"
                         :data-testid="`edit-schedule-${entry.id}`"
                         @click="startEditSchedule(entry)"
                       >
@@ -255,7 +255,7 @@ async function saveSkills() {
                       </button>
                       <button
                         type="button"
-                        class="text-sm font-medium text-red-700 hover:underline"
+                        class="text-sm font-medium text-peligro-texto hover:underline"
                         :data-testid="`remove-schedule-${entry.id}`"
                         @click="removeSchedule(entry)"
                       >
@@ -270,26 +270,26 @@ async function saveSkills() {
         </section>
 
         <section>
-          <h3 class="mb-2 text-sm font-semibold text-slate-900">Habilidades</h3>
+          <h3 class="mb-2 text-sm font-semibold text-texto">Habilidades</h3>
           <div v-if="personSkills.length" class="flex flex-wrap gap-2">
             <span
               v-for="skill in personSkills"
               :key="skill.skill_id"
-              class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+              class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs text-texto-suave"
             >
               {{ skill.name }} · {{ skill.level }}/3
             </span>
           </div>
-          <p v-else class="text-sm text-slate-500">Sin competencias asignadas.</p>
+          <p v-else class="text-sm text-texto-tenue">Sin competencias asignadas.</p>
         </section>
 
         <template v-if="isManager">
-          <section class="rounded-lg border border-slate-200 p-4">
-            <h3 class="mb-3 text-sm font-semibold text-slate-900">
+          <section class="rounded-tarjeta border border-borde p-4">
+            <h3 class="mb-3 text-sm font-semibold text-texto">
               {{ editingScheduleId === null ? 'Nueva versión de horario' : 'Corregir versión de horario' }}
             </h3>
             <div class="grid grid-cols-7 gap-2">
-              <label v-for="(label, index) in DAY_LABELS" :key="label" class="text-xs text-slate-500">
+              <label v-for="(label, index) in DAY_LABELS" :key="label" class="text-xs text-texto-tenue">
                 {{ label }}
                 <input
                   v-model.number="scheduleForm.hours[index]"
@@ -297,40 +297,40 @@ async function saveSkills() {
                   min="0"
                   max="24"
                   step="0.25"
-                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  class="mt-1 w-full rounded-control border border-borde-fuerte px-2 py-1 text-sm"
                   :data-testid="`schedule-day-${index}`"
                 />
               </label>
             </div>
             <div class="mt-3 grid grid-cols-3 gap-3">
-              <label class="text-xs text-slate-500">
+              <label class="text-xs text-texto-tenue">
                 Vigente desde
                 <input
                   v-model="scheduleForm.valid_from"
                   type="date"
                   :disabled="editingScheduleId !== null"
-                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-100"
+                  class="mt-1 w-full rounded-control border border-borde-fuerte px-2 py-1 text-sm disabled:bg-neutro-fondo"
                   data-testid="schedule-valid-from"
                 />
               </label>
-              <label class="text-xs text-slate-500">
+              <label class="text-xs text-texto-tenue">
                 Factor (%)
                 <input
                   v-model.number="scheduleForm.availability_factor"
                   type="number"
                   min="0"
                   max="100"
-                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  class="mt-1 w-full rounded-control border border-borde-fuerte px-2 py-1 text-sm"
                   data-testid="schedule-factor"
                 />
               </label>
-              <label class="text-xs text-slate-500">
+              <label class="text-xs text-texto-tenue">
                 Nota
                 <input
                   v-model="scheduleForm.note"
                   type="text"
                   maxlength="255"
-                  class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                  class="mt-1 w-full rounded-control border border-borde-fuerte px-2 py-1 text-sm"
                   data-testid="schedule-note"
                 />
               </label>
@@ -338,7 +338,7 @@ async function saveSkills() {
             <div class="mt-3 flex gap-2">
               <button
                 type="button"
-                class="rounded bg-siemens-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                class="rounded-control bg-primario-fuerte px-3 py-1.5 text-sm font-medium text-texto-inverso disabled:opacity-50"
                 :disabled="!scheduleForm.valid_from"
                 data-testid="save-schedule"
                 @click="addSchedule"
@@ -348,7 +348,7 @@ async function saveSkills() {
               <button
                 v-if="editingScheduleId !== null"
                 type="button"
-                class="rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-600"
+                class="rounded-control border border-borde-fuerte px-3 py-1.5 text-sm text-texto-suave"
                 data-testid="cancel-schedule"
                 @click="cancelEditSchedule"
               >
@@ -357,14 +357,14 @@ async function saveSkills() {
             </div>
           </section>
 
-          <section class="rounded-lg border border-slate-200 p-4">
-            <h3 class="mb-3 text-sm font-semibold text-slate-900">Competencias</h3>
+          <section class="rounded-tarjeta border border-borde p-4">
+            <h3 class="mb-3 text-sm font-semibold text-texto">Competencias</h3>
             <div class="grid grid-cols-2 gap-2">
               <label v-for="skill in skills" :key="skill.id" class="flex items-center justify-between text-sm">
-                <span class="text-slate-700">{{ skill.name }}</span>
+                <span class="text-texto-suave">{{ skill.name }}</span>
                 <select
                   v-model.number="skillLevels[skill.id]"
-                  class="rounded border border-slate-300 px-2 py-1 text-sm"
+                  class="rounded-control border border-borde-fuerte px-2 py-1 text-sm"
                   :data-testid="`skill-level-${skill.id}`"
                 >
                   <option :value="0">—</option>
@@ -376,7 +376,7 @@ async function saveSkills() {
             </div>
             <button
               type="button"
-              class="mt-3 rounded bg-siemens-900 px-3 py-1.5 text-sm font-medium text-white"
+              class="mt-3 rounded-control bg-primario-fuerte px-3 py-1.5 text-sm font-medium text-texto-inverso"
               data-testid="save-skills"
               @click="saveSkills"
             >

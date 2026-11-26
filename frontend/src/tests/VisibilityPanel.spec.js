@@ -128,11 +128,11 @@ describe('VisibilityPanel', () => {
     const wrapper = montar({ ocultosCount: 1 })
 
     const boton = wrapper.get('[data-testid="toggle-visibility"]')
-    expect(boton.classes()).toContain('rounded')
+    expect(boton.classes()).toContain('rounded-control')
     expect(boton.classes()).not.toContain('rounded-full')
 
     const contador = wrapper.get('[data-testid="hidden-count"]')
-    expect(contador.classes()).toContain('rounded-full')
+    expect(contador.classes()).toContain('rounded-pastilla')
     expect(contador.text()).toContain('1 oculto')
   })
 

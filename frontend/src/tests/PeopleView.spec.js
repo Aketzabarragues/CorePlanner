@@ -246,21 +246,19 @@ describe('PeopleView', () => {
     expect(filas[0].text()).toContain('Jorge')
   })
 
-  it('el filtro de departamento usa el formato cuadrado del resto de la app', async () => {
+  it('el filtro de departamento usa el campo comun de la app', async () => {
     const wrapper = await mountView()
 
     const filtro = wrapper.find('[data-testid="filter-department"]')
-    expect(filtro.classes()).toContain('rounded')
-    expect(filtro.classes()).toContain('border-slate-300')
-    expect(filtro.classes()).toContain('bg-white')
-    expect(filtro.classes()).toContain('px-2')
-    expect(filtro.classes()).toContain('py-1.5')
+    expect(filtro.classes()).toContain('min-h-10')
+    expect(filtro.classes()).toContain('rounded-control')
+    expect(filtro.classes()).toContain('border-borde-fuerte')
+    expect(filtro.classes()).toContain('bg-tarjeta-suave')
+    expect(filtro.classes()).toContain('text-cp-sm')
     expect(filtro.classes()).not.toContain('rounded-full')
 
     const etiqueta = filtro.element.closest('label')
-    expect(etiqueta.className).toContain('text-xs')
-    expect(etiqueta.className).toContain('text-slate-600')
-    expect(etiqueta.querySelector('span').className).toContain('mb-1')
+    expect(etiqueta.className).toContain('inline-flex')
     expect(etiqueta.querySelector('span').textContent).toBe('Departamento')
   })
 
@@ -275,7 +273,7 @@ describe('PeopleView', () => {
   it('el directorio dibuja el avatar con las iniciales de cada persona', async () => {
     const wrapper = await mountView()
 
-    const avatar = wrapper.find('[data-testid="person-row"] .rounded-full')
+    const avatar = wrapper.find('[data-testid="person-row"] .rounded-avatar')
     expect(avatar.exists()).toBe(true)
     // "Ana" es una sola palabra: su inicial es la unica que hay.
     expect(avatar.text()).toBe('A')

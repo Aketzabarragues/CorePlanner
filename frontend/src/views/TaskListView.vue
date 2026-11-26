@@ -221,12 +221,12 @@ useTaskReload(load)
       loading-label="Cargando las tareas"
       @retry="reintentar"
     >
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Estado</span>
+      <div class="mb-4 flex flex-wrap items-end gap-2.5">
+        <label class="inline-flex flex-col gap-1 text-cp-xs font-medium text-texto-suave">
+          Estado
           <select
             v-model="statusFilter"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            class="cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta-suave px-2 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="filter-status"
           >
             <option value="">Todos los estados</option>
@@ -236,11 +236,11 @@ useTaskReload(load)
           </select>
         </label>
 
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Persona</span>
+        <label class="inline-flex flex-col gap-1 text-cp-xs font-medium text-texto-suave">
+          Persona
           <select
             v-model="personFilter"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            class="cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta-suave px-2 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="filter-person"
           >
             <option value="">Todas las personas</option>
@@ -250,30 +250,31 @@ useTaskReload(load)
           </select>
         </label>
 
-        <p class="ml-auto text-xs text-slate-500" data-testid="task-count">
+        <p class="ml-auto text-cp-xs text-texto-tenue" data-testid="task-count">
           {{ ordenadas.length }} de {{ tasks.length }} tareas
         </p>
       </div>
 
-      <div class="overflow-x-auto rounded border border-slate-200 bg-white">
-        <table class="w-full border-collapse text-sm" data-testid="task-table">
+      <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+        <table class="w-full border-collapse text-cp-sm" data-testid="task-table">
           <thead>
-            <tr class="bg-slate-100">
+            <tr class="bg-tarjeta-suave">
               <th
                 v-for="column in COLUMNAS"
                 :key="column.key"
-                class="border border-slate-200 px-3 py-2 text-left"
+                class="border-b border-borde px-3 py-2 text-left text-cp-xs font-semibold uppercase tracking-wider text-texto-tenue"
               >
                 <button
                   type="button"
-                  class="flex items-center gap-1 font-medium text-slate-700 hover:text-siemens-900"
+                  class="inline-flex min-h-10 items-center gap-1 rounded-control px-1 text-left transition-colors hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                  :class="orden.key === column.key ? 'text-texto-marca' : 'text-texto-tenue'"
                   :data-testid="`sort-${column.key}`"
                   @click="ordenarPor(column.key)"
                 >
                   {{ column.label }}
                   <span
                     class="inline-flex h-3.5 w-3.5"
-                    :class="orden.key === column.key ? 'text-slate-600' : 'text-slate-300'"
+                    :class="orden.key === column.key ? 'text-texto-marca' : 'text-texto-tenue'"
                   >
                     <span
                       class="inline-flex h-full w-full transition-transform"
@@ -290,46 +291,49 @@ useTaskReload(load)
             <tr
               v-for="task in ordenadas"
               :key="task.id"
-              class="cursor-pointer hover:bg-slate-50"
+              class="border-b border-borde-suave transition-colors hover:bg-tarjeta-suave/60"
               data-testid="task-row"
               @click="abrirTarea(task)"
             >
-              <td class="border border-slate-200 px-3 py-2">
+              <td class="border-b border-borde-suave px-3 py-2">
                 <button
                   type="button"
-                  class="text-left font-medium text-slate-900 hover:text-siemens-900"
+                  class="text-left font-semibold text-texto transition-colors hover:text-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                   data-testid="task-title"
                   @click.stop="abrirTarea(task)"
                 >
                   {{ task.title }}
                 </button>
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-slate-600">
+              <td class="border-b border-borde-suave px-3 py-2 text-texto-suave">
                 {{ task.assigned_name ?? 'Sin asignar' }}
               </td>
-              <td class="border border-slate-200 px-3 py-2">
+              <td class="border-b border-borde-suave px-3 py-2">
                 <span
-                  class="rounded px-2 py-0.5 text-xs font-medium"
+                  class="inline-flex items-center rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
                   :style="statusPill(task.status, estados.value)"
                 >
                   {{ columnLabel(task.status, estados.value) }}
                 </span>
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-slate-600 tabular-nums">
+              <td class="border-b border-borde-suave px-3 py-2 font-mono text-cp-xs tabular-nums text-texto-suave">
                 {{ task.start_date ?? '—' }} → {{ task.end_date ?? '—' }}
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-right tabular-nums text-slate-600">
+              <td class="border-b border-borde-suave px-3 py-2 text-right font-mono text-cp-xs tabular-nums text-texto">
                 {{ formatHours(task.estimated_hours) }}
               </td>
-              <td class="border border-slate-200 px-3 py-2 text-slate-600 tabular-nums">
+              <td class="border-b border-borde-suave px-3 py-2 font-mono text-cp-xs tabular-nums text-texto-suave">
                 <span v-if="task.checklist_total > 0" data-testid="task-checklist-progress">
                   {{ task.checklist_done }}/{{ task.checklist_total }} hechos
                 </span>
               </td>
             </tr>
             <tr v-if="!ordenadas.length">
-              <td :colspan="COLUMNAS.length" class="px-3 py-6 text-center text-sm text-slate-500">
-                No hay tareas que enseñar.
+              <td :colspan="COLUMNAS.length" class="px-3 py-10 text-center text-cp-sm text-texto-tenue">
+                <p class="font-semibold text-texto">No hay tareas que enseñar</p>
+                <p class="mt-1 text-cp-xs">
+                  Ajusta los filtros o crea la primera tarea en el tablero.
+                </p>
               </td>
             </tr>
           </tbody>

@@ -44,7 +44,7 @@ describe('PageHeader', () => {
   it('el titulo y el subtitulo tienen siempre el mismo aspecto', () => {
     const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
 
-    expect(wrapper.find('h1').classes()).toContain('text-xl')
-    expect(wrapper.find('h1').classes()).toContain('text-siemens-900')
+    expect(wrapper.find('h1').classes()).toContain('text-cp-titulo')
+    expect(wrapper.find('h1').classes()).toContain('text-texto-marca')
   })
 })

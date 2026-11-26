@@ -42,7 +42,7 @@ useDialog(
   <div
     v-if="open"
     class="fixed inset-0 z-50 flex justify-end"
-    :class="modal ? 'bg-slate-900/40' : 'pointer-events-none bg-transparent'"
+    :class="modal ? 'bg-overlay/40' : 'pointer-events-none bg-transparent'"
     @click.self="emit('close')"
   >
     <div
@@ -51,20 +51,20 @@ useDialog(
       :aria-modal="modal ? 'true' : 'false'"
       :aria-label="title"
       tabindex="-1"
-      class="pointer-events-auto flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl"
+      class="pointer-events-auto flex h-full w-full max-w-md flex-col overflow-y-auto bg-tarjeta shadow-flotante"
     >
-      <div class="flex items-start justify-between gap-4 border-b border-slate-200 p-4">
+      <div class="flex items-start justify-between gap-4 border-b border-borde p-4">
         <div class="min-w-0">
-          <h2 class="text-base font-semibold text-siemens-900">{{ title }}</h2>
+          <h2 class="text-base font-semibold text-primario-fuerte">{{ title }}</h2>
           <slot name="subtitle">
-            <p v-if="subtitle" class="mt-1 text-sm text-slate-500" data-testid="side-panel-subtitle">
+            <p v-if="subtitle" class="mt-1 text-sm text-texto-tenue" data-testid="side-panel-subtitle">
               {{ subtitle }}
             </p>
           </slot>
         </div>
         <button
           type="button"
-          class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600"
+          class="rounded-control border border-borde-fuerte px-2 py-1 text-xs text-texto-suave"
           data-testid="side-panel-close"
           @click="emit('close')"
         >

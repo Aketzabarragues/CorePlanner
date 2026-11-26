@@ -146,23 +146,30 @@ function onTaskClick(task, event) {
   emit('open-task', task.id)
 }
 
-/** Clase del distintivo de un dia no laborable, segun su alcance. */
+/**
+ * Clases del distintivo de un dia no laborable, con los mismos tres ambitos
+ * que el chip de la cabecera: global, departamento o persona.
+ */
 function nonWorkingClass(scope) {
-  return scope === 'global' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'
+  if (scope === 'global') {
+    return 'border border-peligro-borde bg-peligro-fondo text-peligro-texto'
+  }
+  if (scope === 'department') return 'border border-aviso-borde bg-aviso-fondo text-aviso-texto'
+  return 'border border-info-borde bg-info-fondo text-info-texto'
 }
 </script>
 
 <template>
-  <div class="rounded border border-slate-200 bg-white" data-testid="day-view">
-    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
-      <h2 class="text-base font-semibold text-siemens-900" data-testid="day-view-title">
+  <div class="rounded-tarjeta border border-borde bg-tarjeta" data-testid="day-view">
+    <div class="border-b border-borde bg-tarjeta-suave px-4 py-3">
+      <h2 class="text-cp-base font-semibold text-texto-marca" data-testid="day-view-title">
         {{ label }}
       </h2>
-      <p v-if="nonWorking.length" class="mt-1 text-xs font-medium text-amber-700">
+      <p v-if="nonWorking.length" class="mt-1 text-cp-xs font-medium text-aviso-texto">
         <span
           v-for="day in nonWorking"
           :key="day.id"
-          class="mr-2 rounded-full px-2 py-0.5"
+          class="mr-2 inline-block rounded-pastilla px-2 py-0.5"
           :class="nonWorkingClass(day.scope)"
         >
           {{ day.name }}
@@ -174,24 +181,24 @@ function nonWorkingClass(scope) {
     <div
       v-for="seccion in secciones"
       :key="seccion.id ?? 'sin-asignar'"
-      class="border-b border-slate-100 last:border-b-0"
+      class="border-b border-borde-suave last:border-b-0"
       :data-testid="seccion.id === null ? 'day-section-sin-asignar' : `day-section-${seccion.id}`"
     >
-      <div class="flex items-baseline justify-between gap-2 bg-slate-50 px-4 py-1.5">
+      <div class="flex items-baseline justify-between gap-2 bg-tarjeta-suave px-4 py-1.5">
         <h3
-          class="truncate text-xs font-semibold uppercase tracking-wide text-slate-600"
+          class="truncate text-cp-xs font-semibold uppercase tracking-wide text-texto-suave"
           :data-testid="
             seccion.id === null ? 'day-person-sin-asignar' : `day-person-${seccion.id}`
           "
         >
           {{ seccion.name }}
         </h3>
-        <span v-if="seccion.department_name" class="shrink-0 text-[10px] text-slate-400">
+        <span v-if="seccion.department_name" class="shrink-0 text-cp-micro text-texto-tenue">
           {{ seccion.department_name }}
         </span>
       </div>
 
-      <ul v-if="seccion.tasks.length" class="divide-y divide-slate-100">
+      <ul v-if="seccion.tasks.length" class="divide-y divide-borde-suave">
         <li
           v-for="task in seccion.tasks"
           :key="task.id"
@@ -200,27 +207,27 @@ function nonWorkingClass(scope) {
           @click="onTaskClick(task, $event)"
         >
           <div
-            class="flex items-start gap-3 rounded px-2 py-1.5 text-white"
+            class="flex items-start gap-3 rounded-control px-2 py-1.5 text-sobre-primario"
             :style="{ backgroundColor: task.project_color }"
           >
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium" :title="task.title">{{ task.title }}</p>
-              <p class="mt-0.5 truncate text-[11px] opacity-80">
+              <p class="truncate text-cp-sm font-medium" :title="task.title">{{ task.title }}</p>
+              <p class="mt-0.5 truncate text-cp-micro opacity-80">
                 {{ columnLabel(task.status, estadosDe(task.project_id)) }} · {{ task.project_name }}
               </p>
             </div>
-            <span class="shrink-0 text-[11px] tabular-nums opacity-80">
+            <span class="shrink-0 text-cp-micro tabular-nums opacity-80">
               {{ task.start }} - {{ task.end }}
             </span>
           </div>
 
           <div
             v-if="canEdit"
-            class="mt-1.5 flex flex-wrap items-center gap-2 px-2 text-xs"
+            class="mt-1.5 flex flex-wrap items-center gap-2 px-2 text-cp-xs"
           >
             <span
               v-if="!(editando && editando.id === task.id)"
-              class="rounded bg-white/20 px-1.5 py-0.5 tabular-nums"
+              class="rounded-control bg-white/20 px-1.5 py-0.5 tabular-nums"
               data-testid="day-task-hours"
               :title="'Editar las horas'"
               @dblclick="abrirEdicion(task, 'estimated_hours')"
@@ -233,7 +240,7 @@ function nonWorkingClass(scope) {
               type="number"
               min="0"
               step="0.25"
-              class="w-16 rounded border border-white/40 bg-white/10 px-1 py-0.5 text-white"
+              class="w-16 rounded-control border border-white/40 bg-white/10 px-1 py-0.5 text-sobre-primario"
               data-testid="day-task-hours-input"
               @input="editando.valor = $event.target.value"
               @keyup.enter="guardarEdicion(task)"
@@ -243,24 +250,24 @@ function nonWorkingClass(scope) {
             />
             <select
               :value="task.assigned_to ?? ''"
-              class="rounded border border-white/40 bg-white/10 px-1.5 py-0.5 text-white"
+              class="rounded-control border border-white/40 bg-white/10 px-1.5 py-0.5 text-sobre-primario"
               :data-testid="`day-task-person-${task.id}`"
               :title="'Cambiar el responsable de la tarea'"
               @change="asignar(task, $event)"
             >
-              <option value="" class="text-slate-700">Sin asignar</option>
+              <option value="" class="text-texto">Sin asignar</option>
               <option
                 v-for="member in members"
                 :key="member.user_id"
                 :value="member.user_id"
-                class="text-slate-700"
+                class="text-texto"
               >
                 {{ member.name }}
               </option>
             </select>
             <select
               :value="task.status"
-              class="rounded border border-white/40 bg-white/10 px-1.5 py-0.5 text-white"
+              class="rounded-control border border-white/40 bg-white/10 px-1.5 py-0.5 text-sobre-primario"
               :data-testid="`day-task-status-${task.id}`"
               :title="'Cambiar el estado de la tarea'"
               @change="cambiarEstado(task, $event)"
@@ -269,7 +276,7 @@ function nonWorkingClass(scope) {
                 v-for="estado in estadosDe(task.project_id)"
                 :key="estado.key"
                 :value="estado.key"
-                class="text-slate-700"
+                class="text-texto"
               >
                 {{ estado.label }}
               </option>
@@ -278,22 +285,22 @@ function nonWorkingClass(scope) {
         </li>
       </ul>
 
-      <p v-else class="px-4 py-3 text-sm text-slate-400" data-testid="day-section-empty">
+      <p v-else class="px-4 py-3 text-cp-sm text-texto-tenue" data-testid="day-section-empty">
         Sin tareas
       </p>
     </div>
 
-    <div class="border-t border-slate-200 bg-slate-50 px-4 py-2.5">
+    <div class="border-t border-borde bg-tarjeta-suave px-4 py-2.5">
       <button
         v-if="canEdit"
         type="button"
-        class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+        class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm text-texto hover:bg-tarjeta-suave"
         data-testid="day-new-task"
         @click="emit('crear', props.date)"
       >
         Nueva tarea
       </button>
-      <p v-else class="text-xs text-slate-400" data-testid="day-readonly-note">
+      <p v-else class="text-cp-xs text-texto-tenue" data-testid="day-readonly-note">
         Solo lectura: no se pueden crear tareas en este proyecto.
       </p>
     </div>

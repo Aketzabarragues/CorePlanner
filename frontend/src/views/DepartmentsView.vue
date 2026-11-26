@@ -43,6 +43,50 @@ const looseProjects = computed(() =>
   ),
 )
 
+/**
+ * Estilo en linea del icono del departamento: el color del departamento
+ * (dato del backend) sobre un tinte claro del mismo color. Sin color,
+ * tarjeta suave con texto suave.
+ */
+function estiloDepartamento(department) {
+  const color = department.color ?? null
+  if (!color) {
+    return {
+      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
+      color: 'rgb(var(--cp-texto-suave))',
+    }
+  }
+  return { backgroundColor: conBlanco(color, 0.15), color: conNegro(color, 0.35) }
+}
+
+function canalDe(hex) {
+  const limpio = String(hex ?? '').trim().replace(/^#/, '')
+  if (!/^[0-9a-fA-F]{6}$/.test(limpio)) return null
+  return parseInt(limpio, 16)
+}
+
+/** Mezcla un hex con blanco: `fraccion` del color y el resto blanco. */
+function conBlanco(hex, fraccion) {
+  const color = canalDe(hex)
+  if (color === null) return hex
+  const canal = (n) =>
+    Math.round(((color >> n) & 0xff) * fraccion + 0xff * (1 - fraccion))
+      .toString(16)
+      .padStart(2, '0')
+  return `#${canal(16)}${canal(8)}${canal(0)}`
+}
+
+/** Mezcla un hex con negro: `fraccion` de negro y el resto del color. */
+function conNegro(hex, fraccion) {
+  const color = canalDe(hex)
+  if (color === null) return hex
+  const canal = (n) =>
+    Math.round(((color >> n) & 0xff) * (1 - fraccion))
+      .toString(16)
+      .padStart(2, '0')
+  return `#${canal(16)}${canal(8)}${canal(0)}`
+}
+
 /** Carga los departamentos y los proyectos que gestiona cada uno. */
 async function load() {
   try {
@@ -92,15 +136,22 @@ onMounted(load)
         <section
           v-for="department in departments"
           :key="department.id"
-          class="rounded border border-slate-200 bg-white p-4"
+          class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
         >
           <div class="flex items-start gap-3">
-            <span class="inline-flex h-9 w-9 shrink-0 rounded bg-slate-100 text-siemens-700">
-              <AppIcon name="building" />
+            <span
+              class="flex h-9 w-9 flex-none items-center justify-center rounded-control"
+              :style="estiloDepartamento(department)"
+              aria-hidden="true"
+            >
+              <span class="inline-flex h-4 w-4"><AppIcon name="building" /></span>
             </span>
+
             <div class="min-w-0 flex-1">
-              <h2 class="text-base font-semibold text-siemens-900">{{ department.name }}</h2>
-              <p class="text-sm text-slate-500">
+              <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">
+                {{ department.name }}
+              </h2>
+              <p class="text-cp-xs text-texto-tenue">
                 Responsable: {{ department.manager_name ?? 'Sin responsable' }}
               </p>
 
@@ -108,42 +159,42 @@ onMounted(load)
                 <li
                   v-for="project in department.projects"
                   :key="project.id"
-                  class="flex items-center justify-between gap-3 text-sm"
+                  class="flex items-center justify-between gap-3 text-cp-sm"
                 >
                   <RouterLink
                     :to="{ name: 'project', params: { id: String(project.id) } }"
-                    class="truncate text-slate-700 hover:text-siemens-700 hover:underline"
+                    class="truncate text-texto transition-colors hover:text-primario-medio hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                   >
                     {{ project.name }}
                   </RouterLink>
-                  <span class="shrink-0 text-xs text-slate-500">
+                  <span class="shrink-0 text-cp-xs text-texto-tenue">
                     {{ projectStatus(project.status).label }}
                   </span>
                 </li>
               </ul>
-              <p v-else class="mt-3 text-sm text-slate-400">Sin proyectos asignados.</p>
+              <p v-else class="mt-3 text-cp-sm text-texto-tenue">Sin proyectos asignados.</p>
             </div>
           </div>
         </section>
 
         <section
           v-if="looseProjects.length"
-          class="rounded border border-slate-200 bg-white p-4"
+          class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
         >
-          <h2 class="text-base font-semibold text-siemens-900">Sin departamento</h2>
+          <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Sin departamento</h2>
           <ul class="mt-3 space-y-1">
             <li
               v-for="project in looseProjects"
               :key="project.id"
-              class="flex items-center justify-between gap-3 text-sm"
+              class="flex items-center justify-between gap-3 text-cp-sm"
             >
               <RouterLink
                 :to="{ name: 'project', params: { id: String(project.id) } }"
-                class="truncate text-slate-700 hover:text-siemens-700 hover:underline"
+                class="truncate text-texto transition-colors hover:text-primario-medio hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               >
                 {{ project.name }}
               </RouterLink>
-              <span class="shrink-0 text-xs text-slate-500">
+              <span class="shrink-0 text-cp-xs text-texto-tenue">
                 {{ projectStatus(project.status).label }}
               </span>
             </li>

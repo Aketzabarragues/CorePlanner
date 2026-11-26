@@ -83,70 +83,66 @@ async function remove(projectId, userId) {
 </script>
 
 <template>
-  <section class="space-y-6">
-    <div class="flex justify-end">
+  <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Miembros por proyecto</h2>
       <button
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         data-testid="new-member"
         @click="openCreate"
       >
         Añadir persona a un proyecto
       </button>
-    </div>
+    </header>
 
-    <div
-      v-for="project in props.projects"
-      :key="project.id"
-      class="rounded border border-slate-200 bg-white p-4"
-    >
-      <h3 class="mb-3 text-sm font-semibold text-siemens-900">{{ project.name }}</h3>
+    <div class="space-y-4 p-4">
+      <div v-for="project in props.projects" :key="project.id">
+        <h3 class="mb-2 text-cp-sm font-semibold text-texto-marca">{{ project.name }}</h3>
 
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-slate-200 text-left">
-            <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Persona
-            </th>
-            <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Rol en el proyecto
-            </th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="member in props.membersByProject[project.id] ?? []"
-            :key="member.user_id"
-            class="border-b border-slate-100"
-          >
-            <td class="px-2 py-2 text-slate-700">{{ member.name }}</td>
-            <td class="px-2 py-2 text-slate-600">{{ member.role_name }}</td>
-            <td class="px-2 py-2 text-right">
-              <button
-                type="button"
-                class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-                @click="remove(project.id, member.user_id)"
+        <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
+          <table class="w-full text-cp-sm">
+            <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+              <tr>
+                <th class="px-3 py-2.5 font-semibold">Persona</th>
+                <th class="px-3 py-2.5 font-semibold">Rol en el proyecto</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-borde-suave">
+              <tr
+                v-for="member in props.membersByProject[project.id] ?? []"
+                :key="member.user_id"
               >
-                Quitar
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!(props.membersByProject[project.id] ?? []).length">
-            <td class="px-2 py-2 text-slate-500" colspan="3">Sin miembros.</td>
-          </tr>
-        </tbody>
-      </table>
+                <td class="px-3 py-2 text-texto">{{ member.name }}</td>
+                <td class="px-3 py-2 text-texto-suave">{{ member.role_name }}</td>
+                <td class="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                    @click="remove(project.id, member.user_id)"
+                  >
+                    Quitar
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!(props.membersByProject[project.id] ?? []).length">
+                <td class="px-3 py-2 text-cp-sm text-texto-tenue" colspan="3">Sin miembros.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <ModalDialog :open="formOpen" title="Añadir persona a un proyecto" @close="closeForm">
       <form id="form-miembro" @submit.prevent="add">
         <div class="grid grid-cols-3 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Proyecto
             <select
               v-model="selection.project_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Elige un proyecto</option>
               <option v-for="project in props.projects" :key="project.id" :value="String(project.id)">
@@ -154,11 +150,11 @@ async function remove(projectId, userId) {
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Persona
             <select
               v-model="selection.user_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Elige una persona</option>
               <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
@@ -166,11 +162,11 @@ async function remove(projectId, userId) {
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Rol
             <select
               v-model="selection.role_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Elige un rol</option>
               <option v-for="role in props.projectRoles" :key="role.id" :value="String(role.id)">
@@ -188,7 +184,7 @@ async function remove(projectId, userId) {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -197,7 +193,7 @@ async function remove(projectId, userId) {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         >
           Añadir
         </button>

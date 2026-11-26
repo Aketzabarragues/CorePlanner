@@ -32,9 +32,9 @@ const hasLoad = computed(() => props.people.some((person) => person.hours !== nu
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+  <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta">
     <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+      <thead class="bg-tarjeta-suave text-left text-xs uppercase tracking-wide text-texto-tenue">
         <tr>
           <th class="px-2 py-2 font-medium">Persona</th>
           <th class="px-2 py-2 font-medium">Puesto</th>
@@ -48,69 +48,69 @@ const hasLoad = computed(() => props.people.some((person) => person.hours !== nu
           <th class="px-2 py-2"></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100">
+      <tbody class="divide-y divide-borde-suave">
         <tr v-for="person in people" :key="person.id" data-testid="person-row">
           <td class="px-2 py-2">
             <div class="flex items-center gap-2">
               <span
-                class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-siemens-900 text-xs font-semibold text-white"
+                class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar bg-primario-fuerte text-xs font-semibold text-texto-inverso"
               >
                 {{ initials(person.name) }}
               </span>
               <span class="min-w-0">
-                <span class="block truncate font-medium text-slate-900">{{ person.name }}</span>
-                <span class="block truncate text-xs text-slate-500">{{ person.email }}</span>
+                <span class="block truncate font-medium text-texto">{{ person.name }}</span>
+                <span class="block truncate text-xs text-texto-tenue">{{ person.email }}</span>
               </span>
             </div>
           </td>
-          <td class="px-2 py-2 text-slate-600">{{ person.job_title ?? '—' }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ person.department_name ?? '—' }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ person.employment_type_label }}</td>
+          <td class="px-2 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
+          <td class="px-2 py-2 text-texto-suave">{{ person.department_name ?? '—' }}</td>
+          <td class="px-2 py-2 text-texto-suave">{{ person.employment_type_label }}</td>
           <td class="px-2 py-2">
             <div v-if="person.schedule" class="flex items-center gap-1">
               <span
                 v-for="day in weekdayChips(person.schedule)"
                 :key="day.label"
                 class="flex h-5 w-5 items-center justify-center rounded text-xs"
-                :class="day.active ? 'bg-slate-200 text-siemens-900' : 'bg-slate-50 text-slate-400'"
+                :class="day.active ? 'bg-borde text-primario-fuerte' : 'bg-tarjeta-suave text-texto-tenue'"
                 :title="`${day.label}: ${day.hours} h`"
               >
                 {{ day.label }}
               </span>
             </div>
-            <span v-else class="text-xs text-slate-400">Sin horario</span>
+            <span v-else class="text-xs text-texto-tenue">Sin horario</span>
           </td>
-          <td class="px-2 py-2 text-right text-slate-600">
+          <td class="px-2 py-2 text-right text-texto-suave">
             {{ person.schedule ? `${person.schedule.availability_factor} %` : '—' }}
           </td>
-          <td class="px-2 py-2 text-right font-medium text-slate-900">
+          <td class="px-2 py-2 text-right font-medium text-texto">
             {{ person.capacity === null ? '—' : `${person.capacity} h` }}
           </td>
-          <td v-if="hasLoad" class="px-2 py-2 text-right text-slate-600">
+          <td v-if="hasLoad" class="px-2 py-2 text-right text-texto-suave">
             {{ person.hours === null ? '—' : `${person.hours} h` }}
           </td>
           <td class="px-2 py-2">
             <span
               v-if="person.capacity === null"
-              class="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+              class="whitespace-nowrap rounded-pastilla bg-neutro-fondo px-2 py-0.5 text-xs text-texto-suave"
             >
               Sin capacidad
             </span>
             <span
               v-else-if="person.is_overloaded"
-              class="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700"
+              class="whitespace-nowrap rounded-pastilla bg-peligro-fondo px-2 py-0.5 text-xs font-medium text-peligro-texto"
             >
               Sobrecargada
             </span>
             <span
               v-else-if="person.hours === null"
-              class="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
+              class="whitespace-nowrap rounded-pastilla bg-neutro-fondo px-2 py-0.5 text-xs text-texto-suave"
             >
               Con margen
             </span>
             <span
               v-else
-              class="whitespace-nowrap rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700"
+              class="whitespace-nowrap rounded-pastilla bg-ok-fondo px-2 py-0.5 text-xs font-medium text-ok-texto"
             >
               Con margen
             </span>
@@ -118,7 +118,7 @@ const hasLoad = computed(() => props.people.some((person) => person.hours !== nu
           <td class="px-2 py-2 text-right">
             <button
               type="button"
-              class="text-sm font-medium text-siemens-700 hover:underline"
+              class="text-sm font-medium text-primario-medio hover:underline"
               :data-testid="`open-profile-${person.id}`"
               @click="$emit('open', person.id)"
             >
@@ -127,7 +127,7 @@ const hasLoad = computed(() => props.people.some((person) => person.hours !== nu
           </td>
         </tr>
         <tr v-if="!people.length">
-          <td colspan="10" class="px-3 py-6 text-center text-sm text-slate-500">
+          <td colspan="10" class="px-3 py-6 text-center text-sm text-texto-tenue">
             No hay personas en el ámbito.
           </td>
         </tr>

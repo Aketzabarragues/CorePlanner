@@ -21,7 +21,7 @@ import ModalDialog from './ModalDialog.vue'
 import { useAuthStore } from '../stores/auth'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { actionLabel, relativeTime } from '../utils/activity'
-import { DEFAULT_TASK_STATUSES, columnLabel, formatHours } from '../utils/kanban'
+import { DEFAULT_TASK_STATUSES, columnLabel, formatHours, statusPill } from '../utils/kanban'
 
 const props = defineProps({
   open:    { type: Boolean, default: false },
@@ -473,7 +473,6 @@ watch(
   <ModalDialog
     :open="open"
     :title="title"
-    :subtitle="statusLabel"
     size="lg"
     data-testid="task-panel"
     @close="emit('close')"
@@ -487,123 +486,131 @@ watch(
       @retry="reintentar"
     >
       <div class="space-y-5">
+        <!-- ModalDialog no admite slot de subtitulo: el estado va aqui, en la primera linea. -->
+        <span
+          class="inline-flex items-center gap-1.5 rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
+          :style="statusPill(task?.status ?? '', estados.value)"
+        >
+          {{ statusLabel }}
+        </span>
+
         <form class="space-y-3" data-testid="task-form" @submit.prevent="guardar">
-          <label class="block">
-            <span class="text-sm font-medium">Título</span>
-            <input
-              v-model="form.title"
-              type="text"
-              :disabled="!canEdit"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-            />
-          </label>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="block sm:col-span-2">
+              <span class="text-cp-sm font-medium text-texto">Título</span>
+              <input
+                v-model="form.title"
+                type="text"
+                :disabled="!canEdit"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+              />
+            </label>
 
-          <label class="block">
-            <span class="text-sm font-medium">Asignada a</span>
-            <select
-              v-model="form.assigned_to"
-              :disabled="!canEdit"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="task-assigned"
-            >
-              <option :value="null">Sin asignar</option>
-              <option v-for="member in members" :key="member.user_id" :value="member.user_id">
-                {{ member.name }}
-              </option>
-            </select>
-          </label>
-
-          <label class="block">
-            <span class="text-sm font-medium">Estado</span>
-            <select
-              v-model="form.status"
-              :disabled="!canEdit"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="task-status"
-            >
-              <option v-for="estado in estados" :key="estado.key" :value="estado.key">
-                {{ estado.label }}
-              </option>
-            </select>
-          </label>
-
-          <div class="grid grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-sm font-medium">Inicio</span>
+              <span class="text-cp-sm font-medium text-texto">Asignada a</span>
+              <select
+                v-model="form.assigned_to"
+                :disabled="!canEdit"
+                class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+                data-testid="task-assigned"
+              >
+                <option :value="null">Sin asignar</option>
+                <option v-for="member in members" :key="member.user_id" :value="member.user_id">
+                  {{ member.name }}
+                </option>
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="text-cp-sm font-medium text-texto">Estado</span>
+              <select
+                v-model="form.status"
+                :disabled="!canEdit"
+                class="mt-1 w-full min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+                data-testid="task-status"
+              >
+                <option v-for="estado in estados" :key="estado.key" :value="estado.key">
+                  {{ estado.label }}
+                </option>
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="text-cp-sm font-medium text-texto">Inicio</span>
               <input
                 v-model="form.start_date"
                 type="date"
                 :disabled="!canEdit"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
               />
             </label>
 
             <label class="block">
-              <span class="text-sm font-medium">Fin</span>
+              <span class="text-cp-sm font-medium text-texto">Fin</span>
               <input
                 v-model="form.end_date"
                 type="date"
                 :disabled="!canEdit"
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+              />
+            </label>
+
+            <label class="block">
+              <span class="text-cp-sm font-medium text-texto">Horas estimadas</span>
+              <input
+                v-model="form.estimated_hours"
+                type="number"
+                min="0"
+                step="0.25"
+                :disabled="!canEdit"
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono text-cp-sm tabular-nums text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+              />
+            </label>
+
+            <label class="block sm:col-span-2">
+              <span class="text-cp-sm font-medium text-texto">Descripción</span>
+              <textarea
+                v-model="form.description"
+                rows="4"
+                :disabled="!canEdit"
+                placeholder="Qué hay que hacer, con qué detalles y con quién."
+                class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto placeholder:text-texto-tenue transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+                data-testid="task-description"
               />
             </label>
           </div>
-
-          <label class="block">
-            <span class="text-sm font-medium">Horas estimadas</span>
-            <input
-              v-model="form.estimated_hours"
-              type="number"
-              min="0"
-              step="0.25"
-              :disabled="!canEdit"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-            />
-          </label>
-
-          <label class="block">
-            <span class="text-sm font-medium">Descripción</span>
-            <textarea
-              v-model="form.description"
-              rows="4"
-              :disabled="!canEdit"
-              placeholder="Qué hay que hacer, con qué detalles y con quién."
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-              data-testid="task-description"
-            />
-          </label>
         </form>
 
-        <section class="border-t border-slate-200 pt-4">
-          <h3 class="text-sm font-semibold text-siemens-900">Lista de comprobación</h3>
+        <section class="border-t border-borde-suave pt-4">
+          <h3 class="font-titulo text-cp-titulo font-bold text-texto-marca">Lista de comprobación</h3>
 
-          <ul v-if="checklist.length" class="mt-2 space-y-2" data-testid="task-checklist">
+          <ul v-if="checklist.length" class="mt-2 space-y-1" data-testid="task-checklist">
             <li
               v-for="item in checklist"
               :key="item.id"
-              class="flex items-center gap-2 text-sm"
+              class="flex items-center gap-2 rounded-control px-1 py-1 text-cp-sm"
               data-testid="checklist-item"
             >
               <input
                 type="checkbox"
                 :checked="item.done"
                 :disabled="!canEdit"
-                class="h-4 w-4 shrink-0 rounded border-slate-300"
+                class="h-4 w-4 shrink-0 rounded-control border-borde-fuerte accent-primario focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="checklist-toggle"
                 @change="alternarItem(item)"
               />
               <input
                 :value="item.label"
                 :disabled="!canEdit"
-                class="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm focus:border-slate-300 disabled:text-slate-500"
-                :class="item.done ? 'text-slate-400 line-through' : ''"
+                class="min-w-0 flex-1 rounded-control border border-transparent bg-transparent px-2 py-1 text-cp-sm text-texto transition-colors hover:border-borde focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:text-texto-tenue"
+                :class="item.done ? 'text-texto-tenue line-through' : ''"
                 data-testid="checklist-label"
                 @change="renombrarItem(item, $event)"
               />
               <button
                 v-if="canEdit"
                 type="button"
-                class="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+                class="inline-flex min-h-10 flex-none items-center rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="checklist-remove"
                 @click="quitarItem(item)"
               >
@@ -611,20 +618,20 @@ watch(
               </button>
             </li>
           </ul>
-          <p v-else class="mt-2 text-xs text-slate-500">Todavía no hay puntos en la lista.</p>
+          <p v-else class="mt-2 text-cp-xs text-texto-tenue">Todavía no hay puntos en la lista.</p>
 
           <form v-if="canEdit" class="mt-2 flex gap-2" @submit.prevent="anadirItem">
             <input
               v-model="newItem"
               type="text"
               placeholder="Añadir un punto"
-              class="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="min-w-0 flex-1 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto placeholder:text-texto-tenue transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="checklist-new"
             />
             <button
               type="submit"
               :disabled="!newItem.trim() || saving"
-              class="shrink-0 rounded bg-siemens-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              class="inline-flex min-h-10 flex-none items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-xs font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="checklist-add"
             >
               Añadir
@@ -632,38 +639,38 @@ watch(
           </form>
         </section>
 
-        <section class="border-t border-slate-200 pt-4">
-          <h3 class="text-sm font-semibold text-siemens-900">Comentarios</h3>
+        <section class="border-t border-borde-suave pt-4">
+          <h3 class="font-titulo text-cp-titulo font-bold text-texto-marca">Comentarios</h3>
 
-          <ul v-if="comments.length" class="mt-2 space-y-3" data-testid="task-comments">
+          <ul v-if="comments.length" class="mt-2 space-y-2" data-testid="task-comments">
             <li
               v-for="comment in comments"
               :key="comment.id"
-              class="rounded border border-slate-200 bg-slate-50 p-2"
+              class="rounded-control border border-borde bg-tarjeta-suave p-3"
               data-testid="comment"
             >
-              <p class="text-xs text-slate-500">
-                <span class="font-medium text-slate-700">{{ comment.author_name }}</span>
+              <p class="text-cp-xs text-texto-tenue">
+                <span class="font-semibold text-texto">{{ comment.author_name }}</span>
                 · {{ relativeTime(comment.created_at) }}
               </p>
-              <p class="mt-1 whitespace-pre-line text-sm">{{ comment.body }}</p>
+              <p class="mt-1 whitespace-pre-line text-cp-sm text-texto">{{ comment.body }}</p>
             </li>
           </ul>
-          <p v-else class="mt-2 text-xs text-slate-500">Todavía no hay comentarios.</p>
+          <p v-else class="mt-2 text-cp-xs text-texto-tenue">Todavía no hay comentarios.</p>
 
           <form v-if="canEdit" class="mt-2 space-y-2" @submit.prevent="comentar">
             <textarea
               v-model="newComment"
               rows="2"
               placeholder="Escribir un comentario"
-              class="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="w-full rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto placeholder:text-texto-tenue transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="comment-new"
             />
             <div class="flex justify-end">
               <button
                 type="submit"
                 :disabled="!newComment.trim() || saving"
-                class="rounded bg-siemens-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-xs font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
                 data-testid="comment-add"
               >
                 Comentar
@@ -672,31 +679,33 @@ watch(
           </form>
         </section>
 
-        <section class="border-t border-slate-200 pt-4">
-          <h3 class="text-sm font-semibold text-siemens-900">
+        <section class="border-t border-borde-suave pt-4">
+          <h3 class="font-titulo text-cp-titulo font-bold text-texto-marca">
             Horas imputadas
-            <span class="font-normal text-slate-500">· total {{ totalHoras }} h</span>
+            <span class="font-normal text-texto-tenue">· total {{ totalHoras }} h</span>
           </h3>
 
-          <ul v-if="timeEntries.length" class="mt-2 space-y-2" data-testid="time-entries">
+          <ul v-if="timeEntries.length" class="mt-2 space-y-1" data-testid="time-entries">
             <li
               v-for="entry in timeEntries"
               :key="entry.id"
-              class="flex items-center gap-2 text-sm"
+              class="flex items-center gap-2 rounded-control px-1 py-1 text-cp-sm text-texto"
               data-testid="time-entry"
             >
-              <span class="tabular-nums">{{ entry.work_date }}</span>
-              <span class="font-medium tabular-nums">{{ formatHours(entry.hours) }}</span>
-              <span class="text-slate-500">
-                <span class="font-medium text-slate-700">{{ entry.user_name }}</span>
+              <span class="font-mono text-cp-xs tabular-nums text-texto-suave">{{ entry.work_date }}</span>
+              <span class="font-mono text-cp-xs font-semibold tabular-nums text-texto">
+                {{ formatHours(entry.hours) }}
               </span>
-              <span v-if="entry.note" class="min-w-0 truncate text-xs text-slate-500">
+              <span class="text-cp-xs text-texto-suave">
+                <span class="font-semibold text-texto">{{ entry.user_name }}</span>
+              </span>
+              <span v-if="entry.note" class="min-w-0 truncate text-cp-xs text-texto-tenue">
                 · {{ entry.note }}
               </span>
               <button
                 v-if="canEdit && esPropria(entry)"
                 type="button"
-                class="ml-auto shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+                class="ml-auto inline-flex min-h-10 flex-none items-center rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="time-entry-remove"
                 @click="borrarImputacion(entry)"
               >
@@ -704,13 +713,13 @@ watch(
               </button>
             </li>
           </ul>
-          <p v-else class="mt-2 text-xs text-slate-500">Todavía no hay horas imputadas.</p>
+          <p v-else class="mt-2 text-cp-xs text-texto-tenue">Todavía no hay horas imputadas.</p>
 
           <form v-if="canEdit" class="mt-2 flex flex-wrap items-center gap-2" @submit.prevent="imputar">
             <input
               v-model="entryDate"
               type="date"
-              class="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="time-entry-date"
             />
             <input
@@ -719,20 +728,20 @@ watch(
               min="0"
               step="0.25"
               placeholder="Horas"
-              class="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="w-20 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 font-mono tabular-nums text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="time-entry-hours"
             />
             <input
               v-model="entryNote"
               type="text"
               placeholder="Nota (opcional)"
-              class="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="min-w-0 flex-1 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="time-entry-note"
             />
             <button
               type="submit"
               :disabled="saving"
-              class="shrink-0 rounded bg-siemens-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              class="inline-flex min-h-10 flex-none items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-xs font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="time-entry-add"
             >
               Imputar
@@ -740,30 +749,30 @@ watch(
           </form>
         </section>
 
-        <section class="border-t border-slate-200 pt-4" data-testid="deps-section">
-          <h3 class="text-sm font-semibold text-siemens-900">Dependencias</h3>
+        <section class="border-t border-borde-suave pt-4" data-testid="deps-section">
+          <h3 class="font-titulo text-cp-titulo font-bold text-texto-marca">Dependencias</h3>
 
           <AlertBanner v-if="depError" variant="error" class="mt-2">
             {{ depError }}
           </AlertBanner>
 
           <div class="mt-2">
-            <p class="text-xs font-medium text-slate-500">Requisitos</p>
+            <p class="text-cp-xs font-medium text-texto-tenue">Requisitos</p>
             <ul v-if="requisitos.length" class="mt-1 space-y-1" data-testid="deps-requisitos">
               <li
                 v-for="req in requisitos"
                 :key="req.id"
-                class="flex items-center gap-2 text-sm"
+                class="flex items-center gap-2 text-cp-sm text-texto"
                 data-testid="dep-requisito"
               >
                 <span class="min-w-0 flex-1 truncate">{{ tituloTarea(req.depends_on_id) }}</span>
-                <span class="shrink-0 text-xs text-slate-500" data-testid="dep-tipo">
+                <span class="shrink-0 text-cp-xs text-texto-tenue" data-testid="dep-tipo">
                   {{ tipoLabel(req.type) }}
                 </span>
                 <button
                   v-if="canEdit"
                   type="button"
-                  class="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600"
+                  class="inline-flex min-h-10 flex-none items-center rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                   data-testid="dep-quitar"
                   @click="quitarRequisito(req)"
                 >
@@ -771,25 +780,25 @@ watch(
                 </button>
               </li>
             </ul>
-            <p v-else class="mt-1 text-xs text-slate-500">
+            <p v-else class="mt-1 text-cp-xs text-texto-tenue">
               Esta tarea no depende de ninguna otra.
             </p>
           </div>
 
           <div class="mt-3">
-            <p class="text-xs font-medium text-slate-500">Dependientes</p>
+            <p class="text-cp-xs font-medium text-texto-tenue">Dependientes</p>
             <ul v-if="dependientes.length" class="mt-1 space-y-1" data-testid="deps-dependientes">
               <li
                 v-for="dep in dependientes"
                 :key="dep.id"
-                class="flex items-center gap-2 text-sm"
+                class="flex items-center gap-2 text-cp-sm text-texto"
                 data-testid="dep-dependiente"
               >
                 <span class="min-w-0 flex-1 truncate">{{ tituloTarea(dep.task_id) }}</span>
-                <span class="shrink-0 text-xs text-slate-500">{{ tipoLabel(dep.type) }}</span>
+                <span class="shrink-0 text-cp-xs text-texto-tenue">{{ tipoLabel(dep.type) }}</span>
               </li>
             </ul>
-            <p v-else class="mt-1 text-xs text-slate-500">
+            <p v-else class="mt-1 text-cp-xs text-texto-tenue">
               Ninguna tarea depende de esta.
             </p>
           </div>
@@ -797,7 +806,7 @@ watch(
           <form v-if="canEdit" class="mt-3 flex flex-wrap items-center gap-2" @submit.prevent="anadirDependencia">
             <select
               v-model="newDependsOn"
-              class="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="min-h-10 min-w-0 flex-1 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1.5 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="dep-new-task"
             >
               <option value="" disabled>
@@ -809,7 +818,7 @@ watch(
             </select>
             <select
               v-model="newDepType"
-              class="rounded border border-slate-300 px-2 py-1.5 text-sm"
+              class="min-h-10 cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta px-2 py-1.5 text-cp-sm text-texto transition-colors hover:border-foco focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="dep-new-type"
             >
               <option value="precedes">Debe terminar antes</option>
@@ -818,7 +827,7 @@ watch(
             <button
               type="submit"
               :disabled="!newDependsOn || saving"
-              class="shrink-0 rounded bg-siemens-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              class="inline-flex min-h-10 flex-none items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-xs font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="dep-add"
             >
               Añadir
@@ -826,29 +835,29 @@ watch(
           </form>
         </section>
 
-        <section class="border-t border-slate-200 pt-4">
-          <h3 class="text-sm font-semibold text-siemens-900">Actividad</h3>
+        <section class="border-t border-borde-suave pt-4">
+          <h3 class="font-titulo text-cp-titulo font-bold text-texto-marca">Actividad</h3>
 
-          <ul v-if="activity.length" class="mt-2 space-y-2" data-testid="task-activity">
+          <ul v-if="activity.length" class="mt-2 space-y-1.5" data-testid="task-activity">
             <li
               v-for="entry in activity"
               :key="entry.id"
-              class="text-sm"
+              class="text-cp-sm text-texto"
               data-testid="task-activity-entry"
             >
-              <span class="font-medium text-slate-900">{{ entry.actor_name }}</span>
-              <span class="text-slate-600">{{ actionLabel(entry, estados.value) }}</span>
-              <span class="ml-1 text-xs text-slate-400">{{ relativeTime(entry.created_at) }}</span>
+              <span class="font-semibold">{{ entry.actor_name }}</span>
+              <span class="text-texto-suave">{{ actionLabel(entry, estados.value) }}</span>
+              <span class="ml-1 text-cp-xs text-texto-tenue">{{ relativeTime(entry.created_at) }}</span>
             </li>
           </ul>
-          <p v-else class="mt-2 text-xs text-slate-500">Todavía no hay actividad registrada.</p>
+          <p v-else class="mt-2 text-cp-xs text-texto-tenue">Todavía no hay actividad registrada.</p>
         </section>
 
-        <section v-if="canEdit" class="border-t border-slate-200 pt-4">
+        <section v-if="canEdit" class="border-t border-borde-suave pt-4">
           <div v-if="!confirmingDelete" class="flex justify-end">
             <button
               type="button"
-              class="rounded border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700"
+              class="inline-flex min-h-10 items-center rounded-control border border-peligro-borde bg-tarjeta px-3 py-1.5 text-cp-xs font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="task-delete"
               @click="confirmingDelete = true"
             >
@@ -856,13 +865,13 @@ watch(
             </button>
           </div>
           <div v-else class="space-y-2">
-            <p class="text-xs text-red-700">
+            <p class="text-cp-xs text-peligro-texto">
               Se borra la tarea con sus comentarios y su lista de comprobación. No hay vuelta atrás.
             </p>
             <div class="flex justify-end gap-2">
               <button
                 type="button"
-                class="rounded border border-slate-300 px-3 py-1.5 text-xs"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-xs font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 @click="confirmingDelete = false"
               >
                 Cancelar
@@ -870,7 +879,7 @@ watch(
               <button
                 type="button"
                 :disabled="saving"
-                class="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                class="inline-flex min-h-10 items-center rounded-control bg-peligro-texto px-3 py-1.5 text-cp-xs font-semibold text-sobre-primario transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
                 data-testid="task-delete-confirm"
                 @click="eliminar"
               >
@@ -887,7 +896,7 @@ watch(
       <button
         type="button"
         :disabled="!hasChanges || saving"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+        class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         data-testid="task-save"
         @click="guardar"
       >

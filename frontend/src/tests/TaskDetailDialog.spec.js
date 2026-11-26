@@ -535,4 +535,17 @@ describe('TaskDetailDialog', () => {
     expect(wrapper.find('[data-testid="dep-new-task"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="dep-quitar"]').exists()).toBe(false)
   })
+
+  it('los campos del form llevan la piel de tokens', async () => {
+    setupFetch()
+    const wrapper = await mountPanel()
+
+    const titulo = wrapper.find('[data-testid="task-form"] input')
+    for (const clase of ['rounded-control', 'border-borde-fuerte', 'bg-tarjeta', 'text-cp-sm']) {
+      expect(titulo.classes()).toContain(clase)
+    }
+    const estado = wrapper.find('[data-testid="task-status"]')
+    expect(estado.classes()).toContain('border-borde-fuerte')
+    expect(estado.classes()).toContain('bg-tarjeta')
+  })
 })

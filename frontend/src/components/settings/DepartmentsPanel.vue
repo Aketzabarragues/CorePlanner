@@ -25,9 +25,6 @@ const auth = useAuthStore()
 const error = ref(null)
 const saving = ref(false)
 
-/** Color de una fila que todavia no tiene color guardado. */
-const COLOR_SIN_DEFINIR = '#94a3b8'
-
 const empty = () => ({ id: null, name: '', manager_id: '', color: PALETTE[0].hex })
 const form = ref(empty())
 const editing = computed(() => form.value.id !== null)
@@ -91,59 +88,59 @@ async function save() {
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="flex justify-end">
+  <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Departamentos</h2>
       <button
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         data-testid="new-department"
         @click="openCreate"
       >
         Nuevo departamento
       </button>
-    </div>
+    </header>
 
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 text-left">
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Departamento
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Responsable
-          </th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="department in props.departments"
-          :key="department.id"
-          class="border-b border-slate-100"
-        >
-          <td class="px-2 py-2 font-medium text-siemens-900">
-            <span
-              class="mr-2 inline-block h-3 w-3 rounded-full align-middle"
-              :style="{ backgroundColor: department.color ?? COLOR_SIN_DEFINIR }"
-              :data-testid="`department-color-${department.id}`"
-            ></span>
-            {{ department.name }}
-          </td>
-          <td class="px-2 py-2 text-slate-600">
-            {{ department.manager_name ?? 'Sin responsable' }}
-          </td>
-          <td class="px-2 py-2 text-right">
-            <button
-              type="button"
-              class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-              @click="edit(department)"
+    <div class="p-4">
+      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
+        <table class="w-full text-cp-sm">
+          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+            <tr>
+              <th class="px-3 py-2.5 font-semibold">Departamento</th>
+              <th class="px-3 py-2.5 font-semibold">Responsable</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-borde-suave">
+            <tr
+              v-for="department in props.departments"
+              :key="department.id"
             >
-              Editar
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              <td class="px-3 py-2 font-medium text-texto">
+                <span
+                  class="mr-2 inline-block h-3 w-3 rounded-full align-middle bg-borde-fuerte"
+                  :style="department.color ? { backgroundColor: department.color } : undefined"
+                  :data-testid="`department-color-${department.id}`"
+                ></span>
+                {{ department.name }}
+              </td>
+              <td class="px-3 py-2 text-texto-suave">
+                {{ department.manager_name ?? 'Sin responsable' }}
+              </td>
+              <td class="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                  @click="edit(department)"
+                >
+                  Editar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <ModalDialog
       :open="formOpen"
@@ -152,18 +149,18 @@ async function save() {
     >
       <form id="form-departamento" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Nombre
             <input
               v-model="form.name"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Responsable
             <select
               v-model="form.manager_id"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="">Sin responsable</option>
               <option v-for="person in props.people" :key="person.id" :value="String(person.id)">
@@ -183,7 +180,7 @@ async function save() {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -192,7 +189,7 @@ async function save() {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         >
           {{ editing ? 'Guardar cambios' : 'Crear' }}
         </button>

@@ -367,19 +367,19 @@ describe('SettingsView', () => {
 
     // Mismo contenedor, misma cabecera y mismos separadores que el directorio.
     const contenedor = tabla.element.closest('div')
-    expect(contenedor.className).toContain('border-slate-200')
-    expect(contenedor.className).toContain('bg-white')
+    expect(contenedor.className).toContain('border-borde')
+    expect(contenedor.className).toContain('bg-tarjeta')
 
     const cabecera = tabla.find('thead')
-    expect(cabecera.classes()).toContain('bg-slate-50')
+    expect(cabecera.classes()).toContain('bg-tarjeta-suave')
     expect(cabecera.classes()).toContain('uppercase')
-    expect(cabecera.classes()).toContain('tracking-wide')
+    expect(cabecera.classes()).toContain('tracking-wider')
     expect(tabla.find('tbody').classes()).toContain('divide-y')
 
     // El avatar de iniciales es el mismo circulo que en el directorio.
-    const avatar = wrapper.find('[data-testid="person-row"] .rounded-full')
+    const avatar = wrapper.find('[data-testid="person-row"] .rounded-avatar')
     expect(avatar.exists()).toBe(true)
-    expect(avatar.classes()).toContain('bg-siemens-900')
+    expect(avatar.classes()).toContain('bg-primario-fuerte')
     expect(avatar.text()).not.toBe('')
   })
 

@@ -333,7 +333,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="raiz"
-    class="fixed z-50 min-w-[13rem] rounded-md border border-slate-300 bg-white py-1 shadow-lg"
+    class="fixed z-50 min-w-[13rem] rounded-control border border-borde-fuerte bg-tarjeta py-1 shadow-flotante"
     :class="medido ? 'opacity-100' : 'opacity-0'"
     :style="estilo"
     role="menu"
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
       :key="`${item.label}-${i}`"
       type="button"
       role="menuitem"
-      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500 aria-disabled:cursor-not-allowed aria-disabled:text-slate-400"
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-texto-suave hover:bg-neutro-fondo focus:bg-neutro-fondo focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primario aria-disabled:cursor-not-allowed aria-disabled:text-texto-tenue"
       :aria-disabled="item.disabled ? 'true' : undefined"
       :aria-haspopup="item.submenu?.length ? 'menu' : undefined"
       :aria-expanded="item.submenu?.length ? String(submenuAbierto === i) : undefined"
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
       <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
       <span
         v-if="item.submenu?.length"
-        class="shrink-0 text-slate-400"
+        class="shrink-0 text-texto-tenue"
         aria-hidden="true"
       >›</span>
     </button>
@@ -373,7 +373,7 @@ onBeforeUnmount(() => {
     <div
       v-if="itemAbierto"
       ref="submenuEl"
-      class="fixed min-w-[12rem] rounded-md border border-slate-300 bg-white py-1 shadow-lg"
+      class="fixed min-w-[12rem] rounded-control border border-borde-fuerte bg-tarjeta py-1 shadow-flotante"
       :style="estiloSubmenu"
       role="menu"
       :aria-label="itemAbierto.label"
@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
         :key="`${item.label}-${i}`"
         type="button"
         role="menuitem"
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-siemens-500 aria-disabled:cursor-not-allowed aria-disabled:text-slate-400"
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-texto-suave hover:bg-neutro-fondo focus:bg-neutro-fondo focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primario aria-disabled:cursor-not-allowed aria-disabled:text-texto-tenue"
         :aria-disabled="item.disabled ? 'true' : undefined"
         data-testid="context-menu-item"
         @focus="indice = i"

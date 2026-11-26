@@ -42,7 +42,7 @@ describe('SegmentedControl', () => {
       'false',
     ])
     expect(wrapper.get('[data-testid="gantt-scale-Week"]').classes()).toContain(
-      'bg-siemens-900',
+      'bg-tarjeta',
     )
   })
 

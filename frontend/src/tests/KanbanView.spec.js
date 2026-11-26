@@ -161,6 +161,9 @@ function setupFetch({
         }),
       }
     }
+    if (url.endsWith('/projects')) {
+      return { ok: true, status: 200, json: async () => [] }
+    }
     if (url.includes('/kanban')) {
       // Copia nueva en cada llamada: la vista mueve las tarjetas al instante
       // y no debe tocar los datos del test.
@@ -354,11 +357,13 @@ describe('KanbanView', () => {
     const cabeceras = wrapper
       .findAll('section h2')
       .map((h) => h.text().replace(/\s+/g, ' ').trim())
+    // El contador va en su propio span: `text()` no pone espacio entre los
+    // hermanos, asi que la etiqueta y el contador quedan pegados.
     expect(cabeceras).toEqual([
-      'Backlog 1 tarea · 10 h',
-      'En Desarrollo 1 tarea · 40 h',
-      'Pruebas (FAT/SAT) 2 tareas · 7 h',
-      'Completado 2 tareas · 6 h',
+      'Backlog1 tarea · 10 h',
+      'En Desarrollo1 tarea · 40 h',
+      'Pruebas (FAT/SAT)2 tareas · 7 h',
+      'Completado2 tareas · 6 h',
     ])
   })
 
@@ -868,5 +873,26 @@ describe('KanbanView', () => {
     const panel = wrapper.findComponent(TaskDetailDialog)
     expect(panel.props('open')).toBe(true)
     expect(panel.props('canEdit')).toBe(false)
+  })
+
+  it('columnas y tarjetas llevan la piel de tokens', async () => {
+    setupFetch()
+    const wrapper = await mountKanban()
+
+    const columna = wrapper.find('section')
+    for (const clase of ['rounded-control', 'bg-tarjeta-suave', 'border-borde']) {
+      expect(columna.classes()).toContain(clase)
+    }
+
+    const tarjeta = wrapper.findAll('article')[0]
+    for (const clase of ['rounded-control', 'border-borde', 'bg-tarjeta', 'shadow-control']) {
+      expect(tarjeta.classes()).toContain(clase)
+    }
+
+    const horas = tarjeta
+      .findAll('span')
+      .find((el) => /\d/.test(el.text()) && el.text().includes('h'))
+    expect(horas.classes()).toContain('bg-primario-fuerte')
+    expect(horas.classes()).toContain('text-sobre-primario')
   })
 })

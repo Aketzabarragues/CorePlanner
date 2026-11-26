@@ -17,6 +17,7 @@ import { myWorkApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import BaseCard from '../components/common/BaseCard.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
 import { useAuthStore } from '../stores/auth'
@@ -205,11 +206,20 @@ useTaskReload(load)
     <PageHeader
       title="Mi trabajo"
       subtitle="Lo que tienes asignado y cuánto carga cada semana."
+      ayuda="Tu carga por semana, los días que vienen y las tareas que tienes asignadas."
     >
       <template #actions>
-        <p v-if="!loading && !error" class="text-sm text-slate-600">
-          {{ plural(tasks.length, 'tarea', 'tareas') }} · {{ formatHours(totalHours) }} en el período
-        </p>
+        <span
+          v-if="!loading && !error"
+          class="inline-flex items-center gap-1.5 rounded-control border border-borde bg-tarjeta-suave px-3 py-1.5 text-cp-sm font-medium text-texto-suave"
+        >
+          <strong class="font-mono text-texto-marca">
+            {{ plural(tasks.length, 'tarea', 'tareas') }}
+          </strong>
+          ·
+          <strong class="font-mono text-texto-marca">{{ formatHours(totalHours) }}</strong>
+          en el período
+        </span>
       </template>
     </PageHeader>
 
@@ -237,96 +247,92 @@ useTaskReload(load)
       </AlertBanner>
 
       <div class="mb-6 grid gap-4 lg:grid-cols-3">
-        <section
+        <BaseCard
           aria-label="Carga de las próximas semanas"
-          class="rounded border border-slate-200 bg-white p-4 lg:col-span-2"
+          title="Mi carga, próximas semanas"
+          nota="La línea discontinua marca el 100 % de tu capacidad"
+          class="lg:col-span-2"
         >
-          <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="text-sm font-semibold text-siemens-900">
-              Mi carga, próximas semanas
-            </h2>
-            <span class="text-xs text-slate-500">
-              La línea discontinua marca el 100 % de tu capacidad
-            </span>
-          </div>
           <LoadBars
             :weeks="weeks"
             title="Carga de las próximas semanas"
             test-id="my-work-bars"
           />
-        </section>
+        </BaseCard>
 
-        <section
-          aria-label="Resumen de esta semana"
-          class="rounded border border-slate-200 bg-white p-4"
-        >
-          <h2 class="text-sm font-semibold text-siemens-900">Esta semana</h2>
+        <BaseCard aria-label="Resumen de esta semana" title="Esta semana">
           <template v-if="card">
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-0.5 text-cp-xs text-texto-tenue">
               Semana {{ weekTitle(currentWeek.week) }} ·
               {{ weekRangeLabel(currentWeek.week) }}
             </p>
-            <p class="mt-2 flex items-baseline gap-2">
-              <span class="text-3xl font-semibold tabular-nums text-siemens-900">
+            <div class="mt-3 flex items-baseline gap-2">
+              <span class="font-mono text-cp-display font-bold tabular-nums text-texto-marca">
                 {{ formatHours(currentWeek.hours) }}
               </span>
-              <span class="text-sm text-slate-500">
+              <span class="font-mono text-cp-sm text-texto-tenue">
                 de {{ formatHours(currentWeek.capacity) }}
               </span>
-            </p>
-            <span class="mt-2 block h-2 w-full rounded bg-slate-200">
+            </div>
+            <span class="mt-2.5 block h-2 w-full overflow-hidden rounded-pastilla bg-tarjeta-suave">
               <span
-                class="block h-2 rounded"
+                class="block h-full rounded-pastilla"
                 :class="card.barClass"
                 :style="{ width: `${card.barWidth}%` }"
               />
             </span>
-            <span
-              class="mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold"
-              :class="card.pillClass"
-              data-testid="my-work-card-state"
-            >
-              {{ card.label }} · {{ card.ratioText }}
-            </span>
-            <div class="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-600">
-              <p>
-                <span class="font-semibold text-slate-800">{{ weekTasks.length }}</span>
-                {{ weekTasks.length === 1 ? 'tarea' : 'tareas' }} en
-                {{ weekProjects }} {{ weekProjects === 1 ? 'proyecto' : 'proyectos' }}
+            <div class="mt-2.5 flex items-center gap-2">
+              <span
+                class="rounded-pastilla px-2.5 py-0.5 text-cp-xs font-semibold"
+                :class="card.pillClass"
+                data-testid="my-work-card-state"
+              >
+                {{ card.label }} · {{ card.ratioText }}
+              </span>
+            </div>
+            <div class="mt-4 space-y-1.5 border-t border-borde-suave pt-3 text-cp-xs text-texto-suave">
+              <p class="flex items-center justify-between gap-2">
+                <span>{{ weekTasks.length }} {{ weekTasks.length === 1 ? 'tarea' : 'tareas' }}</span>
+                <span>{{ weekProjects }} {{ weekProjects === 1 ? 'proyecto' : 'proyectos' }}</span>
               </p>
-              <p v-if="nextHoliday" class="mt-1" data-testid="my-work-next-holiday">
-                Próximo festivo:
-                <span class="font-semibold text-slate-800">{{ nextHoliday.date }}</span>
-                <span v-if="nextHoliday.perdida">
-                  (−{{ formatHours(nextHoliday.perdida) }} de capacidad)
+              <p
+                v-if="nextHoliday"
+                class="flex items-center justify-between gap-2"
+                data-testid="my-work-next-holiday"
+              >
+                <span>Próximo festivo</span>
+                <span class="inline-flex items-center gap-1.5 font-mono">
+                  {{ nextHoliday.date }}
+                  <span v-if="nextHoliday.perdida">
+                    (−{{ formatHours(nextHoliday.perdida) }} de capacidad)
+                  </span>
                 </span>
               </p>
             </div>
           </template>
-          <p v-else class="mt-2 text-sm text-slate-500">
+          <p v-else class="text-cp-sm text-texto-tenue">
             No hay ninguna semana en el periodo de planificación.
           </p>
-        </section>
+        </BaseCard>
       </div>
 
-      <section aria-label="Mis tareas" class="rounded border border-slate-200 bg-white p-4">
-        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-sm font-semibold text-siemens-900">Mis tareas</h2>
+      <BaseCard aria-label="Mis tareas" title="Mis tareas">
+        <template #header-extra>
           <div
             role="group"
             aria-label="Filtrar tareas"
-            class="flex overflow-hidden rounded border border-slate-300 bg-white"
+            class="inline-flex items-center gap-0.5 rounded-control bg-tarjeta-suave p-1"
           >
             <button
               v-for="item in TABS"
               :key="item.name"
               type="button"
               :aria-pressed="tab === item.name"
-              class="min-h-10 border-0 px-4 text-sm font-medium"
+              class="min-h-9 rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               :class="
                 tab === item.name
-                  ? 'bg-siemens-900 text-white'
-                  : 'bg-white text-slate-700 hover:bg-slate-50'
+                  ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+                  : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
               "
               :data-testid="`my-work-tab-${item.name}`"
               @click="tab = item.name"
@@ -334,41 +340,44 @@ useTaskReload(load)
               {{ item.label }}
             </button>
           </div>
-        </div>
+        </template>
 
         <div role="list" class="flex flex-col">
           <div
             v-for="task in visibleTasks"
             :key="task.id"
             role="listitem"
-            class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 py-3"
+            class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-borde-suave py-3 transition-colors hover:bg-tarjeta-suave/60"
             data-testid="my-work-task"
           >
             <div class="min-w-0 flex-1 basis-60">
-              <p class="text-sm font-semibold text-slate-900">{{ task.title }}</p>
-              <p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <p class="text-cp-sm font-bold text-texto">{{ task.title }}</p>
+              <div class="mt-0.5 flex flex-wrap items-center gap-2 text-cp-xs text-texto-tenue">
                 <span
-                  class="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-700"
+                  class="rounded-control bg-neutro-fondo px-2 py-0.5 font-mono font-semibold text-neutro-texto"
                 >
                   {{ task.project_name }}
                 </span>
-                <span>{{ taskDates(task) }}</span>
-              </p>
+                <span class="font-mono">{{ taskDates(task) }}</span>
+              </div>
             </div>
-            <span class="w-14 text-right text-sm font-semibold tabular-nums text-slate-800">
+
+            <span class="w-14 text-right font-mono text-cp-sm font-bold tabular-nums text-texto">
               {{ formatHours(task.hours) }}
             </span>
+
             <span
-              class="w-32 rounded-full px-2.5 py-0.5 text-center text-xs font-semibold"
+              class="w-32 rounded-pastilla px-2.5 py-0.5 text-center text-cp-xs font-semibold"
               :style="statusPill(task.status, estadosDe(task.project_id))"
             >
               {{ columnLabel(task.status, estadosDe(task.project_id)) }}
             </span>
+
             <select
               :value="task.status"
               :disabled="saving"
               :aria-label="`Cambiar el estado de ${task.title}`"
-              class="h-10 rounded border border-slate-300 bg-white px-2 text-sm text-slate-700 disabled:opacity-60"
+              class="min-h-10 rounded-control border border-borde-fuerte bg-tarjeta px-2.5 py-1.5 text-cp-sm text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
               data-testid="my-work-status"
               @change="changeStatus(task, $event)"
             >
@@ -383,13 +392,13 @@ useTaskReload(load)
           </div>
           <p
             v-if="!visibleTasks.length"
-            class="border-t border-slate-100 py-4 text-center text-sm text-slate-500"
+            class="border-t border-borde-suave py-4 text-center text-cp-sm text-texto-tenue"
             data-testid="my-work-empty"
           >
             No tienes tareas en esta pestaña.
           </p>
         </div>
-      </section>
+      </BaseCard>
     </AsyncState>
   </div>
 </template>

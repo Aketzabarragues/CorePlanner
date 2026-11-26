@@ -35,6 +35,8 @@
  * cae en la semana visible: una barra que empieza antes de la semana no se
  * redimensiona por el inicio y una que se sale por el fin tampoco por el fin.
  */
+import { computed } from 'vue'
+
 import { useTaskStatusesStore } from '../../stores/taskStatuses'
 import { parseIsoDate } from '../../utils/ganttScale'
 import { shortMonthName } from '../../utils/month'
@@ -65,6 +67,12 @@ const props = defineProps({
   destino: { type: Object, default: null },
   /** Barra enfocada (id de tarea): la unica con `tabindex` 0 de la rejilla. */
   barraEnfocada: { type: [Number, String, null], default: null },
+  /**
+   * Departamentos con su color, para el avatar de la celda de persona. El
+   * color es dato del backend; la fila solo lleva el nombre, asi que la
+   * busqueda va por nombre de departamento.
+   */
+  departamentos: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
@@ -169,6 +177,53 @@ function etiquetaAriaDe(tarea, editable) {
 }
 
 /**
+ * Iniciales del avatar de la fila: una por nombre de la persona. Sin nombre
+ * (fila de sin asignar) no se pinta inicial.
+ */
+function inicialesDe(fila) {
+  if (fila.id === null) return ''
+  const partes = (fila.name ?? '').trim().split(/\s+/)
+  return partes.length ? partes[0][0].toUpperCase() : ''
+}
+
+/**
+ * Estilo en linea del avatar: el color del departamento (dato del backend)
+ * con el texto calculado contra el fondo. Sin departamento, tarjeta suave
+ * con texto suave. En linea porque el color llega en hex.
+ */
+function estiloAvatar(fila) {
+  const color = fila.department_name
+    ? colorPorDepartamento.value.get(fila.department_name)
+    : null
+  if (!color) {
+    return {
+      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
+      color: 'rgb(var(--cp-texto-suave))',
+    }
+  }
+  return { backgroundColor: color, color: contrasteSobre(color) }
+}
+
+/** Color de cada departamento, por nombre: la fila solo lleva el nombre. */
+const colorPorDepartamento = computed(() => {
+  const mapa = new Map()
+  for (const departamento of props.departamentos) {
+    if (departamento.name && departamento.color) mapa.set(departamento.name, departamento.color)
+  }
+  return mapa
+})
+
+/** Texto legible sobre un hex de fondo: blanco u oscuro por luminancia. */
+function contrasteSobre(hex) {
+  const limpio = (hex ?? '').replace('#', '')
+  const r = parseInt(limpio.slice(0, 2), 16)
+  const g = parseInt(limpio.slice(2, 4), 16)
+  const b = parseInt(limpio.slice(4, 6), 16)
+  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminancia >= 0.6 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
+}
+
+/**
  * Clic derecho sobre el hueco de un dia: el menu del dia.
  *
  * El menu de la barra se detiene en la barra, aqui solo llegan los huecos
@@ -204,34 +259,45 @@ function alCrearHueco(event) {
       <tr
         v-for="(carril, indiceCarril) in fila.carriles"
         :key="`${fila.id ?? 'sin-asignar'}-${indiceCarril}`"
-        class="border-b border-slate-100"
-        :class="fila.id === null ? 'bg-slate-50' : ''"
+        class="border-b border-borde-suave"
+        :class="fila.id === null ? 'bg-tarjeta-suave' : ''"
         :data-testid="`week-lane-row-${fila.id ?? 'sin-asignar'}-${indiceCarril}`"
       >
         <th
           v-if="indiceCarril === 0"
-          class="w-40 border-r border-slate-100 px-2 py-1 text-left align-top"
+          class="sticky left-0 z-10 w-40 border-r border-borde bg-tarjeta px-3 py-1.5 text-left align-top"
           :rowspan="fila.carriles.length"
           scope="row"
           :data-testid="
             fila.id === null ? 'week-lane-unassigned-name' : `week-lane-name-${fila.id}`
           "
         >
-          <span class="block truncate text-xs font-medium text-slate-700">{{ fila.name }}</span>
-          <span v-if="fila.department_name" class="block truncate text-[10px] text-slate-400">
-            {{ fila.department_name }}
-          </span>
+          <div class="flex items-center gap-2">
+            <span
+              class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold"
+              :style="estiloAvatar(fila)"
+              aria-hidden="true"
+            >
+              {{ inicialesDe(fila) }}
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate text-cp-xs font-semibold text-texto">{{ fila.name }}</span>
+              <span v-if="fila.department_name" class="block truncate text-cp-micro text-texto-tenue">
+                {{ fila.department_name }}
+              </span>
+            </span>
+          </div>
         </th>
 
         <td
           v-for="celda in celdasDe(carril)"
           :key="`${celda.tipo}-${celda.inicio}`"
-          class="border-l border-slate-100 p-0.5 align-middle"
+          class="border-l border-borde-suave p-0.5 align-middle transition-colors hover:bg-tarjeta-suave/70"
           :class="
             esFinDeSemana(celda.inicio)
-              ? 'bg-slate-50'
+              ? 'cp-trama-fin-semana'
               : dentroDeLaBanda(fila, celda.inicio, celda.span)
-                ? 'bg-amber-50'
+                ? 'bg-aviso-fondo/60'
                 : ''
           "
           :colspan="celda.span"

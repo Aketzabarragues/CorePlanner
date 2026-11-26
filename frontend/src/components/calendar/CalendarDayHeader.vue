@@ -54,36 +54,36 @@ const noLaborablesPorFecha = computed(() => {
 </script>
 
 <template>
-  <tr class="bg-slate-100" data-testid="week-lane-header">
+  <tr class="border-b border-borde bg-tarjeta-suave" data-testid="week-lane-header">
     <th
-      class="w-40 border-b border-slate-200 px-2 py-1.5 text-left align-top"
+      class="w-40 border-r border-borde px-3 py-2 text-left align-top"
       scope="col"
     >
-      <span class="block text-xs font-semibold text-siemens-900" data-testid="week-lane-range">
+      <span class="block font-mono text-cp-xs font-bold text-texto-marca" data-testid="week-lane-range">
         {{ rango }}
       </span>
-      <span class="block text-[10px] text-slate-400">{{ claveSemana }}</span>
+      <span class="block font-mono text-cp-micro text-texto-tenue">{{ claveSemana }}</span>
     </th>
     <th
       v-for="dia in days"
       :key="dia.date"
-      class="border-b border-l border-slate-200 px-2 py-1.5 text-left align-top"
+      class="border-b border-l border-borde px-2 py-2 text-left align-top"
       :class="
         dia.weekend
-          ? 'bg-slate-50'
+          ? 'cp-trama-fin-semana'
           : destino && dia.date >= destino.start && dia.date <= destino.end
-            ? 'bg-amber-50'
+            ? 'bg-aviso-fondo/60'
             : ''
       "
       scope="col"
       :data-testid="`week-lane-head-${dia.date}`"
     >
-      <span class="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <span class="block text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue">
         {{ NOMBRES_DIA[dia.weekday] }}
       </span>
       <button
         type="button"
-        class="block w-full text-left text-sm font-semibold text-siemens-900 hover:underline"
+        class="block w-full text-left font-mono text-cp-sm font-semibold text-texto-marca transition-colors hover:text-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         :title="`Ver el día ${dia.date}`"
         :data-testid="`week-day-${dia.date}`"
         @click="emit('open-day', dia.date)"
@@ -95,7 +95,7 @@ const noLaborablesPorFecha = computed(() => {
       <span class="mt-0.5 flex min-h-[1.25rem] flex-wrap gap-1">
         <span
           v-if="dia.date === hoy"
-          class="rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+          class="rounded-pastilla bg-primario-fuerte px-1.5 py-px text-cp-micro font-bold uppercase text-sobre-primario"
           data-testid="week-lane-today"
         >
           Hoy
@@ -103,20 +103,24 @@ const noLaborablesPorFecha = computed(() => {
         <template v-for="festivo in noLaborablesPorFecha.get(dia.date) ?? []" :key="festivo.id">
           <span
             v-if="festivo.scope === 'global'"
-            class="max-w-full truncate rounded-full border border-slate-300 bg-white px-1.5 py-px text-[10px] font-medium text-slate-700"
+            class="max-w-full truncate rounded-pastilla border border-peligro-borde bg-peligro-fondo px-1.5 py-px text-cp-micro font-medium text-peligro-texto"
             :title="festivo.name"
             data-testid="week-lane-holiday"
           >
             {{ festivo.name }}
           </span>
           <span
+            v-else-if="festivo.department_name"
+            class="max-w-full truncate rounded-pastilla border border-aviso-borde bg-aviso-fondo px-1.5 py-px text-cp-micro font-medium text-aviso-texto"
+            :title="`${festivo.name} (${festivo.department_name})`"
+            data-testid="week-lane-holiday"
+          >
+            {{ festivo.name }}
+          </span>
+          <span
             v-else
-            class="max-w-full truncate rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-800"
-            :title="
-              festivo.department_name
-                ? `${festivo.name} (${festivo.department_name})`
-                : festivo.name
-            "
+            class="max-w-full truncate rounded-pastilla border border-info-borde bg-info-fondo px-1.5 py-px text-cp-micro font-medium text-info-texto"
+            :title="festivo.user_name ? `${festivo.name} (${festivo.user_name})` : festivo.name"
             data-testid="week-lane-holiday"
           >
             {{ festivo.name }}

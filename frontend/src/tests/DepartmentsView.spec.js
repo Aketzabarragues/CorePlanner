@@ -6,8 +6,8 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import DepartmentsView from '../views/DepartmentsView.vue'
 
 const departments = [
-  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
-  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana', color: '#005566' },
+  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge', color: '#1f6feb' },
 ]
 
 const projects = [
@@ -87,5 +87,15 @@ describe('DepartmentsView', () => {
 
     const enlace = wrapper.findAll('a').find((a) => a.text().includes('Linea Pasteurizadora'))
     expect(enlace.attributes('href')).toBe('/projects/1')
+  })
+
+  it('el icono del departamento va con su color en estilo en linea', async () => {
+    const wrapper = await mountView()
+
+    const seccion = wrapper.findAll('section')[0]
+    const icono = seccion.find('[style]')
+    // Tinte claro del color para el fondo y el color oscurecido para el trazo.
+    expect(icono.attributes('style')).toContain('background-color: rgb(217, 230, 232)')
+    expect(icono.attributes('style')).toContain('color: rgb(0, 55, 66)')
   })
 })

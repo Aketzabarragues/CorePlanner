@@ -12,11 +12,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { departmentsApi, meApi, peopleApi, skillsApi } from '../api/client'
+import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import FilterField from '../components/common/FilterField.vue'
+import PageHeader from '../components/common/PageHeader.vue'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDialog from '../components/people/PersonDialog.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
-import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { currentWeekKey, shiftWeek, weekLabel } from '../utils/weeks'
 
@@ -42,6 +44,18 @@ const filtroDepartamento = ref('')
 
 const currentTab = computed(() => TABS.find((item) => item.name === tab.value) ?? TABS[0])
 const selected = computed(() => people.value.find((item) => item.id === selectedId.value) ?? null)
+
+/** Opciones del filtro de departamento: todo, mas cada departamento cargado. */
+const opcionesDepartamento = computed(() => [
+  { value: '', label: 'Todos los departamentos' },
+  ...departments.value.map((department) => ({
+    value: String(department.id),
+    label: department.name,
+  })),
+])
+
+/** Etiqueta central del navegador de semana: "S46 · 2026-W46". */
+const etiquetaSemana = computed(() => `${weekLabel(week.value)} · ${week.value}`)
 
 /** Personas del directorio que quedan con el filtro de departamento. */
 const personasVisibles = computed(() => {
@@ -92,27 +106,44 @@ onMounted(load)
       title="Personas y Competencias"
       subtitle="Perfiles, horarios versionados y habilidades del equipo."
     >
+      <template #filters>
+        <FilterField
+          v-if="departments.length > 1"
+          label="Departamento"
+          :options="opcionesDepartamento"
+          :model-value="filtroDepartamento"
+          testid="filter-department"
+          @update:model-value="filtroDepartamento = $event"
+        />
+      </template>
+
       <template #actions>
+        <div class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control">
           <button
             type="button"
-            class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
+            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            aria-label="Semana anterior"
             data-testid="week-previous"
             @click="moveWeek(-1)"
           >
-            &larr;
+            <span class="inline-flex h-3.5 w-3.5"><AppIcon name="chevronLeft" /></span>
           </button>
-          <span class="min-w-20 text-center font-medium text-slate-900" data-testid="week-label">
-            {{ weekLabel(week) }} · {{ week }}
+          <span
+            class="min-w-[116px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca"
+            data-testid="week-label"
+          >
+            {{ etiquetaSemana }}
           </span>
           <button
             type="button"
-            class="rounded border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50"
+            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            aria-label="Semana siguiente"
             data-testid="week-next"
             @click="moveWeek(1)"
           >
-            &rarr;
+            <span class="inline-flex h-3.5 w-3.5"><AppIcon name="chevronRight" /></span>
           </button>
-
+        </div>
       </template>
     </PageHeader>
 
@@ -122,46 +153,27 @@ onMounted(load)
       loading-label="Cargando las personas"
       @retry="reintentar"
     >
-      <nav class="mb-4 flex gap-1 border-b border-slate-200">
+      <nav
+        class="mb-4 inline-flex items-center gap-0.5 rounded-control bg-tarjeta-suave p-1"
+        aria-label="Secciones de personas"
+      >
         <button
           v-for="item in TABS"
           :key="item.name"
           type="button"
-          :data-testid="`tab-${item.name}`"
-          class="border-b-2 px-3 py-2 text-sm"
+          class="min-h-9 rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           :class="
             tab === item.name
-              ? 'border-siemens-900 font-medium text-siemens-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+              : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
           "
+          :aria-pressed="tab === item.name"
+          :data-testid="`tab-${item.name}`"
           @click="tab = item.name"
         >
           {{ item.label }}
         </button>
       </nav>
-
-      <div
-        v-if="currentTab.name === 'directory' && departments.length > 1"
-        class="mb-4 flex flex-wrap items-end gap-3"
-      >
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Departamento</span>
-          <select
-            v-model="filtroDepartamento"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-department"
-          >
-            <option value="">Todos los departamentos</option>
-            <option
-              v-for="department in departments"
-              :key="department.id"
-              :value="String(department.id)"
-            >
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
-      </div>
 
       <PeopleDirectory
         v-if="currentTab.name === 'directory'"

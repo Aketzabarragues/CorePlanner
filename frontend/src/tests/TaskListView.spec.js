@@ -275,4 +275,21 @@ describe('TaskListView', () => {
     expect(wrapper.findAll('[data-testid="task-row"]')).toHaveLength(0)
     expect(wrapper.text()).toContain('No hay tareas que enseñar')
   })
+
+  it('los filtros y la tabla llevan la piel de tokens', async () => {
+    const wrapper = await mountList()
+
+    const estado = wrapper.find('[data-testid="filter-status"]')
+    for (const clase of ['rounded-control', 'border-borde-fuerte', 'bg-tarjeta-suave', 'text-cp-sm']) {
+      expect(estado.classes()).toContain(clase)
+    }
+    const persona = wrapper.find('[data-testid="filter-person"]')
+    expect(persona.classes()).toContain('border-borde-fuerte')
+
+    const filaCabecera = wrapper.find('thead tr')
+    expect(filaCabecera.classes()).toContain('bg-tarjeta-suave')
+    const cabecera = wrapper.find('thead th')
+    expect(cabecera.classes()).toContain('border-borde')
+    expect(wrapper.find('[data-testid="task-count"]').classes()).toContain('text-cp-xs')
+  })
 })

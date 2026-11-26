@@ -33,60 +33,61 @@ export const LOAD_STATE = {
 }
 
 /**
- * Aspecto de cada estado: fondo de la celda, texto, barra y borde.
+ * Aspecto de cada estado: fondo, texto, barra y borde de la celda.
  *
- * Los colores son los de la paleta de Tailwind, con los mismos valores que
- * el prototipo.
+ * Clases literales de los tokens de carga (`carga-*`): `verify:css` exige que
+ * la clase exista en el bundle, asi que no se componen. La capacidad
+ * desconocida no lleva barra: una barra seria inventar el limite.
  */
 const ASPECT = {
   [LOAD_STATE.EMPTY]: {
     label: 'Sin carga',
-    cell: '',
-    text: 'text-slate-600',
-    bar: 'bg-slate-400',
-    border: 'border-transparent',
+    cell: 'bg-carga-vacio-fondo',
+    text: 'text-carga-vacio-texto',
+    bar: 'bg-carga-vacio-barra',
+    border: 'border-carga-vacio-borde',
   },
   [LOAD_STATE.UNKNOWN]: {
     label: 'Capacidad desconocida',
-    cell: '',
-    text: 'text-slate-600',
-    bar: 'bg-slate-300',
-    border: 'border-transparent',
+    cell: 'bg-carga-capacidad-desconocida-fondo',
+    text: 'text-carga-capacidad-desconocida-texto',
+    bar: '',
+    border: 'border-carga-capacidad-desconocida-borde',
   },
   [LOAD_STATE.FREE]: {
     label: 'Libre',
-    cell: 'bg-blue-100',
-    text: 'text-blue-900',
-    bar: 'bg-blue-700',
-    border: 'border-blue-400',
+    cell: 'bg-carga-libre-fondo',
+    text: 'text-carga-libre-texto',
+    bar: 'bg-carga-libre-barra',
+    border: 'border-carga-libre-borde',
   },
   [LOAD_STATE.MID]: {
     label: 'Carga media',
-    cell: 'bg-slate-100',
-    text: 'text-slate-800',
-    bar: 'bg-slate-600',
-    border: 'border-slate-400',
+    cell: 'bg-carga-media-fondo',
+    text: 'text-carga-media-texto',
+    bar: 'bg-carga-media-barra',
+    border: 'border-carga-media-borde',
   },
   [LOAD_STATE.OPTIMAL]: {
     label: 'Óptimo',
-    cell: 'bg-green-200',
-    text: 'text-green-900',
-    bar: 'bg-green-700',
-    border: 'border-green-600',
+    cell: 'bg-carga-optimo-fondo',
+    text: 'text-carga-optimo-texto',
+    bar: 'bg-carga-optimo-barra',
+    border: 'border-carga-optimo-borde',
   },
   [LOAD_STATE.OVERLOAD]: {
     label: 'Sobrecarga leve',
-    cell: 'bg-amber-200',
-    text: 'text-amber-900',
-    bar: 'bg-amber-700',
-    border: 'border-amber-700',
+    cell: 'bg-carga-sobrecarga-leve-fondo',
+    text: 'text-carga-sobrecarga-leve-texto',
+    bar: 'bg-carga-sobrecarga-leve-barra',
+    border: 'border-carga-sobrecarga-leve-borde',
   },
   [LOAD_STATE.HIGH_OVERLOAD]: {
     label: 'Sobrecarga alta',
-    cell: 'bg-red-200',
-    text: 'text-red-900',
-    bar: 'bg-red-700',
-    border: 'border-red-700',
+    cell: 'bg-carga-sobrecarga-alta-fondo',
+    text: 'text-carga-sobrecarga-alta-texto',
+    bar: 'bg-carga-sobrecarga-alta-barra',
+    border: 'border-carga-sobrecarga-alta-borde',
   },
 }
 

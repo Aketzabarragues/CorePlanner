@@ -116,7 +116,7 @@ describe('CellBreakdown', () => {
     expect(items[0].classes().join(' ')).not.toContain('border-dashed')
     // La del proyecto 2 va punteada y con la nota junto al nombre.
     expect(items[1].classes().join(' ')).toContain('border-dashed')
-    expect(items[1].classes().join(' ')).toContain('border-slate-500')
+    expect(items[1].classes().join(' ')).toContain('border-borde-fuerte')
     expect(items[1].text()).toContain('Ampliacion linea 2 (provisional)')
   })
 })
@@ -142,7 +142,7 @@ describe('veredicto de politica de capacidad', () => {
     expect(linea.text()).toContain('40 h')
     expect(linea.text()).toContain('avisa al jefe de departamento')
     // Ambar, para distinguirlo de la aprobacion sin depender del texto.
-    expect(linea.classes().join(' ')).toContain('text-amber-800')
+    expect(linea.classes().join(' ')).toContain('text-aviso-texto')
   })
 
   it('un veredicto de aprobacion explica el umbral y que hay que aprobar', async () => {
@@ -155,7 +155,7 @@ describe('veredicto de politica de capacidad', () => {
     const linea = wrapper.get('[data-testid="cell-policy-line"]')
     expect(linea.text()).toContain('100 %')
     expect(linea.text()).toContain('requiere aprobacion')
-    expect(linea.classes().join(' ')).toContain('text-red-700')
+    expect(linea.classes().join(' ')).toContain('text-peligro-texto')
   })
 
   it('sin politica no hay linea de veredicto', async () => {

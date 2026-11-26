@@ -201,6 +201,21 @@ describe('MembersView', () => {
     expect(wrapper.find('[data-testid="members-error"]').exists()).toBe(false)
   })
 
+  it('el boton de anadir y la tabla usan la piel de tokens', async () => {
+    const wrapper = await mountView()
+
+    const boton = wrapper.find('[data-testid="new-member"]')
+    expect(boton.classes()).toContain('rounded-control')
+    expect(boton.classes()).toContain('bg-primario-fuerte')
+    expect(boton.classes()).toContain('text-sobre-primario')
+    expect(boton.classes()).toContain('shadow-primaria')
+
+    const cabecera = wrapper.find('thead tr')
+    expect(cabecera.classes()).toContain('bg-tarjeta-suave')
+    expect(wrapper.find('tbody th').classes()).toContain('border-borde')
+    expect(wrapper.find('tbody th').classes()).toContain('bg-tarjeta')
+  })
+
   it('saca a una persona del proyecto', async () => {
     const wrapper = await mountView()
 

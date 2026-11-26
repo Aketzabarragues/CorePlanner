@@ -25,8 +25,8 @@ const props = defineProps({
 /** Escala del grafico: la barra llena es el tope y la linea marca el 100 %. */
 const MAX_SCALE = 136
 const LINE = 100
-/** Alto minimo de una barra, para que una semana sin carga se vea igual. */
-const MIN_BAR = 2.2
+/** Alto minimo de una barra, en px, para que una semana sin carga se vea. */
+const MIN_BAR = 3
 
 const hoy = currentWeekKey()
 
@@ -55,18 +55,14 @@ const items = computed(() =>
     const aspect = loadAspect(state)
     const ratio = loadRatio(semana.hours, semana.capacity)
     const alto = ratio === null ? 0 : Math.min(ratio, MAX_SCALE)
-    const vacia = !(Number(semana.hours ?? 0) > 0)
     return {
       week: semana.week,
       horas: Number(semana.hours ?? 0),
       ratio,
-      vacia,
       sobrecargada: Boolean(semana.is_overloaded),
-      // Una semana sin carga se pinta con el color de la escala, no con el
-      // borde invisible que tiene la celda vacia.
-      clases: vacia
-        ? [aspect.bar, 'border', 'border-transparent'].join(' ')
-        : [aspect.cell, aspect.border, 'border'].join(' '),
+      // La barra lleva el color de la escala; sin estado (imposible en la
+      // practica) la pista de la barra vacia.
+      clases: aspect.bar || 'bg-carga-vacio-barra',
       altura: `${Math.max(MIN_BAR, (alto / MAX_SCALE) * 100)}%`,
       texto: ratio === null ? `${semana.hours ?? 0} h` : `${ratio} %`,
       festivo: festivoEtiqueta(semana.holidays),
@@ -102,36 +98,36 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
     >
       <div class="relative w-full" :style="{ height: `${height}px` }">
         <div
-          class="absolute inset-x-[-5px] border-t border-dashed border-slate-500"
+          class="absolute inset-x-[-5px] border-t border-dashed border-texto-tenue"
           :style="{ bottom: alturaLinea }"
         />
         <div
-          class="absolute inset-x-0 bottom-0 rounded-t"
+          class="absolute inset-x-0 bottom-0 rounded-t-control"
           :class="item.clases"
           :style="{ height: item.altura }"
           :data-testid="`${testId}-bar`"
         />
         <span
           v-if="item.sobrecargada"
-          class="absolute -top-1 left-1/2 inline-flex h-3.5 w-3.5 -translate-x-1/2 text-red-700"
+          class="absolute -top-1 left-1/2 inline-flex h-3.5 w-3.5 -translate-x-1/2 text-peligro-texto"
           aria-hidden="true"
         >
           <AppIcon name="warning" />
         </span>
       </div>
-      <span class="text-xs font-semibold tabular-nums text-slate-700">
+      <span class="font-mono text-cp-sm font-bold tabular-nums text-texto">
         {{ item.texto }}
       </span>
-      <span class="text-[11px] text-slate-500">{{ weekTitle(item.week) }}</span>
+      <span class="text-cp-xs text-texto-tenue">{{ weekTitle(item.week) }}</span>
       <span
         v-if="item.week === hoy"
-        class="rounded-full bg-siemens-900 px-1.5 py-px text-[10px] font-semibold text-white"
+        class="rounded-pastilla bg-primario-fuerte px-1.5 py-px text-[10px] font-semibold text-sobre-primario"
       >
         Hoy
       </span>
       <span
         v-if="item.festivo"
-        class="rounded-full border border-slate-300 bg-slate-50 px-1.5 py-px text-[10px] font-medium text-slate-700"
+        class="rounded-pastilla border border-borde bg-tarjeta-suave px-1.5 py-px text-[10px] font-medium text-texto-suave"
         :title="item.tituloFestivo"
         data-testid="holiday-badge"
       >

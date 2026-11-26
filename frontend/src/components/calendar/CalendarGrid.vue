@@ -61,6 +61,8 @@ const props = defineProps({
   arrastrando: { type: Boolean, default: false },
   /** Testid de la tabla; sin el, la tabla no lleva testid. */
   testid: { type: String, default: null },
+  /** Departamentos con su color, para el avatar de la celda de persona. */
+  departamentos: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits([
@@ -262,7 +264,7 @@ defineExpose({ medir })
 <template>
   <table
     ref="tabla"
-    class="w-full min-w-[42rem] table-fixed border-collapse text-sm"
+    class="w-full min-w-[42rem] table-fixed border-collapse text-cp-base"
     :data-testid="testid || undefined"
   >
     <CalendarWeek
@@ -275,6 +277,7 @@ defineExpose({ medir })
       :destino="destino"
       :semana-indice="indice"
       :barra-enfocada="idEnfocado"
+      :departamentos="departamentos"
       @open-day="emit('open-day', $event)"
       @open-task="emit('open-task', $event)"
       @drag-start="emit('drag-start', $event)"

@@ -19,11 +19,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { projectsApi } from '../api/client'
+import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import FilterField from '../components/common/FilterField.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
+import { luminancia } from '../utils/statusColor'
 
 /** Cuantos avatares se apilan antes de resumir el resto con un "+N". */
 const MAX_AVATARES = 4
@@ -76,6 +79,7 @@ const groups = computed(() => {
       key: String(department.id),
       name: department.name,
       manager: department.manager_name ?? null,
+      color: department.color ?? null,
       items: [],
     })
   }
@@ -97,6 +101,7 @@ const groups = computed(() => {
       key: 'sin-departamento',
       name: 'Sin departamento',
       manager: null,
+      color: null,
       items: loose,
     })
   }
@@ -107,6 +112,21 @@ const groups = computed(() => {
 const hayFiltros = computed(
   () => Boolean(buscador.value.trim() || filtroDepartamento.value || filtroEstado.value),
 )
+
+/** Opciones del filtro de departamento, para el desplegable. */
+const opcionesDepartamento = computed(() => [
+  { value: '', label: 'Todos los departamentos' },
+  ...store.departments.map((department) => ({
+    value: String(department.id),
+    label: department.name,
+  })),
+])
+
+/** Opciones del filtro de estado, para el desplegable. */
+const opcionesEstado = computed(() => [
+  { value: '', label: 'Cualquier estado' },
+  ...PROJECT_STATUSES.map((estado) => ({ value: estado.value, label: estado.label })),
+])
 
 /** Resumen de un proyecto, o null si no llego. */
 function resumenDe(project) {
@@ -148,11 +168,45 @@ function cargaDe(project) {
   return { tipo: 'porcentaje', texto: `${utilization} %` }
 }
 
-/** Color de la pastilla del estado del proyecto. */
-function projectStatusPill(tone) {
-  if (tone === 'active') return 'bg-emerald-100 text-emerald-700'
-  if (tone === 'paused') return 'bg-amber-100 text-amber-700'
-  return 'bg-slate-100 text-slate-600'
+/**
+ * Estilo en linea del avatar del equipo: el color del departamento que
+ * gestiona el proyecto (dato del backend) con el texto calculado para el
+ * contraste. Sin color, tarjeta suave con texto suave.
+ */
+function estiloAvatarEquipo(group) {
+  const color = group?.color ?? null
+  if (!color) {
+    return {
+      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
+      color: 'rgb(var(--cp-texto-suave))',
+    }
+  }
+  return { backgroundColor: color, color: contrasteSobre(color) }
+}
+
+/**
+ * Texto legible sobre un hex de fondo: oscuro o claro por luminancia.
+ *
+ * Con la luminancia de WCAG de `statusColor`: sobre fondo claro el texto
+ * oscuro, sobre fondo oscuro el texto claro.
+ */
+function contrasteSobre(hex) {
+  const brillo = luminancia(hex) ?? 0
+  return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
+}
+
+/** Clases de la pastilla del estado del proyecto, por estado. */
+function pildoraEstadoProyecto(status) {
+  switch (status) {
+    case 'active':
+      return 'bg-ok-fondo text-ok-texto'
+    case 'on_hold':
+      return 'bg-aviso-fondo text-aviso-texto'
+    case 'planning':
+      return 'bg-info-fondo text-info-texto'
+    default:
+      return 'bg-neutro-fondo text-neutro-texto'
+  }
 }
 
 /** Lleva al resumen del proyecto. Toda la fila es clicable. */
@@ -202,7 +256,53 @@ onMounted(load)
     <PageHeader
       title="Proyectos"
       subtitle="Proyectos visibles, agrupados por el departamento que los gestiona."
-    />
+    >
+      <template #filters>
+        <label class="inline-flex flex-col gap-1">
+          <span class="text-cp-xs font-medium text-texto-suave">Buscar</span>
+          <span class="relative inline-flex items-center">
+            <span
+              class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue"
+            >
+              <AppIcon name="search" />
+            </span>
+            <input
+              v-model="buscador"
+              type="search"
+              placeholder="Nombre del proyecto"
+              class="min-h-10 w-64 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              data-testid="filter-search"
+            />
+          </span>
+        </label>
+
+        <FilterField
+          label="Departamento"
+          :options="opcionesDepartamento"
+          :model-value="filtroDepartamento"
+          testid="filter-department"
+          @update:model-value="filtroDepartamento = $event"
+        />
+
+        <FilterField
+          label="Estado"
+          :options="opcionesEstado"
+          :model-value="filtroEstado"
+          testid="filter-status"
+          @update:model-value="filtroEstado = $event"
+        />
+
+        <button
+          v-if="hayFiltros"
+          type="button"
+          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          data-testid="clear-filters"
+          @click="limpiarFiltros"
+        >
+          Quitar filtros
+        </button>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"
@@ -215,92 +315,48 @@ onMounted(load)
       @retry="reintentar"
       @empty-action="irAConfiguracion"
     >
-      <div class="mb-4 flex flex-wrap items-end gap-3">
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Buscar</span>
-          <input
-            v-model="buscador"
-            type="search"
-            placeholder="Nombre del proyecto"
-            class="w-64 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-search"
-          />
-        </label>
-
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Departamento</span>
-          <select
-            v-model="filtroDepartamento"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-department"
-          >
-            <option value="">Todos los departamentos</option>
-            <option
-              v-for="department in store.departments"
-              :key="department.id"
-              :value="String(department.id)"
-            >
-              {{ department.name }}
-            </option>
-          </select>
-        </label>
-
-        <label class="text-xs font-medium text-slate-600">
-          <span class="mb-1 block">Estado</span>
-          <select
-            v-model="filtroEstado"
-            class="rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-            data-testid="filter-status"
-          >
-            <option value="">Cualquier estado</option>
-            <option v-for="estado in PROJECT_STATUSES" :key="estado.value" :value="estado.value">
-              {{ estado.label }}
-            </option>
-          </select>
-        </label>
-
-        <button
-          v-if="hayFiltros"
-          type="button"
-          class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-siemens-900"
-          data-testid="clear-filters"
-          @click="limpiarFiltros"
-        >
-          Quitar filtros
-        </button>
-      </div>
-
       <p
         v-if="!groups.length"
-        class="rounded border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500"
+        class="rounded-tarjeta border border-dashed border-borde-fuerte bg-tarjeta p-6 text-center text-cp-base text-texto-tenue"
         data-testid="projects-no-match"
       >
         Ningún proyecto coincide con los filtros.
       </p>
 
-      <div v-else class="overflow-x-auto rounded border border-slate-200 bg-white">
-        <table class="w-full text-left text-sm" data-testid="projects-table">
+      <div v-else class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+        <table class="w-full text-left text-cp-sm" data-testid="projects-table">
           <thead>
-            <tr
-              class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
-            >
-              <th scope="col" class="px-3 py-2 font-medium">Proyecto</th>
-              <th scope="col" class="px-3 py-2 font-medium">Responsable</th>
-              <th scope="col" class="px-3 py-2 font-medium">Equipo</th>
-              <th scope="col" class="px-3 py-2 font-medium">Tareas</th>
-              <th scope="col" class="px-3 py-2 font-medium">Carga esta semana</th>
-              <th scope="col" class="px-3 py-2 font-medium">Estado</th>
+            <tr class="border-b border-borde bg-tarjeta-suave text-cp-micro uppercase tracking-wider text-texto-tenue">
+              <th scope="col" class="px-3 py-2.5 font-semibold">Proyecto</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Responsable</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Equipo</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Tareas</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Carga esta semana</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Estado</th>
             </tr>
           </thead>
+
           <tbody>
             <template v-for="group in groups" :key="group.key">
-              <tr class="border-b border-slate-200 bg-slate-50" data-testid="projects-group">
+              <!-- fila de grupo: la franja de color del departamento -->
+              <tr class="border-b border-borde bg-tarjeta-suave" data-testid="projects-group">
                 <th colspan="6" scope="colgroup" class="px-3 py-2 text-left">
-                  <span class="text-sm font-semibold text-siemens-900">{{ group.name }}</span>
-                  <span class="ml-2 text-xs text-slate-500" data-testid="projects-group-summary">
-                    {{ group.items.length }}
-                    {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
-                    {{ group.manager ?? 'sin responsable' }}
+                  <span class="flex items-center gap-2">
+                    <span
+                      v-if="group.color"
+                      class="h-4 w-1 shrink-0 rounded-pastilla"
+                      :style="{ backgroundColor: group.color }"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="text-cp-sm font-bold text-texto-marca">{{ group.name }}</span>
+                    <span
+                      class="text-cp-xs font-normal text-texto-tenue"
+                      data-testid="projects-group-summary"
+                    >
+                      {{ group.items.length }}
+                      {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
+                      {{ group.manager ?? 'sin responsable' }}
+                    </span>
                   </span>
                 </th>
               </tr>
@@ -310,7 +366,7 @@ onMounted(load)
                 :key="project.id"
                 role="button"
                 tabindex="0"
-                class="cursor-pointer border-t border-slate-100 hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
+                class="cursor-pointer border-t border-borde-suave transition-colors hover:bg-tarjeta-suave/60 focus:outline-none focus-visible:bg-tarjeta-suave focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foco"
                 data-testid="project-row"
                 @click="irAlProyecto(project)"
                 @keydown.enter.prevent="irAlProyecto(project)"
@@ -319,78 +375,85 @@ onMounted(load)
                 <td class="px-3 py-2">
                   <RouterLink
                     :to="{ name: 'project', params: { id: String(project.id) } }"
-                    class="font-medium text-siemens-900 hover:underline"
+                    class="font-semibold text-texto-marca hover:underline"
                     @click.stop
                   >
                     {{ project.name }}
                   </RouterLink>
                 </td>
-                <td class="px-3 py-2 text-slate-600">{{ project.owner_name ?? '—' }}</td>
+
+                <td class="px-3 py-2 text-texto-suave">{{ project.owner_name ?? '—' }}</td>
+
                 <td class="px-3 py-2">
                   <div v-if="avataresDe(project).length" class="flex items-center">
                     <span
                       v-for="(member, index) in avataresDe(project)"
                       :key="member.user_id"
-                      class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 ring-2 ring-white"
+                      class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold ring-2 ring-tarjeta"
                       :class="index > 0 ? '-ml-1.5' : ''"
+                      :style="estiloAvatarEquipo(group)"
                       :title="member.name"
                       data-testid="project-member"
                     >
                       {{ member.name.slice(0, 1) }}
                     </span>
-                    <span
-                      v-if="restoDe(project)"
-                      class="ml-1 text-xs text-slate-500"
-                      data-testid="project-members-rest"
-                    >
+                    <span v-if="restoDe(project)" data-testid="project-members-rest"
+                          class="ml-1 text-cp-xs text-texto-tenue">
                       +{{ restoDe(project) }}
                     </span>
                   </div>
-                  <span v-else class="text-xs text-slate-400">—</span>
+                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
                 </td>
+
                 <td class="px-3 py-2">
                   <template v-if="resumenDe(project) && resumenDe(project).tasks_total">
-                    <span class="text-xs text-slate-600" data-testid="project-tasks">
+                    <span class="font-mono text-cp-xs text-texto-suave" data-testid="project-tasks">
                       {{ resumenDe(project).tasks_done }}/{{ resumenDe(project).tasks_total }}
                     </span>
-                    <div class="mt-1 h-1.5 w-24 rounded-full bg-slate-100">
-                      <div
-                        class="h-1.5 rounded-full bg-siemens-900"
+                    <span class="mt-1 block h-1.5 w-24 overflow-hidden rounded-pastilla bg-tarjeta-suave">
+                      <span
+                        class="block h-1.5 rounded-pastilla bg-primario"
                         :style="{ width: `${avanceDe(project)}%` }"
                         data-testid="project-tasks-bar"
-                      ></div>
-                    </div>
+                      ></span>
+                    </span>
                   </template>
-                  <span v-else class="text-xs text-slate-400">—</span>
+                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
                 </td>
+
                 <td class="px-3 py-2">
+                  <!-- la sobrecarga lleva triangulo, que el color no es el unico medio -->
                   <span
                     v-if="cargaDe(project).tipo === 'sobrecarga'"
-                    class="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700"
+                    class="inline-flex items-center gap-1 whitespace-nowrap rounded-pastilla bg-peligro-fondo px-2 py-0.5 text-cp-xs font-semibold text-peligro-texto"
                     data-testid="project-overloaded"
                   >
+                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3 L22 20 H2 Z" />
+                    </svg>
                     Sobrecargado
                   </span>
                   <span
                     v-else-if="cargaDe(project).tipo === 'porcentaje'"
-                    class="text-xs text-slate-600"
+                    class="font-mono text-cp-xs text-texto-suave"
                     data-testid="project-load"
                   >
                     {{ cargaDe(project).texto }}
                   </span>
                   <span
                     v-else-if="cargaDe(project).tipo === 'sin-capacidad'"
-                    class="text-xs text-slate-400"
+                    class="text-cp-xs text-texto-tenue"
                     data-testid="project-load-unknown"
                   >
                     Sin capacidad
                   </span>
-                  <span v-else class="text-xs text-slate-400">—</span>
+                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
                 </td>
+
                 <td class="px-3 py-2">
                   <span
-                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="projectStatusPill(projectStatus(project.status).tone)"
+                    class="rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
+                    :class="pildoraEstadoProyecto(project.status)"
                   >
                     {{ projectStatus(project.status).label }}
                   </span>

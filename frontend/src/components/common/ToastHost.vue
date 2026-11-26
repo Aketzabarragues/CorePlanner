@@ -4,8 +4,10 @@
  *
  * Dibuja la pila del store abajo a la derecha, por encima del velo de
  * ModalDialog (z-50 → z-[60]). Cada aviso reutiliza AlertBanner, el unico
- * patron de aviso de la aplicacion. El contenedor no intercepta el raton donde
- * no hay toast; cada toast si.
+ * patron de aviso de la aplicacion, con la variante `toast` (pastilla oscura
+ * `bg-lateral-fondo` con `border-lateral-borde`, texto `text-lateral-texto`
+ * y `shadow-flotante`). El contenedor no intercepta el raton donde no hay
+ * toast; cada toast si.
  */
 import { useToastStore } from '../../stores/toast'
 import AlertBanner from './AlertBanner.vue'
@@ -22,10 +24,11 @@ const toast = useToastStore()
     <AlertBanner
       v-for="item in toast.items"
       :key="item.id"
-      :variant="item.variant"
+      variant="toast"
+      :alert="item.variant === 'error'"
       dismissible
       data-testid="toast"
-      class="pointer-events-auto shadow-lg"
+      class="pointer-events-auto shadow-flotante"
       @dismiss="toast.dismiss(item.id)"
     >
       {{ item.message }}

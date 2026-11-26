@@ -87,21 +87,21 @@ function submit() {
 <template>
   <form :id="formId" class="space-y-3" @submit.prevent="submit">
     <label class="block">
-      <span class="text-sm font-medium">Título</span>
+      <span class="text-cp-sm font-medium text-texto">Título</span>
       <input
         v-model="title"
         type="text"
         required
         placeholder="Programación SCADA WinCC"
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+        class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
       />
     </label>
 
     <label class="block">
-      <span class="text-sm font-medium">Asignada a</span>
+      <span class="text-cp-sm font-medium text-texto">Asignada a</span>
       <select
         v-model="assignedTo"
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+        class="mt-1 w-full cursor-pointer appearance-none rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
       >
         <option :value="null">Sin asignar</option>
         <option v-for="member in members" :key="member.user_id" :value="member.user_id">
@@ -112,28 +112,28 @@ function submit() {
 
     <div class="grid grid-cols-2 gap-3">
       <label class="block">
-        <span class="text-sm font-medium">Inicio</span>
+        <span class="text-cp-sm font-medium text-texto">Inicio</span>
         <input
           v-model="startDate"
           type="date"
           required
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         />
       </label>
 
       <label class="block">
-        <span class="text-sm font-medium">Fin</span>
+        <span class="text-cp-sm font-medium text-texto">Fin</span>
         <input
           v-model="endDate"
           type="date"
           required
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         />
       </label>
     </div>
 
     <label class="block">
-      <span class="text-sm font-medium">Horas estimadas</span>
+      <span class="text-cp-sm font-medium text-texto">Horas estimadas</span>
       <input
         v-model="estimatedHours"
         type="number"
@@ -141,13 +141,13 @@ function submit() {
         step="0.25"
         required
         placeholder="40.00"
-        class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+        class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
       />
-      <span class="mt-1 block text-xs text-slate-500">
+      <span class="mt-1 block text-cp-xs text-texto-tenue">
         Asignada a {{ memberName }}
       </span>
     </label>
 
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" class="text-cp-sm text-peligro-texto">{{ error }}</p>
   </form>
 </template>

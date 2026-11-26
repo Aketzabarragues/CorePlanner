@@ -14,7 +14,10 @@ import { RouterLink } from 'vue-router'
 
 import { capacityIncidentsApi, meApi, panelApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
+import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import BaseCard from '../components/common/BaseCard.vue'
+import KpiCard from '../components/common/KpiCard.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import LoadBars from '../components/LoadBars.vue'
@@ -114,6 +117,26 @@ function fechaCortada(iso) {
 /** Proyectos que estan en marcha. */
 const activeProjects = computed(() => projects.value.filter((item) => item.status === 'active'))
 
+/**
+ * Color de estado del proyecto, por valor de estado.
+ *
+ * Activo va a ok, Pausado a aviso, Planificacion a info y el resto a
+ * neutro: el estado es dato del backend y el color sale de los tokens.
+ */
+function estadoProyecto(status) {
+  if (status === 'active') return 'bg-ok-fondo text-ok-texto'
+  if (status === 'on_hold') return 'bg-aviso-fondo text-aviso-texto'
+  if (status === 'planning') return 'bg-info-fondo text-info-texto'
+  return 'bg-neutro-fondo text-neutro-texto'
+}
+
+function puntoProyecto(status) {
+  if (status === 'active') return 'bg-ok-punto'
+  if (status === 'on_hold') return 'bg-aviso-punto'
+  if (status === 'planning') return 'bg-info-punto'
+  return 'bg-neutro-punto'
+}
+
 /** Departamentos que gestionan los proyectos en marcha. */
 const activeDepartments = computed(
   () =>
@@ -191,19 +214,6 @@ function projectBarWidth(project) {
   return Math.round((Number(project.estimated_hours ?? 0) / maxProjectHours.value) * 100)
 }
 
-/** Color de la pila del estado de un proyecto. */
-function projectPill(status) {
-  const tone = projectStatus(status).tone
-  if (tone === 'active') return 'bg-emerald-100 text-emerald-700'
-  if (tone === 'paused') return 'bg-amber-100 text-amber-700'
-  return 'bg-slate-100 text-slate-600'
-}
-
-/** Color de la pila del motivo de una tarea pendiente. */
-function problemPill(problem) {
-  return problem === 'Sin persona' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-900'
-}
-
 /**
  * Etiqueta de un estado de tarea por su clave.
  *
@@ -262,7 +272,23 @@ useTaskReload(load)
     <PageHeader
       title="Panel"
       subtitle="Estado de la organización en el período de planificación."
-    />
+      ayuda="Resumen del uso del equipo, la carga por semana, los proyectos con más carga y la planificación incompleta del periodo activo."
+    >
+      <template #actions>
+        <RouterLink
+          to="/capacity"
+          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+        >
+          Ir a Capacidad
+        </RouterLink>
+        <RouterLink
+          to="/gantt"
+          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+        >
+          Abrir Gantt
+        </RouterLink>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"
@@ -271,108 +297,95 @@ useTaskReload(load)
       loading-label="Cargando el panel"
       @retry="reintentar"
     >
-      <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <RouterLink
+      <div class="mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          etiqueta="Uso del equipo"
+          :valor="panel.utilization === null ? 'sin capacidad' : `${panel.utilization} %`"
+          :insignia="{ tono: 'info', texto: `Semana ${panel.week ? weekNumber(panel.week) : '—'}` }"
+          :barra="panel.utilization === null ? null : panel.utilization"
+          :detalle="`Media del periodo: ${averageUtilization === null ? '—' : averageUtilization + ' %'}`"
+          :nota="`${formatHours(panel.planned_hours)} planificadas de ${formatHours(panel.capacity_hours)} de capacidad`"
           to="/capacity"
-          class="rounded border border-slate-200 bg-white p-4 hover:border-slate-300"
-          data-testid="panel-card-usage"
+          test-id="panel-card-usage"
         >
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Uso del equipo, semana {{ panel.week ? weekNumber(panel.week) : '—' }}
-          </p>
-          <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
-            :class="panel.utilization >= 100 ? 'text-red-700' : 'text-siemens-900'"
-            data-testid="panel-utilization"
-          >
-            {{ panel.utilization === null ? 'sin capacidad' : `${panel.utilization} %` }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {{ formatHours(panel.planned_hours) }} planificadas de
-            {{ formatHours(panel.capacity_hours) }} de capacidad
-          </p>
-          <p class="mt-1 text-xs text-slate-400">
-            Media del periodo:
-            {{ averageUtilization === null ? '—' : `${averageUtilization} %` }}
-          </p>
-        </RouterLink>
+          <template #valor>
+            <span
+              class="font-mono text-cp-kpi font-bold tabular-nums"
+              :class="panel.utilization === null ? 'text-texto-tenue' : 'text-texto-marca'"
+              data-testid="panel-utilization"
+            >
+              {{ panel.utilization === null ? 'sin capacidad' : `${panel.utilization} %` }}
+            </span>
+          </template>
+        </KpiCard>
 
-        <RouterLink
+        <KpiCard
+          etiqueta="Personas con sobrecarga"
+          :valor="overloadedPeople.length"
+          :insignia="
+            overloaded.length
+              ? { tono: 'peligro', texto: 'Sobrecarga', punto: true }
+              : { tono: 'ok', texto: 'Saludable', punto: true }
+          "
+          :nota="`${plural(overloaded.length, 'celda', 'celdas')} por encima de su capacidad`"
           to="/capacity"
-          class="rounded border border-slate-200 bg-white p-4 hover:border-slate-300"
-          data-testid="panel-card-overloaded"
+          test-id="panel-card-overloaded"
         >
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Personas con sobrecarga
-          </p>
-          <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
-            :class="overloaded.length ? 'text-red-700' : 'text-siemens-900'"
-            data-testid="panel-overloaded-count"
-          >
-            {{ overloadedPeople.length }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {{ plural(overloaded.length, 'celda', 'celdas') }} por encima de su capacidad
-          </p>
-        </RouterLink>
+          <template #valor>
+            <span
+              class="font-mono text-cp-kpi font-bold tabular-nums"
+              :class="overloaded.length ? 'text-peligro-texto' : 'text-texto-marca'"
+              data-testid="panel-overloaded-count"
+            >
+              {{ overloadedPeople.length }}
+            </span>
+          </template>
+        </KpiCard>
 
-        <RouterLink
+        <KpiCard
+          etiqueta="Proyectos activos"
+          :valor="activeProjects.length"
+          :insignia="{ tono: 'neutro', texto: `${activeDepartments} depto.` }"
+          :nota="`${plural(activeDepartments, 'departamento', 'departamentos')} implicado${activeDepartments === 1 ? '' : 's'}`"
           to="/projects"
-          class="rounded border border-slate-200 bg-white p-4 hover:border-slate-300"
-          data-testid="panel-card-projects"
-        >
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Proyectos activos
-          </p>
-          <p class="mt-1 text-2xl font-semibold tabular-nums text-siemens-900">
-            {{ activeProjects.length }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {{ plural(activeDepartments, 'departamento', 'departamentos') }} implicado{{ activeDepartments === 1 ? '' : 's' }}
-          </p>
-        </RouterLink>
+          test-id="panel-card-projects"
+        />
 
-        <RouterLink
+        <KpiCard
+          etiqueta="Planificación incompleta"
+          :valor="pending.length"
+          :insignia="
+            pending.length
+              ? { tono: 'aviso', texto: 'Pendiente', punto: true }
+              : { tono: 'ok', texto: 'Al día', punto: true }
+          "
+          :nota="`${pendingByProblem.persona} sin persona · ${pendingByProblem.fechas} sin fechas`"
           to="/capacity"
-          class="rounded border border-slate-200 bg-white p-4 hover:border-slate-300"
-          data-testid="panel-card-pending"
+          test-id="panel-card-pending"
         >
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Planificación incompleta
-          </p>
-          <p
-            class="mt-1 text-2xl font-semibold tabular-nums"
-            :class="pending.length ? 'text-amber-700' : 'text-siemens-900'"
-            data-testid="panel-pending-count"
-          >
-            {{ pending.length }}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {{ pendingByProblem.persona }} sin persona ·
-            {{ pendingByProblem.fechas }} sin fechas
-          </p>
-        </RouterLink>
+          <template #valor>
+            <span
+              class="font-mono text-cp-kpi font-bold tabular-nums"
+              :class="pending.length ? 'text-aviso-texto' : 'text-texto-marca'"
+              data-testid="panel-pending-count"
+            >
+              {{ pending.length }}
+            </span>
+          </template>
+        </KpiCard>
       </div>
 
-      <section
+      <BaseCard
         v-if="byDepartment.length > 1"
         aria-label="Estado por departamento"
-        class="mb-4 rounded border border-slate-200 bg-white p-4"
+        title="Estado por departamento"
+        :nota="`Semana ${panel.week ? weekNumber(panel.week) : '—'} de cada equipo por separado`"
         data-testid="panel-departments"
       >
-        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-sm font-semibold text-siemens-900">Estado por departamento</h2>
-          <span class="text-xs text-slate-500">
-            Semana {{ panel.week ? weekNumber(panel.week) : '—' }} de cada equipo por separado
-          </span>
-        </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
+          <table class="w-full text-left text-cp-sm">
             <thead>
-              <tr
-                class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"
-              >
+              <tr class="border-b border-borde text-cp-xs uppercase tracking-wider text-texto-tenue">
                 <th scope="col" class="py-2 pr-3 font-medium">Departamento</th>
                 <th scope="col" class="px-3 py-2 font-medium">Proyectos activos</th>
                 <th scope="col" class="px-3 py-2 font-medium">Personas con sobrecarga</th>
@@ -383,22 +396,22 @@ useTaskReload(load)
               <tr
                 v-for="department in byDepartment"
                 :key="department.id"
-                class="border-t border-slate-100"
+                class="border-t border-borde-suave"
                 data-testid="panel-department-row"
               >
-                <th scope="row" class="py-2 pr-3 font-semibold text-slate-800">
+                <th scope="row" class="py-2 pr-3 font-semibold text-texto">
                   {{ department.name }}
                 </th>
-                <td class="px-3 py-2 tabular-nums text-slate-700">
+                <td class="px-3 py-2 tabular-nums text-texto-suave">
                   {{ department.active_projects }}
                 </td>
                 <td class="px-3 py-2">
                   <span
-                    class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+                    class="rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold tabular-nums"
                     :class="
                       department.overloaded_people
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-slate-100 text-slate-600'
+                        ? 'bg-peligro-fondo text-peligro-texto'
+                        : 'bg-neutro-fondo text-neutro-texto'
                     "
                   >
                     {{ department.overloaded_people }}
@@ -409,10 +422,10 @@ useTaskReload(load)
                     class="font-semibold"
                     :class="
                       department.utilization === null
-                        ? 'text-slate-500'
+                        ? 'text-texto-tenue'
                         : department.utilization >= 100
-                          ? 'text-red-700'
-                          : 'text-siemens-900'
+                          ? 'text-peligro-texto'
+                          : 'text-texto-marca'
                     "
                   >
                     {{
@@ -421,7 +434,7 @@ useTaskReload(load)
                         : `${department.utilization} %`
                     }}
                   </span>
-                  <span class="ml-2 text-xs text-slate-500">
+                  <span class="ml-2 text-cp-xs text-texto-tenue">
                     {{ formatHours(department.planned_hours) }} planificadas de
                     {{ formatHours(department.capacity_hours) }}
                   </span>
@@ -430,38 +443,33 @@ useTaskReload(load)
             </tbody>
           </table>
         </div>
-      </section>
+      </BaseCard>
 
-      <section
+      <BaseCard
         v-if="showIncidentBlock"
         aria-label="Necesitan aprobación"
-        class="mb-4 rounded border border-slate-200 bg-white p-4"
+        title="Necesitan aprobación"
+        :nota="`${pendingIncidents.length} ${
+          pendingIncidents.length === 1 ? 'incidente' : 'incidentes'
+        } por encima del umbral de aprobación`"
         data-testid="panel-incidents"
       >
-        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-sm font-semibold text-siemens-900">Necesitan aprobación</h2>
-          <span class="text-xs text-slate-500">
-            {{ pendingIncidents.length }}
-            {{ pendingIncidents.length === 1 ? 'incidente' : 'incidentes' }} por encima del
-            umbral de aprobación
-          </span>
-        </div>
         <div role="list" class="flex flex-col">
           <div
             v-for="incident in pendingIncidents"
             :key="incident.id"
             role="listitem"
-            class="flex flex-wrap items-center gap-3 border-t border-slate-100 py-2 first:border-t-0"
+            class="flex flex-wrap items-center gap-3 border-t border-borde-suave py-2 first:border-t-0"
             :data-testid="`panel-incident-${incident.id}`"
           >
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-slate-800">
+              <p class="text-cp-sm font-semibold text-texto">
                 {{ incident.user_name }}
-                <span v-if="incident.department_name" class="font-normal text-slate-500">
+                <span v-if="incident.department_name" class="font-normal text-texto-tenue">
                   · {{ incident.department_name }}
                 </span>
               </p>
-              <p class="text-xs text-slate-500">
+              <p class="text-cp-xs text-texto-tenue">
                 Semana {{ weekNumber(incident.week) }} ·
                 {{ formatHours(incident.hours) }} de
                 {{
@@ -473,13 +481,13 @@ useTaskReload(load)
               </p>
             </div>
             <span
-              class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
+              class="rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold tabular-nums"
               :class="
                 incident.hours !== null &&
                 incident.capacity !== null &&
                 incident.hours > incident.capacity
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-amber-100 text-amber-800'
+                  ? 'bg-peligro-fondo text-peligro-texto'
+                  : 'bg-aviso-fondo text-aviso-texto'
               "
             >
               umbral de aprobación {{ incident.requires_approval_percent }} %
@@ -487,7 +495,7 @@ useTaskReload(load)
             <template v-if="puedeResolver(incident)">
               <button
                 type="button"
-                class="rounded border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700"
+                class="rounded-control border border-ok-borde bg-tarjeta px-3 py-1.5 text-cp-xs font-semibold text-ok-texto transition-colors hover:bg-ok-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 :data-testid="`panel-incident-approve-${incident.id}`"
                 @click="abrirResolucion(incident)"
               >
@@ -495,7 +503,7 @@ useTaskReload(load)
               </button>
               <button
                 type="button"
-                class="rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700"
+                class="rounded-control border border-peligro-borde bg-tarjeta px-3 py-1.5 text-cp-xs font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 :data-testid="`panel-incident-reject-${incident.id}`"
                 @click="abrirResolucion(incident)"
               >
@@ -504,69 +512,75 @@ useTaskReload(load)
             </template>
           </div>
         </div>
-      </section>
+      </BaseCard>
 
-      <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <section
+      <div class="mb-4 grid grid-cols-1 gap-3.5 lg:grid-cols-3">
+        <BaseCard
           aria-label="Uso del equipo por semana"
-          class="rounded border border-slate-200 bg-white p-4 lg:col-span-2"
+          title="Uso del equipo por semana"
+          nota="La línea discontinua marca el 100 % de la capacidad del equipo"
+          class="lg:col-span-2"
         >
-          <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="text-sm font-semibold text-siemens-900">
-              Uso del equipo por semana
-            </h2>
-            <span class="text-xs text-slate-500">
-              La línea discontinua marca el 100 % de la capacidad del equipo
-            </span>
-          </div>
           <LoadBars
             :weeks="weeks"
             title="Uso del equipo por semana"
             test-id="panel-bars"
           />
-        </section>
+        </BaseCard>
 
         <section
           aria-label="Personas con sobrecarga"
-          class="rounded border border-slate-200 bg-white p-4"
+          class="rounded-tarjeta border border-borde bg-tarjeta p-5 shadow-tarjeta"
         >
-          <h2 class="mb-2 text-sm font-semibold text-siemens-900">
-            Personas con sobrecarga
-          </h2>
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">
+              Personas con sobrecarga
+            </h2>
+            <span
+              class="rounded-pastilla bg-neutro-fondo px-2 py-0.5 font-mono text-cp-xs font-bold text-neutro-texto"
+            >
+              {{ overloadedPeople.length }}
+            </span>
+          </div>
           <div role="list" class="flex flex-col">
             <div
               v-for="persona in overloadedPeople"
               :key="persona.user_id"
               role="listitem"
-              class="flex items-center gap-3 border-t border-slate-100 py-2 first:border-t-0"
+              class="flex items-center gap-3 border-t border-borde-suave py-2 first:border-t-0"
               data-testid="panel-overloaded-row"
             >
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold text-slate-800">{{ persona.name }}</p>
-                <p class="text-xs text-slate-500">{{ semanasTexto(persona.weeks) }}</p>
+                <p class="text-cp-sm font-semibold text-texto">{{ persona.name }}</p>
+                <p class="text-cp-xs text-texto-tenue">{{ semanasTexto(persona.weeks) }}</p>
               </div>
               <span
-                class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
-                :class="
-                  persona.max > 110
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-amber-100 text-amber-800'
-                "
+                class="rounded-pastilla bg-peligro-fondo px-2 py-0.5 text-cp-xs font-semibold tabular-nums text-peligro-texto"
               >
                 hasta {{ persona.max }} %
               </span>
             </div>
-            <p
+            <div
               v-if="!overloadedPeople.length"
-              class="py-2 text-sm text-slate-500"
+              class="rounded-control border border-borde bg-tarjeta-suave px-4 py-4 text-center"
               data-testid="panel-overloaded-empty"
             >
-              Nadie supera su capacidad en el período.
-            </p>
+              <span
+                class="mx-auto flex h-8 w-8 items-center justify-center rounded-pastilla bg-ok-fondo text-ok-texto"
+              >
+                <span class="inline-flex h-4 w-4">
+                  <AppIcon name="check" />
+                </span>
+              </span>
+              <p class="mt-2 text-cp-sm font-semibold text-texto">Equipo equilibrado</p>
+              <p class="mt-0.5 text-cp-xs text-texto-tenue">
+                Nadie supera su capacidad en el período.
+              </p>
+            </div>
           </div>
           <RouterLink
             to="/capacity"
-            class="mt-3 inline-flex h-10 items-center rounded border border-slate-300 bg-white px-3 text-sm font-semibold text-siemens-900"
+            class="mt-4 inline-flex min-h-10 w-full items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm font-semibold text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="panel-go-capacity"
           >
             Ver en Capacidad
@@ -574,74 +588,69 @@ useTaskReload(load)
         </section>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section aria-label="Carga por proyecto" class="rounded border border-slate-200 bg-white p-4">
-          <h2 class="mb-3 text-sm font-semibold text-siemens-900">
-            Proyectos con más carga
-          </h2>
+      <div class="mb-4 grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        <BaseCard aria-label="Carga por proyecto" title="Proyectos con más carga">
           <div class="flex flex-col gap-3">
             <div v-for="project in projects" :key="project.id" data-testid="panel-project-row">
-              <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <span class="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                  {{ project.name }}
+              <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex min-w-0 items-center gap-2">
+                  <span class="truncate text-cp-sm font-semibold text-texto">
+                    {{ project.name }}
+                  </span>
                   <span
-                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="projectPill(project.status)"
+                    class="rounded-pastilla px-2 py-0.5 text-cp-micro font-semibold"
+                    :class="estadoProyecto(project.status)"
                   >
                     {{ projectStatus(project.status).label }}
                   </span>
-                </span>
-                <span class="text-xs tabular-nums text-slate-600">
-                  {{ formatHours(project.estimated_hours) }} ·
+                </div>
+                <span class="shrink-0 font-mono text-cp-xs text-texto-suave">
+                  {{ formatHours(project.estimated_hours) }} h ·
                   {{ plural(project.people_count, 'persona', 'personas') }}
                 </span>
               </div>
-              <span class="block h-2 w-full rounded bg-slate-200">
+              <span class="block h-2 w-full overflow-hidden rounded-pastilla bg-tarjeta-suave">
                 <span
-                  class="block h-2 rounded bg-siemens-700"
+                  class="block h-2 rounded-pastilla bg-primario-medio"
                   :style="{ width: `${projectBarWidth(project)}%` }"
-                />
+                ></span>
               </span>
             </div>
-            <p v-if="!projects.length" class="text-sm text-slate-500">
+            <p v-if="!projects.length" class="text-cp-sm text-texto-tenue">
               No hay proyectos visibles.
             </p>
           </div>
-        </section>
+        </BaseCard>
 
-        <section
+        <BaseCard
           aria-label="Planificación incompleta"
-          class="rounded border border-slate-200 bg-white p-4"
+          title="Planificación incompleta"
+          nota="Estas tareas no cuentan en la matriz hasta que tengan persona y fechas."
         >
-          <h2 class="mb-1 text-sm font-semibold text-siemens-900">
-            Planificación incompleta
-          </h2>
-          <p class="mb-3 text-xs text-slate-500">
-            Estas tareas no cuentan en la matriz hasta que tengan persona y fechas.
-          </p>
           <div role="list" class="flex flex-col">
             <div
               v-for="task in pending"
               :key="task.id"
               role="listitem"
-              class="flex flex-wrap items-center gap-2 border-t border-slate-100 py-2 first:border-t-0"
+              class="flex flex-wrap items-center gap-2 border-t border-borde-suave py-2 first:border-t-0"
               data-testid="panel-pending-row"
             >
-              <span class="min-w-0 flex-1 basis-48 text-sm font-medium text-slate-800">
+              <span class="min-w-0 flex-1 basis-48 text-cp-sm font-medium text-texto">
                 {{ task.title }}
               </span>
-              <span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-700">
+              <span
+                class="rounded-control bg-neutro-fondo px-1.5 py-0.5 text-cp-xs font-semibold text-neutro-texto"
+              >
                 {{ task.project_name }}
               </span>
               <span
-                class="rounded-full px-2 py-0.5 text-xs font-semibold"
-                :class="problemPill(task.problem)"
+                class="rounded-pastilla bg-aviso-fondo px-2 py-0.5 text-cp-xs font-semibold text-aviso-texto"
               >
                 {{ task.problem }}
               </span>
               <RouterLink
                 :to="`/projects/${task.project_id}/kanban`"
-                class="inline-flex h-9 items-center rounded border border-slate-300 bg-white px-3 text-xs font-semibold text-siemens-900"
+                class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-xs font-semibold text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 data-testid="panel-pending-resolve"
               >
                 Resolver
@@ -649,54 +658,64 @@ useTaskReload(load)
             </div>
             <p
               v-if="!pending.length"
-              class="py-2 text-sm text-slate-500"
+              class="py-2 text-cp-sm text-texto-tenue"
               data-testid="panel-pending-empty"
             >
               Toda la planificación tiene persona y fechas.
             </p>
           </div>
-        </section>
+        </BaseCard>
       </div>
 
       <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section>
-          <h2 class="mb-2 text-sm font-semibold text-slate-700">Proyectos por estado</h2>
-          <ul
-            class="rounded border border-slate-200 bg-white p-4 text-sm"
-            data-testid="panel-projects-status"
+        <section
+          class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
+          data-testid="panel-projects-status"
+        >
+          <h2 class="mb-3 text-cp-xs font-bold uppercase tracking-wider text-texto-tenue">
+            Proyectos por estado
+          </h2>
+          <div
+            v-for="[status, count] in projectStatuses"
+            :key="status"
+            class="flex items-center justify-between py-1.5 text-cp-sm"
           >
-            <li
-              v-for="[status, count] in projectStatuses"
-              :key="status"
-              class="flex items-center justify-between py-1"
-            >
-              <span class="text-slate-600">{{ projectStatus(status).label }}</span>
-              <span class="font-medium tabular-nums text-siemens-900">{{ count }}</span>
-            </li>
-            <li v-if="!projectStatuses.length" class="py-1 text-slate-500">
-              No hay proyectos visibles.
-            </li>
-          </ul>
+            <span class="flex items-center gap-2 font-medium text-texto">
+              <span class="h-2 w-2 rounded-full" :class="puntoProyecto(status)" aria-hidden="true"></span>
+              {{ projectStatus(status).label }}
+            </span>
+            <span class="rounded-control bg-neutro-fondo px-2 py-0.5 font-mono font-bold text-texto-marca">
+              {{ count }}
+            </span>
+          </div>
+          <div v-if="!projectStatuses.length" class="py-1.5 text-cp-sm text-texto-tenue">
+            No hay proyectos visibles.
+          </div>
         </section>
 
-        <section>
-          <h2 class="mb-2 text-sm font-semibold text-slate-700">Tareas por estado</h2>
-          <ul
-            class="rounded border border-slate-200 bg-white p-4 text-sm"
-            data-testid="panel-tasks-status"
+        <section
+          class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
+          data-testid="panel-tasks-status"
+        >
+          <h2 class="mb-3 text-cp-xs font-bold uppercase tracking-wider text-texto-tenue">
+            Tareas por estado
+          </h2>
+          <div
+            v-for="[status, count] in taskStatuses"
+            :key="status"
+            class="flex items-center justify-between py-1.5 text-cp-sm"
           >
-            <li
-              v-for="[status, count] in taskStatuses"
-              :key="status"
-              class="flex items-center justify-between py-1"
-            >
-              <span class="text-slate-600">{{ etiquetaDe(status) }}</span>
-              <span class="font-medium tabular-nums text-siemens-900">{{ count }}</span>
-            </li>
-            <li v-if="!taskStatuses.length" class="py-1 text-slate-500">
-              No hay tareas en el período.
-            </li>
-          </ul>
+            <span class="flex items-center gap-2 font-medium text-texto">
+              <span class="h-2 w-2 rounded-full bg-neutro-punto" aria-hidden="true"></span>
+              {{ etiquetaDe(status) }}
+            </span>
+            <span class="rounded-control bg-neutro-fondo px-2 py-0.5 font-mono font-bold text-texto-marca">
+              {{ count }}
+            </span>
+          </div>
+          <div v-if="!taskStatuses.length" class="py-1.5 text-cp-sm text-texto-tenue">
+            No hay tareas en el período.
+          </div>
         </section>
       </div>
     </AsyncState>
@@ -712,22 +731,22 @@ useTaskReload(load)
       size="sm"
       @close="cerrarResolucion"
     >
-      <p class="text-sm text-slate-600">
+      <p class="text-cp-sm text-texto-suave">
         Esta acción registra la decisión sobre la carga actual de la persona.
       </p>
-      <label class="mt-3 block text-sm font-medium">
+      <label class="mt-3 block text-cp-sm font-medium text-texto">
         Nota (opcional)
         <textarea
           v-model="resolvingNote"
           rows="2"
           maxlength="2000"
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+          class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="incident-note"
         ></textarea>
       </label>
       <p
         v-if="resolvingError"
-        class="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        class="mt-3 rounded-control border border-peligro-borde bg-peligro-fondo p-3 text-cp-sm text-peligro-texto"
         data-testid="incident-error"
       >
         {{ resolvingError }}
@@ -735,14 +754,14 @@ useTaskReload(load)
       <template #footer>
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-2 text-cp-sm font-medium text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="cerrarResolucion"
         >
           Cancelar
         </button>
         <button
           type="button"
-          class="rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
+          class="rounded-control border border-peligro-borde bg-tarjeta px-3 py-2 text-cp-sm font-semibold text-peligro-texto transition-colors hover:bg-peligro-fondo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="incident-reject-submit"
           @click="resolver('rechazada')"
         >
@@ -750,7 +769,7 @@ useTaskReload(load)
         </button>
         <button
           type="button"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="incident-approve-submit"
           @click="resolver('aprobada')"
         >

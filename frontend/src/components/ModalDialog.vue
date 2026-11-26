@@ -7,6 +7,9 @@
  * SidePanel no se migra: sobrevive como excepcion, como columna lateral
  * no modal del desglose de celda de la matriz.
  *
+ * Aspecto: cabecera gris (`bg-tarjeta-suave`, borde `border-borde`) con
+ * cierre de icono, cuerpo con `p-5` y velo `bg-overlay/45`.
+ *
  * Slots:
  *   default  — cuerpo del dialogo (con scroll independiente).
  *   footer   — barra de acciones fija al pie; si no se pasa, no se pinta barra.
@@ -73,7 +76,7 @@ const SIZE_CLASS = {
 <template>
   <div
     v-if="open"
-    class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4"
+    class="fixed inset-0 z-50 flex items-end justify-center bg-overlay/45 p-0 sm:items-center sm:p-4"
     @click.self="emit('close')"
   >
     <div
@@ -83,35 +86,35 @@ const SIZE_CLASS = {
       :aria-labelledby="titleId"
       :aria-describedby="subtitle ? subtitleId : undefined"
       tabindex="-1"
-      class="flex w-full flex-col rounded-t-lg bg-white shadow-xl sm:rounded-lg"
-      :class="[SIZE_CLASS[size] ?? SIZE_CLASS.md, 'max-h-[90vh]']"
+      class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-tarjeta bg-tarjeta shadow-flotante sm:rounded-tarjeta"
+      :class="[SIZE_CLASS[size] ?? SIZE_CLASS.md]"
     >
-      <!-- Cabecera fija -->
-      <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+      <!-- Cabecera gris -->
+      <div class="flex shrink-0 items-start justify-between gap-4 border-b border-borde-suave bg-tarjeta-suave px-5 py-3">
         <div class="min-w-0">
-          <h2
-            :id="titleId"
-            class="text-base font-semibold text-siemens-900"
-          >
+          <h2 :id="titleId" class="truncate text-cp-titulo font-bold text-texto-marca">
             {{ title }}
           </h2>
           <p
             v-if="subtitle"
             :id="subtitleId"
-            class="mt-0.5 text-sm text-slate-500"
+            class="mt-0.5 text-cp-sm text-texto-suave"
             data-testid="modal-subtitle"
           >
             {{ subtitle }}
           </p>
         </div>
+
         <button
           type="button"
-          class="shrink-0 rounded border border-slate-300 px-2 py-1 text-xs text-slate-600"
+          class="flex h-10 w-10 flex-none items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           aria-label="Cerrar"
           data-testid="modal-close"
           @click="emit('close')"
         >
-          Cerrar
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
@@ -124,7 +127,7 @@ const SIZE_CLASS = {
       <div
         v-if="$slots.footer"
         data-testid="modal-footer"
-        class="shrink-0 border-t border-slate-200 bg-white px-5 py-3"
+        class="shrink-0 border-t border-borde bg-tarjeta px-5 py-3"
       >
         <div class="flex justify-end gap-2">
           <slot name="footer" :submit="enviarForm" />

@@ -110,6 +110,26 @@ describe('LoginView', () => {
     expect(router.currentRoute.value.path).toBe('/')
   })
 
+  it('la tarjeta, los campos y el boton primario usan la piel de tokens', async () => {
+    const { wrapper } = await mountLogin()
+
+    expect(wrapper.find('form').classes()).toContain('rounded-tarjeta')
+    expect(wrapper.find('form').classes()).toContain('border-borde')
+    expect(wrapper.find('form').classes()).toContain('bg-tarjeta')
+    expect(wrapper.find('form').classes()).toContain('shadow-tarjeta')
+
+    const email = wrapper.find('input[type=email]')
+    expect(email.classes()).toContain('rounded-control')
+    expect(email.classes()).toContain('border-borde-fuerte')
+    expect(email.classes()).toContain('bg-tarjeta-suave')
+    expect(email.classes()).toContain('text-cp-sm')
+
+    const boton = wrapper.find('button[type=submit]')
+    expect(boton.classes()).toContain('bg-primario-fuerte')
+    expect(boton.classes()).toContain('text-sobre-primario')
+    expect(boton.classes()).toContain('shadow-primaria')
+  })
+
   it('muestra el error si las credenciales no valen', async () => {
     setupFetch(false)
     const { wrapper } = await mountLogin()

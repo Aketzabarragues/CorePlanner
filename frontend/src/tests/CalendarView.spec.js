@@ -395,10 +395,10 @@ describe('CalendarView', () => {
 
     const sabado = wrapper.find('[data-testid="week-lane-head-2026-11-07"]')
     expect(sabado.exists()).toBe(true)
-    expect(sabado.classes()).toContain('bg-slate-50')
+    expect(sabado.classes()).toContain('cp-trama-fin-semana')
     const domingo = wrapper.find('[data-testid="week-lane-head-2026-11-08"]')
     expect(domingo.exists()).toBe(true)
-    expect(domingo.classes()).toContain('bg-slate-50')
+    expect(domingo.classes()).toContain('cp-trama-fin-semana')
 
     // Ninguna barra llega al fin de semana: las columnas son de lunes a viernes.
     for (const barra of wrapper.findAll('[data-testid="week-task"]')) {
@@ -565,7 +565,7 @@ describe('CalendarView', () => {
     expect(barras.length).toBeGreaterThan(0)
     for (const barra of barras) {
       expect(barra.classes().some((clase) => clase.startsWith('persona-'))).toBe(false)
-      expect(barra.classes()).not.toContain('bg-siemens-700')
+      expect(barra.classes()).not.toContain('bg-primario-medio')
     }
   })
 
@@ -616,7 +616,7 @@ describe('CalendarView en modo semanal', () => {
     // El fin de semana tambien tiene columna, pero atenuado.
     expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="week-lane-head-2026-11-07"]').classes()).toContain(
-      'bg-slate-50',
+      'cp-trama-fin-semana',
     )
   })
 
@@ -1261,29 +1261,40 @@ describe('CalendarView con filtros', () => {
       const select = wrapper.find(`[data-testid="${filtro.testid}"]`)
       expect(select.exists()).toBe(true)
       expect([...select.classes()]).toEqual([
-        'rounded',
+        'min-h-10',
+        'cursor-pointer',
+        'appearance-none',
+        'rounded-control',
         'border',
-        'border-slate-300',
-        'bg-white',
-        'px-2',
+        'border-borde-fuerte',
+        'bg-tarjeta-suave',
         'py-1.5',
-        'text-sm',
+        'pl-3',
+        'pr-8',
+        'text-cp-sm',
+        'font-medium',
+        'text-texto',
+        'transition-colors',
+        'hover:border-foco',
+        'hover:bg-tarjeta',
+        'focus-visible:outline-none',
+        'focus-visible:ring-2',
+        'focus-visible:ring-foco',
       ])
 
       const label = select.element.closest('label')
       expect(label).not.toBeNull()
-      expect([...label.classList]).toEqual(['text-xs', 'font-medium', 'text-slate-600'])
+      expect([...label.classList]).toEqual(['inline-flex', 'flex-col', 'gap-1'])
 
       const span = label.querySelector('span')
-      expect([...span.classList]).toEqual(['mb-1', 'block'])
+      expect([...span.classList]).toEqual(['text-cp-xs', 'font-medium', 'text-texto-suave'])
       expect(span.textContent).toBe(filtro.etiqueta)
     }
 
-    // El contenedor de los filtros deja el mismo margen que en las otras vistas.
+    // Los filtros viven en el slot de filtros de la cabecera, con su hueco.
     const contenedor = wrapper.find('[data-testid="filter-department"]').element.closest('label')
       .parentElement
-    expect([...contenedor.classList]).toContain('gap-3')
-    expect([...contenedor.classList]).not.toContain('gap-2')
+    expect([...contenedor.classList]).toContain('gap-2')
   })
 
   it('los filtros ya no se muestran como pastilla', async () => {
@@ -1625,7 +1636,7 @@ describe('CalendarWeek', () => {
     })
 
     const [firme, provisional] = wrapper.findAll('[data-testid="week-task"]')
-    expect(firme.classes()).toContain('text-white')
+    expect(firme.classes()).toContain('text-sobre-primario')
     esperaColor(firme, '#1f6feb')
     // Sin relleno, con el contorno punteado y la nota en el aviso.
     expect(provisional.classes().join(' ')).toContain('border-dashed')
@@ -1783,28 +1794,30 @@ describe('CalendarWeek', () => {
     // nuevo (del miercoles 4 al lunes 10: el 4 y el 5 caen aqui). El resto de
     // la fila, el fin de semana y las cabeceras no.
     const celdasAna = wrapper.findAll('[data-testid="week-lane-row-2-0"] td[data-day]')
-    expect(celdasAna.filter((celda) => celda.classes().includes('bg-amber-50'))).toHaveLength(1)
+    expect(
+      celdasAna.filter((celda) => celda.classes().includes('bg-aviso-fondo/60')),
+    ).toHaveLength(1)
     expect(
       celdasAna
-        .filter((celda) => celda.classes().includes('bg-amber-50'))[0]
+        .filter((celda) => celda.classes().includes('bg-aviso-fondo/60'))[0]
         .classes()
-        .includes('bg-slate-50'),
+        .includes('cp-trama-fin-semana'),
     ).toBe(false)
     // El fin de semana no se sombrea: la banda no toca el fondo de fin de semana.
     celdasAna
-      .filter((celda) => celda.classes().includes('bg-slate-50'))
-      .forEach((celda) => expect(celda.classes()).not.toContain('bg-amber-50'))
+      .filter((celda) => celda.classes().includes('cp-trama-fin-semana'))
+      .forEach((celda) => expect(celda.classes()).not.toContain('bg-aviso-fondo/60'))
 
     // La fila de Beto (sin tareas) y la de sin asignar no se somborean.
     expect(
       wrapper.findAll('[data-testid="week-lane-row-3-0"] td').filter((celda) =>
-        celda.classes().includes('bg-amber-50'),
+        celda.classes().includes('bg-aviso-fondo/60'),
       ),
     ).toHaveLength(0)
     expect(
       wrapper
         .findAll('[data-testid="week-lane-row-sin-asignar-0"] td')
-        .filter((celda) => celda.classes().includes('bg-amber-50')),
+        .filter((celda) => celda.classes().includes('bg-aviso-fondo/60')),
     ).toHaveLength(0)
   })
 
@@ -1823,17 +1836,22 @@ describe('CalendarWeek', () => {
     // El rango nuevo es del 4 al 10: en la cabecera se sombrea lo que cae en
     // la semana; el fin de semana sigue con su fondo, sin banda encima.
     expect(
-      wrapper.find('[data-testid="week-lane-head-2026-11-03"]').classes().includes('bg-amber-50'),
+      wrapper.find('[data-testid="week-lane-head-2026-11-03"]').classes().includes(
+        'bg-aviso-fondo/60',
+      ),
     ).toBe(false)
     for (const fecha of ['2026-11-04', '2026-11-05', '2026-11-06']) {
       expect(
-        wrapper.find(`[data-testid="week-lane-head-${fecha}"]`).classes().includes('bg-amber-50'),
+        wrapper
+          .find(`[data-testid="week-lane-head-${fecha}"]`)
+          .classes()
+          .includes('bg-aviso-fondo/60'),
       ).toBe(true)
     }
     for (const fecha of ['2026-11-07', '2026-11-08']) {
       const cabecera = wrapper.find(`[data-testid="week-lane-head-${fecha}"]`)
-      expect(cabecera.classes()).toContain('bg-slate-50')
-      expect(cabecera.classes()).not.toContain('bg-amber-50')
+      expect(cabecera.classes()).toContain('cp-trama-fin-semana')
+      expect(cabecera.classes()).not.toContain('bg-aviso-fondo/60')
     }
     // La barra arrastrada se atenua y deja de capturar el puntero.
     const barra = wrapper.find('[data-testid="week-task"]')
@@ -2357,13 +2375,15 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     // fila de la persona (Ana, assigned_to 2) y los dias del rango en la
     // cabecera.
     const celdasAna = wrapper.findAll('[data-testid="week-lane-row-2-0"] td[data-day]')
-    expect(celdasAna.filter((celda) => celda.classes().includes('bg-amber-50'))).toHaveLength(1)
+    expect(
+      celdasAna.filter((celda) => celda.classes().includes('bg-aviso-fondo/60')),
+    ).toHaveLength(1)
     expect(
       wrapper.find('[data-testid="week-lane-head-2026-11-04"]').classes().join(' '),
-    ).toContain('bg-amber-50')
+    ).toContain('bg-aviso-fondo/60')
     expect(
       wrapper.find('[data-testid="week-lane-head-2026-11-03"]').classes().join(' '),
-    ).not.toContain('bg-amber-50')
+    ).not.toContain('bg-aviso-fondo/60')
 
     // La barra que se esta arrastrando se atenua y deja de capturar el puntero.
     expect(barra.classes()).toContain('opacity-60')
@@ -2375,8 +2395,8 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(fantasma.exists()).toBe(true)
     expect(fantasma.text()).toContain('Programacion SCADA')
     expect(fantasma.text()).toContain('2026-11-04 → 2026-11-10')
-    expect(fantasma.html()).toContain('border-siemens-500')
-    expect(fantasma.html()).toContain('bg-white')
+    expect(fantasma.html()).toContain('border-borde')
+    expect(fantasma.html()).toContain('bg-tarjeta')
     const tira = fantasma.find('span[style*="background-color"]')
     expect(tira.exists()).toBe(true)
     esperaColor(tira, '#1f6feb')
@@ -2389,12 +2409,12 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     await settle()
     expect(
       wrapper.findAll('[data-testid="week-lane-row-2-0"] td').filter((celda) =>
-        celda.classes().includes('bg-amber-50'),
+        celda.classes().includes('bg-aviso-fondo/60'),
       ),
     ).toHaveLength(0)
     expect(
       wrapper.find('[data-testid="week-lane-head-2026-11-04"]').classes().join(' '),
-    ).not.toContain('bg-amber-50')
+    ).not.toContain('bg-aviso-fondo/60')
     expect(wrapper.find('[data-testid="calendar-drag-ghost"]').exists()).toBe(false)
   })
 

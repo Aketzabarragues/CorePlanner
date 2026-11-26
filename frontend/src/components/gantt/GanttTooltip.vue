@@ -81,54 +81,54 @@ const estilo = computed(() => {
 <template>
   <div
     v-if="datos"
-    class="pointer-events-none fixed z-50 w-64 rounded-md border border-slate-300 bg-white px-2.5 py-2 shadow-lg"
+    class="pointer-events-none fixed z-50 w-64 rounded-control border border-borde bg-tarjeta px-2.5 py-2 shadow-flotante"
     :style="estilo"
     aria-hidden="true"
     data-testid="gantt-tooltip"
   >
-    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tarea</p>
-    <p class="text-[13px] font-semibold leading-tight text-slate-900">{{ datos.titulo }}</p>
+    <p class="text-cp-micro font-semibold uppercase tracking-wide text-texto-tenue">Tarea</p>
+    <p class="text-cp-xs font-semibold leading-tight text-texto">{{ datos.titulo }}</p>
 
-    <dl class="mt-1.5 space-y-0.5 text-[11px] leading-tight">
+    <dl class="mt-1.5 space-y-0.5 text-cp-xs leading-tight">
       <div class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Inicio</dt>
-        <dd class="text-slate-700">{{ fecha(datos.inicio) }}</dd>
+        <dt class="w-16 shrink-0 text-texto-tenue">Inicio</dt>
+        <dd class="text-texto-suave">{{ fecha(datos.inicio) }}</dd>
       </div>
       <div class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Fin</dt>
-        <dd class="text-slate-700">{{ fecha(datos.fin) }}</dd>
+        <dt class="w-16 shrink-0 text-texto-tenue">Fin</dt>
+        <dd class="text-texto-suave">{{ fecha(datos.fin) }}</dd>
       </div>
       <div class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Duración</dt>
-        <dd class="text-slate-700">
+        <dt class="w-16 shrink-0 text-texto-tenue">Duración</dt>
+        <dd class="text-texto-suave">
           {{ datos.duracion }} {{ datos.duracion === 1 ? 'día' : 'días' }}
         </dd>
       </div>
       <div v-if="datos.avance > 0" class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Avance</dt>
-        <dd class="text-slate-700">{{ datos.avance }} %</dd>
+        <dt class="w-16 shrink-0 text-texto-tenue">Avance</dt>
+        <dd class="text-texto-suave">{{ datos.avance }} %</dd>
       </div>
       <div v-if="datos.critica" class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Ruta</dt>
-        <dd class="text-slate-700">Crítica</dd>
+        <dt class="w-16 shrink-0 text-texto-tenue">Ruta</dt>
+        <dd class="text-texto-suave">Crítica</dd>
       </div>
     </dl>
 
     <div v-for="grupo in grupos" :key="grupo.titulo" class="mt-1.5">
-      <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p class="text-cp-micro font-semibold uppercase tracking-wide text-texto-tenue">
         {{ grupo.titulo }}
       </p>
       <ul class="mt-0.5 space-y-0.5">
         <li
           v-for="(entrada, indice) in grupo.entradas"
           :key="`${grupo.titulo}-${indice}`"
-          class="flex items-baseline gap-1.5 text-[11px] leading-tight text-slate-700"
+          class="flex items-baseline gap-1.5 text-cp-xs leading-tight text-texto-suave"
         >
           <span class="min-w-0 flex-1 truncate">{{ entrada.titulo }}</span>
           <!-- El tipo del vinculo: FS es fin a inicio, el unico que hay. -->
           <span
             v-if="entrada.tipo === 'precedes'"
-            class="shrink-0 rounded bg-slate-100 px-1 text-[9px] font-medium text-slate-500"
+            class="shrink-0 rounded-pastilla bg-tarjeta-suave px-1 text-cp-micro font-medium text-texto-tenue"
           >FS</span>
         </li>
       </ul>

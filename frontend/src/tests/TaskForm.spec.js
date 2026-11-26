@@ -64,4 +64,16 @@ describe('TaskForm', () => {
     const explicit = montar({ formId: 'task-form-celda' })
     expect(explicit.find('form').attributes('id')).toBe('task-form-celda')
   })
+
+  it('los campos llevan la piel de tokens', () => {
+    const wrapper = montar()
+    const titulo = wrapper.find('input[type="text"]')
+    for (const clase of ['rounded-control', 'border-borde-fuerte', 'bg-tarjeta-suave', 'text-cp-sm']) {
+      expect(titulo.classes()).toContain(clase)
+    }
+    const asignada = wrapper.find('select')
+    for (const clase of ['rounded-control', 'border-borde-fuerte', 'bg-tarjeta-suave', 'text-cp-sm']) {
+      expect(asignada.classes()).toContain(clase)
+    }
+  })
 })

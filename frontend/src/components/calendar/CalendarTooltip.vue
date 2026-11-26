@@ -55,34 +55,34 @@ const estilo = computed(() => {
 <template>
   <div
     v-if="datos"
-    class="pointer-events-none fixed z-50 w-64 rounded-md border border-slate-300 bg-white px-2.5 py-2 shadow-lg"
+    class="pointer-events-none fixed z-50 w-64 rounded-control bg-lateral-fondo p-3 text-cp-xs text-lateral-texto shadow-flotante"
     :style="estilo"
     aria-hidden="true"
     data-testid="calendar-tooltip"
   >
-    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Tarea</p>
-    <p class="text-[13px] font-semibold leading-tight text-slate-900">{{ datos.titulo }}</p>
+    <p class="text-cp-micro font-semibold uppercase tracking-wide text-lateral-texto-tenue">Tarea</p>
+    <p class="text-cp-sm font-semibold leading-tight text-lateral-activo-texto">{{ datos.titulo }}</p>
 
-    <dl class="mt-1.5 space-y-0.5 text-[11px] leading-tight">
+    <dl class="mt-1.5 space-y-0.5 text-cp-xs leading-tight">
       <div class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Proyecto</dt>
-        <dd class="text-slate-700">{{ datos.proyecto }}</dd>
+        <dt class="w-16 shrink-0 text-lateral-texto-tenue">Proyecto</dt>
+        <dd class="text-lateral-texto">{{ datos.proyecto }}</dd>
       </div>
       <div v-if="datos.persona" class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Persona</dt>
-        <dd class="text-slate-700">{{ datos.persona }}</dd>
+        <dt class="w-16 shrink-0 text-lateral-texto-tenue">Persona</dt>
+        <dd class="text-lateral-texto">{{ datos.persona }}</dd>
       </div>
       <div class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Rango</dt>
-        <dd class="text-slate-700">Del {{ fecha(datos.inicio) }} al {{ fecha(datos.fin) }}</dd>
+        <dt class="w-16 shrink-0 text-lateral-texto-tenue">Rango</dt>
+        <dd class="text-lateral-texto">Del {{ fecha(datos.inicio) }} al {{ fecha(datos.fin) }}</dd>
       </div>
       <div v-if="datos.estado" class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Estado</dt>
-        <dd class="text-slate-700">{{ datos.estado }}</dd>
+        <dt class="w-16 shrink-0 text-lateral-texto-tenue">Estado</dt>
+        <dd class="text-lateral-texto">{{ datos.estado }}</dd>
       </div>
       <div v-if="datos.avance > 0" class="flex gap-1.5">
-        <dt class="w-16 shrink-0 text-slate-500">Avance</dt>
-        <dd class="text-slate-700">{{ datos.avance }} %</dd>
+        <dt class="w-16 shrink-0 text-lateral-texto-tenue">Avance</dt>
+        <dd class="text-lateral-texto">{{ datos.avance }} %</dd>
       </div>
     </dl>
   </div>

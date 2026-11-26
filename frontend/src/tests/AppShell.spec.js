@@ -357,8 +357,8 @@ describe('AppShell', () => {
     const { wrapper } = await mountShell('/capacity')
 
     const activo = linkTo(wrapper, 'Capacidad')
-    expect(activo.classes()).toContain('bg-slate-800')
-    expect(activo.classes()).toContain('border-indigo-500')
+    expect(activo.classes()).toContain('bg-lateral-activo-fondo/20')
+    expect(activo.classes()).toContain('border-lateral-activo-borde/30')
 
     const inactivo = linkTo(wrapper, 'Gantt')
     expect(inactivo.classes()).toContain('border-transparent')
@@ -367,7 +367,7 @@ describe('AppShell', () => {
   it('en el tablero se marca la entrada Tablero del menu', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    const marcados = wrapper.findAll('aside a.border-lateral-activo-borde\\/30')
     expect(marcados).toHaveLength(1)
     expect(marcados[0].text()).toContain('Tablero')
   })
@@ -375,7 +375,7 @@ describe('AppShell', () => {
   it('en la lista se marca la entrada Lista del menu', async () => {
     const { wrapper } = await mountShell('/projects/1/tasks')
 
-    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    const marcados = wrapper.findAll('aside a.border-lateral-activo-borde\\/30')
     expect(marcados).toHaveLength(1)
     expect(marcados[0].text()).toContain('Lista')
   })
@@ -383,7 +383,7 @@ describe('AppShell', () => {
   it('en el resumen se marca la entrada Resumen del menu', async () => {
     const { wrapper } = await mountShell('/projects/1')
 
-    const marcados = wrapper.findAll('aside a.border-indigo-500')
+    const marcados = wrapper.findAll('aside a.border-lateral-activo-borde\\/30')
     expect(marcados).toHaveLength(1)
     expect(marcados[0].text()).toContain('Resumen')
   })
@@ -394,7 +394,7 @@ describe('AppShell', () => {
     const enlaces = wrapper.findAll('aside a')
     const configuracion = enlaces.find((link) => link.text().includes('Configuración'))
 
-    expect(configuracion.classes()).toContain('border-indigo-500')
+    expect(configuracion.classes()).toContain('border-lateral-activo-borde/30')
   })
 
   it('las migas de pan muestran el departamento, el proyecto y la vista', async () => {

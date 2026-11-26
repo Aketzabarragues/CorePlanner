@@ -112,82 +112,74 @@ async function save() {
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="flex justify-end">
+  <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
+    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
+      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Politicas de capacidad</h2>
       <button
         type="button"
-        class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         data-testid="new-capacity-policy"
         @click="openCreate"
       >
         Nueva politica
       </button>
+    </header>
+
+    <div class="p-4">
+      <table class="w-full text-cp-sm" data-testid="capacity-policies-table">
+        <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+          <tr>
+            <th class="px-3 py-2.5 font-semibold">Ambito</th>
+            <th class="px-3 py-2.5 font-semibold">Aplica a</th>
+            <th class="px-3 py-2.5 font-semibold">Aviso</th>
+            <th class="px-3 py-2.5 font-semibold">Aprobacion</th>
+            <th class="px-3 py-2.5 font-semibold">Activa</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-borde-suave">
+          <tr
+            v-for="policy in props.policies"
+            :key="policy.id"
+            :data-testid="`policy-row-${policy.id}`"
+          >
+            <td class="px-3 py-2 font-medium text-primario-fuerte">
+              {{ policy.scope_type === 'persona' ? 'Persona' : 'Departamento' }}
+            </td>
+            <td class="px-3 py-2 text-texto-suave">{{ scopeName(policy) }}</td>
+            <td class="px-3 py-2 text-texto-suave">{{ policy.warn_percent }} %</td>
+            <td class="px-3 py-2 text-texto-suave">{{ policy.requires_approval_percent }} %</td>
+            <td class="px-3 py-2">
+              <span
+                :data-testid="`policy-active-${policy.id}`"
+                class="inline-block rounded-pastilla px-2 py-0.5 text-cp-xs font-medium"
+                :class="
+                  policy.active
+                    ? 'border border-ok-borde bg-ok-fondo text-ok-texto'
+                    : 'border border-borde-fuerte bg-tarjeta-suave text-texto-tenue'
+                "
+              >
+                {{ policy.active ? 'Activa' : 'Inactiva' }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-right">
+              <button
+                type="button"
+                class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                :data-testid="`edit-policy-${policy.id}`"
+                @click="edit(policy)"
+              >
+                Editar
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p v-if="props.policies.length === 0" class="text-cp-sm text-texto-tenue">
+        Sin politicas de capacidad: las celdas no llevan veredicto.
+      </p>
     </div>
-
-    <table class="w-full text-sm" data-testid="capacity-policies-table">
-      <thead>
-        <tr class="border-b border-slate-200 text-left">
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Ambito
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Aplica a
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Aviso
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Aprobacion
-          </th>
-          <th class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Activa
-          </th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="policy in props.policies"
-          :key="policy.id"
-          class="border-b border-slate-100"
-          :data-testid="`policy-row-${policy.id}`"
-        >
-          <td class="px-2 py-2 font-medium text-siemens-900">
-            {{ policy.scope_type === 'persona' ? 'Persona' : 'Departamento' }}
-          </td>
-          <td class="px-2 py-2 text-slate-600">{{ scopeName(policy) }}</td>
-          <td class="px-2 py-2 text-slate-600">{{ policy.warn_percent }} %</td>
-          <td class="px-2 py-2 text-slate-600">{{ policy.requires_approval_percent }} %</td>
-          <td class="px-2 py-2 text-slate-600">
-            <span
-              :data-testid="`policy-active-${policy.id}`"
-              class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="
-                policy.active
-                  ? 'border border-green-600 bg-green-200 text-green-900'
-                  : 'border border-slate-300 bg-slate-100 text-slate-500'
-              "
-            >
-              {{ policy.active ? 'Activa' : 'Inactiva' }}
-            </span>
-          </td>
-          <td class="px-2 py-2 text-right">
-            <button
-              type="button"
-              class="rounded border border-slate-300 px-3 py-1.5 text-slate-600"
-              :data-testid="`edit-policy-${policy.id}`"
-              @click="edit(policy)"
-            >
-              Editar
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <p v-if="props.policies.length === 0" class="text-sm text-slate-500">
-      Sin politicas de capacidad: las celdas no llevan veredicto.
-    </p>
 
     <ModalDialog
       :open="formOpen"
@@ -196,23 +188,23 @@ async function save() {
     >
       <form id="form-politica-capacidad" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Ambito
             <select
               v-model="form.scope_type"
               data-testid="policy-scope-type"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="persona">Persona</option>
               <option value="departamento">Departamento</option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             {{ form.scope_type === 'persona' ? 'Persona' : 'Departamento' }}
             <select
               v-model="form.scope_id"
               data-testid="policy-scope"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             >
               <option value="" disabled>
                 {{
@@ -228,7 +220,7 @@ async function save() {
               </option>
             </select>
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Umbral de aviso (%)
             <input
               v-model="form.warn_percent"
@@ -236,10 +228,10 @@ async function save() {
               min="1"
               max="100"
               data-testid="policy-warn-percent"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
-          <label class="block text-sm font-medium">
+          <label class="block text-cp-sm font-medium text-texto">
             Umbral de aprobacion (%)
             <input
               v-model="form.requires_approval_percent"
@@ -247,24 +239,24 @@ async function save() {
               min="1"
               max="100"
               data-testid="policy-approval-percent"
-              class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
+              class="mt-1 w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-2 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             />
           </label>
         </div>
 
-        <label class="mt-3 flex items-center gap-2 text-sm font-medium text-slate-600">
+        <label class="mt-3 inline-flex items-center gap-2 text-cp-xs font-medium text-texto-suave">
           <span>Activa</span>
           <button
             type="button"
             role="switch"
             :aria-checked="form.active"
             data-testid="policy-active-switch"
-            class="relative h-5 w-9 rounded-full transition-colors"
-            :class="form.active ? 'bg-siemens-900' : 'bg-slate-300'"
+            class="relative h-5 w-9 rounded-pastilla transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            :class="form.active ? 'bg-primario-fuerte' : 'bg-borde-fuerte'"
             @click="form.active = !form.active"
           >
             <span
-              class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+              class="absolute top-0.5 h-4 w-4 rounded-pastilla bg-tarjeta transition-all"
               :class="form.active ? 'left-[18px]' : 'left-0.5'"
             ></span>
           </button>
@@ -278,7 +270,7 @@ async function save() {
       <template #footer="{ submit }">
         <button
           type="button"
-          class="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           @click="closeForm"
         >
           Cancelar
@@ -287,7 +279,7 @@ async function save() {
           type="button"
           @click="submit"
           :disabled="saving"
-          class="rounded bg-siemens-900 px-3 py-2 text-sm font-medium text-white"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:opacity-60"
         >
           {{ editing ? 'Guardar cambios' : 'Crear' }}
         </button>

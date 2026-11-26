@@ -8,6 +8,10 @@
  * `data-columnas`. El color de fondo es el del proyecto, nunca la paleta
  * por persona.
  *
+ * El texto de la barra (titulo y nombre de proyecto) se pinta con el color
+ * que llega a 4.5:1 sobre el color del proyecto, elegido en `estiloBarra`;
+ * sin color de proyecto se queda el blanco de la clase.
+ *
  * La barra se agarra con `mousedown` (boton izquierdo, fuera de controles):
  * el cuerpo emite `drag-start` con `zona: 'body'` y cada asa de redimension
  * emite su `zona` ('start' o 'end') sin propagar al cuerpo. La zona la da el
@@ -28,6 +32,8 @@
  * es la descripcion completa de la tarea; sin permiso de escritura la barra
  * se anuncia deshabilitada, pero sigue enfocable para leerse.
  */
+import { textoSobre } from '../../utils/statusColor'
+
 const props = defineProps({
   /** Barra con su celda: {tarea, inicio, fin, carril, span}. */
   barra: { type: Object, required: true },
@@ -94,9 +100,10 @@ function oscurecer(hex, factor = 0.72) {
 }
 
 /**
- * Estilo en linea de la barra: el color del proyecto en el fondo y ese mismo
+ * Estilo en linea de la barra: el color del proyecto en el fondo, ese mismo
  * color oscurecido como borde izquierdo, para que la barra se lea como una
- * etiqueta de proyecto. En linea porque el color llega en hex del backend.
+ * etiqueta de proyecto, y el color del texto que llega a 4.5:1 sobre el
+ * fondo. En linea porque el color llega en hex del backend.
  *
  * La barra provisional no lleva relleno ni borde de color: el fondo `bg-tarjeta`
  * y el contorno punteado lo da la clase; un estilo en linea del proyecto
@@ -105,9 +112,11 @@ function oscurecer(hex, factor = 0.72) {
 function estiloBarra(tarea) {
   if (tarea.is_provisional) return { backgroundColor: 'transparent' }
   const color = tarea.project_color
+  if (!color) return {}
   return {
     backgroundColor: color,
     borderLeftColor: oscurecer(color),
+    color: textoSobre(color),
   }
 }
 </script>

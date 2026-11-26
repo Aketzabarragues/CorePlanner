@@ -415,6 +415,19 @@ describe('CalendarView', () => {
     esperaColor(semanas[2].find('[data-testid="week-task"]'), '#0a3d91')
   })
 
+  it('el texto de la barra se pinta con el color que llega a 4.5:1 sobre el fondo', async () => {
+    const { wrapper } = await mountView()
+
+    const semanas = wrapper.findAll('[data-testid="week-lanes"]')
+    // Ambos fondos de la prueba son oscuros: el texto se queda blanco.
+    expect(semanas[1].find('[data-testid="week-task"]').attributes('style')).toContain(
+      'color: rgb(255, 255, 255)',
+    )
+    expect(semanas[2].find('[data-testid="week-task"]').attributes('style')).toContain(
+      'color: rgb(255, 255, 255)',
+    )
+  })
+
   it('marca el dia de hoy en la cabecera', async () => {
     const { wrapper } = await mountView()
 

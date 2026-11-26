@@ -7,6 +7,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: las cabeceras de vista llevan un boton de ayuda con el texto que explica
+  la pantalla (calendario, capacidad, Gantt, proyectos, personas, actividad y
+  configuracion). El tooltip se abre al pasar por encima, al enfocar y al hacer clic, y
+  se cierra con `Escape`.
 - **frontend**: sistema de tokens de diseño. `frontend/src/assets/tokens.css` pasa a
   ser el único fichero de valores (105 tokens en variables `--cp-*`) y
   `tailwind.config.js` los mapea a clases semánticas (`bg-tarjeta`, `text-texto-tenue`,
@@ -272,6 +276,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: la etiqueta de una barra del diagrama de Gantt se recorta al ancho de la
+  barra. Un titulo largo se salia de la barra y su cola quedaba blanca sobre el fondo:
+  ilegible. Ahora cada barra lleva su propio recorte.
+- **frontend**: el texto de las barras de tarea del Gantt y del calendario elige blanco o
+  texto oscuro segun el color del proyecto, para llegar a 4,5:1 de contraste. Con los
+  tonos claros de la paleta (el ocre) el texto blanco se quedaba por debajo.
+- **panel**: la serie "Uso del equipo por semana" vuelve a dibujar las barras. Una sola
+  persona sin horario hacia que la capacidad de la semana se publicara como desconocida y
+  el grafico se quedaba plano. Ahora la capacidad de la semana es la suma de las
+  capacidades conocidas, igual que la del equipo y la de cada departamento, y el grafico
+  declara cuantas personas quedan fuera del denominador.
 - **frontend**: la vista mensual del calendario ya no pinta la vista de dia debajo. La cadena de
   vistas estaba mal atada (`v-else` colgaba del aviso de "semana sin tareas"), de modo que el mes
   acababa en la lista de tareas del dia. Ahora cada vista se pinta sola.

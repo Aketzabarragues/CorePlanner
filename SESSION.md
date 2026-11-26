@@ -59,13 +59,20 @@ ya corre en modo estricto).
 
 ## Pendientes / Siguiente paso inmediato
 
-1. Commit pendiente de aprobacion explicita del usuario. Propuesto:
-   `feat(frontend): sistema de tokens y nuevo diseño`.
-   `docs/diseno_nuevo.html` (el boceto) queda sin versionar: decidir si entra
-   en el commit como referencia.
-2. Cambios de las sesiones anteriores que siguen en el arbol, por aprobar por
+1. **Cabecera de vista en una sola linea** (siguiente punto, pedido del
+   usuario): en el boceto los filtros van en la MISMA linea que el titulo,
+   separados por una regla vertical, y las acciones a la derecha. Ahora los
+   filtros caen a una segunda linea: cada `FilterField` lleva la etiqueta
+   encima y el desplegable toma el ancho de su opcion mas larga, asi que el
+   grupo de filtros no cabe junto al titulo y envuelve. Gana una fila de alto
+   en cada vista de planificacion. Opciones: etiqueta en linea a la izquierda
+   del desplegable (como el boceto), ancho maximo del desplegable con
+   `truncate`, y decidir a partir de que ancho los filtros pasan a su propia
+   linea en vez de desbordar. Repasar con el designer la plantilla exacta
+   antes de tocar `PageHeader.vue` y `FilterField.vue`.
+2. Commit pendiente de aprobacion explicita del usuario (los botones de
+   ayuda, los tres arreglos de la revision visual y las capturas).
+3. Cambios de las sesiones anteriores que siguen en el arbol, por aprobar por
    separado (incluida la correccion del calendario).
-3. Revisar en el navegador el resultado: el build y los tests pasan, pero el
-   contraste real de cada pantalla se ve mejor a ojo.
 4. Sin tema oscuro, sin boton de ayuda en las vistas que no lo tienen y sin
    `.ics` (planificado, fuera de v1).

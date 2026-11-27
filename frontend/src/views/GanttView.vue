@@ -1884,19 +1884,6 @@ useTaskReload(load)
         />
 
         <!--
-          Escala temporal: va en la primera linea, junto a los filtros, para
-          que la cabecera quepa en una sola linea a 1440 (informe 15, cascada
-          de acciones: el segmentado sube y solo el zoom y el periodo se
-          quedan en la segunda cuando no cabe).
-        -->
-        <SegmentedControl
-          v-model="escalaId"
-          :options="opcionesEscala"
-          label="Escala temporal"
-          testid-prefix="gantt-scale"
-        />
-
-        <!--
           Colapso de grupos: la cabecera de cada grupo es un boton que lo
           colapsa. Estos dos actuan sobre todos los grupos del agrupamiento
           vigente y escriben el mismo estado que los botones de la cabecera.
@@ -1909,7 +1896,7 @@ useTaskReload(load)
         >
           <button
             type="button"
-            class="inline-flex min-h-10 w-10 flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
+            class="relative inline-flex flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
             :disabled="!clavesDeGrupos.length"
             aria-label="Colapsar todos los grupos"
             title="Colapsar todos los grupos"
@@ -1923,7 +1910,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="inline-flex min-h-10 w-10 flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
+            class="relative inline-flex flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
             :disabled="!colapsados.size"
             aria-label="Expandir todos los grupos"
             title="Expandir todos los grupos"
@@ -1965,7 +1952,7 @@ useTaskReload(load)
         -->
         <button
           type="button"
-          class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border text-cp-sm font-medium 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
+          class="relative inline-flex items-center justify-center rounded-control border p-1.5 text-cp-sm font-medium after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
           :class="
             rutaCriticaActiva
               ? 'border-primario-fuerte bg-primario-fuerte text-sobre-primario'
@@ -1986,10 +1973,22 @@ useTaskReload(load)
       </template>
 
       <template #actions>
+        <!--
+          Escala temporal: abre la segunda linea de acciones, como el boceto
+          (fila 1 el titulo con sus filtros, fila 2 la escala con el resto de
+          acciones). La cabecera no cabe en una linea a 1440, asi que la
+          segunda linea es el sitio natural del resto de controles.
+        -->
+        <SegmentedControl
+          v-model="escalaId"
+          :options="opcionesEscala"
+          label="Escala temporal"
+          testid-prefix="gantt-scale"
+        />
         <button
           v-if="projectFilter"
           type="button"
-          class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
+          class="relative inline-flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
           :disabled="exportandoIcs"
           aria-label="Exportar el calendario en iCal"
           title="Exportar el calendario en iCal"
@@ -2015,7 +2014,7 @@ useTaskReload(load)
         >
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Menos detalle"
             :disabled="zoom <= ZOOM_MIN"
             data-testid="gantt-zoom-out"
@@ -2027,7 +2026,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="inline-flex h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-2.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
+            class="relative inline-flex items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-2.5 py-1.5 text-cp-sm font-medium text-texto transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Ajustar al ancho"
             :disabled="zoom === 1"
             data-testid="gantt-zoom-fit"
@@ -2040,7 +2039,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Más detalle"
             :disabled="zoom >= ZOOM_MAX"
             data-testid="gantt-zoom-in"
@@ -2058,7 +2057,7 @@ useTaskReload(load)
         -->
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave hover:bg-tarjeta-suave"
+          class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave"
           :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
           :aria-pressed="ampliado"
           :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
@@ -2085,7 +2084,7 @@ useTaskReload(load)
           />
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
             aria-label="Periodo anterior"
             :disabled="rangoCompleto"
             data-testid="range-previous"
@@ -2093,9 +2092,20 @@ useTaskReload(load)
           >
             ←
           </button>
+          <!--
+            Rango que se esta viendo, como el boceto: es informacion, no un
+            control, por eso va suelto dentro del grupo de rango y no lo
+            rompe.
+          -->
+          <span
+            class="flex-none rounded-pastilla bg-neutro-fondo px-2.5 py-1 font-mono text-cp-xs font-medium text-neutro-texto"
+            data-testid="range-label"
+          >
+            {{ rangoLabel }}
+          </span>
           <button
             type="button"
-            class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto"
+            class="relative inline-flex items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
             data-testid="range-today"
             @click="goHoy"
           >
@@ -2103,7 +2113,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
             aria-label="Periodo siguiente"
             :disabled="rangoCompleto"
             data-testid="range-next"
@@ -2113,7 +2123,7 @@ useTaskReload(load)
           </button>
           <button
             type="button"
-            class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border text-cp-sm font-medium 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
+            class="relative inline-flex items-center justify-center rounded-control border p-1.5 text-cp-sm font-medium after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
             :class="rangoCompleto ? 'border-primario-fuerte bg-primario-fuerte text-sobre-primario' : 'border-borde-fuerte bg-tarjeta text-texto'"
             aria-label="Ver el plan completo"
             :title="rangoCompleto ? 'Se ve el plan completo' : 'Ver el plan completo'"
@@ -2125,9 +2135,6 @@ useTaskReload(load)
             </span>
             <span class="hidden 2xl:inline">Completo</span>
           </button>
-          <span class="sr-only" data-testid="range-label">
-            {{ rangoLabel }}
-          </span>
         </div>
       </template>
     </PageHeader>

@@ -756,6 +756,21 @@ describe('GanttView', () => {
     expect(wrapper.get('[data-testid="gantt-scale-Month"]').text()).toBe('Mes')
   })
 
+  it('la escala temporal esta en la fila de acciones, no en los filtros', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    // Fila 1: el titulo con sus filtros. Fila 2: la escala con el resto de
+    // las acciones, como el boceto. La escala abre la fila de acciones.
+    const raiz = wrapper.find('[data-testid="vista-cabecera"]').element
+    const acciones = raiz.children[1]
+    const filtros = wrapper.find('[data-testid="gantt-filters"]').element
+
+    expect(acciones.querySelector('[data-testid="gantt-scale-Week"]')).not.toBeNull()
+    expect(filtros.querySelector('[data-testid="gantt-scale-Week"]')).toBeNull()
+  })
+
   it('cambia la escala del diagrama al pulsar el boton', async () => {
     setupFetch()
 
@@ -2479,5 +2494,28 @@ describe('rango de fechas del diagrama', () => {
       ancho(addDays(hoy, -28), parseIsoDate('2026-11-15')),
     )
     expect(wrapperSolo.find('[data-testid="gantt-range-warning"]').exists()).toBe(false)
+  })
+
+  it('la insignia de rango es visible, en su sitio del grupo de rango', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    // Plan completo en la escala de semana: de lunes 2 a domingo 15 de
+    // noviembre. La insignia es informacion: visible (no sr-only), en el
+    // sitio del boceto (entre el periodo anterior y el hoy) y sin mover los
+    // botones del grupo.
+    const insignia = wrapper.get('[data-testid="range-label"]')
+    expect(insignia.text()).toBe('2 - 15 nov 2026')
+    expect(insignia.classes()).not.toContain('sr-only')
+
+    const grupo = insignia.element.parentElement
+    const [anterior, rango, hoy] = ['range-previous', 'range-label', 'range-today'].map(
+      (testid) => [...grupo.children].findIndex((hijo) => hijo.dataset?.testid === testid),
+    )
+    // Los tres presentes, y la insignia entre el periodo anterior y el hoy.
+    expect(anterior).toBeGreaterThanOrEqual(0)
+    expect(rango).toBe(anterior + 1)
+    expect(hoy).toBe(rango + 1)
   })
 })

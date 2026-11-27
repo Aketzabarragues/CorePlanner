@@ -67,9 +67,9 @@ aplicacion, vigilado por `frontend/src/tests/tokens.spec.js` en modo estricto.
 1. Cambios de las sesiones anteriores que siguen en el arbol, por aprobar por
    separado (incluida la correccion del calendario).
 2. Sin tema oscuro y sin `.ics` (planificado, fuera de v1).
-3. La barra de tarea del calendario: el boceto la lleva con relleno claro al
-   12 % y borde izquierdo del color del proyecto (con texto oscuro), en vez del
-   color del proyecto como fondo. Es el unico punto donde el boceto avanza y
-   quedo sin aplicar: la decision estaba tomada, pero no se llego a ejecutar.
+3. La barra de tarea del calendario lleva relleno claro al 12 % y borde izquierdo
+   del color del proyecto (texto oscuro): el unico punto donde el boceto
+   avanzaba y quedo aplicado al final. El Gantt mantiene su barra con el color
+   solido y el texto contrastado.
 4. El `.ics` del Gantt esta planificado pero pendiente; la exportacion del Gantt
    sigue fuera de v1.

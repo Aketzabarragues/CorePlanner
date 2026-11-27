@@ -139,7 +139,7 @@ watch(() => props.id, loadMembers)
   <div>
     <PageHeader
       title="Miembros y Asignaciones"
-      subtitle="Personas asignadas al proyecto, con su rol y sus horas base."
+      ayuda="Personas asignadas al proyecto, con su rol y sus horas base."
     >
       <template #actions>
         <p v-if="!loading && members.length" class="text-cp-sm text-texto-tenue">

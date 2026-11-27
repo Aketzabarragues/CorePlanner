@@ -918,36 +918,6 @@ const avisoSoloLectura = computed(() => {
   return 'Diagrama en solo lectura: no hay permisos de escritura en estos proyectos.'
 })
 
-/** Lo que se lee encima del diagrama: con filtros, solo sale lo filtrado. */
-const subtitle = computed(() => {
-  const filtros = []
-  if (departmentFilter.value) {
-    filtros.push(`departamento ${nombreDepartamento(departmentFilter.value)}`)
-  }
-  if (projectFilter.value) {
-    filtros.push(`proyecto ${nombreProyecto(projectFilter.value)}`)
-  }
-  let texto
-  if (filtros.length) {
-    texto = `Las barras filtradas por ${filtros.join(', ')}.`
-  } else {
-    texto = 'Las barras de todos los proyectos visibles, agrupadas por proyecto.'
-  }
-  const avisos = [avisoSoloLectura.value, avisoAlta.value].filter(Boolean)
-  return avisos.length ? texto + ' ' + avisos.join(' ') : texto
-})
-
-/**
- * Aviso de alta de tarea cuando no hay proyecto en contexto.
- *
- * Con filtro de proyecto o agrupacion por proyecto el doble clic si tiene
- * destino: el aviso solo se gana cuando no lo tiene.
- */
-const avisoAlta = computed(() => {
-  if (projectFilter.value || groupBy.value === 'proyecto') return ''
-  return 'Para crear una tarea, elige un proyecto.'
-})
-
 /** Tareas sin fechas: en plural correcto, con una sola no se lee "1 tareas". */
 const avisoSinFechas = computed(() => {
   const n = feed.value?.undated_task_ids.length ?? 0
@@ -1881,11 +1851,11 @@ useTaskReload(load)
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Gantt" :subtitle="subtitle" ayuda="Planificación temporal de las tareas del proyecto. Agrupa por proyecto, persona o departamento y resalta la ruta crítica." filters-testid="gantt-filters">
+    <PageHeader class="shrink-0" title="Gantt" ayuda="Planificación temporal de las tareas del proyecto. Agrupa por proyecto, persona o departamento y resalta la ruta crítica." filters-testid="gantt-filters">
       <template #filters>
         <FilterField
           label="Departamento"
-          ancho="max-w-[112px]"
+          ancho="max-w-[190px]"
           :options="opcionesDepartamento"
           :model-value="departmentFilter"
           testid="gantt-filter-department"
@@ -1896,7 +1866,7 @@ useTaskReload(load)
         <FilterField
           v-if="!route.params.id"
           label="Proyecto"
-          ancho="max-w-[128px]"
+          ancho="max-w-[200px]"
           :options="opcionesProyecto"
           :model-value="projectFilter"
           testid="gantt-filter-project"
@@ -1905,12 +1875,25 @@ useTaskReload(load)
 
         <FilterField
           label="Agrupar por"
-          ancho="max-w-[88px]"
+          ancho="max-w-[150px]"
           :etiqueta-visible="true"
           :options="opcionesGrupo"
           :model-value="groupBy"
           testid="gantt-group-by"
           @update:model-value="cambiarFiltro({ group: $event })"
+        />
+
+        <!--
+          Escala temporal: va en la primera linea, junto a los filtros, para
+          que la cabecera quepa en una sola linea a 1440 (informe 15, cascada
+          de acciones: el segmentado sube y solo el zoom y el periodo se
+          quedan en la segunda cuando no cabe).
+        -->
+        <SegmentedControl
+          v-model="escalaId"
+          :options="opcionesEscala"
+          label="Escala temporal"
+          testid-prefix="gantt-scale"
         />
 
         <!--
@@ -2000,14 +1983,95 @@ useTaskReload(load)
           <span class="hidden 2xl:inline">Ruta crítica</span>
         </button>
 
+      </template>
+
+      <template #actions>
+        <button
+          v-if="projectFilter"
+          type="button"
+          class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
+          :disabled="exportandoIcs"
+          aria-label="Exportar el calendario en iCal"
+          title="Exportar el calendario en iCal"
+          data-testid="gantt-export-ics"
+          @click="exportarIcs"
+        >
+          <span class="inline-flex h-4 w-4 xl:hidden" aria-hidden="true">
+            <AppIcon name="download" />
+          </span>
+          <span class="hidden text-cp-sm font-medium xl:inline">
+            {{ exportandoIcs ? 'Exportando...' : 'Exportar .ics' }}
+          </span>
+        </button>
+        <!--
+          Detalle del diagrama: cuanto mas pixeles por dia, mas cerca se ve
+          el rango. "Ajustar" devuelve el lienzo al ancho del panel.
+        -->
+        <div
+          class="flex flex-none items-center gap-1"
+          role="group"
+          aria-label="Detalle del diagrama"
+          title="Ctrl+rueda sobre el diagrama para acercar o alejar"
+        >
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            aria-label="Menos detalle"
+            :disabled="zoom <= ZOOM_MIN"
+            data-testid="gantt-zoom-out"
+            @click="zoomMenos"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            aria-label="Ajustar al ancho"
+            :disabled="zoom === 1"
+            data-testid="gantt-zoom-fit"
+            @click="zoomAjustar"
+          >
+            <span class="inline-flex h-4 w-4" aria-hidden="true">
+              <AppIcon name="compress" />
+            </span>
+          </button>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            aria-label="Más detalle"
+            :disabled="zoom >= ZOOM_MAX"
+            data-testid="gantt-zoom-in"
+            @click="zoomMas"
+          >
+            +
+          </button>
+        </div>
+        <!--
+          Modo ampliado: el diagrama a pantalla completa, por encima del
+          armazon. El boton es el mismo al entrar y al salir, de modo que el
+          foco no se pierde en ninguno de los dos momentos.
+        -->
+        <button
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave hover:bg-tarjeta-suave"
+          :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
+          :aria-pressed="ampliado"
+          :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
+          data-testid="gantt-fullscreen"
+          @click="alternarAmpliado"
+        >
+          <span class="inline-flex h-4 w-4">
+            <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+          </span>
+        </button>
+        <!--
+          Periodo visible: el panel elige el tramo que se ve y lo escribe en
+          la URL. Va en las acciones, junto a la escala, como el boceto.
+        -->
         <div
           class="flex items-center gap-1"
           :title="'Periodo visible: ' + rangoLabel"
         >
-          <!--
-            Rango de fechas: el panel elige el tramo que se ve y lo escribe en
-            la URL. Es el mismo patron que el de columnas.
-          -->
           <GanttRangePanel
             :desde="rangoElegido.desde"
             :hasta="rangoElegido.hasta"
@@ -2060,91 +2124,6 @@ useTaskReload(load)
             {{ rangoLabel }}
           </span>
         </div>
-      </template>
-
-      <template #actions>
-        <button
-          v-if="projectFilter"
-          type="button"
-          class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
-          :disabled="exportandoIcs"
-          aria-label="Exportar el calendario en iCal"
-          title="Exportar el calendario en iCal"
-          data-testid="gantt-export-ics"
-          @click="exportarIcs"
-        >
-          <span class="inline-flex h-4 w-4 xl:hidden" aria-hidden="true">
-            <AppIcon name="download" />
-          </span>
-          <span class="hidden text-cp-sm font-medium xl:inline">
-            {{ exportandoIcs ? 'Exportando...' : 'Exportar .ics' }}
-          </span>
-        </button>
-        <SegmentedControl
-          v-model="escalaId"
-          :options="opcionesEscala"
-          label="Escala temporal"
-          testid-prefix="gantt-scale"
-        />
-        <!--
-          Detalle del diagrama: cuanto mas pixeles por dia, mas cerca se ve
-          el rango. "Ajustar" devuelve el lienzo al ancho del panel.
-        -->
-        <div
-          class="flex flex-none items-center gap-1"
-          role="group"
-          aria-label="Detalle del diagrama"
-          title="Ctrl+rueda sobre el diagrama para acercar o alejar"
-        >
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
-            aria-label="Menos detalle"
-            :disabled="zoom <= ZOOM_MIN"
-            data-testid="gantt-zoom-out"
-            @click="zoomMenos"
-          >
-            −
-          </button>
-          <button
-            type="button"
-            class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 text-cp-sm font-medium text-texto disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
-            aria-label="Ajustar al ancho"
-            :disabled="zoom === 1"
-            data-testid="gantt-zoom-fit"
-            @click="zoomAjustar"
-          >
-            Ajustar
-          </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
-            aria-label="Más detalle"
-            :disabled="zoom >= ZOOM_MAX"
-            data-testid="gantt-zoom-in"
-            @click="zoomMas"
-          >
-            +
-          </button>
-        </div>
-        <!--
-          Modo ampliado: el diagrama a pantalla completa, por encima del
-          armazon. El boton es el mismo al entrar y al salir, de modo que el
-          foco no se pierde en ninguno de los dos momentos.
-        -->
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave hover:bg-tarjeta-suave"
-          :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
-          :aria-pressed="ampliado"
-          :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
-          data-testid="gantt-fullscreen"
-          @click="alternarAmpliado"
-        >
-          <span class="inline-flex h-4 w-4">
-            <AppIcon :name="ampliado ? 'compress' : 'expand'" />
-          </span>
-        </button>
       </template>
     </PageHeader>
 

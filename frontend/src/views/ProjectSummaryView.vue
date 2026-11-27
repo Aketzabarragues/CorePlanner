@@ -243,7 +243,7 @@ useTaskReload(load)
       <template v-if="project">
         <PageHeader
           :title="project.name"
-          :subtitle="department?.name ?? 'Sin departamento'"
+          :contexto="{ texto: department?.name ?? 'Sin departamento' }"
         >
           <template #actions>
             <div class="flex flex-wrap items-center gap-2">

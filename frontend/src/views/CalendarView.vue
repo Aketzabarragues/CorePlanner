@@ -141,19 +141,6 @@ const opcionesProyecto = computed(() => [
   ...store.projects.map((item) => ({ value: String(item.id), label: item.name })),
 ])
 
-/**
- * Lo que se lee encima del calendario.
- *
- * El alta de tarea de un dia necesita un proyecto fijo: la ruta o el filtro
- * de la URL. Sin el, el detalle de dia no crea nada y lo dice aqui.
- */
-const subtitle = computed(() => {
-  if (!projectFilter.value) {
-    return 'Las tareas de los proyectos visibles, día a día. Sin proyecto en contexto no se pueden crear tareas en el día.'
-  }
-  return 'Las tareas del proyecto que filtra, día a día.'
-})
-
 const weeks = computed(() => monthGrid(month.value))
 
 /** Departamento que gestiona cada proyecto visible. */
@@ -754,11 +741,29 @@ watch(
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Calendario" :subtitle="subtitle" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
+    <PageHeader class="shrink-0" title="Calendario" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
+      <template #contexto>
+        <!-- Rellena el envoltorio de la cabecera: el fondo de aviso es el de la insignia. -->
+        <span
+          class="-mx-2.5 -my-1 rounded-pastilla"
+          :class="
+            projectFilter
+              ? 'bg-ok-fondo text-ok-texto'
+              : 'bg-aviso-fondo text-aviso-texto'
+          "
+          :title="
+            projectFilter
+              ? 'Puedes crear tareas sobre un día laborable de este proyecto'
+              : 'Elige un proyecto en el filtro para poder crear tareas sobre un día laborable'
+          "
+        >
+          {{ projectFilter ? 'Creable' : 'Solo lectura' }}
+        </span>
+      </template>
       <template #filters>
         <FilterField
           label="Departamento"
-          ancho="max-w-[144px]"
+          ancho="max-w-[190px]"
           :options="opcionesDepartamento"
           :model-value="departmentFilter"
           testid="filter-department"
@@ -769,7 +774,7 @@ watch(
         <FilterField
           v-if="!route.params.id"
           label="Proyecto"
-          ancho="max-w-[160px]"
+          ancho="max-w-[200px]"
           :options="opcionesProyecto"
           :model-value="projectFilter"
           testid="filter-project"

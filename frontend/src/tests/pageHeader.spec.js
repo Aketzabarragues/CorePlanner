@@ -10,20 +10,15 @@ describe('PageHeader', () => {
     expect(wrapper.find('h1').text()).toBe('Panel')
   })
 
-  it('el subtitulo va debajo del titulo', () => {
+  it('el texto de ayuda va en el boton de ayuda', () => {
     const wrapper = mount(PageHeader, {
-      props: { title: 'Panel', subtitle: 'Estado de la organización.' },
+      props: { title: 'Panel', ayuda: 'Estado de la organización.' },
     })
 
-    const texto = wrapper.find('header').text()
-    expect(texto).toContain('Panel')
-    expect(texto).toContain('Estado de la organización.')
-  })
-
-  it('sin subtitulo no sale un parrafo vacio', () => {
-    const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
-
-    expect(wrapper.find('header p').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Ayuda"]').exists()).toBe(true)
+    expect(wrapper.find('[role="tooltip"]').text()).toContain(
+      'Estado de la organización.',
+    )
   })
 
   it('las acciones van en su hueco, a la derecha', () => {
@@ -41,7 +36,7 @@ describe('PageHeader', () => {
     expect(wrapper.find('header button').exists()).toBe(false)
   })
 
-  it('el titulo y el subtitulo tienen siempre el mismo aspecto', () => {
+  it('el titulo lleva su aspecto', () => {
     const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
 
     expect(wrapper.find('h1').classes()).toContain('text-cp-titulo')

@@ -75,13 +75,8 @@ const currentTab = computed(
   () => visibleTabs.value.find((item) => item.name === tab.value) ?? visibleTabs.value[0],
 )
 
-/** Titulo y subtitulo: el gerente ve la configuracion entera. */
+/** Titulo: el gerente ve la configuracion entera. */
 const pageTitle = computed(() => (isManager.value ? 'Configuración' : 'Calendario laboral'))
-const pageSubtitle = computed(() =>
-  isManager.value
-    ? 'Personas, roles, departamentos, proyectos y competencias de la organización.'
-    : 'Días no laborables de la organización y su impacto en la capacidad.',
-)
 
 /** Pestana que se abre: la pedida en la URL si se puede ver, si no la de por defecto. */
 function resolveTab(requested) {
@@ -170,9 +165,33 @@ watch(
   <div>
     <PageHeader
       :title="pageTitle"
-      :subtitle="pageSubtitle"
       ayuda="Administración del calendario laboral, las personas, los roles, los departamentos, los proyectos, los miembros, las competencias y las políticas de capacidad."
-    />
+    >
+      <template #filters>
+        <nav
+          v-if="visibleTabs.length > 1"
+          class="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-control bg-tarjeta-suave p-1"
+          aria-label="Secciones de la configuración"
+        >
+          <button
+            v-for="item in visibleTabs"
+            :key="item.name"
+            type="button"
+            :data-testid="`tab-${item.name}`"
+            class="min-h-9 whitespace-nowrap rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            :class="
+              tab === item.name
+                ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
+                : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
+            "
+            :aria-pressed="tab === item.name"
+            @click="selectTab(item.name)"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"
@@ -180,29 +199,6 @@ watch(
       loading-label="Cargando la configuración"
       @retry="reintentar"
     >
-      <nav
-        v-if="visibleTabs.length > 1"
-        class="mb-4 inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-control bg-tarjeta-suave p-1"
-        aria-label="Secciones de la configuración"
-      >
-        <button
-          v-for="item in visibleTabs"
-          :key="item.name"
-          type="button"
-          :data-testid="`tab-${item.name}`"
-          class="min-h-9 whitespace-nowrap rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-          :class="
-            tab === item.name
-              ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
-              : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
-          "
-          :aria-pressed="tab === item.name"
-          @click="selectTab(item.name)"
-        >
-          {{ item.label }}
-        </button>
-      </nav>
-
       <LaborCalendarPanel
         v-if="currentTab.name === 'calendar'"
         :departments="departments"

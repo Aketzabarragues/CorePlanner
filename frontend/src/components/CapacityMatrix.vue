@@ -1215,7 +1215,6 @@ watch(
   <div>
     <PageHeader
       title="Capacidad"
-      :subtitle="project ? project.name : 'Reparto de horas de todos los proyectos visibles.'"
       ayuda="Reparto semanal de horas de todos los proyectos visibles. Pulsa una celda para ver el desglose por proyecto."
       filters-testid="capacity-filters"
     >
@@ -1223,7 +1222,7 @@ watch(
         <FilterField
           v-if="store.departments.length > 1"
           label="Departamento"
-          ancho="max-w-[144px]"
+          ancho="max-w-[190px]"
           :options="opcionesDepartamento"
           :model-value="departmentFilter"
           testid="capacity-filter-department"
@@ -1234,7 +1233,7 @@ watch(
         <FilterField
           v-if="store.projects.length && !route.params.id"
           label="Proyecto"
-          ancho="max-w-[160px]"
+          ancho="max-w-[200px]"
           :options="opcionesProyecto"
           :model-value="projectFilter"
           testid="capacity-filter-project"

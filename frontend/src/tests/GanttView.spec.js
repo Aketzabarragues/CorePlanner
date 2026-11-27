@@ -1222,12 +1222,12 @@ describe('GanttView', () => {
     expect(wrapper.find('form#gantt-task-form').exists()).toBe(false)
   })
 
-  it('sin proyecto en contexto el doble clic no abre nada y el subtitulo lo dice', async () => {
+  it('sin proyecto en contexto el doble clic no abre nada', async () => {
     setupFetch()
 
     const { wrapper } = await mountGantt({ group: 'persona' })
 
-    expect(wrapper.find('header').text()).toContain('Para crear una tarea, elige un proyecto.')
+    expect(wrapper.find('[data-testid="gantt-filters"]').exists()).toBe(true)
 
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 500, bottom: 400 })

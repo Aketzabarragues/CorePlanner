@@ -255,7 +255,6 @@ onMounted(load)
   <div>
     <PageHeader
       title="Proyectos"
-      subtitle="Proyectos visibles, agrupados por el departamento que los gestiona."
       ayuda="Los proyectos visibles agrupados por el departamento que los gestiona, con el avance de tareas y la carga de la semana."
     >
       <template #filters>
@@ -278,7 +277,7 @@ onMounted(load)
 
         <FilterField
           label="Departamento"
-          ancho="max-w-[144px]"
+          ancho="max-w-[190px]"
           :options="opcionesDepartamento"
           :model-value="filtroDepartamento"
           testid="filter-department"

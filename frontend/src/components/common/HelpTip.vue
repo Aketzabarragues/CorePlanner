@@ -38,7 +38,7 @@ const abierto = ref(false)
       v-show="abierto"
       id="cp-help-tip"
       role="tooltip"
-      class="absolute left-0 top-7 z-50 w-72 rounded-control bg-lateral-fondo p-3 text-cp-xs leading-relaxed text-lateral-texto shadow-flotante"
+      class="absolute right-0 top-7 z-50 w-72 rounded-control bg-lateral-fondo p-3 text-cp-xs leading-relaxed text-lateral-texto shadow-flotante"
     >
       {{ texto }}
     </span>

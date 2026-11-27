@@ -271,7 +271,6 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Panel"
-      subtitle="Estado de la organización en el período de planificación."
       ayuda="Resumen del uso del equipo, la carga por semana, los proyectos con más carga y la planificación incompleta del periodo activo."
     >
       <template #actions>

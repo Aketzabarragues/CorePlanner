@@ -151,18 +151,6 @@ const canEdit = computed(() => {
   return editable.includes(Number(props.id))
 })
 
-/**
- * Lo que se lee encima del tablero: cambia con el permiso.
- *
- * Hasta que llega el ambito no se afirma nada: el texto generico es el de
- * siempre y solo se avisa de la solo lectura cuando ya se sabe.
- */
-const subtitle = computed(() =>
-  scope.value && !canEdit.value
-    ? 'Solo lectura: no puedes mover las tarjetas de este proyecto.'
-    : 'Arrastra una tarjeta a otra columna o cambia su estado en el desplegable.',
-)
-
 /** La tarjeta que se esta arrastrando: la copia que sigue al cursor. */
 const draggedTask = computed(() => tasks.value.find((task) => task.id === draggingId.value) ?? null)
 
@@ -498,7 +486,10 @@ onBeforeUnmount(() => drag.anular())
 
 <template>
   <div>
-    <PageHeader title="Tablero Kanban" :subtitle="subtitle">
+    <PageHeader
+      title="Tablero Kanban"
+      ayuda="Arrastra una tarjeta a otra columna o cambia su estado en el desplegable."
+    >
       <template #actions>
         <p v-if="saving" class="text-cp-xs text-texto-tenue">Guardando...</p>
       </template>

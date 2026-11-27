@@ -118,8 +118,17 @@ onMounted(load)
   <div>
     <PageHeader
       title="Departamentos"
-      subtitle="Cada departamento gestiona sus proyectos y tiene una persona responsable."
-    />
+      ayuda="Cada departamento gestiona sus proyectos y tiene una persona responsable."
+    >
+      <template #actions>
+        <RouterLink
+          to="/projects"
+          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+        >
+          Ver tabla de proyectos →
+        </RouterLink>
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"

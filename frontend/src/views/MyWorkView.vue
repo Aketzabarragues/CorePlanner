@@ -205,7 +205,6 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Mi trabajo"
-      subtitle="Lo que tienes asignado y cuánto carga cada semana."
       ayuda="Tu carga por semana, los días que vienen y las tareas que tienes asignadas."
     >
       <template #actions>

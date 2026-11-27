@@ -9,7 +9,6 @@ import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
 import CalendarGrid from '../components/calendar/CalendarGrid.vue'
 import CalendarWeek from '../components/calendar/CalendarWeek.vue'
-import PageHeader from '../components/common/PageHeader.vue'
 import CalendarView from '../views/CalendarView.vue'
 import { useToastStore } from '../stores/toast'
 import { buildWeekLayout } from '../utils/calendarLayout'
@@ -2464,7 +2463,7 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(modal.props('open')).toBe(false)
   })
 
-  it('sin proyecto en contexto no hay alta del dia y el subtitulo lo explica', async () => {
+  it('sin proyecto en contexto no hay alta del dia y la insignia de contexto lo explica', async () => {
     const calls = setupFetchEdicion()
     const { wrapper } = await mountView()
     await wrapper.find('[data-testid="week-day-2026-11-09"]').trigger('click')
@@ -2473,9 +2472,10 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(wrapper.find('[data-testid="day-new-task"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="day-readonly-note"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="modal-footer"]').exists()).toBe(false)
-    expect(wrapper.findComponent(PageHeader).props().subtitle).toContain(
-      'no se pueden crear tareas',
-    )
+    expect(wrapper.text()).toContain('Solo lectura')
+    expect(
+      wrapper.find('[title*="Elige un proyecto en el filtro"]').exists(),
+    ).toBe(true)
     expect(
       calls.find((call) => call.method === 'POST' && call.url.endsWith('/tasks')),
     ).toBeUndefined()

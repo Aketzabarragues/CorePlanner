@@ -25,7 +25,7 @@ import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { useToastStore } from '../stores/toast'
 import { formatHours } from '../utils/kanban'
 import { PALETTE } from '../utils/palette'
-import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
+import { PROJECT_STATUSES } from '../utils/navigation'
 import { plural } from '../utils/plural'
 import { barra, pildora } from '../utils/statusColor'
 
@@ -304,10 +304,7 @@ watch(() => props.id, load)
 
 <template>
   <div>
-    <PageHeader
-      title="Configuración del proyecto"
-      :subtitle="`${project?.name ?? 'Proyecto'} · ${projectStatus(project?.status).label}`"
-    />
+    <PageHeader title="Configuración del proyecto" />
 
     <AsyncState
       :loading="loading"

@@ -18,7 +18,6 @@ import HelpTip from './HelpTip.vue'
 
 defineProps({
   title: { type: String, required: true },
-  subtitle: { type: String, default: '' },
   /** Insignia de contexto: { texto: String, punto: clase de color o null }. */
   contexto: { type: Object, default: null },
   /** Texto del boton de ayuda; sin el, no se pinta el boton. */
@@ -42,7 +41,7 @@ defineProps({
 
           <span
             v-if="contexto || $slots.contexto"
-            class="hidden items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave sm:inline-flex"
+            class="inline-flex flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
           >
             <slot name="contexto">
               <span
@@ -57,14 +56,6 @@ defineProps({
 
           <HelpTip v-if="ayuda" :texto="ayuda" />
         </div>
-
-        <p
-          v-if="subtitle"
-          class="mt-0.5 max-w-[140px] truncate text-cp-xs text-texto-tenue 2xl:max-w-[220px]"
-          :title="subtitle"
-        >
-          {{ subtitle }}
-        </p>
       </div>
     </div>
 

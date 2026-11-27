@@ -462,7 +462,7 @@ describe('CapacityMatrix', () => {
     const urls = capacityCalls(calls)
     expect(urls.some((url) => url.includes('/api/capacity?'))).toBe(true)
     expect(urls.some((url) => url.includes('project_id='))).toBe(false)
-    expect(wrapper.text()).toContain('Reparto de horas de todos los proyectos visibles')
+    expect(wrapper.text()).toContain('Reparto semanal de horas de todos los proyectos visibles')
   })
 
   it('el filtro de proyecto de la URL limita la capacidad', async () => {

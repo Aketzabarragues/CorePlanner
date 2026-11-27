@@ -247,7 +247,6 @@ describe('TaskListView', () => {
     const wrapper = await mountList()
 
     expect(wrapper.findAll('[data-testid="task-row"]')).toHaveLength(3)
-    expect(wrapper.text()).toContain('Solo lectura')
 
     await wrapper.findAll('[data-testid="task-row"]')[0].trigger('click')
     await flushPromises()

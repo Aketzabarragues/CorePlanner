@@ -41,12 +41,6 @@ const departamentos = ref([])
 /** Proyecto que filtra la bitacora. */
 const projectFilter = useProyectoFiltro()
 
-const subtitle = computed(() =>
-  projectFilter.value
-    ? 'Lo que ha pasado en el proyecto que filtra.'
-    : 'Lo que ha pasado en los proyectos visibles.',
-)
-
 /** Quedan entradas por pedir. */
 const quedan = computed(() => entries.value.length < total.value)
 
@@ -198,8 +192,7 @@ watch(
   <div>
     <PageHeader
       title="Actividad"
-      :subtitle="subtitle"
-      ayuda="Registro cronológico de cambios en tareas, checklists y estados sobre los proyectos visibles."
+      ayuda="Registro cronológico de cambios en tareas, checklists y estados. Sin filtro, los proyectos visibles; con filtro, el que filtra."
     />
 
     <AsyncState

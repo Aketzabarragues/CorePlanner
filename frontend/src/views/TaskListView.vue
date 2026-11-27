@@ -16,6 +16,7 @@ import { meApi, projectsApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
+import FilterField from '../components/common/FilterField.vue'
 import PageHeader from '../components/common/PageHeader.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import { useAuthStore } from '../stores/auth'
@@ -48,6 +49,12 @@ const estados = computed(() =>
     tasks.value.map((task) => task.status),
   ),
 )
+
+/** Opciones del filtro de estado, con el "todos" primero. */
+const opcionesEstado = computed(() => [
+  { value: '', label: 'Todos los estados' },
+  ...estados.value.map((estado) => ({ value: estado.key, label: estado.label })),
+])
 
 const tasks = ref([])
 const members = ref([])
@@ -88,12 +95,6 @@ const canEdit = computed(() => {
   return editable.includes(Number(props.id))
 })
 
-const subtitle = computed(() =>
-  scope.value && !canEdit.value
-    ? 'Solo lectura: no puedes cambiar las tareas de este proyecto.'
-    : 'Las tareas del proyecto en fila. Un clic en una fila abre su detalle.',
-)
-
 /** Personas que pueden aparecer en el filtro de responsable. */
 const people = computed(() => {
   const nombres = new Map()
@@ -107,6 +108,12 @@ const people = computed(() => {
   }
   return [...nombres.entries()].map(([id, name]) => ({ id, name }))
 })
+
+/** Opciones del filtro de persona, con el "todas" primero. */
+const opcionesPersona = computed(() => [
+  { value: '', label: 'Todas las personas' },
+  ...people.value.map((persona) => ({ value: String(persona.id), label: persona.name })),
+])
 
 /** Tareas que pasan los filtros. */
 const filtradas = computed(() =>
@@ -213,7 +220,25 @@ useTaskReload(load)
 
 <template>
   <div>
-    <PageHeader title="Lista de tareas" :subtitle="subtitle" />
+    <PageHeader title="Lista de tareas" ayuda="Las tareas del proyecto en fila. Un clic en una fila abre su detalle.">
+      <template #filters>
+        <FilterField
+          label="Estado"
+          :options="opcionesEstado"
+          :model-value="statusFilter"
+          testid="filter-status"
+          @update:model-value="statusFilter = $event"
+        />
+
+        <FilterField
+          label="Persona"
+          :options="opcionesPersona"
+          :model-value="personFilter"
+          testid="filter-person"
+          @update:model-value="personFilter = $event"
+        />
+      </template>
+    </PageHeader>
 
     <AsyncState
       :loading="loading"
@@ -221,39 +246,9 @@ useTaskReload(load)
       loading-label="Cargando las tareas"
       @retry="reintentar"
     >
-      <div class="mb-4 flex flex-wrap items-end gap-2.5">
-        <label class="inline-flex flex-col gap-1 text-cp-xs font-medium text-texto-suave">
-          Estado
-          <select
-            v-model="statusFilter"
-            class="cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta-suave px-2 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-            data-testid="filter-status"
-          >
-            <option value="">Todos los estados</option>
-            <option v-for="estado in estados" :key="estado.key" :value="estado.key">
-              {{ estado.label }}
-            </option>
-          </select>
-        </label>
-
-        <label class="inline-flex flex-col gap-1 text-cp-xs font-medium text-texto-suave">
-          Persona
-          <select
-            v-model="personFilter"
-            class="cursor-pointer rounded-control border border-borde-fuerte bg-tarjeta-suave px-2 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-            data-testid="filter-person"
-          >
-            <option value="">Todas las personas</option>
-            <option v-for="person in people" :key="person.id" :value="String(person.id)">
-              {{ person.name }}
-            </option>
-          </select>
-        </label>
-
-        <p class="ml-auto text-cp-xs text-texto-tenue" data-testid="task-count">
-          {{ ordenadas.length }} de {{ tasks.length }} tareas
-        </p>
-      </div>
+      <p class="mb-3 text-right text-cp-xs text-texto-tenue" data-testid="task-count">
+        {{ ordenadas.length }} de {{ tasks.length }} tareas
+      </p>
 
       <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
         <table class="w-full border-collapse text-cp-sm" data-testid="task-table">

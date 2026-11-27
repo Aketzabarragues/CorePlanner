@@ -549,10 +549,10 @@ describe('KanbanView', () => {
 
     const select = wrapper.findAll('article')[0].findAll('select')[1]
     expect(select.attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('Solo lectura')
+    expect(select.attributes('title')).toBe('Solo lectura')
   })
 
-  it('con permiso de escritura el subtitulo ofrece el arrastre', async () => {
+  it('con permiso de escritura la ayuda ofrece el arrastre', async () => {
     setupFetch()
     const wrapper = await mountKanban()
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { PALETTE } from '../utils/palette'
 import {
   barra,
+  conBlanco,
   contraste,
   luminancia,
   NEUTRO_BARRA,
@@ -53,6 +54,22 @@ describe('pildora', () => {
     expect(pildora(null)).toEqual(NEUTRO_PILDORA)
     expect(pildora('nada')).toEqual(NEUTRO_PILDORA)
     expect(pildora('#123')).toEqual(NEUTRO_PILDORA)
+  })
+})
+
+describe('conBlanco', () => {
+  it('mezcla el color con blanco: la fraccion del color y el resto blanco', () => {
+    expect(conBlanco('#1f6feb', 0.12)).toBe('#e4eefd')
+  })
+
+  it('fraccion 1 deja el color tal cual y fraccion 0 deja el blanco', () => {
+    expect(conBlanco('#1f6feb', 1)).toBe('#1f6feb')
+    expect(conBlanco('#1f6feb', 0)).toBe('#ffffff')
+  })
+
+  it('sin color valido, null', () => {
+    expect(conBlanco(null, 0.12)).toBeNull()
+    expect(conBlanco('#zzzzzz', 0.12)).toBeNull()
   })
 })
 

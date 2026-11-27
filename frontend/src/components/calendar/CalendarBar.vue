@@ -2,15 +2,16 @@
 /**
  * La barra de una tarea dentro de sus sub-filas.
  *
- * Pinta el cuerpo de la barra con el color del proyecto y los datos de la
- * celda en los atributos `data-*` que el arrastre y los tests leen:
- * `data-task-id`, `data-lane` y, de la celda, `data-inicio` y
- * `data-columnas`. El color de fondo es el del proyecto, nunca la paleta
- * por persona.
+ * Pinta el cuerpo de la barra con un relleno claro del color del proyecto
+ * (el color al 12 %, `conBlanco`) y un borde izquierdo de 3 px en el color
+ * del proyecto tal cual, y los datos de la celda en los atributos `data-*`
+ * que el arrastre y los tests leen: `data-task-id`, `data-lane` y, de la
+ * celda, `data-inicio` y `data-columnas`. El color es el del proyecto,
+ * nunca la paleta por persona.
  *
- * El texto de la barra (titulo y nombre de proyecto) se pinta con el color
- * que llega a 4.5:1 sobre el color del proyecto, elegido en `estiloBarra`;
- * sin color de proyecto se queda el blanco de la clase.
+ * El texto de la barra (titulo y nombre de proyecto) va en el token de texto
+ * (`--cp-texto`): sobre el relleno claro el contraste es holgado. Sin color
+ * de proyecto se queda el blanco de la clase.
  *
  * La barra se agarra con `mousedown` (boton izquierdo, fuera de controles):
  * el cuerpo emite `drag-start` con `zona: 'body'` y cada asa de redimension
@@ -32,7 +33,7 @@
  * es la descripcion completa de la tarea; sin permiso de escritura la barra
  * se anuncia deshabilitada, pero sigue enfocable para leerse.
  */
-import { textoSobre } from '../../utils/statusColor'
+import { conBlanco } from '../../utils/statusColor'
 
 const props = defineProps({
   /** Barra con su celda: {tarea, inicio, fin, carril, span}. */
@@ -90,20 +91,12 @@ function alMenuContexto(event) {
   })
 }
 
-/** Oscurecer un hex un 28 %: el borde de la barra repite el color del proyecto. */
-function oscurecer(hex, factor = 0.72) {
-  const canal = (valor) =>
-    Math.round(Math.min(255, Math.max(0, valor * factor))).toString(16).padStart(2, '0')
-  const limpio = (hex ?? '').replace('#', '')
-  if (limpio.length < 6) return hex
-  return `#${canal(parseInt(limpio.slice(0, 2), 16))}${canal(parseInt(limpio.slice(2, 4), 16))}${canal(parseInt(limpio.slice(4, 6), 16))}`
-}
-
 /**
- * Estilo en linea de la barra: el color del proyecto en el fondo, ese mismo
- * color oscurecido como borde izquierdo, para que la barra se lea como una
- * etiqueta de proyecto, y el color del texto que llega a 4.5:1 sobre el
- * fondo. En linea porque el color llega en hex del backend.
+ * Estilo en linea de la barra: el color del proyecto al 12 % de relleno
+ * (claro, para que un titulo largo se lea), ese mismo color tal cual como
+ * borde izquierdo de 3 px (sobre el relleno claro el color se lee) y el
+ * token de texto como color de texto (sobre el relleno claro el contraste
+ * es holgado). En linea porque el color llega en hex del backend.
  *
  * La barra provisional no lleva relleno ni borde de color: el fondo `bg-tarjeta`
  * y el contorno punteado lo da la clase; un estilo en linea del proyecto
@@ -114,9 +107,9 @@ function estiloBarra(tarea) {
   const color = tarea.project_color
   if (!color) return {}
   return {
-    backgroundColor: color,
-    borderLeftColor: oscurecer(color),
-    color: textoSobre(color),
+    backgroundColor: conBlanco(color, 0.12),
+    borderLeftColor: color,
+    color: 'rgb(var(--cp-texto))',
   }
 }
 </script>

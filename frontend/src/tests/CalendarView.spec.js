@@ -12,6 +12,7 @@ import CalendarWeek from '../components/calendar/CalendarWeek.vue'
 import CalendarView from '../views/CalendarView.vue'
 import { useToastStore } from '../stores/toast'
 import { buildWeekLayout } from '../utils/calendarLayout'
+import { conBlanco } from '../utils/statusColor'
 import { weekDays } from '../utils/weeks'
 
 const feed = {
@@ -89,6 +90,18 @@ function esperaColor(elemento, hex) {
   expect(estilo).toMatch(
     new RegExp(`background-color:\\s*(#${hex.slice(1)}|rgb\\(${rgb}\\))`, 'i'),
   )
+}
+
+/**
+ * Comprueba que la barra de tarea se pinte con el color de su proyecto:
+ * tinte del 12 % en el relleno y el color tal cual en el borde izquierdo.
+ */
+function esperaBarraProyecto(elemento, hex) {
+  const estilo = elemento.attributes('style') ?? ''
+  // jsdom normaliza el color a rgb al serializar el estilo.
+  const aRgb = (color) => color.slice(1).match(/.{2}/g).map((par) => parseInt(par, 16)).join(', ')
+  expect(estilo).toContain(`background-color: rgb(${aRgb(conBlanco(hex, 0.12))})`)
+  expect(estilo).toContain(`border-left-color: rgb(${aRgb(hex)})`)
 }
 
 /** Ambito de quien entra: los proyectos en los que puede escribir. */
@@ -410,20 +423,20 @@ describe('CalendarView', () => {
     const { wrapper } = await mountView()
 
     const semanas = wrapper.findAll('[data-testid="week-lanes"]')
-    esperaColor(semanas[1].find('[data-testid="week-task"]'), '#1f6feb')
-    esperaColor(semanas[2].find('[data-testid="week-task"]'), '#0a3d91')
+    // Relleno claro del color (12 %) y borde izquierdo en el color tal cual.
+    esperaBarraProyecto(semanas[1].find('[data-testid="week-task"]'), '#1f6feb')
+    esperaBarraProyecto(semanas[2].find('[data-testid="week-task"]'), '#0a3d91')
   })
 
-  it('el texto de la barra se pinta con el color que llega a 4.5:1 sobre el fondo', async () => {
+  it('el texto de la barra va en el token de texto: el relleno claro aguanta el contraste', async () => {
     const { wrapper } = await mountView()
 
     const semanas = wrapper.findAll('[data-testid="week-lanes"]')
-    // Ambos fondos de la prueba son oscuros: el texto se queda blanco.
     expect(semanas[1].find('[data-testid="week-task"]').attributes('style')).toContain(
-      'color: rgb(255, 255, 255)',
+      'color: rgb(var(--cp-texto))',
     )
     expect(semanas[2].find('[data-testid="week-task"]').attributes('style')).toContain(
-      'color: rgb(255, 255, 255)',
+      'color: rgb(var(--cp-texto))',
     )
   })
 
@@ -1620,7 +1633,7 @@ describe('CalendarWeek', () => {
     const barra = wrapper.find('[data-testid="week-task"]')
     expect(barra.text()).toContain('Programacion')
     expect(barra.text()).toContain('Linea Pasteurizadora SIVE')
-    esperaColor(barra, '#1f6feb')
+    esperaBarraProyecto(barra, '#1f6feb')
   })
 
   it('la barra de un proyecto provisional va de contorno, sin relleno', () => {
@@ -1637,8 +1650,7 @@ describe('CalendarWeek', () => {
     })
 
     const [firme, provisional] = wrapper.findAll('[data-testid="week-task"]')
-    expect(firme.classes()).toContain('text-sobre-primario')
-    esperaColor(firme, '#1f6feb')
+    esperaBarraProyecto(firme, '#1f6feb')
     // Sin relleno, con el contorno punteado y la nota en el aviso.
     expect(provisional.classes().join(' ')).toContain('border-dashed')
     expect(provisional.attributes('style')).toContain('background-color: transparent')

@@ -13,6 +13,9 @@
  * La misma matematica sirve para el texto sobre el color de un proyecto
  * (la barra del Gantt y la del calendario): `textoSobre` elige el color del
  * texto para que llegue a 4.5:1 contra el fondo, que es dato del backend.
+ *
+ * La mezcla con blanco (`conBlanco`) es publica: la barra del calendario
+ * pinta el color del proyecto al 12 % como relleno claro.
  */
 
 /**
@@ -36,7 +39,7 @@ function hexACanal(hex) {
 }
 
 /** Mezcla un color con blanco: `fraccion` del color y el resto blanco. */
-function conBlanco(hex, fraccion) {
+export function conBlanco(hex, fraccion) {
   const color = hexACanal(hex)
   if (color === null) return null
   const canal = (n) =>

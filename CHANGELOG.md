@@ -7,6 +7,10 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **frontend**: la bitacora tiene filtros de persona, de proyecto y de tipo de evento, y
+  se aplican en el servidor (`GET /api/activity` acepta `actor_id` y `action`): antes era
+  un scroll infinito. Los tres viajan en la URL. Personas lleva el buscador en la
+  cabecera.
 - **frontend**: las cabeceras de vista llevan un boton de ayuda con el texto que explica
   la pantalla (calendario, capacidad, Gantt, proyectos, personas, actividad y
   configuracion). El tooltip se abre al pasar por encima, al enfocar y al hacer clic, y
@@ -45,6 +49,12 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: las cabeceras de vista caben en una linea: los filtros van junto al titulo
+  (con la etiqueta en linea, no encima) y las acciones a la derecha. El subtitulo
+  desaparece (su texto va en el boton de ayuda), los filtros se ensanchan para que no se
+  recorten y el tooltip de ayuda se ancla al otro lado para que no tape los filtros.
+  Configuracion lleva la tira de pestanas en la cabecera y la lista de tareas sus
+  filtros.
 - **frontend**: toda la interfaz se pinta con tokens: barra lateral, cabeceras de
   vista, tablas, tarjetas, tablero, calendario, diagrama de Gantt, diálogos y avisos.
   Sin cambios de comportamiento: rutas, estado en la URL, permisos, `data-testid` y

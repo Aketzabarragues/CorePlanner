@@ -92,6 +92,19 @@ const secciones = computed(() => {
 })
 
 /**
+ * Si la seccion abre un departamento nuevo.
+ *
+ * Compara con la seccion anterior de la lista: el cambio de departamento se
+ * marca una sola vez, en la primera seccion del departamento nuevo.
+ */
+function cambiaDeDepartamento(seccion) {
+  const lista = secciones.value
+  const anterior = lista[lista.indexOf(seccion) - 1]
+  if (!anterior) return false
+  return (anterior.department_name ?? '') !== (seccion.department_name ?? '')
+}
+
+/**
  * Edicion inline en curso: una sola a la vez, por tarea y campo. El clic que
  * termina la edicion no abre el detalle, como el que sigue a un arrastre no
  * debe abrir nada.
@@ -182,6 +195,7 @@ function nonWorkingClass(scope) {
       v-for="seccion in secciones"
       :key="seccion.id ?? 'sin-asignar'"
       class="border-b border-borde-suave last:border-b-0"
+      :class="cambiaDeDepartamento(seccion) ? 'border-t-2 border-t-borde-fuerte' : ''"
       :data-testid="seccion.id === null ? 'day-section-sin-asignar' : `day-section-${seccion.id}`"
     >
       <div class="flex items-baseline justify-between gap-2 bg-tarjeta-suave px-4 py-1.5">

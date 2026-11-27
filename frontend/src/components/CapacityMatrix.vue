@@ -378,6 +378,18 @@ function cellOf(row, week) {
 }
 
 /**
+ * Si la celda tiene tareas asignadas que suman cero horas.
+ *
+ * El dato ya viene del backend: la celda trae el reparto por proyecto y un
+ * proyecto con cero horas aparece con `hours: 0`. La celda no puede
+ * distinguirlo por sus horas (son cero), pero si por el reparto: hay
+ * proyectos y la carga total no pasa de cero.
+ */
+function tieneTareasCeroHoras(celda) {
+  return (celda.projects?.length ?? 0) > 0 && Number(celda.hours ?? 0) === 0
+}
+
+/**
  * Si una persona es miembro del proyecto de una tarea.
  *
  * El backend rechaza con un 422 a quien no es miembro del proyecto, asi que el
@@ -479,12 +491,17 @@ function cellView(row, week) {
   // entero sin firmar sigue siendo carga, aunque sea provisional.
   const vacia = !(horas > 0) && !(provisional > 0)
   const preview = previewOf(row, week)
+  // Marca de la celda sin carga: punto solido sin tareas, anillo hueco si hay
+  // tareas asignadas que suman cero horas. La distincion es por forma.
+  const tareasCeroHoras = vacia && tieneTareasCeroHoras(cell)
 
   return {
     week,
     state,
     etiqueta: loadLabel(state),
     sobrecargada: isOverloaded(state),
+    tareasCeroHoras,
+    vacia,
     principal: vacia ? '·' : horasAplicables,
     capacidad: vacia ? '' : ratio === null ? 'sin capacidad' : `/${cell.capacity}`,
     porcentaje: vacia || ratio === null ? '' : `${ratio} %`,
@@ -643,6 +660,8 @@ function cellAria(row, week) {
   const partes = [`${row.name}, semana ${weekTitle(week)}`]
   if (!(horas > 0)) {
     partes.push('sin horas')
+    // El anillo no basta: el nombre accesible dice que hay tareas sin horas.
+    if (tieneTareasCeroHoras(cell)) partes.push('Tiene tareas asignadas que suman 0 h.')
     return partes.join(', ')
   }
   partes.push(`${aplicables} h`)
@@ -1481,7 +1500,7 @@ watch(
               >
                 <button
                   type="button"
-                  class="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
+                  class="flex h-[76px] w-full flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
                   :class="celda.clases"
                   :title="`Ver tareas de ${entrada.fila.name} en ${celda.week}`"
                   :aria-label="cellAria(entrada.fila, celda.week)"
@@ -1511,32 +1530,36 @@ watch(
                   </template>
 
                   <template v-else-if="mode === MODE.HOURS">
-                    <span class="flex items-center gap-1">
-                      <span class="font-mono text-cp-sm font-semibold tabular-nums">{{ celda.principal }}</span>
-                      <span class="font-mono text-cp-micro tabular-nums opacity-80">
-                        {{ celda.capacidad }}
+                    <!-- Celda sin carga: la marca, sin cifras. Punto solido sin
+                         tareas, anillo hueco si hay tareas que suman 0 h: la
+                         distincion es por forma, no por color. -->
+                    <span
+                      v-if="celda.vacia"
+                      :class="
+                        celda.tareasCeroHoras
+                          ? 'h-2.5 w-2.5 rounded-full border-2 border-texto-tenue bg-transparent'
+                          : 'h-2.5 w-2.5 rounded-full bg-texto-tenue'
+                      "
+                      aria-hidden="true"
+                    ></span>
+                    <template v-else>
+                      <span class="flex items-center gap-1">
+                        <span class="font-mono text-cp-sm font-semibold tabular-nums">{{ celda.principal }}</span>
+                        <span class="font-mono text-cp-micro tabular-nums opacity-80">
+                          {{ celda.capacidad }}
+                        </span>
                       </span>
-                    </span>
-                    <span v-if="celda.porcentaje" class="font-mono text-cp-micro tabular-nums opacity-80">
-                      {{ celda.porcentaje }}
-                    </span>
-                    <span
-                      v-if="celda.libre !== null && celda.libre !== ''"
-                      class="font-mono text-cp-micro tabular-nums opacity-80"
-                      data-testid="cell-libre"
-                    >
-                      libre {{ celda.libre }} h
-                    </span>
-                    <span
-                      v-if="celda.muestraBarra"
-                      class="mt-0.5 block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30"
-                    >
+                      <span v-if="celda.porcentaje" class="font-mono text-cp-micro tabular-nums opacity-80">
+                        {{ celda.porcentaje }}
+                      </span>
                       <span
-                        class="block h-1 rounded-pastilla"
-                        :class="celda.claseBarra"
-                        :style="{ width: `${celda.anchoBarra}%` }"
-                      ></span>
-                    </span>
+                        v-if="celda.libre !== null && celda.libre !== ''"
+                        class="font-mono text-cp-micro tabular-nums opacity-80"
+                        data-testid="cell-libre"
+                      >
+                        libre {{ celda.libre }} h
+                      </span>
+                    </template>
                   </template>
 
                   <template v-else-if="mode === MODE.PERCENT">
@@ -1573,6 +1596,19 @@ watch(
                     </span>
                     {{ celda.veredicto === 'aviso' ? 'aviso' : 'aprobación' }}
                   </span>
+
+                  <!-- Barra siempre, para que las dos variantes de celda tengan
+                       la misma silueta: sin carga la pista, sin relleno. -->
+                  <span
+                    class="mt-auto block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30"
+                  >
+                    <span
+                      v-if="celda.muestraBarra"
+                      class="block h-1 rounded-pastilla"
+                      :class="celda.claseBarra"
+                      :style="{ width: `${celda.anchoBarra}%` }"
+                    ></span>
+                  </span>
                 </button>
               </td>
               <td class="border border-borde px-3 py-2 text-right tabular-nums">
@@ -1593,13 +1629,13 @@ watch(
                 class="border border-borde p-1"
               >
                 <div
-                  class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
+                  class="flex h-[76px] flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
                   :class="semana.clases"
                 >
                   <span class="font-mono text-cp-sm font-semibold tabular-nums">
                     {{ semana.porcentaje || '·' }}
                   </span>
-                  <span class="mt-0.5 block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30">
+                  <span class="mt-auto block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30">
                     <span
                       class="block h-1 rounded-pastilla"
                       :class="semana.claseBarra"

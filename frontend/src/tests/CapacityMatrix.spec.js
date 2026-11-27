@@ -211,8 +211,79 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
-    expect(celda.text()).toContain('·')
+    // El punto es una marca grafica, no un glifo: se comprueba por la clase.
+    const punto = celda.element.querySelector('span.rounded-full')
+    expect(punto).toBeTruthy()
+    expect(punto.className).toContain('bg-texto-tenue')
     expect(celda.text()).not.toContain('%')
+  })
+
+  it('todas las celdas tienen el mismo alto y la barra se dibuja siempre', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const conDatos = wrapper.get('[data-testid="cell-1-2026-W45"]')
+    const vacia = wrapper.get('[data-testid="cell-1-2026-W46"]')
+
+    // El alto fijo es el de la celda con datos: las filas de la rejilla salen rectas.
+    expect(conDatos.classes()).toContain('h-[76px]')
+    expect(vacia.classes()).toContain('h-[76px]')
+
+    // La barra siempre: con datos lleva el relleno, vacia solo la pista, sin relleno.
+    function pistaDe(elemento) {
+      return Array.from(elemento.querySelectorAll('span')).find(
+        (span) => span.className.includes('bg-carga-vacio-barra/30'),
+      )
+    }
+    const pistaVacia = pistaDe(vacia.element)
+    expect(pistaVacia).toBeTruthy()
+    expect(pistaVacia.querySelector('span')).toBeNull()
+    const pistaDatos = pistaDe(conDatos.element)
+    expect(pistaDatos.querySelector('span')).toBeTruthy()
+  })
+
+  it('una celda con tareas que suman 0 h muestra un anillo hueco y no un punto', async () => {
+    setupFetch({
+      '/api/capacity': () =>
+        jsonResponse({
+          ...capacityReport,
+          rows: capacityReport.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((cell) =>
+              cell.week === '2026-W46'
+                ? {
+                    ...cell,
+                    hours: 0,
+                    is_overloaded: false,
+                    // Ana trae un proyecto con 0 h; Sebastian no trae nada.
+                    projects:
+                      row.user_id === 1 ? [{ project_id: 1, hours: 0 }] : [],
+                  }
+                : cell,
+            ),
+          })),
+        }),
+    })
+    const wrapper = await mountMatrix()
+
+    // El anillo dice "aqui hay algo" por forma, no por color.
+    const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    expect(celda.classes()).toContain('bg-carga-vacio-fondo')
+    const anillo = celda.element.querySelector('span.rounded-full')
+    expect(anillo).toBeTruthy()
+    expect(anillo.className).toContain('border-2')
+    expect(anillo.className).toContain('border-texto-tenue')
+    expect(anillo.className).toContain('bg-transparent')
+    expect(celda.text()).not.toContain('0')
+    // El nombre accesible lo dice: forma y color no bastan.
+    expect(celda.attributes('aria-label')).toContain('Tiene tareas asignadas que suman 0 h.')
+
+    // Sin tareas la marca sigue siendo el punto solido.
+    const sinTareas = wrapper.get('[data-testid="cell-2-2026-W46"]')
+    const punto = sinTareas.element.querySelector('span.rounded-full')
+    expect(punto).toBeTruthy()
+    expect(punto.className).toContain('bg-texto-tenue')
+    expect(punto.className).not.toContain('border-2')
   })
 
   it('con capacidad desconocida la celda no se marca como libre', async () => {
@@ -1161,8 +1232,11 @@ describe('CapacityMatrix', () => {
     await wrapper.get('[data-testid="cell-1-2026-W46"]').trigger('drop')
     await flushPromises()
 
-    // Ana se queda como estaba y el operario ve el motivo.
-    expect(wrapper.get('[data-testid="cell-1-2026-W46"]').text()).toContain('·')
+    // Ana se queda como estaba, sin carga: la marca es el punto, sin relleno.
+    const celdaAna = wrapper.get('[data-testid="cell-1-2026-W46"]')
+    const punto = celdaAna.element.querySelector('span.rounded-full')
+    expect(punto).toBeTruthy()
+    expect(punto.className).toContain('bg-texto-tenue')
     expect(wrapper.get('[data-testid="capacity-warning"]').text()).toContain(
       'No se ha podido reasignar',
     )

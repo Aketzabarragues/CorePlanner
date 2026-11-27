@@ -418,6 +418,11 @@ periodo.
   navegacion se sienta igual en las dos vistas.
 - **Sin endpoint nuevo**: el feed del Gantt ya trae todas las tareas con fecha y
   la vista semanal filtra en cliente.
+- **Separacion entre departamentos**: cuando el departamento cambia de una
+  persona a la siguiente, la primera fila del departamento nuevo lleva un borde
+  superior de 2 px en el borde fuerte; el resto se separa con la linea de 1 px.
+  El departamento sigue siendo un dato de la fila (la franja), no un grupo: no
+  reordena ni agrupa personas.
 
 ## 16. Vista de dia del calendario
 
@@ -455,6 +460,9 @@ de la rejilla mensual o de la semanal.
 - La edicion en linea y el alta son del mismo tipo que las del Tablero, con el
   mismo criterio de permiso: sin permiso de escritura en el proyecto, el dia se
   ve en solo lectura y avisa de ello.
+- **Separacion entre departamentos**: mismo criterio que la vista semanal; la
+  seccion de persona que abre un departamento nuevo lleva el borde superior de
+  2 px en el borde fuerte.
 
 ## 17. Calendario laboral
 

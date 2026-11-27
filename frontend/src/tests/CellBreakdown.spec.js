@@ -119,6 +119,24 @@ describe('CellBreakdown', () => {
     expect(items[1].classes().join(' ')).toContain('border-borde-fuerte')
     expect(items[1].text()).toContain('Ampliacion linea 2 (provisional)')
   })
+
+  it('una tarea con 0 h lleva la pastilla de aviso junto a sus horas', async () => {
+    const wrapper = await mountBreakdown(celda({ hours: 0, capacity: 40 }), [
+      { ...tarea(10, 1), week_hours: 0 },
+      tarea(11, 1),
+    ])
+
+    const items = wrapper.findAll('[data-testid="breakdown-task"]')
+    // Asignada pero sin horas: la pastilla de aviso la subraya.
+    const aviso = items[0].find('[data-testid="breakdown-task-zero"]')
+    expect(aviso.exists()).toBe(true)
+    expect(aviso.attributes('title')).toBe('La tarea esta asignada pero no aporta horas')
+    expect(aviso.classes().join(' ')).toContain(
+      'rounded-control border border-aviso-borde bg-aviso-fondo px-1.5 py-0.5 font-mono text-cp-micro font-semibold text-aviso-texto',
+    )
+    // La otra tarea aporta horas: no lleva la pastilla.
+    expect(items[1].find('[data-testid="breakdown-task-zero"]').exists()).toBe(false)
+  })
 })
 
 describe('veredicto de politica de capacidad', () => {

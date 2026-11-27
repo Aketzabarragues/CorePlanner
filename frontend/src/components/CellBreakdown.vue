@@ -354,6 +354,15 @@ function onKeydown(task, event) {
           </div>
           <span class="shrink-0 text-sm font-semibold tabular-nums">
             {{ taskHours(task) }} h
+            <!-- Asignada pero sin horas: la pastilla de aviso la subraya. -->
+            <span
+              v-if="Number(taskHours(task)) === 0"
+              class="rounded-control border border-aviso-borde bg-aviso-fondo px-1.5 py-0.5 font-mono text-cp-micro font-semibold text-aviso-texto"
+              title="La tarea esta asignada pero no aporta horas"
+              data-testid="breakdown-task-zero"
+            >
+              0 h
+            </span>
           </span>
         </div>
 

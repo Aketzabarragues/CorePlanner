@@ -409,13 +409,7 @@ describe('GanttView', () => {
 
     const { wrapper } = await mountGantt()
 
-    const filtros = [
-      ['gantt-filter-department', 'Departamento'],
-      ['gantt-filter-project', 'Proyecto'],
-      ['gantt-group-by', 'Agrupar por'],
-    ]
-
-    for (const [testid, texto] of filtros) {
+    for (const testid of ['gantt-filter-department', 'gantt-filter-project', 'gantt-group-by']) {
       const select = wrapper.get(`[data-testid="${testid}"]`)
       const label = select.element.closest('label')
       expect(label).not.toBeNull()
@@ -425,9 +419,9 @@ describe('GanttView', () => {
       expect(label.className).not.toContain('flex-col')
       expect(label.className).not.toContain('rounded-full')
 
-      const span = label.querySelector('span')
-      expect(span.className).toContain('text-cp-xs font-medium text-texto-suave')
-      expect(span.textContent).toBe(texto)
+      // Ningun filtro lleva etiqueta visible: el valor seleccionado se nombra
+      // solo y la etiqueta queda para el lector de pantalla.
+      expect(label.querySelector('span').className).toContain('sr-only')
 
       const clasesSelect = select.classes().join(' ')
       expect(clasesSelect).toContain(
@@ -437,14 +431,19 @@ describe('GanttView', () => {
       expect(clasesSelect).not.toContain('bg-transparent')
     }
 
-    // "Agrupar por" es el unico filtro con la etiqueta visible: las demas
-    // opciones se nombran solas y su etiqueta queda para el lector de pantalla.
-    const agrupa = wrapper.get('[data-testid="gantt-group-by"]').element.closest('label')
-    const etiqAgrupar = agrupa.querySelector('span')
-    expect(etiqAgrupar.className).not.toContain('sr-only')
-    const etiquetaProyecto =
-      wrapper.get('[data-testid="gantt-filter-project"]').element.closest('label').querySelector('span')
-    expect(etiquetaProyecto.className).toContain('sr-only')
+    // En "Agrupar" el prefijo va en el texto de las opciones, como el boceto,
+    // y el select se nombra solo por la opcion elegida.
+    const agrupa = wrapper.get('[data-testid="gantt-group-by"]')
+    const opciones = Array.from(agrupa.element.querySelectorAll('option')).map((opcion) =>
+      opcion.textContent.trim(),
+    )
+    expect(opciones).toEqual([
+      'Agrupar: Proyecto',
+      'Agrupar: Departamento',
+      'Agrupar: Persona',
+      'Agrupar: Sin agrupar',
+    ])
+    expect(opciones.some((opcion) => opcion.includes('Agrupar: Agrupar:'))).toBe(false)
 
     // El desplegable se lee entero en el title: etiqueta y valor seleccionado.
     const proyecto = wrapper.get('[data-testid="gantt-filter-project"]')
@@ -1494,8 +1493,10 @@ describe('GanttView', () => {
 
     const { wrapper } = await mountGantt({ project: '1' })
 
+    // Boton de icono del grupo de la derecha: el nombre va en el aria-label.
     const boton = wrapper.get('[data-testid="gantt-export-ics"]')
-    expect(boton.text()).toBe('Exportar .ics')
+    expect(boton.attributes('aria-label')).toBe('Exportar el calendario en iCal')
+    expect(boton.element.querySelector('svg')).not.toBeNull()
   })
 
   it('en la vista global, sin proyecto en contexto, no ofrece el boton', async () => {
@@ -2231,6 +2232,9 @@ describe('ruta crítica', () => {
 
     const boton = wrapper.get('[data-testid="gantt-critical-toggle"]')
     expect(boton.attributes('aria-pressed')).toBe('false')
+    // Boton de icono y texto, como el boceto: el estado activo se ve.
+    expect(boton.text()).toBe('Ruta crítica')
+    expect(boton.element.querySelector('svg')).not.toBeNull()
 
     await boton.trigger('click')
     await flushPromises()
@@ -2555,19 +2559,24 @@ describe('rango de fechas del diagrama', () => {
 
     // Plan completo en la escala de semana: de lunes 2 a domingo 15 de
     // noviembre. La insignia es informacion: visible (no sr-only), en el
-    // sitio del boceto (entre el periodo anterior y el hoy) y sin mover los
-    // botones del grupo.
+    // sitio del boceto (con sus flechas a los lados y el hoy delante) y sin
+    // mover los botones del grupo.
     const insignia = wrapper.get('[data-testid="range-label"]')
     expect(insignia.text()).toBe('2 - 15 nov 2026')
     expect(insignia.classes()).not.toContain('sr-only')
 
     const grupo = insignia.element.parentElement
-    const [anterior, rango, hoy] = ['range-previous', 'range-label', 'range-today'].map(
-      (testid) => [...grupo.children].findIndex((hijo) => hijo.dataset?.testid === testid),
-    )
-    // Los tres presentes, y la insignia entre el periodo anterior y el hoy.
+    const [anterior, rango, siguiente, hoy] = [
+      'range-previous',
+      'range-label',
+      'range-next',
+      'range-today',
+    ].map((testid) => [...grupo.children].findIndex((hijo) => hijo.dataset?.testid === testid))
+    // Los cuatro presentes, y la insignia entre sus flechas, con el hoy al
+    // final.
     expect(anterior).toBeGreaterThanOrEqual(0)
     expect(rango).toBe(anterior + 1)
-    expect(hoy).toBe(rango + 1)
+    expect(siguiente).toBe(rango + 1)
+    expect(hoy).toBe(siguiente + 1)
   })
 })

@@ -273,8 +273,13 @@ const opcionesProyecto = computed(() => [
   { value: '', label: 'Todos los proyectos' },
   ...proyectos.value.map((item) => ({ value: String(item.id), label: item.name })),
 ])
+/**
+ * El prefijo "Agrupar:" vive en el texto de las opciones, no en una
+ * etiqueta suelta a la izquierda: el desplegable se nombra solo y la fila
+ * no lleva un texto que no es una opcion.
+ */
 const opcionesGrupo = computed(() =>
-  GRUPOS.map((grupo) => ({ value: grupo.id, label: grupo.label })),
+  GRUPOS.map((grupo) => ({ value: grupo.id, label: `Agrupar: ${grupo.label}` })),
 )
 
 /**
@@ -1905,75 +1910,17 @@ useTaskReload(load)
           @update:model-value="cambiarFiltro({ project: $event })"
         />
 
+        <!--
+          Agrupado: un solo desplegable, sin etiqueta suelta. El prefijo
+          "Agrupar:" va en el texto de las opciones, como el boceto.
+        -->
         <FilterField
-          label="Agrupar por"
-          ancho="max-w-[150px]"
-          :etiqueta-visible="true"
+          label="Agrupar"
+          ancho="max-w-[190px]"
           :options="opcionesGrupo"
           :model-value="groupBy"
           testid="gantt-group-by"
           @update:model-value="cambiarFiltro({ group: $event })"
-        />
-
-        <!--
-          Colapso de grupos: la cabecera de cada grupo es un boton que lo
-          colapsa. Estos dos actuan sobre todos los grupos del agrupamiento
-          vigente y escriben el mismo estado que los botones de la cabecera.
-        -->
-        <div
-          v-if="groupBy !== 'sin'"
-          class="flex items-center gap-1"
-          role="group"
-          aria-label="Colapso de grupos"
-        >
-          <button
-            type="button"
-            class="relative inline-flex flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
-            :disabled="!clavesDeGrupos.length"
-            aria-label="Colapsar todos los grupos"
-            title="Colapsar todos los grupos"
-            data-testid="gantt-collapse-all"
-            @click="colapsarTodo"
-          >
-            <span class="hidden text-cp-sm font-medium 2xl:inline">Colapsar todo</span>
-            <span class="inline-flex h-4 w-4 2xl:hidden" aria-hidden="true">
-              <AppIcon name="chevronUp" />
-            </span>
-          </button>
-          <button
-            type="button"
-            class="relative inline-flex flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
-            :disabled="!colapsados.size"
-            aria-label="Expandir todos los grupos"
-            title="Expandir todos los grupos"
-            data-testid="gantt-expand-all"
-            @click="expandirTodo"
-          >
-            <span class="hidden text-cp-sm font-medium 2xl:inline">Expandir todo</span>
-            <span class="inline-flex h-4 w-4 2xl:hidden" aria-hidden="true">
-              <AppIcon name="chevronDown" />
-            </span>
-          </button>
-        </div>
-
-        <VisibilityPanel
-          :personas="personasVisibilidad"
-          :ids-ocultos="idsOcultos"
-          :departamentos-ocultos="departamentosOcultos"
-          :ocultos-count="ocultosCount"
-          @alternar-persona="alternarPersona"
-          @alternar-departamento="alternarDepartamento"
-          @mostrar-todos="mostrarTodos"
-        />
-
-        <!--
-          Columnas del panel de nombres: las elegibles van a la derecha de la
-          columna de tareas. La eleccion vive en la URL.
-        -->
-        <GanttColumnsPanel
-          :columnas="COLUMNAS_GANTT"
-          :seleccionadas="columnasElegidas"
-          @alternar="alternarColumna"
         />
 
         <!--
@@ -1984,7 +1931,7 @@ useTaskReload(load)
         -->
         <button
           type="button"
-          class="relative inline-flex items-center justify-center rounded-control border p-1.5 text-cp-sm font-medium after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
+          class="relative inline-flex flex-none items-center gap-1.5 rounded-control border px-3 py-1.5 text-cp-sm font-medium after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
           :class="
             rutaCriticaActiva
               ? 'border-primario-fuerte bg-primario-fuerte text-sobre-primario'
@@ -1996,52 +1943,126 @@ useTaskReload(load)
           data-testid="gantt-critical-toggle"
           @click="alternarRutaCritica"
         >
-          <span class="inline-flex h-4 w-4 2xl:hidden" aria-hidden="true">
+          <span class="inline-flex h-4 w-4 flex-none" aria-hidden="true">
             <AppIcon name="route" />
           </span>
-          <span class="hidden 2xl:inline">Ruta crítica</span>
+          Ruta crítica
         </button>
+
+        <!--
+          Colapso de grupos: la cabecera de cada grupo es un boton que lo
+          colapsa. Estos dos actuan sobre todos los grupos del agrupamiento
+          vigente y escriben el mismo estado que los botones de la cabecera.
+          Son acciones, no una eleccion, por eso no es un SegmentedControl.
+        -->
+        <div
+          v-if="groupBy !== 'sin'"
+          class="inline-flex flex-none items-center gap-0.5 rounded-control bg-tarjeta-suave p-1"
+          role="group"
+          aria-label="Colapsar/Expandir"
+        >
+          <button
+            type="button"
+            class="relative rounded-control px-2.5 py-1 text-cp-sm font-medium text-texto-suave transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco hover:bg-tarjeta/70 hover:text-texto disabled:cursor-not-allowed disabled:bg-transparent disabled:text-texto-tenue after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+            :disabled="!clavesDeGrupos.length"
+            aria-label="Colapsar todos los grupos"
+            title="Colapsar todos los grupos"
+            data-testid="gantt-collapse-all"
+            @click="colapsarTodo"
+          >
+            Colapsar
+          </button>
+          <button
+            type="button"
+            class="relative rounded-control px-2.5 py-1 text-cp-sm font-medium text-texto-suave transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco hover:bg-tarjeta/70 hover:text-texto disabled:cursor-not-allowed disabled:bg-transparent disabled:text-texto-tenue after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+            :disabled="!colapsados.size"
+            aria-label="Expandir todos los grupos"
+            title="Expandir todos los grupos"
+            data-testid="gantt-expand-all"
+            @click="expandirTodo"
+          >
+            Expandir
+          </button>
+        </div>
 
       </template>
 
       <template #actions>
         <!--
-          Escala temporal: abre la segunda linea de acciones, como el boceto
-          (fila 1 el titulo con sus filtros, fila 2 la escala con el resto de
-          acciones). La cabecera no cabe en una linea a 1440, asi que la
-          segunda linea es el sitio natural del resto de controles.
+          Fila 2, como el boceto (fila 1 el titulo con sus filtros): la
+          escala temporal abre la fila, despues el rango con sus flechas a
+          los lados de la insignia y "Hoy", y al extremo derecho, en un solo
+          grupo, el resto del diagrama (detalle, ampliacion, rango, columnas,
+          visibilidad y vinculos). El slot de acciones no se estira, asi que
+          `justify-between` reparte el hueco entre el bloque y el grupo.
         -->
+        <div class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-2 gap-y-2">
         <SegmentedControl
           v-model="escalaId"
           :options="opcionesEscala"
           label="Escala temporal"
           testid-prefix="gantt-scale"
         />
-        <button
-          v-if="projectFilter"
-          type="button"
-          class="relative inline-flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue 2xl:w-auto 2xl:gap-1.5 2xl:px-2.5"
-          :disabled="exportandoIcs"
-          aria-label="Exportar el calendario en iCal"
-          title="Exportar el calendario en iCal"
-          data-testid="gantt-export-ics"
-          @click="exportarIcs"
-        >
-          <span class="inline-flex h-4 w-4 xl:hidden" aria-hidden="true">
-            <AppIcon name="download" />
-          </span>
-          <span class="hidden text-cp-sm font-medium xl:inline">
-            {{ exportandoIcs ? 'Exportando...' : 'Exportar .ics' }}
-          </span>
-        </button>
         <!--
-          Detalle del diagrama: cuanto mas pixeles por dia, mas cerca se ve
-          el rango. "Ajustar" devuelve el lienzo al ancho del panel.
+          Periodo visible: las flechas flanquean la insignia del rango y
+          "Hoy" cierra el bloque, como el boceto.
+        -->
+        <div
+          class="flex flex-none items-center gap-1"
+          :title="'Periodo visible: ' + rangoLabel"
+        >
+          <button
+            type="button"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            aria-label="Periodo anterior"
+            :disabled="rangoCompleto"
+            data-testid="range-previous"
+            @click="moveRango(-1)"
+          >
+            ←
+          </button>
+          <!--
+            Rango que se esta viendo, como el boceto: es informacion, no un
+            control, por eso va suelto dentro del grupo de rango y no lo
+            rompe.
+          -->
+          <span
+            class="flex-none rounded-pastilla bg-neutro-fondo px-2.5 py-1 font-mono text-cp-xs font-medium text-neutro-texto"
+            data-testid="range-label"
+          >
+            {{ rangoLabel }}
+          </span>
+          <button
+            type="button"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            aria-label="Periodo siguiente"
+            :disabled="rangoCompleto"
+            data-testid="range-next"
+            @click="moveRango(1)"
+          >
+            →
+          </button>
+          <button
+            type="button"
+            class="relative inline-flex items-center justify-center rounded-control border border-primario-fuerte bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-primario-medio"
+            data-testid="range-today"
+            @click="goHoy"
+          >
+            Hoy
+          </button>
+        </div>
+
+        <!--
+          El resto del diagrama, al extremo derecho de la fila, en un solo
+          grupo de iconos compactos: detalle (Ctrl+rueda sobre el diagrama
+          hace lo mismo), ampliacion a pantalla completa, exportacion, rango
+          personalizado, plan completo, columnas del panel de nombres y
+          visibilidad de personas.
         -->
         <div
           class="flex flex-none items-center gap-1"
           role="group"
-          aria-label="Detalle del diagrama"
+          aria-label="Opciones del diagrama"
           title="Ctrl+rueda sobre el diagrama para acercar o alejar"
         >
           <button
@@ -2081,78 +2102,44 @@ useTaskReload(load)
               <AppIcon name="plus" />
             </span>
           </button>
-        </div>
-        <!--
-          Modo ampliado: el diagrama a pantalla completa, por encima del
-          armazon. El boton es el mismo al entrar y al salir, de modo que el
-          foco no se pierde en ninguno de los dos momentos.
-        -->
-        <button
-          type="button"
-          class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave"
-          :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
-          :aria-pressed="ampliado"
-          :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
-          data-testid="gantt-fullscreen"
-          @click="alternarAmpliado"
-        >
-          <span class="inline-flex h-4 w-4">
-            <AppIcon :name="ampliado ? 'compress' : 'expand'" />
-          </span>
-        </button>
-        <!--
-          Periodo visible: el panel elige el tramo que se ve y lo escribe en
-          la URL. Va en las acciones, junto a la escala, como el boceto.
-        -->
-        <div
-          class="flex items-center gap-1"
-          :title="'Periodo visible: ' + rangoLabel"
-        >
+          <!--
+            Modo ampliado: el diagrama a pantalla completa, por encima del
+            armazon. El boton es el mismo al entrar y al salir, de modo que
+            el foco no se pierde en ninguno de los dos momentos.
+          -->
+          <button
+            type="button"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave"
+            :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
+            :aria-pressed="ampliado"
+            :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
+            data-testid="gantt-fullscreen"
+            @click="alternarAmpliado"
+          >
+            <span class="inline-flex h-4 w-4">
+              <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+            </span>
+          </button>
+          <button
+            v-if="projectFilter"
+            type="button"
+            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            :disabled="exportandoIcs"
+            aria-label="Exportar el calendario en iCal"
+            title="Exportar el calendario en iCal"
+            data-testid="gantt-export-ics"
+            @click="exportarIcs"
+          >
+            <span class="inline-flex h-4 w-4" aria-hidden="true">
+              <AppIcon name="download" />
+            </span>
+          </button>
           <GanttRangePanel
             :desde="rangoElegido.desde"
             :hasta="rangoElegido.hasta"
             :texto="rangoTexto"
             @aplicar="aplicarRango"
           />
-          <button
-            type="button"
-            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
-            aria-label="Periodo anterior"
-            :disabled="rangoCompleto"
-            data-testid="range-previous"
-            @click="moveRango(-1)"
-          >
-            ←
-          </button>
-          <!--
-            Rango que se esta viendo, como el boceto: es informacion, no un
-            control, por eso va suelto dentro del grupo de rango y no lo
-            rompe.
-          -->
-          <span
-            class="flex-none rounded-pastilla bg-neutro-fondo px-2.5 py-1 font-mono text-cp-xs font-medium text-neutro-texto"
-            data-testid="range-label"
-          >
-            {{ rangoLabel }}
-          </span>
-          <button
-            type="button"
-            class="relative inline-flex items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
-            data-testid="range-today"
-            @click="goHoy"
-          >
-            Hoy
-          </button>
-          <button
-            type="button"
-            class="relative flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto-suave after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
-            aria-label="Periodo siguiente"
-            :disabled="rangoCompleto"
-            data-testid="range-next"
-            @click="moveRango(1)"
-          >
-            →
-          </button>
           <button
             type="button"
             class="relative inline-flex items-center justify-center rounded-control border p-1.5 text-cp-sm font-medium after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:gap-1.5 2xl:px-3"
@@ -2167,6 +2154,21 @@ useTaskReload(load)
             </span>
             <span class="hidden 2xl:inline">Completo</span>
           </button>
+          <GanttColumnsPanel
+            :columnas="COLUMNAS_GANTT"
+            :seleccionadas="columnasElegidas"
+            @alternar="alternarColumna"
+          />
+          <VisibilityPanel
+            :personas="personasVisibilidad"
+            :ids-ocultos="idsOcultos"
+            :departamentos-ocultos="departamentosOcultos"
+            :ocultos-count="ocultosCount"
+            @alternar-persona="alternarPersona"
+            @alternar-departamento="alternarDepartamento"
+            @mostrar-todos="mostrarTodos"
+          />
+        </div>
         </div>
       </template>
     </PageHeader>

@@ -7,12 +7,13 @@
  */
 import { computed } from 'vue'
 
-import { initials } from '../../utils/people'
+import { NIVEL_COMPETENCIA, initials, nivelTexto } from '../../utils/people'
+import { pildora } from '../../utils/statusColor'
 
 const props = defineProps({
   people: { type: Array, required: true },
   week: { type: String, required: true },
-  /** Departamentos (id, nombre, color): para el punto de color de la fila. */
+  /** Departamentos (id, nombre, color): para el punto de color y el avatar. */
   departments: { type: Array, default: () => [] },
 })
 
@@ -37,6 +38,21 @@ function colorDepartamento(id) {
   const dep = props.departments.find((item) => String(item.id) === String(id))
   return dep?.color ?? 'rgb(var(--cp-neutro-punto))'
 }
+
+/**
+ * Avatar de la persona, con el color de su departamento.
+ *
+ * El color es dato del backend. `pildora` lo pinta mezclado con blanco y
+ * oscurece la inicial hasta 4,5:1 contra ese fondo: con el color tal cual,
+ * cuatro de los dieciocho de la paleta son demasiado claros. Sin
+ * departamento, el neutro de siempre.
+ */
+function estiloAvatar(person) {
+  const dep = person.department_id
+    ? props.departments.find((item) => String(item.id) === String(person.department_id))
+    : null
+  return pildora(dep?.color ?? null)
+}
 </script>
 
 <template>
@@ -45,24 +61,27 @@ function colorDepartamento(id) {
     <table class="w-full min-w-[960px] text-sm">
       <thead class="bg-tarjeta-suave text-left text-xs uppercase tracking-wide text-texto-tenue">
         <tr>
-          <th class="px-2 py-2 font-medium">Persona</th>
-          <th class="px-2 py-2 font-medium">Puesto</th>
-          <th class="px-2 py-2 font-medium">Departamento</th>
-          <th class="px-2 py-2 font-medium">Contrato</th>
-          <th class="px-2 py-2 font-medium">Horario vigente</th>
-          <th class="px-2 py-2 text-right font-medium">Factor</th>
-          <th class="px-2 py-2 text-right font-medium">Capacidad</th>
-          <th v-if="hasLoad" class="px-2 py-2 text-right font-medium">Carga</th>
-          <th class="px-2 py-2 font-medium">Estado</th>
-          <th class="px-2 py-2"></th>
+          <th class="px-1.5 py-2 font-medium">Persona</th>
+          <th class="px-1.5 py-2 font-medium">Puesto</th>
+          <th class="px-1.5 py-2 font-medium">Departamento</th>
+          <th class="px-1.5 py-2 font-medium">Contrato</th>
+          <th class="px-1.5 py-2 font-medium">Horario vigente</th>
+          <th class="px-1.5 py-2 text-right font-medium">Factor</th>
+          <th class="px-1.5 py-2 text-right font-medium">Capacidad</th>
+          <th v-if="hasLoad" class="px-1.5 py-2 text-right font-medium">Carga</th>
+          <th class="px-1.5 py-2 font-medium">Estado</th>
+          <th class="px-1.5 py-2 font-medium">Habilidades</th>
+          <th class="px-1.5 py-2"></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-borde-suave">
         <tr v-for="person in people" :key="person.id" data-testid="person-row">
-          <td class="px-2 py-2">
+          <td class="px-1.5 py-2">
             <div class="flex items-center gap-2">
               <span
-                class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar bg-primario-fuerte text-xs font-semibold text-texto-inverso"
+                class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar text-xs font-semibold"
+                :style="estiloAvatar(person)"
+                aria-hidden="true"
               >
                 {{ initials(person.name) }}
               </span>
@@ -72,8 +91,8 @@ function colorDepartamento(id) {
               </span>
             </div>
           </td>
-          <td class="px-2 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
-          <td class="px-2 py-2 text-texto-suave">
+          <td class="px-1.5 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
+          <td class="px-1.5 py-2 text-texto-suave">
             <span class="flex items-center gap-1.5">
               <span
                 v-if="person.department_id"
@@ -84,14 +103,14 @@ function colorDepartamento(id) {
               {{ person.department_name ?? '—' }}
             </span>
           </td>
-          <td class="px-2 py-2">
+          <td class="px-1.5 py-2">
             <span
               class="whitespace-nowrap rounded-control bg-neutro-fondo px-2 py-0.5 text-cp-xs font-semibold text-neutro-texto"
             >
               {{ person.employment_type_label }}
             </span>
           </td>
-          <td class="px-2 py-2">
+          <td class="px-1.5 py-2">
             <div v-if="person.schedule" class="flex items-center gap-1">
               <span
                 v-for="day in weekdayChips(person.schedule)"
@@ -105,16 +124,16 @@ function colorDepartamento(id) {
             </div>
             <span v-else class="text-xs text-texto-tenue">Sin horario</span>
           </td>
-          <td class="px-2 py-2 text-right text-texto-suave">
+          <td class="px-1.5 py-2 text-right text-texto-suave">
             {{ person.schedule ? `${person.schedule.availability_factor} %` : '—' }}
           </td>
-          <td class="px-2 py-2 text-right font-medium text-texto">
+          <td class="px-1.5 py-2 text-right font-medium text-texto">
             {{ person.capacity === null ? '—' : `${person.capacity} h` }}
           </td>
-          <td v-if="hasLoad" class="px-2 py-2 text-right text-texto-suave">
+          <td v-if="hasLoad" class="px-1.5 py-2 text-right text-texto-suave">
             {{ person.hours === null ? '—' : `${person.hours} h` }}
           </td>
-          <td class="px-2 py-2">
+          <td class="px-1.5 py-2">
             <span
               v-if="person.capacity === null"
               class="whitespace-nowrap rounded-pastilla bg-neutro-fondo px-2 py-0.5 text-xs text-texto-suave"
@@ -140,7 +159,24 @@ function colorDepartamento(id) {
               Con margen
             </span>
           </td>
-          <td class="px-2 py-2 text-right">
+          <!-- Competencias: una pastilla por nivel, con el numero y su etiqueta. -->
+          <td class="px-1.5 py-2" data-testid="person-skills">
+            <div v-if="person.skills?.length" class="flex flex-wrap gap-1">
+              <span
+                v-for="skill in person.skills"
+                :key="skill.skill_id"
+                class="inline-flex items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2 py-0.5 text-cp-xs font-medium text-texto-suave"
+                :title="`${skill.name}: ${nivelTexto(skill.level)}`"
+                data-testid="person-skill"
+              >
+                <span class="font-mono tabular-nums text-texto">{{ skill.level }}</span>
+                <span class="text-texto-tenue">·</span>
+                <span>{{ NIVEL_COMPETENCIA[skill.level] }}</span>
+              </span>
+            </div>
+            <span v-else class="text-cp-xs text-texto-tenue">—</span>
+          </td>
+          <td class="px-1.5 py-2 text-right">
             <button
               type="button"
               class="text-sm font-medium text-primario-medio hover:underline"

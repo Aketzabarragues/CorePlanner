@@ -217,6 +217,50 @@ describe('PeopleView', () => {
     expect(wrapper.find('[data-testid="skill-catalog"]').exists()).toBe(false)
   })
 
+  it('la matriz muestra el nivel en texto y los puntos por celda', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+
+    const filaTia = wrapper.findAll('[data-testid="skill-row"]')[0]
+    // Ana: TIA Portal a nivel 3; Sebastian: sin asignar.
+    expect(filaTia.find('[data-testid="skill-level-3"]').exists()).toBe(true)
+    expect(filaTia.find('[data-testid="skill-level-3"]').text()).toContain('3 · Experto')
+    expect(filaTia.find('[data-testid="skill-level-none"]').text()).toBe('0 · Sin asignar')
+
+    // SCADA: ninguno de los dos la tiene.
+    const filaScada = wrapper.findAll('[data-testid="skill-row"]')[1]
+    expect(filaScada.findAll('[data-testid="skill-level-none"]')).toHaveLength(2)
+  })
+
+  it('la cabecera de la matriz lleva el avatar con el color del departamento', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+
+    const avatar = wrapper.find('thead .rounded-avatar')
+    // pildora('#005566'): el color mezclado con blanco al 12 % de fondo.
+    expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
+  })
+
+  it('la ficha muestra el avatar y las competencias con nivel y etiqueta', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="open-profile-1"]').trigger('click')
+    await flushPromises()
+
+    const pastillas = wrapper.findAll('[data-testid="profile-skill"]')
+    expect(pastillas).toHaveLength(1)
+    expect(pastillas[0].text()).toContain('TIA Portal')
+    expect(pastillas[0].text()).toContain('3 · Experto')
+
+    // El avatar del perfil sale con el color del departamento mezclado.
+    const avatar = wrapper.find('[data-testid="person-drawer"] .rounded-avatar')
+    expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
+  })
+
   it('el directorio se puede acotar por departamento', async () => {
     setupFetch({
       people: [
@@ -325,6 +369,29 @@ describe('PeopleView', () => {
     expect(avatar.exists()).toBe(true)
     // "Ana" es una sola palabra: su inicial es la unica que hay.
     expect(avatar.text()).toBe('A')
+  })
+
+  it('el avatar sale con el color del departamento, mezclado y con la inicial legible', async () => {
+    const wrapper = await mountView()
+
+    const avatar = wrapper.find('[data-testid="person-row"] .rounded-avatar')
+    // pildora('#005566'): el color mezclado con blanco al 12 % de fondo.
+    expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
+  })
+
+  it('el directorio gana la columna de habilidades con el nivel en texto', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.text()).toContain('Habilidades')
+    // Ana lleva TIA Portal a nivel 3.
+    const pastilla = wrapper.findAll('[data-testid="person-skill"]')[0]
+    expect(pastilla.text()).toContain('3')
+    expect(pastilla.text()).toContain('Experto')
+    // Sebastian no tiene competencias: guion, no pastilla.
+    const filaSinSkills = wrapper.findAll('[data-testid="person-row"]')[1]
+    const celda = filaSinSkills.find('[data-testid="person-skills"]')
+    expect(celda.text()).toBe('—')
+    expect(celda.find('[data-testid="person-skill"]').exists()).toBe(false)
   })
 
   it('la fila lleva el punto del departamento con su color en linea', async () => {

@@ -231,6 +231,7 @@ onMounted(load)
         v-else
         :people="people"
         :skills="skills"
+        :departments="departments"
       />
 
       <PersonDialog
@@ -239,6 +240,7 @@ onMounted(load)
         :skills="skills"
         :is-manager="isManager"
         :week="week"
+        :departments="departments"
         @close="selectedId = null"
         @saved="load"
       />

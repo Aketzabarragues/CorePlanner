@@ -126,9 +126,14 @@ async function mountView() {
   return wrapper
 }
 
+/** Cards de proyecto que se ven ahora mismo, en el orden de la rejilla. */
+function cards(wrapper) {
+  return wrapper.findAll('[data-testid="project-card"]')
+}
+
 /** Nombres de los proyectos que se ven ahora mismo. */
 function nombres(wrapper) {
-  return wrapper.findAll('[data-testid="project-row"] a').map((link) => link.text())
+  return cards(wrapper).map((card) => card.find('h3').text())
 }
 
 describe('ProjectsView', () => {
@@ -159,53 +164,49 @@ describe('ProjectsView', () => {
     expect(cabeceras[1].text()).toContain('responsable Jorge')
   })
 
-  it('cada fila es una tabla con proyecto, responsable y estado', async () => {
+  it('cada proyecto es una card con nombre, responsable, estado, tareas y carga', async () => {
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    expect(fila.element.tagName).toBe('TR')
-    expect(fila.text()).toContain('Línea Pasteurizadora SIVE')
-    expect(fila.text()).toContain('Ana')
-    expect(fila.text()).toContain('Activo')
+    expect(cards(wrapper)).toHaveLength(3)
+    const card = cards(wrapper)[0]
+    expect(card.element.tagName).toBe('ARTICLE')
+    expect(card.find('h3').text()).toBe('Línea Pasteurizadora SIVE')
+    expect(card.text()).toContain('Ana')
+    expect(card.text()).toContain('Activo')
+    expect(card.find('[data-testid="project-tasks"]').text()).toContain('1/4')
+    expect(card.find('[data-testid="project-load"]').text()).toBe('75 %')
   })
 
-  it('las filas no tienen botones de capacidad, Gantt ni Kanban', async () => {
+  it('la card no lleva enlaces ni botones por dentro', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).not.toContain('Capacidad')
     expect(wrapper.text()).not.toContain('Gantt')
     expect(wrapper.text()).not.toContain('Kanban')
-    const enlaces = wrapper.findAll('a').map((link) => link.attributes('href'))
-    expect(enlaces).toHaveLength(3)
-    expect(enlaces.every((href) => href.startsWith('/projects/'))).toBe(true)
+    const card = cards(wrapper)[0]
+    expect(card.findAll('a')).toHaveLength(0)
+    expect(card.findAll('button')).toHaveLength(0)
   })
 
-  it('el nombre del proyecto sigue siendo un enlace a su pagina', async () => {
+  it('pinchar en cualquier parte de la card lleva al proyecto', async () => {
     const wrapper = await mountView()
 
-    const enlace = wrapper.findAll('a').find((link) => link.text() === 'Línea Pasteurizadora SIVE')
-    expect(enlace.attributes('href')).toBe('/projects/1')
-  })
-
-  it('pinchar en cualquier parte de la fila lleva al proyecto', async () => {
-    const wrapper = await mountView()
-
-    const fila = wrapper.findAll('[data-testid="project-row"]')[1]
-    await fila.trigger('click')
+    const card = cards(wrapper)[1]
+    await card.trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('project')
     expect(router.currentRoute.value.params.id).toBe('2')
   })
 
-  it('la fila se activa con el teclado', async () => {
+  it('la card se activa con el teclado', async () => {
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    expect(fila.attributes('tabindex')).toBe('0')
-    expect(fila.attributes('role')).toBe('button')
+    const card = cards(wrapper)[0]
+    expect(card.attributes('tabindex')).toBe('0')
+    expect(card.attributes('role')).toBe('button')
 
-    await fila.trigger('keydown.enter')
+    await card.trigger('keydown.enter')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('project')
@@ -269,58 +270,61 @@ describe('ProjectsView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="projects-no-match"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(0)
+    expect(cards(wrapper)).toHaveLength(0)
 
     await wrapper.find('[data-testid="clear-filters"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(3)
+    expect(cards(wrapper)).toHaveLength(3)
   })
 
-  it('todas las secciones se dibujan en la misma tabla', async () => {
+  it('cada seccion de area es una rejilla de cards, una por proyecto', async () => {
     const wrapper = await mountView()
 
-    // Una sola tabla: asi el limite de cada columna cae en el mismo pixel
-    // en todos los grupos de departamento.
-    expect(wrapper.findAll('table')).toHaveLength(1)
-    const tabla = wrapper.find('[data-testid="projects-table"]')
-    expect(tabla.exists()).toBe(true)
-    const filas = tabla.findAll('[data-testid="project-row"]')
-    expect(filas).toHaveLength(3)
-    // La cabecera de departamento es una fila de la tabla, no una tabla aparte.
-    expect(tabla.findAll('[data-testid="projects-group"]')).toHaveLength(2)
+    // Una card por proyecto: la tabla de filas desaparecio.
+    expect(wrapper.findAll('table')).toHaveLength(0)
+    expect(cards(wrapper)).toHaveLength(3)
+    expect(wrapper.findAll('[data-testid="projects-group"]')).toHaveLength(2)
+
+    // Rejilla: 1 columna en estrecha, 2 en mediana, 3 en ancha.
+    const rejilla = wrapper.find('[data-testid="projects-group"]').find('.grid')
+    expect(rejilla.classes()).toContain('grid-cols-1')
+    expect(rejilla.classes()).toContain('sm:grid-cols-2')
+    expect(rejilla.classes()).toContain('xl:grid-cols-3')
+    const cardsPrimerGrupo = wrapper.find('[data-testid="projects-group"]').findAll('[data-testid="project-card"]')
+    expect(cardsPrimerGrupo).toHaveLength(2)
   })
 
-  it('las columnas de equipo, tareas y carga salen del resumen', async () => {
+  it('el equipo, las tareas y la carga salen del resumen', async () => {
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    const avatares = fila.findAll('[data-testid="project-member"]')
+    const card = cards(wrapper)[0]
+    const avatares = card.findAll('[data-testid="project-member"]')
     expect(avatares).toHaveLength(2)
     expect(avatares[0].text()).toBe('A')
     expect(avatares[0].attributes('title')).toBe('Aketza')
-    expect(fila.find('[data-testid="project-tasks"]').text()).toBe('1/4')
-    expect(fila.find('[data-testid="project-load"]').text()).toBe('75 %')
-    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(false)
+    expect(card.find('[data-testid="project-tasks"]').text()).toContain('1/4')
+    expect(card.find('[data-testid="project-load"]').text()).toBe('75 %')
+    expect(card.find('[data-testid="project-overloaded"]').exists()).toBe(false)
   })
 
   it('un proyecto cuya carga supera la capacidad avisa', async () => {
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[1]
+    const card = cards(wrapper)[1]
 
-    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(true)
-    expect(fila.find('[data-testid="project-overloaded"]').text()).toBe('Sobrecargado')
+    expect(card.find('[data-testid="project-overloaded"]').exists()).toBe(true)
+    expect(card.find('[data-testid="project-overloaded"]').text()).toBe('Sobrecargado')
   })
 
-  it('un proyecto sin equipo ni tareas muestra guiones', async () => {
+  it('un proyecto sin equipo ni tareas muestra cero y sin capacidad', async () => {
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[2]
+    const card = cards(wrapper)[2]
 
-    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
-    expect(fila.find('[data-testid="project-tasks"]').exists()).toBe(false)
-    expect(fila.find('[data-testid="project-load-unknown"]').text()).toBe('Sin capacidad')
+    expect(card.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(card.find('[data-testid="project-tasks"]').text()).toContain('0/0')
+    expect(card.find('[data-testid="project-load-unknown"]').text()).toBe('Sin capacidad')
   })
 
   it('si el resumen no llega, el listado sigue en pie', async () => {
@@ -328,10 +332,10 @@ describe('ProjectsView', () => {
 
     const wrapper = await mountView()
 
-    expect(wrapper.findAll('[data-testid="project-row"]')).toHaveLength(3)
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
-    expect(fila.find('[data-testid="project-tasks"]').exists()).toBe(false)
+    expect(cards(wrapper)).toHaveLength(3)
+    const card = cards(wrapper)[0]
+    expect(card.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(card.find('[data-testid="project-tasks"]').text()).toContain('0/0')
   })
 
   it('los avatares del equipo se apilan y resumen los que sobran', async () => {
@@ -352,19 +356,19 @@ describe('ProjectsView', () => {
 
     const wrapper = await mountView()
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    expect(fila.findAll('[data-testid="project-member"]')).toHaveLength(4)
-    expect(fila.find('[data-testid="project-members-rest"]').text()).toBe('+1')
+    const card = cards(wrapper)[0]
+    expect(card.findAll('[data-testid="project-member"]')).toHaveLength(4)
+    expect(card.find('[data-testid="project-members-rest"]').text()).toBe('+1')
   })
 
-  it('la franja del grupo y los avatares salen con el color del departamento en linea', async () => {
+  it('la franja de la card y los avatares salen con el color del departamento en linea', async () => {
     const wrapper = await mountView()
 
-    const franja = wrapper.findAll('[data-testid="projects-group"]')[0].find('[style]')
+    const card = cards(wrapper)[0]
+    const franja = card.find('.rounded-pastilla')
     expect(franja.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
 
-    const fila = wrapper.findAll('[data-testid="project-row"]')[0]
-    const avatar = fila.find('[data-testid="project-member"]')
+    const avatar = card.find('[data-testid="project-member"]')
     expect(avatar.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
   })
 })

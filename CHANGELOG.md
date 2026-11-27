@@ -49,6 +49,22 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: la cabecera de vista vive en la barra superior de la aplicacion. El shell
+  la pinta y cada vista publica en ella su titulo, su insignia, su ayuda, sus filtros y
+  sus acciones; las vistas ya no pintan una cabecera dentro del contenido. Las migas de
+  pan salen de la barra (el contexto del proyecto sigue en el menu lateral) y el menu
+  lateral baja la letra a la del diseno sin bajar el area tactil.
+- **frontend**: el diagrama de Gantt ajusta la columna de tareas al ancho que necesitan sus
+  filas y deja de poner barra de scroll horizontal cuando el conjunto cabe; la linea de
+  "Hoy" pasa a discontinua (se leia como una columna mas) y cada boton de la cabecera
+  tiene su propio icono.
+- **frontend**: la vista de proyectos pasa de tabla a una card por proyecto, agrupada por
+  area, y el avatar de cada persona se pinta con el color de su departamento.
+- **frontend**: las competencias se leen en texto ("3 · Experto") en el directorio, en la
+  matriz de competencias y en el perfil.
+- **frontend**: las celdas de la matriz de capacidad miden todas lo mismo, y una tarea
+  asignada con 0 horas se ve (un anillo hueco) en vez de parecer que esa persona no tiene
+  nada asignado.
 - **frontend**: las cabeceras de vista caben en una linea: los filtros van junto al titulo
   (con la etiqueta en linea, no encima) y las acciones a la derecha. El subtitulo
   desaparece (su texto va en el boton de ayuda), los filtros se ensanchan para que no se

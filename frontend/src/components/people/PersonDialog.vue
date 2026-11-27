@@ -16,12 +16,16 @@ import AsyncState from '../common/AsyncState.vue'
 import ModalDialog from '../ModalDialog.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toast'
+import { NIVEL_COMPETENCIA, initials } from '../../utils/people'
+import { pildora } from '../../utils/statusColor'
 
 const props = defineProps({
   person: { type: Object, required: true },
   skills: { type: Array, required: true },
   isManager: { type: Boolean, default: false },
   week: { type: String, required: true },
+  /** Departamentos (id, nombre, color): para el avatar del perfil. */
+  departments: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -64,6 +68,19 @@ const personSkills = computed(() => {
     .map((skill) => ({ ...skill, level: levels[skill.id] ?? 0 }))
     .filter((skill) => skill.level > 0)
 })
+
+/**
+ * Avatar del perfil, con el color de su departamento.
+ *
+ * Mismo estilo que el directorio: `pildora` oscurece la inicial hasta 4,5:1
+ * contra el fondo. Sin departamento, el neutro.
+ */
+function estiloAvatar() {
+  const dep = props.person.department_id
+    ? props.departments.find((item) => String(item.id) === String(props.person.department_id))
+    : null
+  return pildora(dep?.color ?? null)
+}
 
 function dayChips(entry) {
   return DAY_FIELDS.map((field, index) => ({
@@ -185,6 +202,22 @@ async function saveSkills() {
           {{ error }}
         </AlertBanner>
 
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-10 w-10 flex-none items-center justify-center rounded-avatar text-sm font-semibold"
+            :style="estiloAvatar()"
+            aria-hidden="true"
+          >
+            {{ initials(person.name) }}
+          </span>
+          <div class="min-w-0">
+            <p class="truncate text-cp-base font-semibold text-texto">{{ person.name }}</p>
+            <p class="truncate text-cp-xs text-texto-tenue">
+              {{ [person.job_title, person.department_name, person.seniority_label].filter(Boolean).join(' · ') }}
+            </p>
+          </div>
+        </div>
+
         <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <dt class="text-texto-tenue">Correo</dt>
           <dd class="text-texto">{{ person.email }}</dd>
@@ -269,15 +302,30 @@ async function saveSkills() {
           </AsyncState>
         </section>
 
+        <!-- Mismo formato que el directorio: nombre, puntos y nivel en texto. -->
         <section>
           <h3 class="mb-2 text-sm font-semibold text-texto">Habilidades</h3>
           <div v-if="personSkills.length" class="flex flex-wrap gap-2">
             <span
               v-for="skill in personSkills"
               :key="skill.skill_id"
-              class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs text-texto-suave"
+              class="inline-flex items-center gap-2 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs text-texto-suave"
+              data-testid="profile-skill"
             >
-              {{ skill.name }} · {{ skill.level }}/3
+              <span class="font-medium text-texto">{{ skill.name }}</span>
+
+              <span class="flex gap-0.5" aria-hidden="true">
+                <span
+                  v-for="dot in 3"
+                  :key="dot"
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="dot <= skill.level ? 'bg-primario-medio' : 'bg-borde'"
+                ></span>
+              </span>
+
+              <span class="font-mono font-semibold tabular-nums text-texto">
+                {{ skill.level }} · {{ NIVEL_COMPETENCIA[skill.level] }}
+              </span>
             </span>
           </div>
           <p v-else class="text-sm text-texto-tenue">Sin competencias asignadas.</p>

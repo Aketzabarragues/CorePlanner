@@ -10,12 +10,28 @@
  */
 import { computed } from 'vue'
 
-import { initials } from '../../utils/people'
+import { NIVEL_COMPETENCIA, initials, nivelTexto } from '../../utils/people'
+import { pildora } from '../../utils/statusColor'
 
 const props = defineProps({
   people: { type: Array, required: true },
   skills: { type: Array, required: true },
+  /** Departamentos (id, nombre, color): para el avatar de la cabecera. */
+  departments: { type: Array, default: () => [] },
 })
+
+/**
+ * Avatar de la persona, con el color de su departamento.
+ *
+ * Mismo estilo que el directorio: `pildora` oscurece la inicial hasta 4,5:1
+ * contra el fondo. Sin departamento, el neutro.
+ */
+function estiloAvatar(person) {
+  const dep = person.department_id
+    ? props.departments.find((item) => String(item.id) === String(person.department_id))
+    : null
+  return pildora(dep?.color ?? null)
+}
 
 /** Nivel de una persona en una competencia. */
 function levelOf(person, skillId) {
@@ -39,7 +55,8 @@ const rows = computed(() =>
           <th class="px-3 py-2 font-medium">Habilidad</th>
           <th v-for="person in people" :key="person.id" class="px-3 py-2 text-center font-medium">
             <span
-              class="mx-auto flex h-8 w-8 items-center justify-center rounded-avatar bg-primario-fuerte text-xs font-semibold text-texto-inverso"
+              class="mx-auto flex h-8 w-8 items-center justify-center rounded-avatar text-xs font-semibold"
+              :style="estiloAvatar(person)"
               :title="person.name"
             >
               {{ initials(person.name) }}
@@ -51,13 +68,26 @@ const rows = computed(() =>
         <tr v-for="row in rows" :key="row.id" data-testid="skill-row">
           <td class="px-3 py-2 text-texto-suave">{{ row.name }}</td>
           <td v-for="(level, index) in row.cells" :key="index" class="px-3 py-2">
-            <span class="flex justify-center gap-0.5">
+            <!-- Sin nivel no hay pastilla activa: texto tenue, no puntos. -->
+            <span v-if="level === 0" class="text-cp-xs text-texto-tenue" data-testid="skill-level-none">
+              0 · Sin asignar
+            </span>
+            <span v-else class="flex items-center justify-center gap-2" :data-testid="`skill-level-${level}`">
+              <!-- Puntos: la forma, no solo el color -->
+              <span class="flex gap-0.5" aria-hidden="true">
+                <span
+                  v-for="dot in 3"
+                  :key="dot"
+                  class="h-2 w-2 rounded-full"
+                  :class="dot <= level ? 'bg-primario-medio' : 'bg-borde'"
+                ></span>
+              </span>
               <span
-                v-for="dot in 3"
-                :key="dot"
-                class="h-2 w-2 rounded-full"
-                :class="dot <= level ? 'bg-primario-medio' : 'bg-borde'"
-              ></span>
+                class="rounded-pastilla bg-tarjeta-suave px-2 py-0.5 font-mono text-cp-xs font-semibold tabular-nums text-texto-suave"
+                :title="nivelTexto(level)"
+              >
+                {{ level }} · {{ NIVEL_COMPETENCIA[level] }}
+              </span>
             </span>
           </td>
         </tr>

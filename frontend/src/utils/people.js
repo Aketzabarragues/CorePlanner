@@ -35,3 +35,26 @@ export function initials(name) {
     .join('')
     .toUpperCase()
 }
+
+/**
+ * Etiqueta de cada nivel de competencia, del 1 al 3.
+ *
+ * El nivel es un numero de 1 a 3 (lo da el backend). Las etiquetas son copy
+ * del frontend: no existen en el backend.
+ */
+export const NIVEL_COMPETENCIA = {
+  1: 'Básico',
+  2: 'Intermedio',
+  3: 'Experto',
+}
+
+/**
+ * Nivel de competencia en texto, para leerse sin depender de los puntos.
+ *
+ * El texto va siempre con el numero: "3 · Experto". El numero es el dato y la
+ * etiqueta es la lectura. Sin nivel, "0 · Sin asignar".
+ */
+export function nivelTexto(level) {
+  const etiqueta = NIVEL_COMPETENCIA[level]
+  return etiqueta ? `${level} · ${etiqueta}` : '0 · Sin asignar'
+}

@@ -2,14 +2,15 @@
 /**
  * Listado global de proyectos.
  *
- * Los proyectos van agrupados por el departamento que los gestiona. Dentro de
- * cada grupo, cada proyecto es una fila con su nombre, su responsable, su
- * equipo, el avance de sus tareas, la carga de la semana y su estado. La fila
- * entera es clicable y lleva al resumen del proyecto.
+ * Los proyectos van agrupados por el departamento que los gestiona. Cada
+ * seccion de area es una cabecera con el titulo, su responsable, su recuento
+ * y las horas planificadas de la semana, y debajo una rejilla de cards:
+ * `grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`.
  *
- * Todas las secciones se dibujan en una sola tabla: asi el limite de cada
- * columna cae en el mismo pixel en todos los grupos, cosa que con una tabla
- * por seccion no se puede garantizar.
+ * La card es un proyecto: su franja de color (dato del backend), su nombre y
+ * estado, su responsable, el equipo, el avance de tareas y la carga de la
+ * semana. La card entera es pulsable y con teclado, y lleva al resumen del
+ * proyecto.
  *
  * Los filtros son de presentacion: acotan lo que ya esta cargado, no lo que
  * la persona puede ver. El ambito de proyectos y de departamentos lo decide el
@@ -117,6 +118,11 @@ const groups = computed(() => {
   }
   return result
 })
+
+/** Horas planificadas en la semana del grupo, para el recuento de la cabecera. */
+function horasDe(group) {
+  return group.items.reduce((suma, project) => suma + (resumenDe(project)?.load?.planned_hours ?? 0), 0)
+}
 
 /** Si hay filtros puestos: distingue "no hay nada" de "no coincide nada". */
 const hayFiltros = computed(
@@ -355,158 +361,167 @@ onMounted(load)
         Ningún proyecto coincide con los filtros.
       </p>
 
-      <div v-else class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
-        <table class="w-full text-left text-cp-sm" data-testid="projects-table">
-          <thead>
-            <tr class="border-b border-borde bg-tarjeta-suave text-cp-micro uppercase tracking-wider text-texto-tenue">
-              <th scope="col" class="px-3 py-2.5 font-semibold">Proyecto</th>
-              <th scope="col" class="px-3 py-2.5 font-semibold">Responsable</th>
-              <th scope="col" class="px-3 py-2.5 font-semibold">Equipo</th>
-              <th scope="col" class="px-3 py-2.5 font-semibold">Tareas</th>
-              <th scope="col" class="px-3 py-2.5 font-semibold">Carga esta semana</th>
-              <th scope="col" class="px-3 py-2.5 font-semibold">Estado</th>
-            </tr>
-          </thead>
+      <div v-else>
+        <section
+          v-for="group in groups"
+          :key="group.key"
+          class="mb-6"
+          data-testid="projects-group"
+        >
+          <header class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex min-w-0 items-center gap-2">
+              <span
+                v-if="group.color"
+                class="h-4 w-1 shrink-0 rounded-pastilla"
+                :style="{ backgroundColor: group.color }"
+                aria-hidden="true"
+              ></span>
+              <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">{{ group.name }}</h2>
+              <span class="text-cp-xs text-texto-tenue" data-testid="projects-group-summary">
+                {{ group.items.length }}
+                {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
+                {{ group.manager ?? 'sin responsable' }}
+              </span>
+            </div>
 
-          <tbody>
-            <template v-for="group in groups" :key="group.key">
-              <!-- fila de grupo: la franja de color del departamento -->
-              <tr class="border-b border-borde bg-tarjeta-suave" data-testid="projects-group">
-                <th colspan="6" scope="colgroup" class="px-3 py-2 text-left">
-                  <span class="flex items-center gap-2">
-                    <span
-                      v-if="group.color"
-                      class="h-4 w-1 shrink-0 rounded-pastilla"
-                      :style="{ backgroundColor: group.color }"
-                      aria-hidden="true"
-                    ></span>
-                    <span class="text-cp-sm font-bold text-texto-marca">{{ group.name }}</span>
-                    <span
-                      class="text-cp-xs font-normal text-texto-tenue"
-                      data-testid="projects-group-summary"
-                    >
-                      {{ group.items.length }}
-                      {{ group.items.length === 1 ? 'proyecto' : 'proyectos' }} · responsable
-                      {{ group.manager ?? 'sin responsable' }}
-                    </span>
+            <span
+              class="inline-flex items-center gap-1.5 rounded-control border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
+              data-testid="projects-group-hours"
+            >
+              <strong class="font-mono text-texto-marca">{{ horasDe(group) }}</strong>
+              h planificadas
+            </span>
+          </header>
+
+          <!-- Rejilla de cards: una por proyecto. -->
+          <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+            <article
+              v-for="project in group.items"
+              :key="project.id"
+              class="group flex cursor-pointer flex-col rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta transition-colors hover:border-primario/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              role="button"
+              tabindex="0"
+              data-testid="project-card"
+              @click="irAlProyecto(project)"
+              @keydown.enter.prevent="irAlProyecto(project)"
+              @keydown.space.prevent="irAlProyecto(project)"
+            >
+              <!-- Franja de color del departamento: dato del backend, en estilo en linea. -->
+              <span
+                class="mb-3 block h-1 w-10 rounded-pastilla"
+                :style="{ backgroundColor: group.color ?? 'rgb(var(--cp-borde))' }"
+                aria-hidden="true"
+              ></span>
+
+              <!-- Nombre + estado -->
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="min-w-0 text-cp-sm font-bold text-texto-marca">
+                  <span v-if="codigoDe(project.name)" class="font-mono">
+                    {{ codigoDe(project.name).codigo }}
                   </span>
-                </th>
-              </tr>
+                  <span class="block truncate text-texto">
+                    {{ codigoDe(project.name)?.resto ?? project.name }}
+                  </span>
+                </h3>
 
-              <tr
-                v-for="project in group.items"
-                :key="project.id"
-                role="button"
-                tabindex="0"
-                class="cursor-pointer border-t border-borde-suave transition-colors hover:bg-tarjeta-suave/60 focus:outline-none focus-visible:bg-tarjeta-suave focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foco"
-                data-testid="project-row"
-                @click="irAlProyecto(project)"
-                @keydown.enter.prevent="irAlProyecto(project)"
-                @keydown.space.prevent="irAlProyecto(project)"
-              >
-                <td class="px-3 py-2">
-                  <RouterLink
-                    :to="{ name: 'project', params: { id: String(project.id) } }"
-                    class="font-semibold text-texto-marca hover:underline"
-                    @click.stop
-                  >
-                    <template v-if="codigoDe(project.name)">
-                      <span class="font-mono text-cp-sm font-bold text-texto-marca">
-                        {{ codigoDe(project.name).codigo }}
-                      </span>
-                      <span class="text-cp-sm font-semibold text-texto">
-                        · {{ codigoDe(project.name).resto }}
-                      </span>
-                    </template>
-                    <template v-else>{{ project.name }}</template>
-                  </RouterLink>
-                </td>
-
-                <td class="px-3 py-2 text-texto-suave">{{ project.owner_name ?? '—' }}</td>
-
-                <td class="px-3 py-2">
-                  <div v-if="avataresDe(project).length" class="flex items-center">
-                    <span
-                      v-for="(member, index) in avataresDe(project)"
-                      :key="member.user_id"
-                      class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold ring-2 ring-tarjeta"
-                      :class="index > 0 ? '-ml-1.5' : ''"
-                      :style="estiloAvatarEquipo(group)"
-                      :title="member.name"
-                      data-testid="project-member"
-                    >
-                      {{ member.name.slice(0, 1) }}
-                    </span>
-                    <span v-if="restoDe(project)" data-testid="project-members-rest"
-                          class="ml-1 text-cp-xs text-texto-tenue">
-                      +{{ restoDe(project) }}
-                    </span>
-                  </div>
-                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
-                </td>
-
-                <td class="px-3 py-2">
-                  <template v-if="resumenDe(project) && resumenDe(project).tasks_total">
-                    <span class="font-mono text-cp-xs text-texto-suave" data-testid="project-tasks">
-                      {{ resumenDe(project).tasks_done }}/{{ resumenDe(project).tasks_total }}
-                    </span>
-                    <span class="mt-1 block h-1.5 w-24 overflow-hidden rounded-pastilla bg-tarjeta-suave">
-                      <span
-                        class="block h-1.5 rounded-pastilla bg-primario"
-                        :style="{ width: `${avanceDe(project)}%` }"
-                        data-testid="project-tasks-bar"
-                      ></span>
-                    </span>
-                  </template>
-                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
-                </td>
-
-                <td class="px-3 py-2">
-                  <!-- la sobrecarga lleva triangulo, que el color no es el unico medio -->
+                <span
+                  class="inline-flex flex-none items-center gap-1.5 rounded-pastilla px-2 py-0.5 text-cp-micro font-semibold"
+                  :class="pildoraEstadoProyecto(project.status)"
+                >
                   <span
-                    v-if="cargaDe(project).tipo === 'sobrecarga'"
-                    class="inline-flex items-center gap-1 whitespace-nowrap rounded-control bg-peligro-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-peligro-texto"
-                    data-testid="project-overloaded"
+                    class="h-1.5 w-1.5 flex-none rounded-full"
+                    :class="puntoEstadoProyecto(project.status)"
+                    aria-hidden="true"
+                  ></span>
+                  {{ projectStatus(project.status).label }}
+                </span>
+              </div>
+
+              <!-- Responsable y equipo -->
+              <div class="mt-3 flex items-center justify-between gap-3">
+                <span class="min-w-0 truncate text-cp-xs text-texto-suave">
+                  {{ project.owner_name ?? 'Sin responsable' }}
+                </span>
+
+                <span v-if="avataresDe(project).length" class="flex flex-none items-center">
+                  <span
+                    v-for="(member, index) in avataresDe(project)"
+                    :key="member.user_id"
+                    class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold ring-2 ring-tarjeta"
+                    :class="index > 0 ? '-ml-1.5' : ''"
+                    :style="estiloAvatarEquipo(group)"
+                    :title="member.name"
+                    data-testid="project-member"
                   >
-                    <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 3 L22 20 H2 Z" />
-                    </svg>
-                    Sobrecargado
+                    {{ member.name.slice(0, 1) }}
                   </span>
                   <span
-                    v-else-if="cargaDe(project).tipo === 'porcentaje'"
-                    class="inline-flex items-center whitespace-nowrap rounded-control bg-carga-optimo-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-carga-optimo-texto"
-                    data-testid="project-load"
+                    v-if="restoDe(project)"
+                    class="ml-1 text-cp-xs text-texto-tenue"
+                    data-testid="project-members-rest"
                   >
-                    {{ cargaDe(project).texto }}
+                    +{{ restoDe(project) }}
                   </span>
-                  <span
-                    v-else-if="cargaDe(project).tipo === 'sin-capacidad'"
-                    class="inline-flex items-center whitespace-nowrap rounded-control bg-carga-capacidad-desconocida-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-carga-capacidad-desconocida-texto"
-                    data-testid="project-load-unknown"
-                  >
-                    Sin capacidad
-                  </span>
-                  <span v-else class="text-cp-xs text-texto-tenue">—</span>
-                </td>
+                </span>
+              </div>
 
-                <td class="px-3 py-2">
-                  <span
-                    class="inline-flex items-center gap-1.5 rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
-                    :class="pildoraEstadoProyecto(project.status)"
-                  >
-                    <span
-                      class="h-1.5 w-1.5 flex-none rounded-full"
-                      :class="puntoEstadoProyecto(project.status)"
-                      aria-hidden="true"
-                    ></span>
-                    {{ projectStatus(project.status).label }}
+              <!-- Avance de tareas -->
+              <div class="mt-3">
+                <div class="flex items-center justify-between gap-2 text-cp-xs">
+                  <span class="font-mono tabular-nums text-texto-suave" data-testid="project-tasks">
+                    {{ resumenDe(project)?.tasks_done ?? 0 }}/{{ resumenDe(project)?.tasks_total ?? 0 }}
+                    tareas
                   </span>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+                  <span class="font-mono tabular-nums text-texto-tenue">
+                    {{ avanceDe(project) }} %
+                  </span>
+                </div>
+                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-pastilla bg-tarjeta-suave">
+                  <div
+                    class="h-full rounded-pastilla bg-primario"
+                    :style="{ width: `${avanceDe(project)}%` }"
+                    data-testid="project-tasks-bar"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Carga de la semana -->
+              <div class="mt-3 flex items-center justify-between gap-2 border-t border-borde-suave pt-3">
+                <span class="text-cp-xs text-texto-tenue">Carga esta semana</span>
+
+                <!-- la sobrecarga lleva triangulo, que el color no es el unico medio -->
+                <span
+                  v-if="cargaDe(project).tipo === 'sobrecarga'"
+                  class="inline-flex items-center gap-1 rounded-pastilla bg-peligro-fondo px-2 py-0.5 text-cp-xs font-semibold text-peligro-texto"
+                  data-testid="project-overloaded"
+                >
+                  <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 L22 20 H2 Z" />
+                  </svg>
+                  {{ cargaDe(project).texto }}
+                </span>
+
+                <span
+                  v-else-if="cargaDe(project).tipo === 'porcentaje'"
+                  class="rounded-control bg-carga-optimo-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold tabular-nums text-carga-optimo-texto"
+                  data-testid="project-load"
+                >
+                  {{ cargaDe(project).texto }}
+                </span>
+
+                <span
+                  v-else-if="cargaDe(project).tipo === 'sin-capacidad'"
+                  class="rounded-control bg-carga-capacidad-desconocida-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold tabular-nums text-carga-capacidad-desconocida-texto"
+                  data-testid="project-load-unknown"
+                >
+                  {{ cargaDe(project).texto }}
+                </span>
+
+                <span v-else class="text-cp-xs text-texto-tenue">—</span>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
     </AsyncState>
   </div>

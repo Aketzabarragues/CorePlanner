@@ -354,14 +354,48 @@ describe('CapacityMatrix', () => {
     expect(equipo.text()).toContain('82')
   })
 
-  it('la leyenda explica la escala', async () => {
+  it('la leyenda explica la escala con su rango delante', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
     const texto = wrapper.text()
-    expect(texto).toContain('Libre')
-    expect(texto).toContain('Óptimo')
-    expect(texto).toContain('Sobrecarga alta')
+    expect(texto).toContain('< 50 % Libre')
+    expect(texto).toContain('50-85 % Carga media')
+    expect(texto).toContain('85-100 % Óptimo')
+    expect(texto).toContain('100-110 % Sobrecarga leve')
+    expect(texto).toContain('> 110 % Sobrecarga alta')
+    expect(texto).toContain('0 h Sin carga')
+    expect(texto).toContain('sin capacidad Capacidad desconocida')
+  })
+
+  it('el resumen es una fila: chips a la izquierda, leyenda a la derecha', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    const fila = wrapper
+      .get('[data-testid="summary-overload"]')
+      .element.parentElement.parentElement
+    expect(fila.className).toContain('justify-between')
+
+    // Los tres chips van juntos, en el grupo izquierdo.
+    const grupoIzq = fila.firstElementChild
+    for (const testid of ['summary-overload', 'summary-free', 'summary-average']) {
+      expect(grupoIzq.querySelector(`[data-testid="${testid}"]`)).toBeTruthy()
+    }
+
+    // La leyenda va en el grupo derecho: siete estados, con muestra y rango.
+    const grupoDer = grupoIzq.nextElementSibling
+    const items = Array.from(grupoDer.children)
+    expect(items).toHaveLength(7)
+    expect(items[0].textContent).toContain('0 h')
+    expect(items[1].textContent).toContain('sin capacidad')
+    expect(items[2].textContent).toContain('< 50 %')
+    expect(items[6].textContent).toContain('> 110 %')
+    for (const item of items) {
+      const muestra = item.querySelector('span')
+      expect(muestra.className).toContain('border')
+      expect(muestra.className).toContain('rounded-control')
+    }
   })
 
   it('avisa de las tareas que caen enteramente en dias no laborables', async () => {
@@ -1000,9 +1034,30 @@ describe('CapacityMatrix', () => {
       '1 celda sobrecargada',
     )
     // Ana tiene 30 h y 40 h libres: dos huecos de 20 h o más.
-    expect(wrapper.get('[data-testid="summary-free"]').text()).toContain('2 huecos')
+    expect(wrapper.get('[data-testid="summary-free"]').text()).toContain(
+      '2 huecos de ≥20 h libres',
+    )
     // 82 h sobre 160 h de capacidad.
+    expect(wrapper.get('[data-testid="summary-average"]').text()).toContain(
+      'Uso medio del equipo:',
+    )
     expect(wrapper.get('[data-testid="summary-average"]').text()).toContain('51 %')
+  })
+
+  it('los chips de resumen llevan su punto de color', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    for (const [testid, punto] of [
+      ['summary-overload', 'bg-peligro-punto'],
+      ['summary-free', 'bg-info-punto'],
+      ['summary-average', 'bg-neutro-punto'],
+    ]) {
+      const chip = wrapper.get(`[data-testid="${testid}"]`)
+      const puntoEl = chip.element.querySelector('span.rounded-full')
+      expect(puntoEl).toBeTruthy()
+      expect(puntoEl.className).toContain(punto)
+    }
   })
 
   it('la celda abierta queda en la URL', async () => {

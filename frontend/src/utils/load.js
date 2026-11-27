@@ -130,6 +130,35 @@ export function loadLabel(state) {
   return loadAspect(state).label
 }
 
+/**
+ * Rango de uso de un estado, para la leyenda.
+ *
+ * Sale de los umbrales, no escrito a mano: si cambia un umbral, la leyenda y
+ * la escala cambian a la vez.
+ *
+ * @param {string} state Uno de los estados de LOAD_STATE.
+ * @returns {string} El rango que cubre el estado, p. ej. "85-100 %".
+ */
+export function loadRange(state) {
+  const pct = (umbral) => Math.round(umbral * 100)
+  switch (state) {
+    case LOAD_STATE.EMPTY:
+      return '0 h'
+    case LOAD_STATE.UNKNOWN:
+      return 'sin capacidad'
+    case LOAD_STATE.FREE:
+      return `< ${pct(FREE_THRESHOLD)} %`
+    case LOAD_STATE.MID:
+      return `${pct(FREE_THRESHOLD)}-${pct(OPTIMAL_THRESHOLD)} %`
+    case LOAD_STATE.OPTIMAL:
+      return `${pct(OPTIMAL_THRESHOLD)}-${pct(OVERLOAD_THRESHOLD)} %`
+    case LOAD_STATE.OVERLOAD:
+      return `${pct(OVERLOAD_THRESHOLD)}-${pct(HIGH_OVERLOAD_THRESHOLD)} %`
+    default:
+      return `> ${pct(HIGH_OVERLOAD_THRESHOLD)} %`
+  }
+}
+
 /** Si el estado es una sobrecarga, y por lo tanto lleva triangulo. */
 export function isOverloaded(state) {
   return OVERLOAD_STATES.includes(state)

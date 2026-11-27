@@ -9,6 +9,7 @@ import {
   loadLabel,
   loadRatio,
   loadRatioText,
+  loadRange,
   loadState,
   teamUsage,
 } from '../utils/load'
@@ -65,6 +66,16 @@ describe('escala de carga', () => {
     expect(loadLabel(LOAD_STATE.OPTIMAL)).toBe('Óptimo')
     expect(loadLabel(LOAD_STATE.OVERLOAD)).toBe('Sobrecarga leve')
     expect(loadLabel(LOAD_STATE.HIGH_OVERLOAD)).toBe('Sobrecarga alta')
+  })
+
+  it('el rango de la leyenda sale de los umbrales', () => {
+    expect(loadRange(LOAD_STATE.EMPTY)).toBe('0 h')
+    expect(loadRange(LOAD_STATE.UNKNOWN)).toBe('sin capacidad')
+    expect(loadRange(LOAD_STATE.FREE)).toBe('< 50 %')
+    expect(loadRange(LOAD_STATE.MID)).toBe('50-85 %')
+    expect(loadRange(LOAD_STATE.OPTIMAL)).toBe('85-100 %')
+    expect(loadRange(LOAD_STATE.OVERLOAD)).toBe('100-110 %')
+    expect(loadRange(LOAD_STATE.HIGH_OVERLOAD)).toBe('> 110 %')
   })
 
   it('el aspecto trae las clases de fondo, texto y barra', () => {

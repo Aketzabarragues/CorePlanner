@@ -49,6 +49,17 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: la matriz de capacidad ocupa el alto disponible y su scroll vertical vive
+  dentro de la tabla, como en el calendario y en el diagrama de Gantt: antes estaba
+  limitada a `70vh` y la pagina crecia por debajo. El aviso de dias no laborables se
+  recoloca dentro de la tabla para que no quede fuera de la pantalla.
+- **frontend**: el resumen de la matriz de capacidad toma el formato del boceto: los tres
+  chips (celdas sobrecargadas, huecos libres y uso medio del equipo) llevan un punto de
+  color delante y la leyenda de la escala se va a la derecha, con el rango delante de la
+  etiqueta ("85-100 % Óptimo"). Los rangos salen de los umbrales de `utils/load.js`, no
+  escritos a mano. Se retira el aviso amarillo que explicaba el triangulo de sobrecarga:
+  el triangulo y el porcentaje siguen en la celda.
+
 - **frontend**: el armazon y la barra de vista adoptan las medidas del boceto. El lateral
   baja de 256 a 240 px, la fila de marca mide 56 px con el nombre del producto a 14 px y
   la version a 11 px en mono, y los controles de la barra se ven de 26 a 32 px (antes

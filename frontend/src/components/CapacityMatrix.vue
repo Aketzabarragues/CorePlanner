@@ -34,6 +34,7 @@ import {
   loadFree,
   loadLabel,
   loadRatio,
+  loadRange,
   loadState,
   teamUsage,
 } from '../utils/load'
@@ -146,7 +147,11 @@ const LEGEND = [
   LOAD_STATE.OPTIMAL,
   LOAD_STATE.OVERLOAD,
   LOAD_STATE.HIGH_OVERLOAD,
-].map((state) => ({ state, label: loadLabel(state) }))
+].map((state) => ({
+  state,
+  label: loadLabel(state),
+  range: loadRange(state),
+}))
 
 /** Modos de la celda, con su etiqueta. */
 const MODES = [
@@ -1260,7 +1265,7 @@ watch(
 </script>
 
 <template>
-  <div>
+  <div class="flex h-full min-h-0 flex-col">
     <PageHeader
       title="Capacidad"
       ayuda="Reparto semanal de horas de todos los proyectos visibles. Pulsa una celda para ver el desglose por proyecto."
@@ -1372,6 +1377,7 @@ watch(
     </PageHeader>
 
     <AsyncState
+      class="flex min-h-0 flex-1 flex-col"
       :loading="loading"
       :error="error"
       :empty="empty"
@@ -1391,41 +1397,63 @@ watch(
         {{ aviso }}
       </AlertBanner>
 
-      <div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
-        <span
-          class="flex items-center gap-1.5 rounded-pastilla border border-peligro-borde bg-peligro-fondo px-3 py-1.5 font-medium text-peligro-texto"
-          data-testid="summary-overload"
-        >
-          <span class="h-3.5 w-3.5"><AppIcon name="warning" /></span>
-          {{ summary.sobrecargadas }}
-          {{ summary.sobrecargadas === 1 ? 'celda sobrecargada' : 'celdas sobrecargadas' }}
-        </span>
-        <span
-          class="rounded-pastilla border border-info-borde bg-info-fondo px-3 py-1.5 font-medium text-info-texto"
-          data-testid="summary-free"
-        >
-          {{ summary.huecos }}
-          {{ summary.huecos === 1 ? 'hueco' : 'huecos' }} de 20 h o más libres
-        </span>
-        <span
-          class="rounded-pastilla border border-borde bg-tarjeta px-3 py-1.5 font-medium text-texto-suave"
-          data-testid="summary-average"
-        >
-          Uso medio del equipo: {{ summary.medio ?? '—' }} %
-        </span>
+      <p
+        v-if="!loading && !error && holidayTaskIds.length"
+        class="mb-3 flex-none rounded-tarjeta border border-aviso-borde bg-aviso-fondo p-3 text-sm text-aviso-texto"
+        data-testid="capacity-holiday-warning"
+      >
+        {{ holidayTaskIds.length }} tarea(s) caen enteramente en días no laborables y no se
+        imputan: su carga no aparece en la matriz.
+      </p>
 
-        <!-- Leyenda de la escala: arriba, junto a los chips, para no bajar a buscarla. -->
-        <span
-          v-for="item in LEGEND"
-          :key="item.state"
-          class="flex items-center gap-1.5 text-texto-suave"
-        >
-          <span class="h-3 w-3 rounded-control border" :class="legendSwatch(item.state)"></span>
-          {{ item.label }}
-        </span>
+      <!-- Resumen del equipo: los chips a la izquierda y la leyenda de la
+           escala a la derecha, los dos en su grupo. En 1440 px caben en una
+           fila; por debajo la leyenda se reenvuelve sola dentro de su grupo
+           (los chips se quedan siempre juntos). -->
+      <div class="mb-3 flex flex-none flex-wrap items-start justify-between gap-3 text-cp-xs">
+        <div class="flex flex-none flex-wrap items-center gap-2">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-pastilla border border-peligro-borde bg-peligro-fondo px-3 py-1 font-medium text-peligro-texto"
+            data-testid="summary-overload"
+          >
+            <span class="h-2 w-2 rounded-full bg-peligro-punto"></span>
+            {{ plural(summary.sobrecargadas, 'celda sobrecargada', 'celdas sobrecargadas') }}
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-pastilla border border-info-borde bg-info-fondo px-3 py-1 font-medium text-info-texto"
+            data-testid="summary-free"
+          >
+            <span class="h-2 w-2 rounded-full bg-info-punto"></span>
+            {{ plural(summary.huecos, 'hueco', 'huecos') }} de &ge;20 h libres
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta px-3 py-1 font-medium text-texto-suave shadow-control"
+            data-testid="summary-average"
+          >
+            <span class="h-2 w-2 rounded-full bg-neutro-punto"></span>
+            Uso medio del equipo:
+            <strong class="font-mono font-semibold text-texto-marca">
+              {{ summary.medio === null ? '—' : `${summary.medio} %` }}
+            </strong>
+          </span>
+        </div>
+
+        <!-- Leyenda de la escala: el rango delante de la etiqueta, y el
+             rango sale de los umbrales de load.js. Se reenvuelve dentro de su
+             grupo cuando no cabe al lado de los chips. -->
+        <div class="flex min-w-0 flex-wrap items-center gap-3 text-texto-tenue xl:flex-1">
+          <span
+            v-for="item in LEGEND"
+            :key="item.state"
+            class="flex items-center gap-1.5"
+          >
+            <span class="h-2.5 w-2.5 rounded-control border" :class="legendSwatch(item.state)"></span>
+            {{ item.range }} {{ item.label }}
+          </span>
+        </div>
       </div>
 
-      <div class="max-h-[70vh] overflow-auto rounded-tarjeta border border-borde bg-tarjeta">
+      <div class="min-h-0 flex-1 overflow-auto rounded-tarjeta border border-borde bg-tarjeta">
         <table class="w-full border-collapse text-sm">
           <thead class="sticky top-0 z-20 bg-tarjeta-suave">
             <tr class="bg-tarjeta-suave">
@@ -1652,23 +1680,6 @@ watch(
         </table>
       </div>
     </AsyncState>
-
-    <p
-      v-if="!loading && !error && holidayTaskIds.length"
-      class="mt-4 rounded-tarjeta border border-aviso-borde bg-aviso-fondo p-3 text-sm text-aviso-texto"
-      data-testid="capacity-holiday-warning"
-    >
-      {{ holidayTaskIds.length }} tarea(s) caen enteramente en días no laborables y no se
-      imputan: su carga no aparece en la matriz.
-    </p>
-
-    <p
-      v-if="!loading && !error && rows.some((r) => r.has_overload)"
-      class="mt-4 rounded-tarjeta border border-aviso-borde bg-aviso-fondo p-3 text-sm text-aviso-texto"
-    >
-      Las celdas con triangulo son las semanas que superan la capacidad de la persona.
-      Pulsa una celda para ver y editar las tareas que la componen.
-    </p>
 
     <!-- Panel de detalle de la celda -->
     <SidePanel

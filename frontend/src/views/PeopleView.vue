@@ -137,7 +137,9 @@ onMounted(load)
         <!-- Buscador: con la lupa a la izquierda, como el de Proyectos. -->
         <label class="inline-flex min-w-0 items-center gap-1.5">
           <span class="sr-only">Buscar</span>
-          <span class="relative inline-flex min-w-0 items-center">
+          <span
+            class="relative inline-flex min-w-0 items-center after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+          >
             <span class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue">
               <AppIcon name="search" />
             </span>
@@ -145,7 +147,7 @@ onMounted(load)
               v-model="buscador"
               type="search"
               placeholder="Filtrar por nombre o puesto..."
-              class="min-h-10 w-64 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              class="w-64 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="filter-search"
             />
           </span>
@@ -166,7 +168,7 @@ onMounted(load)
         <div class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control">
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative flex items-center justify-center rounded-control p-1.5 text-texto-tenue transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             aria-label="Semana anterior"
             data-testid="week-previous"
             @click="moveWeek(-1)"
@@ -174,14 +176,14 @@ onMounted(load)
             <span class="inline-flex h-3.5 w-3.5"><AppIcon name="chevronLeft" /></span>
           </button>
           <span
-            class="min-w-[116px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca"
+            class="min-w-[116px] px-2.5 text-center font-mono text-cp-sm font-semibold text-texto-marca"
             data-testid="week-label"
           >
             {{ etiquetaSemana }}
           </span>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative flex items-center justify-center rounded-control p-1.5 text-texto-tenue transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             aria-label="Semana siguiente"
             data-testid="week-next"
             @click="moveWeek(1)"

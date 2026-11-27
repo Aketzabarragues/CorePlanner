@@ -1301,7 +1301,7 @@ watch(
         <!-- Interruptor de provisional: el objetivo es el boton, la pista es de 20 px. -->
         <label
           v-if="hayProvisional"
-          class="inline-flex min-h-10 items-center gap-2 rounded-control px-1.5 text-cp-xs font-medium text-texto-suave"
+          class="inline-flex min-h-8 items-center gap-2 rounded-control px-1.5 text-cp-xs font-medium text-texto-suave"
           data-testid="provisional-filter-label"
         >
           <span class="sr-only xl:not-sr-only">Contar lo provisional</span>
@@ -1334,7 +1334,7 @@ watch(
         <div class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control">
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative flex items-center justify-center rounded-control p-1.5 text-texto-tenue transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             aria-label="Semanas anteriores"
             data-testid="range-previous"
             @click="moveRange(-1)"
@@ -1343,7 +1343,7 @@ watch(
           </button>
 
           <span
-            class="min-w-[96px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca"
+            class="min-w-[112px] px-2.5 text-center font-mono text-cp-sm font-semibold text-texto-marca"
             data-testid="range-label"
           >
             {{ rangeLabel }}
@@ -1351,7 +1351,7 @@ watch(
 
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative flex items-center justify-center rounded-control p-1.5 text-texto-tenue transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             aria-label="Semanas siguientes"
             data-testid="range-next"
             @click="moveRange(1)"
@@ -1362,7 +1362,7 @@ watch(
 
         <button
           type="button"
-          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          class="relative inline-flex items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="range-today"
           @click="goToday"
         >

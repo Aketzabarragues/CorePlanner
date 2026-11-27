@@ -2,7 +2,7 @@
 /**
  * Boton de ayuda de la cabecera de vista.
  *
- * Boton `?` de 24 px con tooltip oscuro hacia abajo, centrado en el boton.
+ * Boton `?` de 20 px con tooltip oscuro hacia abajo, centrado en el boton.
  * Se abre al pulsar y al recibir foco (teclado); se cierra con Escape. El
  * lector de pantalla lee el nombre del boton ("Ayuda"); el tooltip lleva
  * role="tooltip" y el boton le apunta con aria-controls.
@@ -20,7 +20,7 @@ const abierto = ref(false)
   <span class="relative inline-flex">
     <button
       type="button"
-      class="flex h-6 w-6 items-center justify-center rounded-pastilla bg-tarjeta-suave text-cp-xs font-semibold text-texto-suave transition-colors hover:bg-tarjeta hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+      class="relative flex h-5 w-5 items-center justify-center rounded-pastilla bg-tarjeta-suave text-cp-sm font-semibold text-texto-suave transition-colors hover:bg-tarjeta hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
       aria-label="Ayuda"
       :aria-expanded="abierto ? 'true' : 'false'"
       aria-controls="cp-help-tip"

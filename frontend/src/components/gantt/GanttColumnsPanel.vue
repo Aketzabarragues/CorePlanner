@@ -36,7 +36,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto 2xl:w-auto 2xl:gap-2 2xl:px-3"
+      class="relative inline-flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:gap-2 2xl:px-3"
       :aria-expanded="abierto"
       aria-label="Columnas del panel de nombres"
       title="Columnas del panel de nombres"

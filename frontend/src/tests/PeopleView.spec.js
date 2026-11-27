@@ -342,12 +342,20 @@ describe('PeopleView', () => {
     const wrapper = await mountView()
 
     const filtro = wrapper.find('[data-testid="filter-department"]')
-    expect(filtro.classes()).toContain('min-h-10')
     expect(filtro.classes()).toContain('rounded-control')
     expect(filtro.classes()).toContain('border-borde-fuerte')
     expect(filtro.classes()).toContain('bg-tarjeta-suave')
     expect(filtro.classes()).toContain('text-cp-sm')
     expect(filtro.classes()).not.toContain('rounded-full')
+    // Altura compacta del boceto: sin `min-h-10`, el relleno da los 32 px.
+    expect(filtro.classes()).not.toContain('min-h-10')
+    expect(filtro.classes()).toContain('py-1.5')
+    // Zona tactil ampliada: el pseudo-elemento va en el contenedor, no en el
+    // desplegable (no se pinta sobre elementos reemplazados).
+    const contenedor = filtro.element.parentElement
+    expect([...contenedor.classList]).toContain('relative')
+    expect([...contenedor.classList]).toContain('after:absolute')
+    expect([...filtro.element.classList]).not.toContain('after:absolute')
 
     const etiqueta = filtro.element.closest('label')
     expect(etiqueta.className).toContain('inline-flex')

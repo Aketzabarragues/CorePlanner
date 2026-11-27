@@ -806,7 +806,7 @@ watch(
           >
             <button
               type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
               aria-label="Periodo anterior"
               data-testid="calendar-prev"
               @click="step(-1)"
@@ -816,7 +816,7 @@ watch(
               </span>
             </button>
 
-            <span class="min-w-[112px] px-2 text-center font-mono text-cp-sm font-semibold text-texto-marca">
+            <span class="min-w-[112px] px-2.5 text-center text-cp-sm font-semibold text-texto-marca">
               <span v-if="view === 'month'" data-testid="calendar-month">{{ monthLabel(month) }}</span>
               <span v-else-if="view === 'week'" data-testid="calendar-week">
                 {{ weekRangeLabel(week) }}
@@ -827,7 +827,7 @@ watch(
 
             <button
               type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
               aria-label="Periodo siguiente"
               data-testid="calendar-next"
               @click="step(1)"
@@ -839,7 +839,7 @@ watch(
           </div>
           <button
             type="button"
-            class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative inline-flex items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
             data-testid="calendar-today"
             @click="goToday"
           >
@@ -853,7 +853,7 @@ watch(
           -->
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="relative flex items-center justify-center rounded-control border border-borde bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
             :aria-pressed="ampliado"
             :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"

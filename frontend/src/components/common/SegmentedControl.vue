@@ -9,8 +9,10 @@
  * pastilla agrupada, pista `bg-tarjeta-suave` y opcion activa en `bg-tarjeta`
  * con `shadow-control`.
  *
- * Altura: las opciones miden 40 px (`min-h-10`) y la pista completa 44 px
- * (`p-1`): la zona tactil es la cabecera entera.
+ * Altura: las opciones miden ~28 px (`px-2.5 py-1 text-cp-sm`) y la pista
+ * completa ~36 px (`p-1`), como el boceto. La caja visible queda por debajo
+ * de los 40 px del suelo tactil, asi que cada opcion lleva un pseudo-elemento
+ * transparente que extiende la zona pulsable a 40 px.
  *
  * `testidPrefix` existe para que el boton conserve el `data-testid` que ya
  * buscan las pruebas de la vista que lo usa.
@@ -35,7 +37,7 @@ const emit = defineEmits(['update:modelValue'])
       v-for="item in options"
       :key="item.value"
       type="button"
-      class="min-h-10 rounded-control px-2 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:px-3"
+      class="relative rounded-control px-2.5 py-1 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
       :class="
         modelValue === item.value
           ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'

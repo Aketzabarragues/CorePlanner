@@ -288,13 +288,13 @@ useTaskReload(load)
       <template #actions>
         <RouterLink
           to="/capacity"
-          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          class="relative inline-flex items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-semibold text-texto transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         >
           Ir a Capacidad
         </RouterLink>
         <RouterLink
           to="/gantt"
-          class="inline-flex min-h-10 items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          class="relative inline-flex items-center rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         >
           Abrir Gantt
         </RouterLink>

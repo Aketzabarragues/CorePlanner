@@ -49,9 +49,11 @@ const textoSeleccionado = computed(
       {{ label }}
     </span>
 
-    <span class="relative inline-flex min-w-0 items-center">
+    <span
+      class="relative inline-flex min-w-0 items-center after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+    >
       <select
-        class="min-h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-3 pr-8 text-cp-sm font-medium text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+        class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-3 pr-8 text-cp-sm font-medium text-texto transition-colors hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
         :class="ancho"
         :value="modelValue"
         :title="`${label}: ${textoSeleccionado}`"

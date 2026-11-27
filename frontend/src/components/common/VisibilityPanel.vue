@@ -72,7 +72,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex min-h-10 w-10 items-center justify-center rounded-control border bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:w-auto 2xl:gap-2 2xl:px-3"
+      class="relative inline-flex items-center justify-center rounded-control border bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:w-auto 2xl:gap-2 2xl:px-3"
       :class="
         ocultosCount
           ? 'border-primario-fuerte text-primario-fuerte'

@@ -482,7 +482,7 @@ describe('AppShell', () => {
   it('el boton de colapsar reduce el menu lateral', async () => {
     const { wrapper } = await mountShell()
 
-    expect(wrapper.find('aside').classes()).toContain('sm:w-64')
+    expect(wrapper.find('aside').classes()).toContain('sm:w-60')
 
     const colapsar = wrapper
       .findAll('button')

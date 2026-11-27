@@ -1285,11 +1285,19 @@ describe('CalendarView con filtros', () => {
     for (const filtro of filtros) {
       const select = wrapper.find(`[data-testid="${filtro.testid}"]`)
       expect(select.exists()).toBe(true)
-      expect(select.classes()).toContain('min-h-10')
       expect(select.classes()).toContain('rounded-control')
       expect(select.classes()).toContain('border-borde-fuerte')
       expect(select.classes()).toContain('bg-tarjeta-suave')
       expect(select.classes()).toContain('text-cp-sm')
+      // Altura compacta del boceto: sin `min-h-10`, el relleno da los 32 px.
+      expect(select.classes()).not.toContain('min-h-10')
+      expect(select.classes()).toContain('py-1.5')
+      // Zona tactil ampliada: el pseudo-elemento va en el contenedor, no en el
+      // desplegable (no se pinta sobre elementos reemplazados).
+      const contenedor = select.element.parentElement
+      expect([...contenedor.classList]).toContain('relative')
+      expect([...contenedor.classList]).toContain('after:absolute')
+      expect([...select.element.classList]).not.toContain('after:absolute')
 
       // La etiqueta va en linea, nunca encima del desplegable.
       const label = select.element.closest('label')

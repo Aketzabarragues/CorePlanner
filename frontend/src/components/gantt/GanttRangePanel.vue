@@ -137,7 +137,7 @@ function atajoCuatroSemanas() {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="inline-flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto 2xl:h-8 2xl:w-auto 2xl:justify-start 2xl:gap-2 2xl:px-3"
+      class="relative inline-flex items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta p-1.5 text-texto after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] 2xl:w-auto 2xl:justify-start 2xl:gap-2 2xl:px-3"
       :aria-expanded="abierto"
       aria-label="Elegir el rango de fechas"
       title="Elegir el rango de fechas"

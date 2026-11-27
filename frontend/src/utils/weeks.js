@@ -190,6 +190,26 @@ export function weekRangeLabel(key) {
 }
 
 /**
+ * Rango de la semana, corto para la cabecera de la matriz: "23 - 27 nov".
+ *
+ * El anio no sale salvo cuando la semana lo cruza: entonces va el de cierre,
+ * "28 dic - 1 ene 2027".
+ */
+export function weekRangeCorto(key) {
+  const days = weekWorkdays(key)
+  const first = days[0]
+  const last = days[days.length - 1]
+  const firstMonth = shortMonthName(Number(first.date.slice(5, 7)))
+  const lastMonth = shortMonthName(Number(last.date.slice(5, 7)))
+  const year = last.date.slice(0, 4)
+  const anio = first.date.slice(0, 4) !== year ? ` ${year}` : ''
+  if (firstMonth === lastMonth) {
+    return `${first.day} - ${last.day} ${lastMonth}${anio}`
+  }
+  return `${first.day} ${firstMonth} - ${last.day} ${lastMonth}${anio}`
+}
+
+/**
  * Rango de los dias de una semana, en texto corto: "9 - 15 nov".
  *
  * Los dias son los que se pintan, asi que el rango abarca los siete. El anio

@@ -41,6 +41,7 @@ import {
 import {
   currentWeekKey,
   shiftWeek,
+  weekRangeCorto,
   weekRangeLabel,
   weekTitle,
   weeksBetween,
@@ -587,12 +588,20 @@ function colorAvatar(fila) {
 }
 
 /** La matriz con cada celda ya resuelta. */
-const matrix = computed(() =>
-  filasVisibles.value.map((row) => ({
-    fila: row,
-    celdas: weeks.value.map((semana) => cellView(row, semana.week)),
-  })),
-)
+const matrix = computed(() => {
+  let previo = null
+  const filas = filasVisibles.value.map((row) => {
+    const nuevoDepartamento =
+      previo !== null && String(row.department_id ?? '') !== String(previo.department_id ?? '')
+    previo = row
+    return {
+      fila: row,
+      nuevoDepartamento,
+      celdas: weeks.value.map((semana) => cellView(row, semana.week)),
+    }
+  })
+  return filas
+})
 
 /** Uso del equipo en cada semana: horas, capacidad y estado. */
 const team = computed(() =>
@@ -1427,7 +1436,7 @@ watch(
           <thead class="sticky top-0 z-20 bg-tarjeta-suave">
             <tr class="bg-tarjeta-suave">
               <th
-                class="sticky left-0 top-0 z-20 border border-borde bg-tarjeta-suave px-3 py-2 text-left"
+                class="sticky left-0 top-0 z-20 border border-borde bg-tarjeta-suave px-3 py-2 text-left font-bold"
               >
                 Persona
               </th>
@@ -1437,21 +1446,22 @@ watch(
                 data-testid="capacity-week-header"
                 class="border border-borde px-2 py-2 text-center align-top"
               >
-                <span class="block text-xs font-semibold text-texto-suave">
-                  {{ weekTitle(semana.week) }}
+                <span class="flex items-center justify-center gap-1">
+                  <span class="text-xs font-bold text-texto">{{ weekTitle(semana.week) }}</span>
+                  <span
+                    v-if="semana.week === currentWeek"
+                    data-testid="today-badge"
+                    class="rounded-pastilla bg-texto px-1.5 py-px text-[9px] font-bold uppercase leading-none text-texto-inverso"
+                  >
+                    Hoy
+                  </span>
                 </span>
-                <span class="block text-[10px] font-normal text-texto-tenue">
-                  {{ weekRangeLabel(semana.week) }}
-                </span>
-                <span
-                  v-if="semana.week === currentWeek"
-                  class="mt-0.5 mr-1 inline-block rounded-pastilla bg-primario-fuerte px-1.5 py-px text-[10px] font-semibold text-sobre-primario"
-                >
-                  Hoy
+                <span class="mt-0.5 block text-[10px] font-normal text-texto-tenue">
+                  {{ weekRangeCorto(semana.week) }}
                 </span>
                 <span
                   v-if="semana.holidays && semana.holidays.length"
-                  class="mt-0.5 inline-block rounded-pastilla border border-borde-fuerte bg-lienzo px-1.5 py-px text-[10px] font-medium text-texto-suave"
+                  class="mt-1 inline-block max-w-full truncate rounded-pastilla border border-aviso-borde bg-aviso-fondo px-1.5 py-px text-[9px] font-medium text-aviso-texto"
                   :title="festivoTitulo(semana.holidays)"
                   data-testid="holiday-badge"
                 >
@@ -1464,25 +1474,36 @@ watch(
           <tbody>
             <tr v-for="entrada in matrix" :key="entrada.fila.user_id">
               <th
-                class="sticky left-0 z-10 border border-borde bg-tarjeta text-left font-medium"
+                class="sticky left-0 z-10 border border-borde bg-tarjeta text-left"
+                :class="entrada.nuevoDepartamento ? 'border-t-2 border-t-borde-fuerte' : ''"
               >
-                <div class="flex items-stretch gap-2 px-3 py-2">
+                <div class="flex items-center gap-2.5 px-3 py-2">
                   <PersonAvatar
                     :nombre="entrada.fila.name"
                     :color="colorAvatar(entrada.fila)"
                     :data-testid="`department-stripe-${entrada.fila.user_id}`"
                   />
-                  <span class="min-w-0 flex-1">
-                    {{ entrada.fila.name }}
-                    <span class="block text-xs font-normal text-texto-tenue">
-                      {{ entrada.fila.weekly_base_hours }} h/semana
+                  <span class="min-w-0 leading-tight">
+                    <span class="flex items-center gap-1.5">
+                      <span class="truncate text-xs font-semibold text-texto">
+                        {{ entrada.fila.name }}
+                      </span>
+                      <span class="shrink-0 font-mono text-[10px] text-texto-tenue">
+                        {{ entrada.fila.weekly_base_hours }}h
+                      </span>
                     </span>
                     <span
                       v-if="entrada.fila.department_name"
-                      class="block text-[11px] font-normal text-texto-tenue"
+                      class="mt-0.5 flex items-center gap-1"
                       :data-testid="`department-name-${entrada.fila.user_id}`"
                     >
-                      {{ entrada.fila.department_name }}
+                      <span
+                        class="h-1.5 w-1.5 shrink-0 rounded-full"
+                        :style="{ backgroundColor: colorAvatar(entrada.fila) }"
+                      ></span>
+                      <span class="truncate text-[10px] text-texto-suave">
+                        {{ entrada.fila.department_name }}
+                      </span>
                     </span>
                   </span>
                 </div>
@@ -1491,11 +1512,18 @@ watch(
                 v-for="celda in entrada.celdas"
                 :key="celda.week"
                 class="border border-borde p-1"
+                :class="entrada.nuevoDepartamento ? 'border-t-2 border-t-borde-fuerte' : ''"
               >
                 <button
                   type="button"
-                  class="flex h-[76px] w-full flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
-                  :class="celda.clases"
+                  class="flex w-full min-h-14 flex-col items-center justify-center gap-1 rounded-control border px-1 py-1.5"
+                  :class="
+                    celda.preview
+                      ? celda.clases
+                      : celda.vacia
+                        ? 'border-transparent bg-transparent text-carga-vacio-texto'
+                        : celda.clases
+                  "
                   :title="`Ver tareas de ${entrada.fila.name} en ${celda.week}`"
                   :aria-label="cellAria(entrada.fila, celda.week)"
                   :aria-pressed="breakdown?.user_id === entrada.fila.user_id && breakdown?.week === celda.week"
@@ -1504,16 +1532,6 @@ watch(
                   @click="onCellClick(entrada.fila, celda.week)"
                   @drop.prevent="dropOn(entrada.fila, celda.week, $event)"
                 >
-                  <svg
-                    v-if="celda.sobrecargada"
-                    class="h-3 w-3 flex-none"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 3 L22 20 H2 Z" />
-                  </svg>
-
                   <template v-if="celda.preview">
                     <span class="text-cp-sm font-semibold tabular-nums">
                       {{ celda.preview.principal }}
@@ -1524,31 +1542,46 @@ watch(
                   </template>
 
                   <template v-else-if="mode === MODE.HOURS">
-                    <!-- Celda sin carga: la marca, sin cifras. Punto solido sin
-                         tareas, anillo hueco si hay tareas que suman 0 h: la
-                         distincion es por forma, no por color. -->
+                    <!-- Celda sin carga: solo un punto tenue centrado, sin caja
+                         ni barra. Punto solido sin tareas, anillo hueco si hay
+                         tareas que suman 0 h: la distincion es por forma, no
+                         por color. -->
                     <span
                       v-if="celda.vacia"
                       :class="
                         celda.tareasCeroHoras
-                          ? 'h-2.5 w-2.5 rounded-full border-2 border-texto-tenue bg-transparent'
-                          : 'h-2.5 w-2.5 rounded-full bg-texto-tenue'
+                          ? 'h-2 w-2 rounded-full border-2 border-texto-tenue bg-transparent'
+                          : 'h-2 w-2 rounded-full bg-texto-tenue'
                       "
                       aria-hidden="true"
                     ></span>
                     <template v-else>
                       <span class="flex items-center gap-1">
-                        <span class="font-mono text-cp-sm font-semibold tabular-nums">{{ celda.principal }}</span>
-                        <span class="font-mono text-cp-micro tabular-nums opacity-80">
+                        <!-- La sobrecarga conserva triangulo y porcentaje en
+                             texto: el color no es la unica senal. -->
+                        <svg
+                          v-if="celda.sobrecargada"
+                          class="h-3 w-3 shrink-0"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 3 L22 20 H2 Z" />
+                        </svg>
+                        <span class="font-mono text-cp-sm font-bold tabular-nums">{{ celda.principal }}</span>
+                        <span class="font-mono text-[10px] opacity-60 tabular-nums">
                           {{ celda.capacidad }}
                         </span>
-                      </span>
-                      <span v-if="celda.porcentaje" class="font-mono text-cp-micro tabular-nums opacity-80">
-                        {{ celda.porcentaje }}
+                        <span
+                          v-if="celda.sobrecargada && celda.porcentaje"
+                          class="font-mono text-[10px] font-bold tabular-nums"
+                        >
+                          {{ celda.porcentaje }}
+                        </span>
                       </span>
                       <span
                         v-if="celda.libre !== null && celda.libre !== ''"
-                        class="font-mono text-cp-micro tabular-nums opacity-80"
+                        class="font-mono text-[10px] tabular-nums opacity-80"
                         data-testid="cell-libre"
                       >
                         libre {{ celda.libre }} h
@@ -1557,10 +1590,21 @@ watch(
                   </template>
 
                   <template v-else-if="mode === MODE.PERCENT">
-                    <span class="font-mono text-cp-sm font-semibold tabular-nums">
-                      {{ celda.porcentaje || '·' }}
+                    <span class="flex items-center gap-1">
+                      <svg
+                        v-if="celda.sobrecargada"
+                        class="h-3 w-3 shrink-0"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3 L22 20 H2 Z" />
+                      </svg>
+                      <span class="font-mono text-cp-sm font-bold tabular-nums">
+                        {{ celda.porcentaje || '·' }}
+                      </span>
                     </span>
-                    <span class="font-mono text-cp-micro tabular-nums opacity-80">
+                    <span class="font-mono text-[10px] tabular-nums opacity-80">
                       {{ celda.horasCapacidad }}
                     </span>
                   </template>
@@ -1591,13 +1635,13 @@ watch(
                     {{ celda.veredicto === 'aviso' ? 'aviso' : 'aprobación' }}
                   </span>
 
-                  <!-- Barra siempre, para que las dos variantes de celda tengan
-                       la misma silueta: sin carga la pista, sin relleno. -->
+                  <!-- Barra fina de progreso al pie de la caja: solo cuando
+                        hay carga con capacidad resuelta; vacia, nada. -->
                   <span
-                    class="mt-auto block h-1 w-3/4 overflow-hidden rounded-pastilla bg-carga-vacio-barra/30"
+                    v-if="celda.muestraBarra"
+                    class="mt-auto block h-1 w-3/4 overflow-hidden rounded-pastilla bg-texto/10"
                   >
                     <span
-                      v-if="celda.muestraBarra"
                       class="block h-1 rounded-pastilla"
                       :class="celda.claseBarra"
                       :style="{ width: `${celda.anchoBarra}%` }"

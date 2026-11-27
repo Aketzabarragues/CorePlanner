@@ -194,20 +194,23 @@ describe('CapacityMatrix', () => {
     expect(localStorage.getItem('coreplanner_token')).toBe('tok-demo')
   })
 
-  it('pinta la celda sobrecargada con su icono y su porcentaje', async () => {
+  it('pinta la celda sobrecargada con su icono junto al valor', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
     expect(celda.classes()).toContain('bg-carga-sobrecarga-alta-fondo')
     expect(celda.classes()).toContain('text-carga-sobrecarga-alta-texto')
-    // 48 h de 40 h: el 120 % y el triangulo que la marca sin depender del color.
+    // 48 h de 40 h: el triangulo va junto al valor y el porcentaje se queda en
+    // texto, sin depender del color; el nombre accesible tambien lo lleva.
     expect(celda.text()).toContain('48/40')
+    expect(celda.text()).toContain('libre -8 h')
     expect(celda.text()).toContain('120 %')
     expect(celda.find('svg').exists()).toBe(true)
+    expect(celda.attributes('aria-label')).toContain('120 %')
   })
 
-  it('una celda sin horas muestra un punto y no una barra', async () => {
+  it('una celda sin horas es solo un punto: sin caja, borde ni barra', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
@@ -216,31 +219,43 @@ describe('CapacityMatrix', () => {
     const punto = celda.element.querySelector('span.rounded-full')
     expect(punto).toBeTruthy()
     expect(punto.className).toContain('bg-texto-tenue')
+    // Sin caja ni borde del estado, sin barra de ninguna clase.
+    expect(celda.classes()).not.toContain('bg-carga-vacio-fondo')
+    expect(celda.classes()).not.toContain('border-carga-vacio-borde')
+    expect(celda.element.querySelector('.bg-texto\\/10')).toBeNull()
     expect(celda.text()).not.toContain('%')
   })
 
-  it('todas las celdas tienen el mismo alto y la barra se dibuja siempre', async () => {
+  it('las celdas miden por contenido y la barra solo se dibuja con carga', async () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
     const conDatos = wrapper.get('[data-testid="cell-1-2026-W45"]')
     const vacia = wrapper.get('[data-testid="cell-1-2026-W46"]')
 
-    // El alto fijo es el de la celda con datos: las filas de la rejilla salen rectas.
-    expect(conDatos.classes()).toContain('h-[76px]')
-    expect(vacia.classes()).toContain('h-[76px]')
+    // Alto minimo por contenido, no fijo: las filas vacias se compactan.
+    expect(conDatos.classes()).toContain('min-h-14')
+    expect(vacia.classes()).toContain('min-h-14')
+    expect(conDatos.classes()).not.toContain('h-[76px]')
 
-    // La barra siempre: con datos lleva el relleno, vacia solo la pista, sin relleno.
-    function pistaDe(elemento) {
-      return Array.from(elemento.querySelectorAll('span')).find(
-        (span) => span.className.includes('bg-carga-vacio-barra/30'),
-      )
-    }
-    const pistaVacia = pistaDe(vacia.element)
-    expect(pistaVacia).toBeTruthy()
-    expect(pistaVacia.querySelector('span')).toBeNull()
-    const pistaDatos = pistaDe(conDatos.element)
+    // La barra va solo al pie de la celda con carga; la vacia no lleva nada.
+    const pistaDatos = conDatos.element.querySelector('.bg-texto\\/10')
+    expect(pistaDatos).toBeTruthy()
     expect(pistaDatos.querySelector('span')).toBeTruthy()
+    expect(vacia.element.querySelector('.bg-texto\\/10')).toBeNull()
+  })
+
+  it('la celda con carga muestra valor y horas libres en dos lineas, sin porcentaje', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // 24 h de 40 h en modo Horas: "24/40" y "libre 16 h"; el porcentaje no
+    // sale en texto, se queda en el aria-label.
+    const celda = wrapper.get('[data-testid="cell-2-2026-W45"]')
+    expect(celda.text()).toContain('24/40')
+    expect(celda.text()).toContain('libre 16 h')
+    expect(celda.text()).not.toContain('%')
+    expect(celda.attributes('aria-label')).toContain('60 %')
   })
 
   it('una celda con tareas que suman 0 h muestra un anillo hueco y no un punto', async () => {
@@ -269,7 +284,6 @@ describe('CapacityMatrix', () => {
 
     // El anillo dice "aqui hay algo" por forma, no por color.
     const celda = wrapper.get('[data-testid="cell-1-2026-W46"]')
-    expect(celda.classes()).toContain('bg-carga-vacio-fondo')
     const anillo = celda.element.querySelector('span.rounded-full')
     expect(anillo).toBeTruthy()
     expect(anillo.className).toContain('border-2')
@@ -313,7 +327,10 @@ describe('CapacityMatrix', () => {
 
     const cabeceras = wrapper.findAll('thead th')
     expect(cabeceras[1].text()).toContain('Sem 45')
-    expect(cabeceras[1].text()).toContain('2 - 6 nov 2026')
+    // Rango corto: sin el anio, que no aporta en una sola semana.
+    expect(cabeceras[1].text()).toContain('2 - 6 nov')
+    expect(cabeceras[1].text()).not.toContain('2026')
+    expect(cabeceras[0].text()).toContain('Persona')
     // La semana en curso lleva la insignia.
     const conHoy = cabeceras.filter((th) => th.text().includes('Hoy'))
     expect(conHoy.length).toBeLessThanOrEqual(1)
@@ -340,6 +357,40 @@ describe('CapacityMatrix', () => {
     const insignia = wrapper.find('[data-testid="holiday-badge"]')
     expect(insignia.exists()).toBe(true)
     expect(insignia.text()).toContain('Fiesta local')
+  })
+
+  it('la columna Persona lleva nombre, horas base y departamento con su punto', async () => {
+    setupFetch()
+    const wrapper = await mountMatrix()
+
+    // La linea "40 h/semana" desaparece: las horas van en mono junto al nombre.
+    expect(wrapper.text()).not.toContain('h/semana')
+    expect(wrapper.text()).toContain('40h')
+
+    const nombre = wrapper.get('[data-testid="department-name-1"]')
+    expect(nombre.text()).toContain('Automatización & SCADA')
+    // El punto del departamento sale en su color.
+    const th = wrapper.get('[data-testid="department-stripe-1"]').element.closest('th')
+    const punto = th.querySelector('.rounded-full')
+    expect(punto.style.backgroundColor).toMatch(/#1f6feb|rgb\(\s*31,\s*111,\s*235\s*\)/)
+  })
+
+  it('marca el cambio de departamento con una linea mas gruesa entre filas', async () => {
+    setupFetch({
+      '/api/capacity': () => jsonResponse(reportConAjeno),
+    })
+    const wrapper = await mountMatrix()
+
+    const filas = wrapper.findAll('tbody tr')
+    // Ana y Sebastian son del mismo departamento: sin linea. Jorge entra en
+    // otro departamento: la primera celda de su fila lleva la linea fuerte.
+    const primera = filas.at(0).element.querySelectorAll('th, td')[0]
+    const segunda = filas.at(1).element.querySelectorAll('th, td')[0]
+    const tercera = filas.at(2).element.querySelectorAll('th, td')[0]
+    expect(primera.className).not.toContain('border-t-2')
+    expect(segunda.className).not.toContain('border-t-2')
+    expect(tercera.className).toContain('border-t-2')
+    expect(tercera.className).toContain('border-t-borde-fuerte')
   })
 
   it('la fila de equipo enseña el uso agregado', async () => {
@@ -1480,10 +1531,10 @@ describe('provisional', () => {
     await flushPromises()
 
     const celda = wrapper.get('[data-testid="cell-2-2026-W46"]')
-    // 12 + 36 = 48 h de 40: sobrecarga.
+    // 12 + 36 = 48 h de 40: sobrecarga; el porcentaje se queda en el aria.
     expect(celda.text()).toContain('48/40')
-    expect(celda.text()).toContain('120 %')
     expect(celda.text()).toContain('libre -8 h')
+    expect(celda.attributes('aria-label')).toContain('120 %')
     expect(celda.classes()).toContain('bg-carga-sobrecarga-alta-fondo')
     // Lo que se esta leyendo incluye lo provisional: contorno punteado.
     expect(celda.classes().join(' ')).toContain('border-dashed')

@@ -32,7 +32,7 @@ import {
   tipoDeAccion,
 } from '../utils/activity'
 import { DEFAULT_TASK_STATUSES } from '../utils/kanban'
-import { luminancia } from '../utils/statusColor'
+import PersonAvatar from '../components/common/PersonAvatar.vue'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -146,40 +146,15 @@ const colorPorActor = computed(() => {
   return mapa
 })
 
-/**
- * Estilo en linea del avatar del actor: el color de su departamento con el
- * texto calculado para el contraste. Sin color resuelto, el primario de la
- * marca, como antes.
- */
-function estiloAvatar(entrada) {
-  const color = colorPorActor.value.get(String(entrada.actor_id)) ?? null
-  if (!color) {
-    return {
-      backgroundColor: 'rgb(var(--cp-primario))',
-      color: 'rgb(var(--cp-sobre-primario))',
-    }
-  }
-  return { backgroundColor: color, color: contrasteSobre(color) }
-}
-
-/** Texto legible sobre un hex de fondo: oscuro o claro por luminancia. */
-function contrasteSobre(hex) {
-  const brillo = luminancia(hex) ?? 0
-  return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
+/** Color del departamento del actor para su avatar; vacio, el neutro. */
+function colorAvatar(entrada) {
+  return colorPorActor.value.get(String(entrada.actor_id)) ?? ''
 }
 
 /** Estados del proyecto de la entrada, o los por defecto si no hay. */
 function estadosDe(projectId) {
   const lista = statusStore.statesOf(projectId)
   return lista.length ? lista : DEFAULT_TASK_STATUSES
-}
-
-/** Iniciales de quien ha hecho el cambio. */
-function iniciales(nombre) {
-  const palabras = String(nombre ?? '').split(/\s+/).filter(Boolean)
-  if (!palabras.length) return '?'
-  if (palabras.length === 1) return palabras[0][0].toUpperCase()
-  return (palabras[0][0] + palabras[palabras.length - 1][0]).toUpperCase()
 }
 
 /** Opciones del filtro de persona: todas, mas cada persona cargada. */
@@ -353,13 +328,10 @@ watch(
               class="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-tarjeta-suave/60"
               data-testid="activity-entry"
             >
-              <span
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-avatar text-cp-micro font-bold"
-                :style="estiloAvatar(entrada)"
-                aria-hidden="true"
-              >
-                {{ iniciales(entrada.actor_name) }}
-              </span>
+              <PersonAvatar
+                :nombre="entrada.actor_name"
+                :color="colorAvatar(entrada)"
+              />
 
               <div class="min-w-0 flex-1">
                 <p class="text-cp-sm">

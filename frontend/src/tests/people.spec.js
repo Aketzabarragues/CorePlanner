@@ -5,7 +5,7 @@ import { NIVEL_COMPETENCIA, initials, nivelTexto } from '../utils/people'
 describe('people', () => {
   it('initials coge las dos primeras letras, en mayusculas', () => {
     expect(initials('Ana García López')).toBe('AG')
-    expect(initials('Ana')).toBe('A')
+    expect(initials('Ana')).toBe('AN')
   })
 
   it('el mapa de niveles cubre el 1, el 2 y el 3', () => {

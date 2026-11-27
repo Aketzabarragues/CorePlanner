@@ -7,8 +7,8 @@
  */
 import { computed } from 'vue'
 
-import { NIVEL_COMPETENCIA, initials, nivelTexto } from '../../utils/people'
-import { pildora } from '../../utils/statusColor'
+import { NIVEL_COMPETENCIA, nivelTexto } from '../../utils/people'
+import PersonAvatar from '../common/PersonAvatar.vue'
 
 const props = defineProps({
   people: { type: Array, required: true },
@@ -39,19 +39,12 @@ function colorDepartamento(id) {
   return dep?.color ?? 'rgb(var(--cp-neutro-punto))'
 }
 
-/**
- * Avatar de la persona, con el color de su departamento.
- *
- * El color es dato del backend. `pildora` lo pinta mezclado con blanco y
- * oscurece la inicial hasta 4,5:1 contra ese fondo: con el color tal cual,
- * cuatro de los dieciocho de la paleta son demasiado claros. Sin
- * departamento, el neutro de siempre.
- */
-function estiloAvatar(person) {
+/** Color del departamento de la persona para su avatar; vacio, el neutro. */
+function colorAvatar(person) {
   const dep = person.department_id
     ? props.departments.find((item) => String(item.id) === String(person.department_id))
     : null
-  return pildora(dep?.color ?? null)
+  return dep?.color ?? ''
 }
 </script>
 
@@ -78,13 +71,7 @@ function estiloAvatar(person) {
         <tr v-for="person in people" :key="person.id" data-testid="person-row">
           <td class="px-1.5 py-2">
             <div class="flex items-center gap-2">
-              <span
-                class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar text-xs font-semibold"
-                :style="estiloAvatar(person)"
-                aria-hidden="true"
-              >
-                {{ initials(person.name) }}
-              </span>
+              <PersonAvatar :nombre="person.name" :color="colorAvatar(person)" />
               <span class="min-w-0">
                 <span class="block truncate font-medium text-texto">{{ person.name }}</span>
                 <span class="block truncate text-xs text-texto-tenue">{{ person.email }}</span>

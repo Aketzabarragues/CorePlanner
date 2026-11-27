@@ -16,8 +16,8 @@ import AsyncState from '../common/AsyncState.vue'
 import ModalDialog from '../ModalDialog.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toast'
-import { NIVEL_COMPETENCIA, initials } from '../../utils/people'
-import { pildora } from '../../utils/statusColor'
+import { NIVEL_COMPETENCIA } from '../../utils/people'
+import PersonAvatar from '../common/PersonAvatar.vue'
 
 const props = defineProps({
   person: { type: Object, required: true },
@@ -69,17 +69,12 @@ const personSkills = computed(() => {
     .filter((skill) => skill.level > 0)
 })
 
-/**
- * Avatar del perfil, con el color de su departamento.
- *
- * Mismo estilo que el directorio: `pildora` oscurece la inicial hasta 4,5:1
- * contra el fondo. Sin departamento, el neutro.
- */
-function estiloAvatar() {
+/** Color del departamento del perfil para su avatar; vacio, el neutro. */
+function colorAvatar() {
   const dep = props.person.department_id
     ? props.departments.find((item) => String(item.id) === String(props.person.department_id))
     : null
-  return pildora(dep?.color ?? null)
+  return dep?.color ?? ''
 }
 
 function dayChips(entry) {
@@ -203,13 +198,7 @@ async function saveSkills() {
         </AlertBanner>
 
         <div class="flex items-center gap-3">
-          <span
-            class="flex h-10 w-10 flex-none items-center justify-center rounded-avatar text-sm font-semibold"
-            :style="estiloAvatar()"
-            aria-hidden="true"
-          >
-            {{ initials(person.name) }}
-          </span>
+          <PersonAvatar :nombre="person.name" :color="colorAvatar()" tamano="lg" />
           <div class="min-w-0">
             <p class="truncate text-cp-base font-semibold text-texto">{{ person.name }}</p>
             <p class="truncate text-cp-xs text-texto-tenue">

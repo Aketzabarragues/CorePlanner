@@ -27,7 +27,7 @@ import PageHeader from '../components/common/PageHeader.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { PROJECT_STATUSES, projectStatus } from '../utils/navigation'
-import { luminancia } from '../utils/statusColor'
+import PersonAvatar from '../components/common/PersonAvatar.vue'
 
 /** Cuantos avatares se apilan antes de resumir el resto con un "+N". */
 const MAX_AVATARES = 4
@@ -182,33 +182,6 @@ function cargaDe(project) {
     return { tipo: 'sin-capacidad', texto: 'Sin capacidad' }
   }
   return { tipo: 'porcentaje', texto: `${utilization} %` }
-}
-
-/**
- * Estilo en linea del avatar del equipo: el color del departamento que
- * gestiona el proyecto (dato del backend) con el texto calculado para el
- * contraste. Sin color, tarjeta suave con texto suave.
- */
-function estiloAvatarEquipo(group) {
-  const color = group?.color ?? null
-  if (!color) {
-    return {
-      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
-      color: 'rgb(var(--cp-texto-suave))',
-    }
-  }
-  return { backgroundColor: color, color: contrasteSobre(color) }
-}
-
-/**
- * Texto legible sobre un hex de fondo: oscuro o claro por luminancia.
- *
- * Con la luminancia de WCAG de `statusColor`: sobre fondo claro el texto
- * oscuro, sobre fondo oscuro el texto claro.
- */
-function contrasteSobre(hex) {
-  const brillo = luminancia(hex) ?? 0
-  return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
 }
 
 /** Punto de la pastilla del estado: el punto de color del estado. */
@@ -446,17 +419,17 @@ onMounted(load)
                 </span>
 
                 <span v-if="avataresDe(project).length" class="flex flex-none items-center">
-                  <span
+                  <PersonAvatar
                     v-for="(member, index) in avataresDe(project)"
                     :key="member.user_id"
-                    class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold ring-2 ring-tarjeta"
+                    class="ring-2 ring-tarjeta"
                     :class="index > 0 ? '-ml-1.5' : ''"
-                    :style="estiloAvatarEquipo(group)"
+                    :color="group.color ?? ''"
+                    :nombre="member.name"
                     :title="member.name"
                     data-testid="project-member"
-                  >
-                    {{ member.name.slice(0, 1) }}
-                  </span>
+                    tamano="sm"
+                  />
                   <span
                     v-if="restoDe(project)"
                     class="ml-1 text-cp-xs text-texto-tenue"

@@ -7,6 +7,7 @@ import CapacityMatrix from '../components/CapacityMatrix.vue'
 import CellBreakdown from '../components/CellBreakdown.vue'
 import { useToastStore } from '../stores/toast'
 import { weeksBetween } from '../utils/weeks'
+import { pildora } from '../utils/statusColor'
 
 const members = [
   { user_id: 1, name: 'Ana', email: 'ana@example.com', role_id: 1, role_name: 'Project Manager', weekly_base_hours: 40 },
@@ -679,9 +680,9 @@ describe('CapacityMatrix', () => {
     setupFetch()
     const wrapper = await mountMatrix()
 
-    // La franja lleva el color que tiene guardado el departamento.
+    // El avatar lleva el color del departamento mezclado: la pildora.
     const franja = wrapper.get('[data-testid="department-stripe-1"]')
-    esperaColor(franja, '#1f6feb')
+    esperaColor(franja, pildora('#1f6feb').backgroundColor)
     expect(wrapper.get('[data-testid="department-name-1"]').text()).toContain(
       'Automatización & SCADA',
     )
@@ -694,8 +695,8 @@ describe('CapacityMatrix', () => {
     const wrapper = await mountMatrix()
 
     // La primera persona es del departamento 1 y la tercera del 2.
-    esperaColor(wrapper.get('[data-testid="department-stripe-1"]'), '#1f6feb')
-    esperaColor(wrapper.get('[data-testid="department-stripe-3"]'), '#0a3d91')
+    esperaColor(wrapper.get('[data-testid="department-stripe-1"]'), pildora('#1f6feb').backgroundColor)
+    esperaColor(wrapper.get('[data-testid="department-stripe-3"]'), pildora('#0a3d91').backgroundColor)
     expect(wrapper.get('[data-testid="department-name-3"]').text()).toContain(
       'Oficina Técnica / EPLAN',
     )
@@ -718,7 +719,7 @@ describe('CapacityMatrix', () => {
     // El gris de reserva no es un hex fijo: sale del token neutro.
     expect(
       wrapper.get('[data-testid="department-stripe-1"]').attributes('style'),
-    ).toContain('rgb(var(--cp-neutro-punto))')
+    ).toContain('rgb(var(--cp-neutro-fondo))')
     expect(wrapper.find('[data-testid="department-name-1"]').exists()).toBe(false)
   })
 

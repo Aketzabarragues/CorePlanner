@@ -376,10 +376,11 @@ describe('SettingsView', () => {
     expect(cabecera.classes()).toContain('tracking-wider')
     expect(tabla.find('tbody').classes()).toContain('divide-y')
 
-    // El avatar de iniciales es el mismo circulo que en el directorio.
+    // El avatar de iniciales es el mismo circulo que en el directorio; sin
+    // color de departamento, el neutro por token.
     const avatar = wrapper.find('[data-testid="person-row"] .rounded-avatar')
     expect(avatar.exists()).toBe(true)
-    expect(avatar.classes()).toContain('bg-primario-fuerte')
+    expect(avatar.attributes('style')).toContain('rgb(var(--cp-neutro-fondo))')
     expect(avatar.text()).not.toBe('')
   })
 

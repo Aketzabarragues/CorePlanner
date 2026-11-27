@@ -321,7 +321,7 @@ watch(() => route.fullPath, () => {
                 v-for="item in section.items"
                 :key="item.name"
                 :to="linkFor(item)"
-                class="flex w-full min-h-11 items-center gap-2.5 rounded-control border px-2.5 py-2 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                class="flex w-full items-center gap-2.5 rounded-control border px-2.5 py-2 text-cp-sm leading-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
                 :class="
                   activeView === item.name
                     ? 'border-lateral-activo-borde/30 bg-lateral-activo-fondo/20 font-semibold text-lateral-activo-texto'
@@ -347,7 +347,7 @@ watch(() => route.fullPath, () => {
           <RouterLink
             v-if="enProyecto"
             :to="globalTarget"
-            class="flex w-full min-h-11 items-center gap-2.5 rounded-control border border-transparent px-2.5 py-2 text-cp-sm font-medium text-lateral-texto transition-colors hover:bg-lateral-hover hover:text-texto-inverso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+            class="flex w-full items-center gap-2.5 rounded-control border border-transparent px-2.5 py-2 text-cp-sm leading-4 font-medium text-lateral-texto transition-colors hover:bg-lateral-hover hover:text-texto-inverso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             data-testid="volver-global"
           >
             <span class="inline-flex h-4 w-4 shrink-0 text-lateral-texto-tenue">

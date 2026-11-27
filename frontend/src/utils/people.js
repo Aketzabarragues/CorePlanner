@@ -23,17 +23,13 @@ export function sortByDepartment(people) {
 /**
  * Iniciales de una persona, para el avatar.
  *
- * Coge la primera letra de las dos primeras palabras. Con una sola palabra, la
- * letra es la unica que hay.
+ * Coge la primera letra de las dos primeras palabras. Con una sola palabra,
+ * sus dos primeras letras ("Aketza" -> "AK").
  */
 export function initials(name) {
-  return String(name ?? '')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
+  const partes = String(name ?? '').split(' ').filter(Boolean)
+  const texto = partes.length > 1 ? partes[0][0] + partes[1][0] : (partes[0] ?? '').slice(0, 2)
+  return texto.toUpperCase()
 }
 
 /**

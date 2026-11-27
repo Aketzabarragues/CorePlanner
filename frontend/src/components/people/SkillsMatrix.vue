@@ -10,8 +10,8 @@
  */
 import { computed } from 'vue'
 
-import { NIVEL_COMPETENCIA, initials, nivelTexto } from '../../utils/people'
-import { pildora } from '../../utils/statusColor'
+import { NIVEL_COMPETENCIA, nivelTexto } from '../../utils/people'
+import PersonAvatar from '../common/PersonAvatar.vue'
 
 const props = defineProps({
   people: { type: Array, required: true },
@@ -20,17 +20,12 @@ const props = defineProps({
   departments: { type: Array, default: () => [] },
 })
 
-/**
- * Avatar de la persona, con el color de su departamento.
- *
- * Mismo estilo que el directorio: `pildora` oscurece la inicial hasta 4,5:1
- * contra el fondo. Sin departamento, el neutro.
- */
-function estiloAvatar(person) {
+/** Color del departamento de la persona para su avatar; vacio, el neutro. */
+function colorAvatar(person) {
   const dep = person.department_id
     ? props.departments.find((item) => String(item.id) === String(person.department_id))
     : null
-  return pildora(dep?.color ?? null)
+  return dep?.color ?? ''
 }
 
 /** Nivel de una persona en una competencia. */
@@ -54,13 +49,7 @@ const rows = computed(() =>
         <tr>
           <th class="px-3 py-2 font-medium">Habilidad</th>
           <th v-for="person in people" :key="person.id" class="px-3 py-2 text-center font-medium">
-            <span
-              class="mx-auto flex h-8 w-8 items-center justify-center rounded-avatar text-xs font-semibold"
-              :style="estiloAvatar(person)"
-              :title="person.name"
-            >
-              {{ initials(person.name) }}
-            </span>
+            <PersonAvatar :nombre="person.name" :color="colorAvatar(person)" class="mx-auto" :title="person.name" />
           </th>
         </tr>
       </thead>

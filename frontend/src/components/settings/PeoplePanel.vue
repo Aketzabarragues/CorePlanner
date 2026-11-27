@@ -10,9 +10,9 @@ import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
 import { useAuthStore } from '../../stores/auth'
-import { initials } from '../../utils/people'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
+import PersonAvatar from '../common/PersonAvatar.vue'
 
 const props = defineProps({
   people: { type: Array, required: true },
@@ -142,11 +142,7 @@ async function save() {
             <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
               <td class="px-3 py-2">
                 <div class="flex items-center gap-2">
-                  <span
-                    class="flex h-8 w-8 flex-none items-center justify-center rounded-avatar bg-primario-fuerte text-cp-xs font-semibold text-texto-inverso"
-                  >
-                    {{ initials(person.name) }}
-                  </span>
+                  <PersonAvatar :nombre="person.name" />
                   <span class="min-w-0">
                     <span class="block truncate font-medium text-texto">{{ person.name }}</span>
                     <span class="block truncate text-cp-xs text-texto-tenue">{{ person.email }}</span>

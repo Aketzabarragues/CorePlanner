@@ -42,6 +42,7 @@ import { parseIsoDate } from '../../utils/ganttScale'
 import { shortMonthName } from '../../utils/month'
 import { DEFAULT_TASK_STATUSES, columnLabel } from '../../utils/kanban'
 import { celdasDeCarril } from '../../utils/calendarLayout'
+import PersonAvatar from '../common/PersonAvatar.vue'
 import CalendarBar from './CalendarBar.vue'
 import CalendarDayHeader from './CalendarDayHeader.vue'
 
@@ -177,31 +178,12 @@ function etiquetaAriaDe(tarea, editable) {
 }
 
 /**
- * Iniciales del avatar de la fila: una por nombre de la persona. Sin nombre
- * (fila de sin asignar) no se pinta inicial.
+ * Color del departamento del avatar de la fila; vacio, el neutro. La fila
+ * solo lleva el nombre, asi que la busqueda va por nombre de departamento.
  */
-function inicialesDe(fila) {
-  if (fila.id === null) return ''
-  const partes = (fila.name ?? '').trim().split(/\s+/)
-  return partes.length ? partes[0][0].toUpperCase() : ''
-}
-
-/**
- * Estilo en linea del avatar: el color del departamento (dato del backend)
- * con el texto calculado contra el fondo. Sin departamento, tarjeta suave
- * con texto suave. En linea porque el color llega en hex.
- */
-function estiloAvatar(fila) {
-  const color = fila.department_name
-    ? colorPorDepartamento.value.get(fila.department_name)
-    : null
-  if (!color) {
-    return {
-      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
-      color: 'rgb(var(--cp-texto-suave))',
-    }
-  }
-  return { backgroundColor: color, color: contrasteSobre(color) }
+function colorAvatar(fila) {
+  if (!fila.department_name) return ''
+  return colorPorDepartamento.value.get(fila.department_name) ?? ''
 }
 
 /** Color de cada departamento, por nombre: la fila solo lleva el nombre. */
@@ -234,16 +216,6 @@ function cambiaDeDepartamento(fila) {
   const anterior = props.filas[props.filas.indexOf(fila) - 1]
   if (!anterior) return false
   return (anterior.department_name ?? '') !== (fila.department_name ?? '')
-}
-
-/** Texto legible sobre un hex de fondo: blanco u oscuro por luminancia. */
-function contrasteSobre(hex) {
-  const limpio = (hex ?? '').replace('#', '')
-  const r = parseInt(limpio.slice(0, 2), 16)
-  const g = parseInt(limpio.slice(2, 4), 16)
-  const b = parseInt(limpio.slice(4, 6), 16)
-  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminancia >= 0.6 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
 }
 
 /**
@@ -301,13 +273,11 @@ function alCrearHueco(event) {
           "
         >
           <div class="flex items-center gap-2">
-            <span
-              class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold"
-              :style="estiloAvatar(fila)"
-              aria-hidden="true"
-            >
-              {{ inicialesDe(fila) }}
-            </span>
+            <PersonAvatar
+              :nombre="fila.id === null ? '' : fila.name"
+              :color="colorAvatar(fila)"
+              tamano="sm"
+            />
             <span class="min-w-0">
               <span class="block truncate text-cp-xs font-semibold text-texto">{{ fila.name }}</span>
               <span

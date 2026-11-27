@@ -301,7 +301,7 @@ describe('ProjectsView', () => {
     const card = cards(wrapper)[0]
     const avatares = card.findAll('[data-testid="project-member"]')
     expect(avatares).toHaveLength(2)
-    expect(avatares[0].text()).toBe('A')
+    expect(avatares[0].text()).toBe('AK')
     expect(avatares[0].attributes('title')).toBe('Aketza')
     expect(card.find('[data-testid="project-tasks"]').text()).toContain('1/4')
     expect(card.find('[data-testid="project-load"]').text()).toBe('75 %')
@@ -368,7 +368,8 @@ describe('ProjectsView', () => {
     const franja = card.find('.rounded-pastilla')
     expect(franja.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
 
+    // El avatar del equipo sale con el color del grupo mezclado: la pildora.
     const avatar = card.find('[data-testid="project-member"]')
-    expect(avatar.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
+    expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
   })
 })

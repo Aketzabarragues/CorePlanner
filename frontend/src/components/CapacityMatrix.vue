@@ -25,7 +25,7 @@ import { plural } from '../utils/plural'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
-import { luminancia } from '../utils/statusColor'
+import PersonAvatar from './common/PersonAvatar.vue'
 import {
   LOAD_STATE,
   isOverloaded,
@@ -577,44 +577,13 @@ const summary = computed(() => {
   }
 })
 
-/** Franja de la persona que no tiene departamento: gris neutro por token. */
-const DEPARTMENT_COLOR_NONE = 'rgb(var(--cp-neutro-punto))'
-
-/** Color del avatar de una persona: el que tiene guardado su departamento. */
-function departmentColor(departmentId) {
-  if (departmentId === null || departmentId === undefined) return DEPARTMENT_COLOR_NONE
+/** Color del departamento del avatar de la fila; vacio, el neutro. */
+function colorAvatar(fila) {
+  if (fila.department_id === null || fila.department_id === undefined) return ''
   const encontrado = store.departments.find(
-    (item) => String(item.id) === String(departmentId),
+    (item) => String(item.id) === String(fila.department_id),
   )
-  return encontrado?.color ?? DEPARTMENT_COLOR_NONE
-}
-
-/** Inicial del avatar de la fila: la primera letra del nombre, en mayuscula. */
-function inicialDe(fila) {
-  const nombre = (fila.name ?? '').trim()
-  return nombre ? nombre[0].toUpperCase() : ''
-}
-
-/**
- * Estilo en linea del avatar de la fila: el color del departamento (dato del
- * backend) con el texto calculado contra el fondo, el mismo criterio que el
- * avatar del calendario. Sin color de departamento, el punto neutro por token.
- */
-function estiloAvatar(fila) {
-  const color = departmentColor(fila.department_id)
-  if (color === DEPARTMENT_COLOR_NONE) {
-    return {
-      backgroundColor: DEPARTMENT_COLOR_NONE,
-      color: 'rgb(var(--cp-sobre-primario))',
-    }
-  }
-  return { backgroundColor: color, color: contrasteSobre(color) }
-}
-
-/** Texto legible sobre un hex de fondo: oscuro o claro por luminancia. */
-function contrasteSobre(hex) {
-  const brillo = luminancia(hex) ?? 0
-  return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
+  return encontrado?.color ?? ''
 }
 
 /** La matriz con cada celda ya resuelta. */
@@ -1498,14 +1467,11 @@ watch(
                 class="sticky left-0 z-10 border border-borde bg-tarjeta text-left font-medium"
               >
                 <div class="flex items-stretch gap-2 px-3 py-2">
-                  <span
-                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-avatar text-cp-xs font-bold"
-                    :style="estiloAvatar(entrada.fila)"
+                  <PersonAvatar
+                    :nombre="entrada.fila.name"
+                    :color="colorAvatar(entrada.fila)"
                     :data-testid="`department-stripe-${entrada.fila.user_id}`"
-                    aria-hidden="true"
-                  >
-                    {{ inicialDe(entrada.fila) }}
-                  </span>
+                  />
                   <span class="min-w-0 flex-1">
                     {{ entrada.fila.name }}
                     <span class="block text-xs font-normal text-texto-tenue">

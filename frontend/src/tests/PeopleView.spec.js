@@ -375,8 +375,8 @@ describe('PeopleView', () => {
 
     const avatar = wrapper.find('[data-testid="person-row"] .rounded-avatar')
     expect(avatar.exists()).toBe(true)
-    // "Ana" es una sola palabra: su inicial es la unica que hay.
-    expect(avatar.text()).toBe('A')
+    // "Ana" es una sola palabra: salen sus dos primeras letras.
+    expect(avatar.text()).toBe('AN')
   })
 
   it('el avatar sale con el color del departamento, mezclado y con la inicial legible', async () => {

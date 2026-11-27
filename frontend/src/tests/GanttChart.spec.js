@@ -587,6 +587,41 @@ describe('GanttChart', () => {
     }
   })
 
+  it('el panel no desplaza en horizontal si el conjunto cabe y lo hace si no', async () => {
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+    try {
+      // jsdom mide 0: sin panel, el conjunto no cabe y el panel desplaza.
+      const wrapperSinPanel = montar(layoutDe())
+      await flushPromises()
+      expect(wrapperSinPanel.get('[data-testid="gantt-scroll"]').classes()).toContain(
+        'overflow-x-auto',
+      )
+      wrapperSinPanel.unmount()
+
+      // El conjunto (nombres + rango) cabe en el panel: no hay scroll
+      // horizontal y el diagrama se ve entero.
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+        configurable: true,
+        value: 800,
+      })
+      const wrapper = montar(layoutDe())
+      await flushPromises()
+      expect(wrapper.get('[data-testid="gantt-scroll"]').classes()).toContain(
+        'overflow-x-hidden',
+      )
+
+      // El rango crece y deja de caber: el panel vuelve a desplazar.
+      await wrapper.setProps({ layout: layoutDe(undefined, { width: 900 }) })
+      await flushPromises()
+      expect(wrapper.get('[data-testid="gantt-scroll"]').classes()).toContain(
+        'overflow-x-auto',
+      )
+    } finally {
+      if (original) Object.defineProperty(HTMLElement.prototype, 'clientWidth', original)
+      else delete HTMLElement.prototype.clientWidth
+    }
+  })
+
   it('la raiz del diagrama se tope al hueco de la vista, no a la pantalla', () => {
     const wrapper = montar(layoutDe())
 

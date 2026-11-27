@@ -1918,7 +1918,7 @@ useTaskReload(load)
           >
             <span class="hidden text-cp-sm font-medium 2xl:inline">Colapsar todo</span>
             <span class="inline-flex h-4 w-4 2xl:hidden" aria-hidden="true">
-              <AppIcon name="chevronUpDown" />
+              <AppIcon name="chevronUp" />
             </span>
           </button>
           <button
@@ -1932,7 +1932,7 @@ useTaskReload(load)
           >
             <span class="hidden text-cp-sm font-medium 2xl:inline">Expandir todo</span>
             <span class="inline-flex h-4 w-4 2xl:hidden" aria-hidden="true">
-              <AppIcon name="chevronUpDown" />
+              <AppIcon name="chevronDown" />
             </span>
           </button>
         </div>
@@ -2015,35 +2015,40 @@ useTaskReload(load)
         >
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Menos detalle"
             :disabled="zoom <= ZOOM_MIN"
             data-testid="gantt-zoom-out"
             @click="zoomMenos"
           >
-            −
+            <span class="inline-flex h-4 w-4" aria-hidden="true">
+              <AppIcon name="minus" />
+            </span>
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            class="inline-flex h-10 items-center gap-1.5 rounded-control border border-borde-fuerte bg-tarjeta px-2.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Ajustar al ancho"
             :disabled="zoom === 1"
             data-testid="gantt-zoom-fit"
             @click="zoomAjustar"
           >
             <span class="inline-flex h-4 w-4" aria-hidden="true">
-              <AppIcon name="compress" />
+              <AppIcon name="fit" />
             </span>
+            Ajustar
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave disabled:cursor-not-allowed disabled:bg-tarjeta-suave disabled:text-texto-tenue"
+            class="flex h-10 w-10 items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco disabled:cursor-not-allowed disabled:text-texto-tenue"
             aria-label="Más detalle"
             :disabled="zoom >= ZOOM_MAX"
             data-testid="gantt-zoom-in"
             @click="zoomMas"
           >
-            +
+            <span class="inline-flex h-4 w-4" aria-hidden="true">
+              <AppIcon name="plus" />
+            </span>
           </button>
         </div>
         <!--

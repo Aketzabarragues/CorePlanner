@@ -120,11 +120,15 @@
 }
 
 /*
- * Linea de hoy: el azul mas oscuro de la marca, para que no se confunda con
- * la cruz de fecha (que va en el azul claro y es de otro signo).
+ * Linea de hoy: discontinua, en el color de la marca.
+ *
+ * No es un limite de columna: ninguna otra linea del diagrama es discontinua,
+ * asi que se distingue por la forma, como el resto de los signos del diagrama.
  */
 .gantt__hoy {
-  @apply stroke-primario-fuerte;
+  @apply stroke-primario;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
   pointer-events: none;
 }
 

@@ -106,15 +106,46 @@ const panelDiagrama = ref(null)
 /**
  * Ancho de la columna de nombres, en pixeles.
  *
- * Null hasta que la persona redimensiona: mientras tanto la columna toma su
- * ancho por clases (240 px, o 160 px en pantalla estrecha). El ancho elegido
- * no va a la URL ni se guarda: es estado local de la vista.
+ * Null hasta que la persona redimensiona (o el contenido se mide al abrir):
+ * mientras tanto la columna toma su ancho por clases (240 px, o 160 px en
+ * pantalla estrecha). El ancho elegido no va a la URL ni se guarda: es estado
+ * local de la vista.
  */
 const anchoNombres = ref(null)
 
 /** Limites del ancho de la columna de nombres. */
 const ANCHO_NOMBRES_MIN = GANTT_METRICS.namesWidthSmall
 const ANCHO_NOMBRES_MAX = 480
+
+/**
+ * Ancho que necesitan las filas de nombres.
+ *
+ * El titulo mas largo de la primera columna (el nombre de la tarea o el del
+ * grupo) mas el padding de la celda (24 px) y el ancho del asa (8 px), y las
+ * cabeceras de las columnas elegidas. El caracter se valora a 6,6 px en la
+ * fuente del diagrama (12 px); el resultado nunca baja del minimo ni pasa del
+ * maximo, como el ancho que redimensiona la persona.
+ */
+const anchoNecesario = computed(() => {
+  const largo = props.filasNombres.reduce((maximo, fila) => {
+    const texto = fila.type === 'group' ? (fila.label ?? '') : (fila.title ?? '')
+    return Math.max(maximo, texto.length)
+  }, 0)
+  const delTitulo = Math.round(largo * 6.6) + 32
+  const deCabeceras = props.columnasNombres.reduce(
+    (suma, columna) => suma + (columna.ancho ?? 0),
+    0,
+  )
+  return Math.min(ANCHO_NOMBRES_MAX, Math.max(ANCHO_NOMBRES_MIN, delTitulo + deCabeceras))
+})
+
+/**
+ * Ancho efectivo de la columna de nombres: el elegido si la persona la
+ * redimensiono, el que necesitan las filas si no.
+ */
+const anchoNombresEfectivo = computed(
+  () => anchoNombres.value ?? anchoNecesario.value,
+)
 
 /**
  * Aplica el ancho pedido por el asa, dentro de los limites.
@@ -167,9 +198,10 @@ let cajaLienzo = null
  * El chart no dimensiona el lienzo: eso lo estira el CSS (`width: 100%`). Lo
  * unico que hace es informar del ancho disponible, que la vista usa para
  * calcular la escala efectiva (los pixeles por dia suben hasta llenar el
- * panel). Solo se emite cuando el ancho cambia de verdad.
+ * panel). Solo se emite cuando el ancho cambia de verdad. Es reactivo
+ * porque el chart tambien lo usa para saber si el diagrama cabe sin scroll.
  */
-let anchoInformado = 0
+const anchoPanelMedido = ref(0)
 let observadorAncho = null
 
 function medirAncho() {
@@ -177,10 +209,28 @@ function medirAncho() {
   if (!panel) return
   cajaLienzo = null
   const ancho = panel.clientWidth
-  if (!ancho || ancho === anchoInformado) return
-  anchoInformado = ancho
+  if (!ancho || ancho === anchoPanelMedido.value) return
+  anchoPanelMedido.value = ancho
   emit('ancho-panel', ancho)
 }
+
+/**
+ * El conjunto (columna de nombres + rango) cabe en el panel.
+ *
+ * Si cabe, el panel no desplaza en horizontal: el diagrama se ve entero sin
+ * scroll. Si no cabe, el panel desplaza como siempre. El ancho de la columna
+ * es el efectivo (el elegido o el que necesitan las filas) mas las columnas
+ * elegidas, que van a su derecha.
+ */
+const cabe = computed(() => {
+  const extras = props.columnasNombres.reduce(
+    (suma, columna) => suma + (columna.ancho ?? 0),
+    0,
+  )
+  return (
+    anchoNombresEfectivo.value + extras + props.layout.width <= anchoPanelMedido.value
+  )
+})
 
 onMounted(() => {
   medirAncho()
@@ -782,7 +832,8 @@ defineExpose({ centrarHoy, arrastrando })
 
     <div
       ref="panelDiagrama"
-      class="gantt__diagrama flex-1 overflow-auto"
+      class="gantt__diagrama flex-1 overflow-y-auto"
+      :class="cabe ? 'overflow-x-hidden' : 'overflow-x-auto'"
       data-testid="gantt-scroll"
       @scroll.passive="alDesplazar"
     >
@@ -995,7 +1046,7 @@ defineExpose({ centrarHoy, arrastrando })
             />
           </template>
 
-          <!-- Linea de hoy: 2 px, en el dia exacto. -->
+          <!-- Linea de hoy, en el dia exacto: el grosor y el trazo discontinuo los da la clase. -->
           <line
             v-if="layout.todayIndex !== null"
             class="gantt__hoy"
@@ -1003,7 +1054,6 @@ defineExpose({ centrarHoy, arrastrando })
             :x2="layout.todayIndex * layout.pxPerDay"
             y1="0"
             :y2="layout.rows.length * GANTT_ROW_HEIGHT"
-            stroke-width="2"
             aria-hidden="true"
           />
 

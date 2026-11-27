@@ -32,6 +32,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
 import AppIcon from '../AppIcon.vue'
+import PersonAvatar from '../common/PersonAvatar.vue'
 
 const props = defineProps({
   /** Filas del layout, ya enriquecidas: [{ type, rowIndex, ... }]. */
@@ -113,7 +114,7 @@ const plantillaColumnas = computed(() => {
 
 /** Cabeceras de la rejilla: la de la tarea y las de las elegidas. */
 const encabezados = computed(() => [
-  { key: 'tarea', label: 'Tarea' },
+  { key: 'tarea', label: 'Tarea / Recurso' },
   ...elegidas.value,
 ])
 
@@ -129,6 +130,16 @@ function ariaSortDe(clave) {
   if (sentido === 'asc') return 'ascending'
   if (sentido === 'desc') return 'descending'
   return 'none'
+}
+
+/**
+ * Codigo del proyecto: el prefijo numerico de su nombre (el que abre la
+ * cabecera, p.ej. "26009 - FLUID SYSTEM - Pasteurizado"). Sin prefijo, el
+ * nombre tal cual, truncado por la fila.
+ */
+function codigoDe(nombre) {
+  const m = String(nombre ?? '').match(/^\d+/)
+  return m ? m[0] : String(nombre ?? '')
 }
 
 /** Padding de la cabecera: el de la columna de tareas o el de las elegibles. */
@@ -365,6 +376,9 @@ onBeforeUnmount(() => {
             <span class="truncate text-cp-sm font-semibold text-texto-marca">
               {{ fila.label }}
             </span>
+            <span class="ml-auto shrink-0 font-mono text-cp-micro text-texto-tenue">
+              {{ fila.cuantas }}
+            </span>
           </button>
 
           <!--
@@ -376,19 +390,30 @@ onBeforeUnmount(() => {
           <div
             v-else
             aria-hidden="true"
-            class="grid h-9 items-center border-b border-borde-suave"
+            class="grid h-10 items-center border-b border-borde-suave"
             :class="claseDeFila(fila)"
             :style="{ gridTemplateColumns: plantillaColumnas }"
             @mouseenter="alEntrar(fila)"
             @mouseleave="alSalir"
           >
-            <div class="flex min-w-0 flex-col justify-center px-3">
-              <span class="truncate text-cp-xs font-medium text-texto" :title="fila.title">
-                {{ fila.title }}
-              </span>
-              <span class="truncate text-cp-micro text-texto-tenue">
-                {{ fila.assignedName ?? 'Sin asignar' }} · {{ fila.projectName }}
-              </span>
+            <div class="flex min-w-0 items-center gap-2 px-3">
+              <PersonAvatar
+                :nombre="fila.assignedName ?? ''"
+                :color="fila.avatarColor ?? ''"
+                tamano="sm"
+              />
+              <div class="min-w-0 flex-1 leading-tight">
+                <span
+                  class="block truncate text-cp-sm font-medium text-texto"
+                  :title="fila.title"
+                >
+                  {{ fila.title }}
+                </span>
+                <span class="block truncate text-cp-micro text-texto-tenue">
+                  {{ fila.assignedName ?? 'Sin asignar' }} ·
+                  <span class="font-mono">{{ codigoDe(fila.projectName) }}</span>
+                </span>
+              </div>
             </div>
             <span
               v-for="columna in elegidas"

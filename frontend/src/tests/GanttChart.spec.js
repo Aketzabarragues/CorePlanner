@@ -29,10 +29,16 @@ function barraNueva(taskId = 10, overrides = {}) {
  *
  * Tres filas de barra por defecto: el doble clic en el hueco tiene que poder
  * comprobar que cae en la fila que toca, y con una sola fila no se distingue
- * un calculo de fila malo de otro bueno.
+ * un calculo de fila malo de otro bueno. Cada fila de tarea mide 40 px y su
+ * offset `yPos` se acumula, como en `buildLayout`; cada barra lleva su
+ * `yCentro`, donde salen las flechas.
  */
 function layoutDe(barras = [barraNueva(10), barraNueva(11, { rowIndex: 1 }), barraNueva(12, { rowIndex: 2 })], extras = {}) {
-  const rows = barras.map((barra, index) => ({ type: 'bar', rowIndex: index, barra }))
+  const rows = []
+  const barrasConY = barras.map((barra, index) => {
+    rows.push({ type: 'bar', rowIndex: index, altoFila: 40, yPos: index * 40, barra })
+    return { ...barra, yCentro: index * 40 + 20 }
+  })
   return {
     scale: ESCALA,
     pxPerDay: 14,
@@ -42,7 +48,8 @@ function layoutDe(barras = [barraNueva(10), barraNueva(11, { rowIndex: 1 }), bar
     width: 196,
     axis: { days: 14, width: 196, cells: [], ticks: [{ x: 0, kind: 'week' }] },
     rows,
-    bars: barras,
+    bars: barrasConY,
+    altoCuerpo: barrasConY.length * 40,
     shaded: [],
     todayIndex: null,
     dependencies: [],
@@ -77,17 +84,26 @@ function layoutConGrupo(colapsado = false) {
   if (colapsado) {
     return {
       ...layoutDe(),
-      rows: [grupo],
+      rows: [{ ...grupo, altoFila: 36, yPos: 0 }],
       bars: [],
+      altoCuerpo: 36,
     }
   }
   const barras = [barraNueva(10, { rowIndex: 1 }), barraNueva(11, { rowIndex: 2 })]
   return {
     ...layoutDe(barras),
     rows: [
-      grupo,
-      ...barras.map((barra, index) => ({ type: 'bar', rowIndex: index + 1, barra })),
+      { ...grupo, altoFila: 36, yPos: 0 },
+      ...barras.map((barra, index) => ({
+        type: 'bar',
+        rowIndex: index + 1,
+        altoFila: 40,
+        yPos: 36 + index * 40,
+        barra,
+      })),
     ],
+    bars: barras.map((barra, index) => ({ ...barra, yCentro: 36 + index * 40 + 20 })),
+    altoCuerpo: 36 + barras.length * 40,
   }
 }
 
@@ -159,9 +175,10 @@ describe('GanttChart', () => {
     expect(cuerpo.attributes('width')).toBe('84')
     expect(cuerpo.attributes('height')).toBe('6')
     expect(cuerpo.attributes('y')).toBe('15')
-    // Los remates de 2 px cierran los dos extremos del cuerpo.
+    // Los remates de 4 px cierran los dos extremos del cuerpo.
     const remates = grupo.findAll('.gantt__resumen-remate')
-    expect(remates.map((remate) => remate.attributes('x'))).toEqual(['28', '110'])
+    expect(remates.map((remate) => remate.attributes('x'))).toEqual(['28', '108'])
+    expect(remates.map((remate) => remate.attributes('width'))).toEqual(['4', '4'])
     // El grupo colapsado o no, la barra se dibuja igual.
     expect(grupo.get('.gantt__resumen').attributes('aria-hidden')).toBe('true')
   })
@@ -226,11 +243,12 @@ describe('GanttChart', () => {
     // En jsdom la caja del SVG mide cero: se fijo para apuntar con el raton.
     // La y es la coordenada de contenido (clientY menos el top del SVG, que
     // con scroll sube de la ventana). El cuerpo va desplazado 64 px dentro
-    // del SVG: la fila 0 empieza en la y 64 del contenido y la fila es
-    // floor((y - 64) / 36). La cabecera pegajosa tapa la banda [scroll,
-    // scroll + 64) y se descarta antes de mirar la fila: con scroll 0 la
-    // primera fila pulsable es la fila 0, contenido [64, 100). x 30 a 14
-    // px/dia es el dia 3 (2026-11-03); y 80 da floor((80 - 64) / 36) = 0.
+    // del SVG: la fila 0 empieza en la y 64 del contenido y cada fila se
+    // reconoce por su rango [yPos, yPos + altoFila) (tarea 40 px, grupo 36).
+    // La cabecera pegajosa tapa la banda [scroll, scroll + 64) y se descarta
+    // antes de mirar la fila: con scroll 0 la primera fila pulsable es la
+    // fila 0, contenido [64, 104). x 30 a 14 px/dia es el dia 3
+    // (2026-11-03); y 80 cae en el rango de la fila 0.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
     await svg.trigger('dblclick', { clientX: 30, clientY: 80 })
@@ -246,9 +264,9 @@ describe('GanttChart', () => {
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 84 })
     // Con scroll 0 la cabecera pegajosa tapa la banda [0, 64): y 40 cae
-    // dentro y se descarta antes de mirar la fila. y 200 da floor((200 - 64)
-    // / 36) = 3 y el layout solo tiene 3 filas (0, 1, 2): sin fila tampoco
-    // emite nada.
+    // dentro y se descarta antes de mirar la fila. y 200 da offset 136 y las
+    // 3 filas de tarea (40 px cada una) solo cubren [0, 120): sin fila en el
+    // punto tampoco emite nada.
     await svg.trigger('dblclick', { clientX: 30, clientY: 40 })
     await svg.trigger('dblclick', { clientX: 30, clientY: 200 })
 
@@ -266,12 +284,11 @@ describe('GanttChart', () => {
     // Con scroll nativo el borde superior del SVG sube con el contenido: el
     // rect del SVG lo imita con top -40, como en el navegador. La y queda
     // en coordenada de contenido (clientY + 40) y la banda tapada por la
-    // cabecera pegajosa pasa a ser [40, 104) (desplazamiento + 64). El
-    // cuerpo va desplazado 64, asi que la fila es floor((y - 64) / 36).
+    // cabecera pegajosa pasa a ser [40, 104) (desplazamiento + 64).
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: -40, right: 196, bottom: 204 })
     // clientY 80 es y 120 en contenido, por encima de la banda tapada, y da
-    // floor((120 - 64) / 36) = 1: la fila 1, contenido [100, 136).
+    // offset 56: la fila 1, cuyo rango es [40, 80).
     await svg.trigger('dblclick', { clientX: 30, clientY: 80 })
 
     const [payload] = wrapper.emitted('crear')[0]
@@ -385,7 +402,7 @@ describe('GanttChart', () => {
     // y el rango de cuatro dias mide 4 * 14.
     const banda = wrapper.get('[data-testid="gantt-drag-preview"]')
     expect(banda.attributes('y')).toBe('0')
-    expect(banda.attributes('height')).toBe('36')
+    expect(banda.attributes('height')).toBe('40')
     expect(Number(banda.attributes('x'))).toBe(4 * 14)
     expect(Number(banda.attributes('width'))).toBe(4 * 14)
 
@@ -413,7 +430,7 @@ describe('GanttChart', () => {
 
     const banda = wrapper.get('[data-testid="gantt-drag-preview"]')
     expect(banda.attributes('y')).toBe('0')
-    expect(banda.attributes('height')).toBe('36')
+    expect(banda.attributes('height')).toBe('40')
     expect(Number(banda.attributes('x'))).toBe(2 * 14)
     expect(Number(banda.attributes('width'))).toBe(6 * 14)
 
@@ -438,10 +455,10 @@ describe('GanttChart', () => {
     const wrapper = montar(layout)
 
     const flecha = wrapper.get('[data-testid="gantt-dependency-10-12"]')
-    // Fin de la barra 10: 42 + 56 = 98, centro de la fila 0: 18. Inicio de
-    // la barra 12: 126, centro de la fila 1: 36 + 18 = 54. El quiebre cae en
-    // el punto medio horizontal: (98 + 126) / 2 = 112.
-    expect(flecha.attributes('points')).toBe('98,18 112,18 112,54 126,54')
+    // Fin de la barra 10: 42 + 56 = 98, centro de la fila 0: 40 / 2 = 20.
+    // Inicio de la barra 12: 126, centro de la fila 1: 40 + 20 = 60. El
+    // quiebre cae en el punto medio horizontal: (98 + 126) / 2 = 112.
+    expect(flecha.attributes('points')).toBe('98,20 112,20 112,60 126,60')
     expect(flecha.attributes('marker-end')).toBe('url(#gantt-punta)')
     expect(flecha.attributes('stroke-dasharray')).toBeUndefined()
   })
@@ -450,13 +467,14 @@ describe('GanttChart', () => {
     const barras = [barraNueva(10), barraNueva(12, { x: 126, rowIndex: 0 })]
     const layout = layoutDe(barras, {
       dependencies: [{ task_id: 12, depends_on_id: 10, type: 'precedes' }],
-      // Las dos barras pintan en la fila 0: la fila no lleva barra propia.
-      rows: [{ type: 'bar', rowIndex: 0, barra: barras[0] }],
+      // Las dos barras pintan en la fila 0: comparten el yCentro de la fila.
+      rows: [{ type: 'bar', rowIndex: 0, altoFila: 40, yPos: 0, barra: barras[0] }],
+      bars: barras.map((barra) => ({ ...barra, yCentro: 20 })),
     })
     const wrapper = montar(layout)
 
     expect(wrapper.get('[data-testid="gantt-dependency-10-12"]').attributes('points')).toBe(
-      '98,18 126,18',
+      '98,20 126,20',
     )
   })
 
@@ -666,11 +684,11 @@ describe('GanttChart', () => {
     await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
 
     // La linea va en el centro de la columna del puntero: dia 2 * 14 + 7 = 35,
-    // y baja por todo el cuerpo (3 filas * 36).
+    // y baja por todo el cuerpo (3 filas de tarea * 40).
     const linea = wrapper.get('.gantt__cruz line')
     expect(linea.attributes('x1')).toBe('35')
     expect(linea.attributes('x2')).toBe('35')
-    expect(linea.attributes('y2')).toBe('108')
+    expect(linea.attributes('y2')).toBe('120')
 
     // La etiqueta va en la tercera banda de la cabecera (rect y 42, texto
     // y 55), con la fecha corta del dia.
@@ -720,13 +738,13 @@ describe('GanttChart', () => {
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
     // clientY 80 esta bajo la cabecera (64) y dentro de la fila 0, contenido
-    // [64, 100).
+    // [64, 104).
     await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
 
     // En el diagrama la banda mide una fila y ocupa todo el ancho del lienzo.
     const banda = wrapper.get('.gantt__fila-resaltada')
     expect(banda.attributes('y')).toBe('0')
-    expect(banda.attributes('height')).toBe('36')
+    expect(banda.attributes('height')).toBe('40')
 
     // En la columna de nombres la misma fila lleva su tinte.
     const filas = wrapper.findAll('.gantt__nombres-pista > div')
@@ -745,12 +763,12 @@ describe('GanttChart', () => {
   it('la fila de la barra enfocada lleva su propia marca en las dos mitades', async () => {
     const wrapper = montar(layoutDe(), { barraEnfocada: 11 })
 
-    // La barra 11 esta en la fila 1: la banda del diagrama cae en y 36 y la
+    // La barra 11 esta en la fila 1: la banda del diagrama cae en y 40 y la
     // fila 1 de la columna de nombres lleva su tinte.
     expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
     const banda = wrapper.get('.gantt__fila-activa')
-    expect(banda.attributes('y')).toBe('36')
-    expect(banda.attributes('height')).toBe('36')
+    expect(banda.attributes('y')).toBe('40')
+    expect(banda.attributes('height')).toBe('40')
 
     const filas = wrapper.findAll('.gantt__nombres-pista > div')
     expect(
@@ -759,18 +777,19 @@ describe('GanttChart', () => {
       ),
     ).toBe(true)
 
-    // El puntero sobre la fila enfocada (clientY 120: (120 - 64) / 36 = 1)
-    // no pinta la marca del puntero: manda la de la enfocada.
+    // El puntero sobre la fila enfocada (clientY 120: offset 56, en el rango
+    // [40, 80) de la fila 1) no pinta la marca del puntero: manda la de la
+    // enfocada.
     const svg = wrapper.get('[data-testid="gantt-svg"]')
     svg.element.getBoundingClientRect = () => ({ left: 0, top: 0, right: 196, bottom: 200 })
     await svg.trigger('mousemove', { clientX: 30, clientY: 120 })
     expect(wrapper.find('.gantt__fila-resaltada').exists()).toBe(false)
-    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('36')
+    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('40')
 
     // El puntero sobre la fila 0, que no es la enfocada, y las dos marcas se
     // pintan, cada una en su fila.
     await svg.trigger('mousemove', { clientX: 30, clientY: 80 })
-    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('36')
+    expect(wrapper.get('.gantt__fila-activa').attributes('y')).toBe('40')
     expect(wrapper.get('.gantt__fila-resaltada').attributes('y')).toBe('0')
   })
 
@@ -780,8 +799,8 @@ describe('GanttChart', () => {
     const fila = wrapper.findAll('.gantt__nombres-pista > div')[1]
     await fila.trigger('mouseenter')
 
-    // El aviso de la fila 1 llega al chart: la banda cae en y 36.
-    expect(wrapper.get('.gantt__fila-resaltada').attributes('y')).toBe('36')
+    // El aviso de la fila 1 llega al chart: la banda cae en y 40.
+    expect(wrapper.get('.gantt__fila-resaltada').attributes('y')).toBe('40')
 
     // Al salir de la columna, el chart la quita.
     await wrapper.get('[data-testid="gantt-names"]').trigger('mouseleave')
@@ -1155,18 +1174,47 @@ describe('GanttBar etiqueta', () => {
     expect(barras[1].get('#gantt-bar-clip-11 rect').attributes('width')).toBe('84')
   })
 
-  it('con color de proyecto el relleno del texto es el que llega a 4.5:1 sobre el fondo', () => {
+  it('con porcentaje visible el clip de la etiqueta descuenta su reserva', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { width: 105, progress: 60 }),
+      barraNueva(11, { rowIndex: 1, width: 105 }),
+    ]))
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    // Con porcentaje: el clip acaba 36 px antes del borde derecho, donde el
+    // porcentaje se dibuja, para que el recorte de la etiqueta no lo pise.
+    expect(barras[0].get('#gantt-bar-clip-10 rect').attributes('width')).toBe('69')
+    // Sin porcentaje: el clip sigue midiendo la barra entera.
+    expect(barras[1].get('#gantt-bar-clip-11 rect').attributes('width')).toBe('105')
+  })
+
+  it('con color de proyecto el cuerpo lleva el pastel y el texto llega a 4.5:1 sobre el pastel', () => {
     const wrapper = montar(layoutDe([
       barraNueva(10, { width: 112, projectColor: '#1f6feb' }),
       barraNueva(11, { rowIndex: 1, width: 112, projectColor: '#bf8700' }),
     ]))
 
     const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    // El pastel es el color del proyecto mezclado con blanco al 12 %, en
+    // estilo en linea porque el color es dato del backend.
+    expect(barras[0].get('.gantt__barra-cuerpo').attributes('style')).toContain(
+      'fill: rgb(228, 238, 253)',
+    )
+    expect(barras[1].get('.gantt__barra-cuerpo').attributes('style')).toContain(
+      'fill: rgb(247, 241, 224)',
+    )
+    // El texto es el mismo color oscurecido hasta 4.5:1 contra ese pastel
+    // (`pildora` hace la matematica con el fondo que se pinta).
     expect(barras[0].get('.gantt__barra-etiqueta').attributes('style')).toContain(
-      'fill: rgb(255, 255, 255)',
+      'fill: rgb(28, 100, 212)',
     )
     expect(barras[1].get('.gantt__barra-etiqueta').attributes('style')).toContain(
-      'fill: rgb(var(--cp-texto))',
+      'fill: rgb(143, 101, 0)',
+    )
+    // El borde izquierdo lleva el color del proyecto tal cual, a 3 px.
+    expect(barras[0].get('.gantt__barra-borde').attributes('width')).toBe('3')
+    expect(barras[0].get('.gantt__barra-borde').attributes('style')).toContain(
+      'fill: rgb(31, 111, 235)',
     )
   })
 
@@ -1174,5 +1222,54 @@ describe('GanttBar etiqueta', () => {
     const wrapper = montar(layoutDe([barraNueva(10, { width: 112 })]))
 
     expect(wrapper.get('.gantt__barra-etiqueta').attributes('style')).toBeUndefined()
+  })
+
+  it('el porcentaje se dibuja solo si cabe (ancho > 95) y hay avance', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { width: 112, progress: 60 }),
+      barraNueva(11, { rowIndex: 1, width: 80, progress: 60 }),
+      barraNueva(12, { rowIndex: 2, width: 112, progress: 0 }),
+    ]))
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    // Cabe a la derecha y hay avance: alineado al extremo, a 6 px del borde.
+    const porcentaje = barras[0].get('.gantt__barra-porcentaje')
+    expect(porcentaje.attributes('text-anchor')).toBe('end')
+    expect(porcentaje.attributes('x')).toBe(String(112 - 6))
+    expect(porcentaje.text()).toBe('60%')
+    // No cabe (ancho <= 95): no se dibuja, aunque haya avance.
+    expect(barras[1].find('.gantt__barra-porcentaje').exists()).toBe(false)
+    // Cabe pero no hay avance: tampoco se dibuja.
+    expect(barras[2].find('.gantt__barra-porcentaje').exists()).toBe(false)
+  })
+
+  it('el avance va al 10 % del color del proyecto cuando hay color, y a la reserva sin el', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { width: 112, progress: 60, projectColor: '#1f6feb' }),
+      barraNueva(11, { rowIndex: 1, width: 112, progress: 60 }),
+    ]))
+
+    const barras = wrapper.findAll('[data-testid="gantt-bar"]')
+    // Con color: relleno del proyecto al 10 %, por debajo del texto.
+    expect(barras[0].get('.gantt__barra-avance').attributes('fill-opacity')).toBe('0.1')
+    expect(barras[0].get('.gantt__barra-avance').attributes('style')).toContain(
+      'fill: rgb(31, 111, 235)',
+    )
+    // Sin color: la reserva de gantt.css (oscuro 28 %), sin estilo en linea.
+    expect(barras[1].get('.gantt__barra-avance').attributes('fill-opacity')).toBeUndefined()
+    expect(barras[1].get('.gantt__barra-avance').attributes('style')).toBeUndefined()
+  })
+
+  it('la barra se centra en la fila: la y del transform suma el hueco de la fila de 40 px', () => {
+    const wrapper = montar(layoutDe([
+      barraNueva(10, { x: 42, rowIndex: 0 }),
+      barraNueva(11, { x: 42, rowIndex: 1 }),
+    ]))
+
+    const transform = wrapper
+      .findAll('[data-testid="gantt-bar"]')
+      .map((barra) => barra.attributes('transform'))
+    expect(transform[0]).toBe('translate(42, 8)')
+    expect(transform[1]).toBe('translate(42, 48)')
   })
 })

@@ -517,7 +517,7 @@ describe('GanttView', () => {
     expect(globo.text()).toContain('FS')
   })
 
-  it('muestra la leyenda con las personas del diagrama', async () => {
+  it('muestra la leyenda con las personas del diagrama y el recuento de tareas', async () => {
     setupFetch()
 
     const { wrapper } = await mountGantt()
@@ -525,6 +525,8 @@ describe('GanttView', () => {
     const leyenda = wrapper.get('[data-testid="gantt-legend"]')
     expect(leyenda.text()).toContain('Ana')
     expect(leyenda.text()).not.toContain('Jorge')
+    // El recuento de tareas visibles va a la derecha, en la misma leyenda.
+    expect(leyenda.text()).toContain('3 tareas visibles')
   })
 
   it('avisa de la tarea sin fechas, en singular', async () => {
@@ -1024,6 +1026,56 @@ describe('GanttView', () => {
     const etiquetas = barrasPintadas(wrapper)
     expect(etiquetas[0]).toContain('Programacion SCADA WinCC')
     expect(etiquetas[2]).toContain('Planos de tuberias')
+  })
+
+  it('las filas de tarea llevan el avatar de la persona y el subtitulo con el codigo', async () => {
+    setupFetch()
+
+    const { wrapper } = await mountGantt()
+
+    // Tres filas de tarea (dos de Linea, una de Red), en el orden del layout.
+    const pistas = wrapper.get('[data-testid="gantt-names"]').element
+    const filas = pistas.querySelectorAll('.gantt__nombres-pista > div')
+    expect(filas).toHaveLength(3)
+    // Cada fila lleva el avatar (iniciales de la persona) y el subtitulo
+    // "persona · CODIGO", con el codigo en mono.
+    for (const fila of filas) {
+      const avatar = fila.querySelector('span.rounded-avatar')
+      expect(avatar).not.toBeNull()
+      expect(avatar.textContent.trim()).toHaveLength(2)
+      expect(fila.textContent).toContain(' · ')
+      expect(fila.querySelector('.font-mono')).not.toBeNull()
+    }
+    // Los proyectos del feed no llevan prefijo numerico: se queda el nombre
+    // completo, truncado por la fila.
+    expect(filas[0].textContent).toContain('Ana')
+    expect(filas[0].textContent).toContain('Linea Pasteurizadora SIVE')
+    expect(filas[2].textContent).toContain('Jorge')
+    expect(filas[2].textContent).toContain('Red de tuberias')
+  })
+
+  it('el subtitulo recorta el proyecto a su prefijo numerico, no al nombre completo', async () => {
+    // El feed de la vista no lleva prefijos numericos; aqui se pone uno, como
+    // en los datos de demostracion ("26009 - FLUID SYSTEM - Pasteurizado").
+    setupFetch({
+      ...feed,
+      tasks: feed.tasks.map((task) => ({
+        ...task,
+        project_name: `26009 - ${task.project_name}`,
+      })),
+    })
+
+    const { wrapper } = await mountGantt()
+
+    const filas = wrapper
+      .get('[data-testid="gantt-names"]')
+      .element.querySelectorAll('.gantt__nombres-pista > div')
+    for (const fila of filas) {
+      // Solo el prefijo numerico: el resto del nombre del proyecto no sale.
+      expect(fila.textContent).toContain(' · 26009')
+      expect(fila.textContent).not.toContain('Linea Pasteurizadora SIVE')
+      expect(fila.textContent).not.toContain('Red de tuberias')
+    }
   })
 
   it('pinta una cabecera de grupo por grupo y sin agrupar no pinta ninguna', async () => {

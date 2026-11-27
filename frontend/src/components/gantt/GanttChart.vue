@@ -25,7 +25,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { addDays, dateAtIndex, dayIndex, inclusiveDays, parseIsoDate, toIsoDate } from '../../utils/ganttScale'
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
-import { GANTT_ROW_HEIGHT, flechaDe } from '../../utils/ganttLayout'
+import { flechaDe } from '../../utils/ganttLayout'
 import { shortMonthName, weekdayNames } from '../../utils/month'
 import { useGanttDrag } from '../../composables/useGanttDrag'
 import GanttAxis from './GanttAxis.vue'
@@ -262,8 +262,8 @@ onBeforeUnmount(() => {
  */
 watch(() => props.layout, medirAncho, { flush: 'post' })
 
-/** Alto total del SVG: cabecera mas una fila por entrada del layout. */
-const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.rows.length * GANTT_ROW_HEIGHT)
+/** Alto total del SVG: cabecera mas el alto acumulado de las filas. */
+const altoTotal = computed(() => GANTT_METRICS.headerHeight + props.layout.altoCuerpo)
 
 /** Bandas que se sombrea: en la escala de Mes no se sombrea. */
 const bandas = computed(() =>
@@ -318,8 +318,9 @@ const bandasFila = computed(() => {
 /** Banda de una fila del cuerpo, o null si la fila no existe. */
 function bandaDeFila(indice) {
   if (indice === null || indice === undefined) return null
-  if (!props.layout.rows[indice]) return null
-  return { indice, y: indice * GANTT_ROW_HEIGHT }
+  const fila = props.layout.rows[indice]
+  if (!fila) return null
+  return { indice, y: fila.yPos, alto: fila.altoFila }
 }
 
 /**
@@ -442,8 +443,11 @@ function alMoverRaton(event) {
  * del ultimo) no se resalta.
  */
 function filaEnPunto(y) {
-  const indice = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
-  return props.layout.rows[indice] ? indice : null
+  const offset = y - GANTT_METRICS.headerHeight
+  const fila = props.layout.rows.find(
+    (item) => offset >= item.yPos && offset < item.yPos + item.altoFila,
+  )
+  return fila ? fila.rowIndex : null
 }
 
 /** El raton se va del diagrama: ni cruz ni globo ni fila resaltada. */
@@ -515,9 +519,9 @@ const bandaPrevisualizacion = computed(() => {
   if (!fila) return null
   return {
     x: dayIndex(parseIsoDate(pre.start), props.layout.start) * props.layout.pxPerDay,
-    y: fila.rowIndex * GANTT_ROW_HEIGHT,
+    y: fila.yPos,
     width: inclusiveDays(pre.start, pre.end) * props.layout.pxPerDay,
-    height: GANTT_ROW_HEIGHT,
+    height: fila.altoFila,
   }
 })
 
@@ -626,8 +630,10 @@ function puntoDeDiagrama(event) {
   if (x < 0 || x >= props.layout.width) return null
   if (y < desplazamiento.value + GANTT_METRICS.headerHeight) return null
   const indiceDia = Math.floor(x / props.layout.pxPerDay)
-  const indiceFila = Math.floor((y - GANTT_METRICS.headerHeight) / GANTT_ROW_HEIGHT)
-  const fila = props.layout.rows[indiceFila]
+  const offset = y - GANTT_METRICS.headerHeight
+  const fila = props.layout.rows.find(
+    (item) => offset >= item.yPos && offset < item.yPos + item.altoFila,
+  )
   if (!fila) return null
   return {
     fila,
@@ -989,7 +995,7 @@ defineExpose({ centrarHoy, arrastrando })
             x="0"
             :y="bandasFila.activa.y"
             width="100%"
-            :height="GANTT_ROW_HEIGHT"
+            :height="bandasFila.activa.alto"
             aria-hidden="true"
           />
           <rect
@@ -998,7 +1004,7 @@ defineExpose({ centrarHoy, arrastrando })
             x="0"
             :y="bandasFila.raton.y"
             width="100%"
-            :height="GANTT_ROW_HEIGHT"
+            :height="bandasFila.raton.alto"
             aria-hidden="true"
           />
 
@@ -1021,15 +1027,17 @@ defineExpose({ centrarHoy, arrastrando })
             <GanttGroupRow
               v-if="fila.type === 'group'"
               :grupo="fila"
-              :y="fila.rowIndex * GANTT_ROW_HEIGHT"
+              :y="fila.yPos"
               :resumen="fila.resumen"
+              :alto-fila="fila.altoFila"
               ancho="100%"
             />
 
             <GanttBar
               v-else
               :barra="fila.barra"
-              :y="fila.rowIndex * GANTT_ROW_HEIGHT"
+              :y="fila.yPos"
+              :alto-fila="fila.altoFila"
               :editable="editableDe(fila.barra.taskId)"
               :seleccionada="barraEnfocada === fila.barra.taskId"
               :previsualizada="previsualizacion && previsualizacion.taskId === fila.barra.taskId"
@@ -1053,7 +1061,7 @@ defineExpose({ centrarHoy, arrastrando })
             :x1="layout.todayIndex * layout.pxPerDay"
             :x2="layout.todayIndex * layout.pxPerDay"
             y1="0"
-            :y2="layout.rows.length * GANTT_ROW_HEIGHT"
+            :y2="layout.altoCuerpo"
             aria-hidden="true"
           />
 
@@ -1083,7 +1091,7 @@ defineExpose({ centrarHoy, arrastrando })
               :x1="cruz.x"
               :x2="cruz.x"
               y1="0"
-              :y2="layout.rows.length * GANTT_ROW_HEIGHT"
+              :y2="layout.altoCuerpo"
               stroke-width="1"
             />
           </g>

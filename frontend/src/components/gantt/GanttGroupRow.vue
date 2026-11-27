@@ -23,9 +23,9 @@ import { computed } from 'vue'
 /** Alto del cuerpo de la barra de resumen, en pixeles. */
 const ALTO_CUERPO = 6
 /** Alto del remate de cada extremo, en pixeles: sobresalen del cuerpo. */
-const ALTO_REMATE = 14
+const ALTO_REMATE = 12
 /** Ancho del remate de cada extremo, en pixeles. */
-const ANCHO_REMATE = 2
+const ANCHO_REMATE = 4
 
 const props = defineProps({
   /** Fila de grupo del layout: { label, clave, rowIndex, x, width, ... }. */
@@ -105,7 +105,7 @@ const estiloColor = computed(() => {
         :y="y + (altoFila - ALTO_REMATE) / 2"
         :width="ANCHO_REMATE"
         :height="ALTO_REMATE"
-        rx="1"
+        rx="2"
       />
       <rect
         class="gantt__resumen-remate"
@@ -113,7 +113,7 @@ const estiloColor = computed(() => {
         :y="y + (altoFila - ALTO_REMATE) / 2"
         :width="ANCHO_REMATE"
         :height="ALTO_REMATE"
-        rx="1"
+        rx="2"
       />
     </g>
   </g>

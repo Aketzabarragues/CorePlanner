@@ -19,7 +19,8 @@
  * dibuja con ello el globo de datos de la tarea.
  *
  * Vocabulario de la barra (que distingue una barra de otra):
- * - el COLOR es el de la persona o el del proyecto: dato guardado;
+ * - el COLOR es el del proyecto (pastel con borde izquierdo a color):
+ *   dato guardado;
  * - el CONTORNO DISCONTINUO es del proyecto provisional (`--provisional`);
  * - el TRIANGULO es de la violacion de una dependencia (el `polygon` de
  *   abajo), y el motivo va en el `aria-label`;
@@ -31,14 +32,16 @@
 import { computed } from 'vue'
 
 import { GANTT_METRICS } from '../../utils/ganttMetrics'
-import { textoSobre } from '../../utils/statusColor'
+import { conBlanco, pildora } from '../../utils/statusColor'
 
 const props = defineProps({
   /** Barra del layout: { taskId, x, width, label, title, color, status,
    *  startIso, endIso, assignedName }. */
   barra: { type: Object, required: true },
-  /** Y de la fila, en pixeles: rowIndex * altoFila. */
+  /** Y de la fila, en pixeles: el offset `yPos` de la fila. */
   y: { type: Number, required: true },
+  /** Alto de la fila, en pixeles: centra la barra en su fila. */
+  altoFila: { type: Number, default: 40 },
   /** Si la persona que entra puede escribir en el proyecto de la barra. */
   editable: { type: Boolean, default: false },
   /** Barra enfocada: lleva el tabindex y el borde de seleccion. */
@@ -78,12 +81,51 @@ const mostrarEtiqueta = computed(() => anchoBarra.value >= GANTT_METRICS.labelMi
 const clipId = computed(() => `gantt-bar-clip-${props.barra.taskId}`)
 
 /**
- * Color del texto de la etiqueta: el que llega a 4.5:1 sobre el color del
- * proyecto (dato del backend). Sin color de proyecto (provisional o sin
- * color) no hay decision que tomar: se queda el blanco de la clase.
+ * Fondo del cuerpo: el color del proyecto (dato del backend) mezclado con
+ * blanco al 12 %, como la barra del calendario. Sin color de proyecto, o en
+ * el provisional (que no esta firmado y se lee por el contorno, no por el
+ * color), no hay relleno que decidir: el cuerpo se queda a la clase.
+ */
+const fondoBarra = computed(() => {
+  if (props.barra.provisional === true) return null
+  return props.barra.projectColor ? conBlanco(props.barra.projectColor, 0.12) : null
+})
+
+/**
+ * Color del texto sobre el fondo pastel: el color del proyecto oscurecido
+ * hasta el contraste de 4.5:1 contra ese pastel (`pildora` hace la matematica
+ * con el mismo fondo que se pinta). Sin pastel no hay decision que tomar: se
+ * queda el texto de la clase.
  */
 const colorTexto = computed(() =>
-  props.barra.projectColor ? textoSobre(props.barra.projectColor) : null,
+  props.barra.projectColor && props.barra.provisional !== true
+    ? pildora(props.barra.projectColor).color
+    : null,
+)
+
+/**
+ * El porcentaje se lee solo si cabe a la derecha sin pisar la etiqueta: el
+ * ancho minimo es mayor que el de la etiqueta para que nunca compitan.
+ */
+const mostrarPorcentaje = computed(
+  () => anchoBarra.value > 95 && props.barra.progress > 0,
+)
+
+/**
+ * Ancho del clip de la etiqueta: el de la barra, menos la reserva del
+ * porcentaje cuando este se dibuja, para que el recorte de la etiqueta no
+ * llegue hasta el porcentaje.
+ */
+const anchoClip = computed(() =>
+  mostrarPorcentaje.value
+    ? anchoBarra.value - GANTT_METRICS.porcentajeReserva
+    : anchoBarra.value,
+)
+
+/** Y de la barra dentro de la fila: centrada, porque el alto de la fila
+ *  varia (tarea 40 px, grupo 36 px) y la barra siempre mide 24 px. */
+const yOffset = computed(
+  () => props.y + (props.altoFila - GANTT_METRICS.barHeight) / 2,
 )
 
 /** Zona sensible del asa: el resto del cuerpo es la barra. */
@@ -135,7 +177,7 @@ function alMenuContexto(event) {
     :aria-disabled="editable ? undefined : 'true'"
     :aria-current="seleccionada ? 'true' : undefined"
     aria-describedby="gantt-instrucciones"
-    :transform="`translate(${barra.x}, ${y + 6})`"
+    :transform="`translate(${barra.x}, ${yOffset})`"
     :class="[
       barra.color,
       {
@@ -153,21 +195,44 @@ function alMenuContexto(event) {
     @mouseenter="emit('entrar', barra.taskId)"
     @mouseleave="emit('salir')"
   >
-    <!-- Cuerpo: el relleno lo da gantt.css con el color de la persona. -->
+    <!--
+      Cuerpo: fondo pastel del color del proyecto (12 %, como el
+      calendario). El relleno por defecto lo da gantt.css (gris de reserva
+      o blanco punteado del provisional); el pastel va en estilo en linea
+      porque el color es dato del backend.
+    -->
     <rect
       class="gantt__barra-cuerpo"
       :width="anchoBarra"
       :height="GANTT_METRICS.barHeight"
       :rx="GANTT_METRICS.barRadius"
+      :style="fondoBarra ? { fill: fondoBarra } : undefined"
     />
 
-    <!-- Avance: el color de identidad oscurecido 28 %. -->
+    <!-- Borde izquierdo: el color del proyecto tal cual, 3 px. -->
+    <rect
+      v-if="fondoBarra"
+      class="gantt__barra-borde"
+      :width="3"
+      :height="GANTT_METRICS.barHeight"
+      :rx="1.5"
+      :style="{ fill: barra.projectColor }"
+      aria-hidden="true"
+    />
+
+    <!--
+      Avance: el color del proyecto al 10 % sobre el pastel (el fill inline
+      lo pinta a color y el `fill-opacity` baja la capa). Sin color de
+      proyecto (provisional) se queda al gris oscuro de gantt.css.
+    -->
     <rect
       v-if="barra.progress > 0"
       class="gantt__barra-avance"
       :width="anchoBarra * (barra.progress / 100)"
       :height="GANTT_METRICS.barHeight"
       :rx="GANTT_METRICS.barRadius"
+      :fill-opacity="fondoBarra ? 0.1 : undefined"
+      :style="fondoBarra ? { fill: barra.projectColor } : undefined"
     />
 
     <!--
@@ -193,11 +258,12 @@ function alMenuContexto(event) {
       Etiqueta: solo si cabe entera y recortada al ancho de la barra: la cola
       del titulo no puede salirse. El clip vive en el <g> de la barra y su id
       es unico por barra (ver clipId), para que dos barras no se recorten con
-      el mismo rect.
+      el mismo rect. Con porcentaje visible el clip descuenta su reserva, para
+      que el recorte de la etiqueta no llegue hasta el porcentaje.
     -->
     <g v-if="mostrarEtiqueta">
       <clipPath :id="clipId">
-        <rect :width="anchoBarra" :height="GANTT_METRICS.barHeight" />
+        <rect :width="anchoClip" :height="GANTT_METRICS.barHeight" />
       </clipPath>
       <text
         :x="GANTT_METRICS.labelPadding"
@@ -207,6 +273,20 @@ function alMenuContexto(event) {
         class="gantt__barra-etiqueta"
         pointer-events="none"
       >{{ barra.label }}</text>
+      <!--
+        Porcentaje: solo si cabe a la derecha (ancho > 95 px y avance > 0).
+        Mismo clip que la etiqueta para no salirse de la barra.
+      -->
+      <text
+        v-if="mostrarPorcentaje"
+        :x="anchoBarra - GANTT_METRICS.labelPadding"
+        :y="GANTT_METRICS.barHeight / 2 + 4"
+        :clip-path="`url(#${clipId})`"
+        :style="colorTexto ? { fill: colorTexto } : undefined"
+        class="gantt__barra-porcentaje"
+        text-anchor="end"
+        pointer-events="none"
+      >{{ barra.progress }}%</text>
     </g>
 
     <!-- Marca de violacion: triangulo en la esquina superior derecha, dentro

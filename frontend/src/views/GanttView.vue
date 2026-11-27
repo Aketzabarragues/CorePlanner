@@ -46,6 +46,7 @@ import ContextMenu from '../components/common/ContextMenu.vue'
 import FilterField from '../components/common/FilterField.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import PersonAvatar from '../components/common/PersonAvatar.vue'
 import SegmentedControl from '../components/common/SegmentedControl.vue'
 import TaskDetailDialog from '../components/TaskDetailDialog.vue'
 import TaskForm from '../components/TaskForm.vue'
@@ -499,6 +500,23 @@ const miembrosVisibles = computed(() => {
   return miembros.filter((member) => !ocultoPara(member.user_id))
 })
 
+/** Tareas que hay en el diagrama: el recuento de la leyenda. */
+const tareasVisibles = computed(() => (layout.value?.bars ?? []).length)
+
+/**
+ * Color del avatar de la leyenda: el del departamento del miembro, el mismo
+ * idiom del avatar de la matriz. Sin departamento, el neutro del avatar.
+ */
+function colorAvatarMiembro(member) {
+  const persona = personas.value.find(
+    (item) => String(item.id) === String(member.user_id),
+  )
+  const departamento = departamentos.value.find(
+    (item) => String(item.id) === String(persona?.department_id),
+  )
+  return departamento?.color ?? ''
+}
+
 /** Si alguna barra visible es de un proyecto provisional: la leyenda lo marca. */
 const hayProvisional = computed(() =>
   (layout.value?.bars ?? []).some((barra) => barra.provisional === true),
@@ -713,6 +731,18 @@ const layout = computed(() => {
   // La fila de grupo lleva la clave de agrupacion: la etiqueta visible la
   // pone la vista, porque la clave no es el nombre que se lee. Tambien lleva
   // el resumen que se anuncia y el estado de colapso, que vive en la URL.
+  // Avatar de la fila: el color del departamento de la persona asignada, el
+  // mismo idiom de la matriz y del calendario. Sin persona ni sin
+  // departamento, el neutro por token del avatar.
+  const colorDepartamento = new Map(
+    departamentos.value.map((item) => [String(item.id), item.color]),
+  )
+  const colorPorUsuario = new Map(
+    personas.value.map((persona) => [
+      String(persona.id),
+      colorDepartamento.get(String(persona.department_id)) ?? '',
+    ]),
+  )
   modelo.rows = modelo.rows.map((fila) => {
     if (fila.type === 'group') {
       return {
@@ -724,13 +754,15 @@ const layout = computed(() => {
       }
     }
     const barra = barraPorFila.get(fila.rowIndex)
+    const tarea = tareasPorId.get(barra.taskId)
     return {
       ...fila,
       barra,
       title: barra.title,
       assignedName: barra.assignedName,
       projectName: barra.projectName,
-      celdas: celdasDe(tareasPorId.get(barra.taskId)),
+      avatarColor: colorPorUsuario.get(String(tarea.assigned_to)) ?? '',
+      celdas: celdasDe(tarea),
     }
   })
   return modelo
@@ -2197,26 +2229,38 @@ useTaskReload(load)
         {{ cascadaFallo }}
       </AlertBanner>
 
-      <ul
-        v-if="miembrosVisibles.length || hayProvisional"
-        class="mb-3 flex shrink-0 flex-wrap gap-3 text-cp-micro text-texto-suave"
+      <div
+        class="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1"
         data-testid="gantt-legend"
       >
-        <li
-          v-for="member in miembrosVisibles"
-          :key="member.user_id"
-          class="flex items-center gap-1.5"
-        >
-          <span :class="['inline-block h-3 w-3 rounded-pastilla', member.css_class]" />
-          {{ member.name }}
-        </li>
-        <li v-if="hayProvisional" class="flex items-center gap-1.5" data-testid="gantt-legend-provisional">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-cp-xs text-texto-suave">
           <span
-            class="inline-block h-3 w-3 rounded-pastilla border border-dashed border-borde-fuerte bg-tarjeta"
-          />
-          Provisional
-        </li>
-      </ul>
+            v-for="member in miembrosVisibles"
+            :key="member.user_id"
+            class="inline-flex items-center gap-1.5"
+          >
+            <PersonAvatar
+              :nombre="member.name"
+              :color="colorAvatarMiembro(member)"
+              tamano="xs"
+            />
+            {{ member.name }}
+          </span>
+          <span
+            v-if="hayProvisional"
+            class="inline-flex items-center gap-1.5"
+            data-testid="gantt-legend-provisional"
+          >
+            <span
+              class="inline-block h-3 w-3 rounded-pastilla border border-dashed border-borde-fuerte bg-tarjeta"
+            />
+            Provisional
+          </span>
+        </div>
+        <span class="shrink-0 font-mono text-cp-xs text-texto-tenue">
+          {{ tareasVisibles }} tareas visibles
+        </span>
+      </div>
 
       <AlertBanner
         v-if="feed && feed.undated_task_ids.length"

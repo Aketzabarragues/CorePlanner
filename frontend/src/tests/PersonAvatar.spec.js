@@ -27,7 +27,12 @@ describe('PersonAvatar', () => {
     expect(montar({ nombre: 'ana garcia lopez' }).text()).toBe('AG')
   })
 
-  it('el tamano por prop: sm, md por defecto y lg', () => {
+  it('el tamano por prop: xs, sm, md por defecto y lg', () => {
+    const xs = montar({ tamano: 'xs' })
+    expect(xs.classes()).toContain('h-4')
+    expect(xs.classes()).toContain('w-4')
+    expect(xs.classes()).toContain('text-cp-micro')
+
     const sm = montar({ tamano: 'sm' })
     expect(sm.classes()).toContain('h-6')
     expect(sm.classes()).toContain('w-6')

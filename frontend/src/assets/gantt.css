@@ -120,15 +120,12 @@
 }
 
 /*
- * Linea de hoy: discontinua, en el color de la marca.
- *
- * No es un limite de columna: ninguna otra linea del diagrama es discontinua,
- * asi que se distingue por la forma, como el resto de los signos del diagrama.
+ * Linea de hoy: continua, 2 px, en el color de la marca oscuro
+ * (`primario-fuerte`), el mismo de la insignia "Hoy" de la cabecera.
  */
 .gantt__hoy {
-  @apply stroke-primario;
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
+  @apply stroke-primario-fuerte;
+  stroke-width: 2;
   pointer-events: none;
 }
 
@@ -200,7 +197,7 @@
  * Barra de resumen del grupo: el cuerpo fino y los remates de los extremos.
  *
  * Va de la primera a la ultima fecha de las tareas del grupo. El cuerpo va a
- * media opacidad, para que se lea por debajo de las barras, y los remates
+ * 45 % de opacidad, para que se lea por debajo de las barras, y los remates
  * (opacos) cierran los dos extremos. Un grupo sin color propio se dibuja con
  * el gris neutro de la escala.
  *
@@ -208,7 +205,7 @@
  */
 .gantt__resumen-cuerpo {
   fill: var(--gantt-color-grupo, rgb(var(--cp-borde-fuerte)));
-  fill-opacity: 0.5;
+  fill-opacity: 0.45;
 }
 .gantt__resumen-remate {
   fill: var(--gantt-color-grupo, rgb(var(--cp-borde-fuerte)));
@@ -246,28 +243,50 @@
 /*
  * Barra: cuerpo, avance, etiqueta y marca de violacion.
  *
- * El color del cuerpo es el de la persona (o el del proyecto); el resto son
- * signos del diagrama, no informacion de la tarea.
+ * El color del cuerpo es el del proyecto (pastel, en estilo en linea); el
+ * resto son signos del diagrama, no informacion de la tarea.
  */
 .gantt__barra-cuerpo {
   /*
-   * Reserva del cuerpo de barra (tarea sin persona): el gris de
+   * Reserva del cuerpo de barra (sin color de proyecto): el gris de
    * `borde-fuerte`, token y no color suelto.
    */
   fill: var(--persona-color, rgb(var(--cp-borde-fuerte)));
+  /*
+   * Anillo fino del cuerpo: negro al 5 %, la `ring-black/5` del boceto. El
+   * hover lo sustituye por el borde fuerte (ver abajo).
+   */
+  stroke: rgb(0 0 0 / 0.05);
+  stroke-width: 1;
+}
+/* Borde izquierdo del cuerpo: el color del proyecto tal cual (3 px). */
+.gantt__barra-borde {
+  pointer-events: none;
 }
 .gantt__barra-avance {
-  /* Oscurecido 28 %: `fill-black/28` no existe en la escala de Tailwind. */
+  /*
+   * Reserva del avance sin color de proyecto: oscuro al 28 %. Con color, el
+   * relleno inline es el del proyecto y el `fill-opacity` del elemento lo
+   * baja al 10 %.
+   */
   fill: rgb(0 0 0 / 0.28);
   pointer-events: none;
 }
 /*
- * Etiqueta de la barra: texto blanco sobre el cuerpo de color. El cuerpo
- * va en el color de la persona o del proyecto, y cuatro de los seis colores
- * de la paleta son demasiado claros para un texto oscuro encima.
+ * Etiqueta de la barra: el texto se decide en linea (el color del proyecto
+ * oscurecido hasta 4.5:1 sobre el pastel); el blanco de la clase es la
+ * reserva del provisional.
  */
 .gantt__barra-etiqueta {
-  @apply fill-sobre-primario;
+  @apply fill-sobre-primario font-semibold text-cp-xs;
+  pointer-events: none;
+}
+/*
+ * Porcentaje de la barra: monoespaciado y atenuado, alineado a la derecha.
+ * Solo se dibuja cuando cabe (ver `mostrarPorcentaje`).
+ */
+.gantt__barra-porcentaje {
+  @apply fill-sobre-primario font-mono text-cp-micro opacity-75;
   pointer-events: none;
 }
 /* Marca de violacion: no captura el puntero. */
@@ -474,7 +493,8 @@
 /*
  * Vocabulario de la barra: que distingue una barra de otra.
  *
- * - El COLOR es de la persona (o del proyecto): dato guardado, no estilo.
+ * - El COLOR es el del proyecto (pastel con borde izquierdo a color): dato
+ *   guardado, no estilo.
  * - El CONTORNO DISCONTINUO es del proyecto provisional: la barra no esta
  *   firmada.
  * - El TRIANGULO es de la violacion de una dependencia: la barra empieza

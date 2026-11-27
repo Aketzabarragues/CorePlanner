@@ -10,8 +10,13 @@ import { shortMonthName } from './month'
 import { addDays, dayIndex, diffDays, inclusiveDays, parseIsoDate, toIsoDate } from './ganttScale'
 import { daysRangeLabel, isoWeekKey, weekLabel, weekDays } from './weeks'
 
-/** Alto en pixeles de cada fila, de barra o de cabecera de grupo. */
-export const GANTT_ROW_HEIGHT = 36
+/**
+ * Alto en pixeles de cada fila, por tipo: la fila de tarea (barra) es mas
+ * alta que la de cabecera de grupo. La y de cada fila se acumula en el layout
+ * (`yPos`) porque los dos altos no son iguales.
+ */
+export const GANTT_ROW_HEIGHT_TAREA = 40
+export const GANTT_ROW_HEIGHT_GRUPO = 36
 
 /** Inicial del dia de la semana en espanol, por `getUTCDay`: 0 es domingo. */
 const DIA_SEMANA_INICIAL = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
@@ -180,19 +185,24 @@ export function buildLayout({
     resumen.cuantas += 1
   }
 
+  // El alto de cada fila depende de su tipo (tarea 40 px, grupo 36 px) y el
+  // offset `yPos` es la suma de los altos de las filas anteriores: la y que
+  // usa el diagrama para colocar la fila y para la geometria de las flechas.
+  let yPos = 0
   for (const item of items) {
     const { task, grupo } = item
     if (groupMode !== 'sin' && grupo !== grupoVigente) {
       grupoVigente = grupo
-      rows.push(
-        filaDeGrupo({
-          grupo,
-          resumen: resumenPorGrupo.get(grupo),
-          first,
-          scale,
-          rowIndex: rows.length,
-        }),
-      )
+      const fila = filaDeGrupo({
+        grupo,
+        resumen: resumenPorGrupo.get(grupo),
+        first,
+        scale,
+        rowIndex: rows.length,
+        yPos,
+      })
+      yPos += fila.altoFila
+      rows.push(fila)
     }
     // Un grupo colapsado no dibuja sus barras: solo queda su fila de grupo
     // con la barra de resumen.
@@ -200,12 +210,16 @@ export function buildLayout({
     const inicio = parseIsoDate(task.start)
     const fin = parseIsoDate(task.end)
     const rowIndex = rows.length
-    rows.push({ type: 'bar', rowIndex })
+    const altoFila = GANTT_ROW_HEIGHT_TAREA
+    const yCentro = yPos + altoFila / 2
+    rows.push({ type: 'bar', rowIndex, altoFila, yPos })
+    yPos += altoFila
     bars.push({
       taskId: task.id,
       x: dayIndex(inicio, first) * scale.pxPerDay,
       width: inclusiveDays(inicio, fin) * scale.pxPerDay,
       rowIndex,
+      yCentro,
       label: task.title ?? task.name ?? '',
       color: task.custom_class ?? '',
       projectColor: task.project_color ?? null,
@@ -248,6 +262,7 @@ export function buildLayout({
     bars,
     shaded,
     todayIndex,
+    altoCuerpo: yPos,
   }
 }
 
@@ -277,7 +292,7 @@ function colorDeGrupo(groupMode, task) {
  * tareas del grupo y `cuantas` cuantas tiene. `x` y `width` son la geometria
  * de la barra de resumen, con el mismo origen que las barras de tarea.
  */
-function filaDeGrupo({ grupo, resumen, first, scale, rowIndex }) {
+function filaDeGrupo({ grupo, resumen, first, scale, rowIndex, yPos }) {
   const x = dayIndex(resumen.inicio, first) * scale.pxPerDay
   const width = inclusiveDays(resumen.inicio, resumen.fin) * scale.pxPerDay
   return {
@@ -285,6 +300,8 @@ function filaDeGrupo({ grupo, resumen, first, scale, rowIndex }) {
     label: grupo,
     clave: grupo,
     rowIndex,
+    altoFila: GANTT_ROW_HEIGHT_GRUPO,
+    yPos,
     inicio: toIsoDate(resumen.inicio),
     fin: toIsoDate(resumen.fin),
     cuantas: resumen.cuantas,
@@ -310,15 +327,15 @@ export function snapDelta(pixels, pxPerDay) {
  * (filtrada) no hay flecha: se devuelve null.
  *
  * `barraPorId` mapea identificador de tarea a barra del layout (`x`, `width`,
- * `rowIndex`). `conPunta` solo lleva los `precedes`: los `relates` son linea
- * discontinua sin punta.
+ * `rowIndex`, `yCentro`). `conPunta` solo lleva los `precedes`: los `relates`
+ * son linea discontinua sin punta.
  */
 export function flechaDe(vinculo, barraPorId) {
   const requisito = barraPorId.get(vinculo.depends_on_id)
   const dependiente = barraPorId.get(vinculo.task_id)
   if (!requisito || !dependiente) return null
-  const y1 = requisito.rowIndex * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
-  const y2 = dependiente.rowIndex * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
+  const y1 = requisito.yCentro
+  const y2 = dependiente.yCentro
   const x1 = requisito.x + requisito.width
   const x2 = dependiente.x
   const puntos =

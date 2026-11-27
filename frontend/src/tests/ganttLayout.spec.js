@@ -266,6 +266,23 @@ describe('layout del Gantt', () => {
     expect(rows.every((fila) => fila.type === 'bar')).toBe(true)
   })
 
+  it('cada fila lleva su alto por tipo, su offset acumulado y el cuerpo suma todo', () => {
+    const { rows, bars, altoCuerpo } = layout()
+
+    expect(rows[0]).toMatchObject({ type: 'group', altoFila: 36, yPos: 0 })
+    expect(rows[1]).toMatchObject({ type: 'bar', altoFila: 40, yPos: 36 })
+    expect(rows[2]).toMatchObject({ type: 'bar', altoFila: 40, yPos: 76 })
+    expect(altoCuerpo).toBe(36 + 40 + 40)
+  })
+
+  it('cada barra lleva el centro de su fila, donde salen las flechas', () => {
+    const { bars } = layout()
+
+    // El centro de la fila de barra es su offset mas la mitad de sus 40 px.
+    expect(bars[0].yCentro).toBe(36 + 20)
+    expect(bars[1].yCentro).toBe(36 + 40 + 20)
+  })
+
   it('encabeza cada grupo por separado', () => {
     const otros = [
       { task: tarea(12, '2026-11-02', '2026-11-02'), grupo: 'Bravo' },

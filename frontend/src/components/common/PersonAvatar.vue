@@ -20,12 +20,13 @@ const props = defineProps({
   nombre: { type: String, required: true },
   /** Hex del color del departamento; vacio, el neutro por token. */
   color: { type: String, default: '' },
-  /** Tamano: 'sm' 24 px, 'md' 32 px, 'lg' 40 px. */
+  /** Tamano: 'xs' 16 px, 'sm' 24 px, 'md' 32 px, 'lg' 40 px. */
   tamano: { type: String, default: 'md' },
 })
 
 /** Clases de cada tamano: las literales, para que lleguen al bundle. */
 const TAMANO_CLASSES = {
+  xs: 'h-4 w-4 text-cp-micro',
   sm: 'h-6 w-6 text-cp-micro',
   md: 'h-8 w-8 text-cp-sm',
   lg: 'h-10 w-10 text-cp-base',

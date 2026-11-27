@@ -11,8 +11,8 @@ export const GANTT_METRICS = {
   // Cabecera del eje y de la columna de nombres: tres bandas de ~21 px
   // (numero o nombre, rango o ano, festivo).
   headerHeight: 64,
-  barHeight: 24, // Barra, dentro de la fila de 36 px
-  barRadius: 4,
+  barHeight: 24, // Barra, dentro de la fila de tarea (40 px) o de grupo (36 px)
+  barRadius: 8,
   namesWidth: 240, // Columna de nombres (escritorio)
   namesWidthSmall: 160, // Columna de nombres (pantalla estrecha)
   gridWidth: 1,
@@ -23,5 +23,8 @@ export const GANTT_METRICS = {
   handleInset: 2,
   labelPadding: 6,
   labelMinWidth: 72,
+  // Reserva de la derecha para el porcentaje: 6 px de padding + "100%" en
+  // mono micro (~24 px) + 6 px de hueco. El clip de la etiqueta acaba ahi.
+  porcentajeReserva: 36,
   dragThreshold: 5, // Mismo umbral que el Kanban
 }

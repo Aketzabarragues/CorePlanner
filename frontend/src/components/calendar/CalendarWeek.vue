@@ -224,6 +224,18 @@ function colorDeDepartamento(fila) {
   return color ?? 'rgb(var(--cp-neutro-punto))'
 }
 
+/**
+ * Si la fila abre un departamento nuevo.
+ *
+ * Compara con la fila anterior de la misma semana: el cambio de
+ * departamento se marca una sola vez, en la primera fila de la persona.
+ */
+function cambiaDeDepartamento(fila) {
+  const anterior = props.filas[props.filas.indexOf(fila) - 1]
+  if (!anterior) return false
+  return (anterior.department_name ?? '') !== (fila.department_name ?? '')
+}
+
 /** Texto legible sobre un hex de fondo: blanco u oscuro por luminancia. */
 function contrasteSobre(hex) {
   const limpio = (hex ?? '').replace('#', '')
@@ -271,7 +283,12 @@ function alCrearHueco(event) {
         v-for="(carril, indiceCarril) in fila.carriles"
         :key="`${fila.id ?? 'sin-asignar'}-${indiceCarril}`"
         class="border-b border-borde-suave"
-        :class="fila.id === null ? 'bg-tarjeta-suave' : ''"
+        :class="[
+          fila.id === null ? 'bg-tarjeta-suave' : '',
+          indiceCarril === 0 && cambiaDeDepartamento(fila)
+            ? 'border-t-2 border-t-borde-fuerte'
+            : '',
+        ]"
         :data-testid="`week-lane-row-${fila.id ?? 'sin-asignar'}-${indiceCarril}`"
       >
         <th

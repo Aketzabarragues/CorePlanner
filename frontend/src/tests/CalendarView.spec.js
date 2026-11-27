@@ -1871,6 +1871,35 @@ describe('CalendarWeek', () => {
     expect(barra.classes()).toContain('opacity-60')
     expect(barra.classes()).toContain('pointer-events-none')
   })
+
+  it('marca con una linea mas fuerte la fila que cambia de departamento', () => {
+    const personasMixtas = [
+      { id: 2, name: 'Ana', department_id: 1, department_name: 'Automatizacion & SCADA' },
+      { id: 4, name: 'Carmen', department_id: 2, department_name: 'Oficina Tecnica / EPLAN' },
+      { id: 5, name: 'Dario', department_id: 2, department_name: 'Oficina Tecnica / EPLAN' },
+    ]
+    const wrapper = monta({ people: personasMixtas })
+
+    // Primera persona de la rejilla: sin fila anterior, solo la linea suave
+    // de abajo; el separador de arriba, si lo hay, lo pinta la fila previa.
+    const ana = wrapper.find('[data-testid="week-lane-row-2-0"]')
+    expect(ana.classes()).toContain('border-b')
+    expect(ana.classes()).toContain('border-borde-suave')
+    expect(ana.classes()).not.toContain('border-t-2')
+
+    // Cambio de departamento: linea marcada en el borde fuerte.
+    const carmen = wrapper.find('[data-testid="week-lane-row-4-0"]')
+    expect(carmen.classes()).toContain('border-t-2')
+    expect(carmen.classes()).toContain('border-t-borde-fuerte')
+    expect(carmen.classes()).toContain('border-b')
+    expect(carmen.classes()).toContain('border-borde-suave')
+
+    // Mismo departamento que la anterior: vuelve a la linea suave.
+    const dario = wrapper.find('[data-testid="week-lane-row-5-0"]')
+    expect(dario.classes()).toContain('border-b')
+    expect(dario.classes()).toContain('border-borde-suave')
+    expect(dario.classes()).not.toContain('border-t-2')
+  })
 })
 
 describe('DayDetail: edicion inline y alta del dia', () => {
@@ -2019,6 +2048,28 @@ describe('DayDetail: edicion inline y alta del dia', () => {
     await wrapper.find('[data-testid="day-new-task"]').trigger('click')
 
     expect(wrapper.emitted('crear')[0]).toEqual(['2026-11-09'])
+  })
+
+  it('marca con una linea mas fuerte la seccion que cambia de departamento', () => {
+    const personasMixtas = [
+      { id: 2, name: 'Ana', department_id: 1, department_name: 'Automatizacion & SCADA' },
+      { id: 4, name: 'Carmen', department_id: 2, department_name: 'Oficina Tecnica / EPLAN' },
+      { id: 5, name: 'Dario', department_id: 2, department_name: 'Oficina Tecnica / EPLAN' },
+    ]
+    const wrapper = mountDetalle({ people: personasMixtas, tasks: [] })
+
+    // Primera seccion: sin anterior, sin linea marcada.
+    const ana = wrapper.find('[data-testid="day-section-2"]')
+    expect(ana.classes()).not.toContain('border-t-2')
+
+    // Cambio de departamento: linea marcada en el borde fuerte.
+    const carmen = wrapper.find('[data-testid="day-section-4"]')
+    expect(carmen.classes()).toContain('border-t-2')
+    expect(carmen.classes()).toContain('border-t-borde-fuerte')
+
+    // Mismo departamento que la anterior: vuelve a la linea suave.
+    const dario = wrapper.find('[data-testid="day-section-5"]')
+    expect(dario.classes()).not.toContain('border-t-2')
   })
 })
 

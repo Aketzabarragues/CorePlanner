@@ -2,85 +2,104 @@
 /**
  * Cabecera de una pantalla.
  *
- * Titulo a la izquierda y acciones a la derecha, siempre en la primera linea
- * (las acciones se separan del titulo con `ml-auto` y ceden sitio en cascada:
- * icono antes que desaparecer). Los filtros van en linea tras el titulo
- * cuando caben a su lado; por debajo de `xl` no caben junto al titulo, así
- * que ocupan una fila propia debajo (con `w-full`) y se envuelven dentro de
- * si.
+ * El contenido de la cabecera (titulo, insignia, ayuda, filtros y acciones) se
+ * publica en la barra superior del shell con un Teleport: asi la vista y la
+ * barra son la misma cosa y no hay dos cabeceras.
  *
- * La regla vertical marca el hueco solo cuando los filtros van en linea.
+ * Si no hay destino (una vista montada fuera del shell, o un test que monta
+ * el componente suelto), el Teleport se desactiva y el contenido se dibuja
+ * donde esta: la vista no se rompe, se ve como antes.
  *
- * Los slots `filters` y `actions` son aditivos: si no se pasan, no se pinta ni
- * el separador ni el hueco.
+ * `en-barra` es la via explicita para lo mismo: en false el Teleport se
+ * desactiva aunque haya barra. Lo usa la vista ampliada del Gantt y del
+ * calendario, que se sale del armazon con `fixed inset-0`: su cabecera tiene
+ * que seguir viendose dentro de la ventana ampliada, no detras de ella.
+ *
+ * Los slots `filters` y `actions` son aditivos.
  */
+import { onMounted, ref } from 'vue'
+
 import HelpTip from './HelpTip.vue'
 
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
   /** Insignia de contexto: { texto: String, punto: clase de color o null }. */
   contexto: { type: Object, default: null },
   /** Texto del boton de ayuda; sin el, no se pinta el boton. */
   ayuda: { type: String, default: '' },
-  /** `data-testid` del contenedor de filtros (para las vistas que lo tenian). */
+  /** `data-testid` del contenedor de filtros. */
   filtersTestid: { type: String, default: '' },
+  /** En false no se publica en la barra: el contenido se dibuja en su sitio. */
+  enBarra: { type: Boolean, default: true },
+})
+
+/**
+ * Destino del Teleport.
+ *
+ * Se busca al montar: el shell ya esta en el DOM cuando la vista se pinta.
+ * Si no aparece (vista suelta en un test), `destino` queda sin valor y el
+ * Teleport se desactiva. `null` y no cadena vacia: un selector vacio en el
+ * atributo `to` hace que el Teleport falle al montar.
+ */
+const DESTINO = '#cp-barra-vista'
+const destino = ref(null)
+
+onMounted(() => {
+  if (document.querySelector(DESTINO)) destino.value = DESTINO
 })
 </script>
 
 <template>
-  <header
-    class="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde pb-3"
-  >
-    <!-- Titulo: siempre a la izquierda, en la primera linea -->
-    <div class="flex min-w-0 shrink items-center gap-2">
-      <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-2">
-          <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
-            {{ title }}
-          </h1>
+  <Teleport :to="destino" :disabled="!props.enBarra || !destino">
+    <div
+      class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+      :data-testid="'vista-cabecera'"
+    >
+      <!-- Titulo + insignia + ayuda -->
+      <div class="flex min-w-0 shrink items-center gap-2">
+        <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
+          {{ title }}
+        </h1>
 
+        <span
+          v-if="contexto || $slots.contexto"
+          class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
+        >
           <span
-            v-if="contexto || $slots.contexto"
-            class="inline-flex flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
-          >
-            <slot name="contexto">
-              <span
-                v-if="contexto.punto"
-                class="h-1.5 w-1.5 flex-none rounded-full"
-                :class="contexto.punto"
-                aria-hidden="true"
-              ></span>
-              <span>{{ contexto.texto }}</span>
-            </slot>
-          </span>
+            v-if="contexto?.punto"
+            class="h-1.5 w-1.5 flex-none rounded-full"
+            :class="contexto.punto"
+            aria-hidden="true"
+          ></span>
+          <span class="truncate"><slot name="contexto">{{ contexto?.texto }}</slot></span>
+        </span>
 
-          <HelpTip v-if="ayuda" :texto="ayuda" />
-        </div>
+        <HelpTip v-if="ayuda" :texto="ayuda" />
+      </div>
+
+      <!-- Separador vertical: solo cuando los filtros van en linea -->
+      <span
+        v-if="$slots.filters"
+        class="hidden h-6 w-px flex-none bg-borde xl:block"
+        aria-hidden="true"
+      ></span>
+
+      <!-- Filtros -->
+      <div
+        v-if="$slots.filters"
+        class="flex min-w-0 flex-wrap items-center gap-2 max-xl:order-3 max-xl:w-full xl:order-2"
+        :data-testid="filtersTestid || undefined"
+      >
+        <slot name="filters" />
+      </div>
+
+      <!-- Acciones -->
+      <div
+        v-if="$slots.actions"
+        class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-xl:order-2 xl:order-3"
+      >
+        <slot name="actions" />
       </div>
     </div>
-
-    <!--
-      Filtros: en linea tras el titulo cuando caben a su lado (y la regla
-      vertical marca el hueco). A `xl` van antes que las acciones (fila del
-      titulo + acciones abajo); por debajo de `xl` no caben junto al titulo,
-      así que `w-full` les da la fila de abajo y van tras las acciones.
-    -->
-    <div
-      v-if="$slots.filters"
-      class="flex min-w-0 flex-wrap items-center gap-2 max-xl:order-2 max-xl:w-full xl:order-1"
-      :data-testid="filtersTestid || undefined"
-    >
-      <span class="hidden h-6 w-px flex-none bg-borde xl:block"></span>
-      <slot name="filters" />
-    </div>
-
-    <!-- Acciones: a la derecha. A `xl` bajan a la segunda linea; por debajo
-         de `xl` se quedan en la linea del titulo y los filtros bajan -->
-    <div
-      v-if="$slots.actions"
-      class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-xl:order-1 xl:order-2"
-    >
-      <slot name="actions" />
-    </div>
-  </header>
+  </Teleport>
 </template>

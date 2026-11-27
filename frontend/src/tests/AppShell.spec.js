@@ -244,8 +244,8 @@ describe('AppShell', () => {
     const menu = wrapper.find('aside').text()
     expect(menu).toContain('Panel')
     expect(menu).not.toContain('Tablero')
-    const migas = wrapper.find('header nav').text()
-    expect(migas).not.toContain('Linea Pasteurizadora SIVE')
+    const barra = wrapper.find('header').text()
+    expect(barra).not.toContain('Linea Pasteurizadora SIVE')
   })
 
   it('las vistas propias del proyecto llevan el id en la ruta', async () => {
@@ -397,33 +397,24 @@ describe('AppShell', () => {
     expect(configuracion.classes()).toContain('border-lateral-activo-borde/30')
   })
 
-  it('las migas de pan muestran el departamento, el proyecto y la vista', async () => {
+  it('la barra no lleva migas de pan: el contexto queda en el lateral', async () => {
     const { wrapper } = await mountShell('/projects/1/kanban')
 
-    const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Automatización & SCADA')
-    expect(migas).toContain('Linea Pasteurizadora SIVE')
-    expect(migas).toContain('Tablero')
-    expect(migas.indexOf('Automatización & SCADA')).toBeLessThan(
-      migas.indexOf('Linea Pasteurizadora SIVE'),
-    )
-    expect(migas.indexOf('Linea Pasteurizadora SIVE')).toBeLessThan(migas.indexOf('Tablero'))
+    expect(wrapper.find('header nav').exists()).toBe(false)
+    const barra = wrapper.find('header').text()
+    expect(barra).not.toContain('Tablero')
+
+    const lateral = wrapper.find('[data-testid="sidebar-context"]').text()
+    expect(lateral).toContain('Automatización & SCADA')
+    expect(lateral).toContain('Linea Pasteurizadora SIVE')
   })
 
-  it('sin proyecto las migas de pan muestran solo la vista', async () => {
+  it('sin proyecto la barra no lleva el nombre de proyecto', async () => {
     const { wrapper } = await mountShell('/capacity')
 
-    const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Capacidad')
-    expect(migas).not.toContain('Linea Pasteurizadora SIVE')
-  })
-
-  it('en el resumen del proyecto las migas dicen Resumen', async () => {
-    const { wrapper } = await mountShell('/projects/1')
-
-    const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Resumen')
-    expect(migas).not.toContain('Capacidad')
+    const barra = wrapper.find('header').text()
+    expect(barra).not.toContain('Capacidad')
+    expect(barra).not.toContain('Linea Pasteurizadora SIVE')
   })
 
   it('muestra la pila de estado del proyecto', async () => {
@@ -445,9 +436,7 @@ describe('AppShell', () => {
     expect(menu).toContain('Panel')
     expect(menu).toContain('Configuración')
     expect(menu).not.toContain('Tablero')
-    const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Capacidad')
-    expect(migas).not.toContain('Red de tuberias linea 2')
+    expect(wrapper.find('header nav').exists()).toBe(false)
     expect(wrapper.find('[data-testid="volver-global"]').exists()).toBe(false)
   })
 
@@ -458,9 +447,9 @@ describe('AppShell', () => {
     expect(menu).toContain('Resumen')
     expect(menu).toContain('Tablero')
     expect(menu).not.toContain('Configuración')
-    const migas = wrapper.find('header nav').text()
-    expect(migas).toContain('Red de tuberias linea 2')
-    expect(migas).toContain('Capacidad')
+
+    const contexto = wrapper.find('[data-testid="sidebar-context"]').text()
+    expect(contexto).toContain('Red de tuberias linea 2')
   })
 
   it('volver a vista global desde la capacidad lleva sin filtro', async () => {

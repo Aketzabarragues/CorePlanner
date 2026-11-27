@@ -741,7 +741,7 @@ watch(
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Calendario" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
+    <PageHeader class="shrink-0" :en-barra="!ampliado" title="Calendario" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
       <template #contexto>
         <!-- Rellena el envoltorio de la cabecera: el fondo de aviso es el de la insignia. -->
         <span

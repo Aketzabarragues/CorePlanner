@@ -18,12 +18,7 @@ import AlertBanner from './common/AlertBanner.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
-import {
-  GLOBAL_SECTIONS,
-  PROJECT_SECTIONS,
-  projectStatus,
-  viewLabel,
-} from '../utils/navigation'
+import { GLOBAL_SECTIONS, PROJECT_SECTIONS, projectStatus } from '../utils/navigation'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -93,9 +88,6 @@ const canEdit = computed(() => {
 
 const status = computed(() => projectStatus(currentProject.value?.status))
 
-/** Vista abierta, para las migas de pan. */
-const currentView = computed(() => route.name)
-
 /**
  * Entrada del menu que esta abierta.
  *
@@ -103,14 +95,6 @@ const currentView = computed(() => route.name)
  * entrada marcada es la de configuracion.
  */
 const activeView = computed(() => route.name)
-
-/** Etiqueta de la vista abierta, para las migas de pan. */
-const currentViewLabel = computed(() => viewLabel(currentView.value))
-
-/** Nombre del proyecto abierto, para las migas de pan. */
-const currentProjectName = computed(
-  () => currentProject.value?.name ?? `Proyecto ${projectId.value}`,
-)
 
 /**
  * Secciones del menu lateral.
@@ -280,21 +264,21 @@ watch(() => route.fullPath, () => {
       :class="sideClasses"
     >
       <div
-        class="flex items-center gap-2 px-3 py-4"
+        class="flex items-center gap-2 px-3 py-3"
         :class="menuCompacto ? 'flex-col gap-2 px-2' : ''"
       >
         <span
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-primario text-sm font-bold text-sobre-primario"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-primario text-cp-xs font-bold text-sobre-primario"
         >
           CP
         </span>
         <span v-if="!menuCompacto" class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-semibold text-texto-inverso">CorePlanner</span>
-          <span class="block font-mono text-[11px] leading-tight text-lateral-texto-tenue">v0.1</span>
+          <span class="block truncate text-cp-xs font-semibold text-texto-inverso">CorePlanner</span>
+          <span class="block font-mono text-cp-micro leading-tight text-lateral-texto-tenue">v0.1</span>
         </span>
         <button
           type="button"
-          class="hidden h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue hover:bg-lateral-hover hover:text-texto-inverso sm:flex"
+          class="hidden h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue transition-colors hover:bg-lateral-hover hover:text-texto-inverso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco sm:flex"
           :title="collapsed ? 'Expandir el menú' : 'Colapsar el menú'"
           data-testid="sidebar-toggle"
           @click="toggleSidebar"
@@ -307,13 +291,13 @@ watch(() => route.fullPath, () => {
 
       <div class="px-3 pb-3" data-testid="sidebar-context">
         <div class="rounded-control border border-lateral-borde bg-lateral-hover/40 px-3 py-2">
-          <p class="text-lateral-titulo-seccion text-[10px] uppercase tracking-wider">
+          <p class="text-cp-micro font-semibold uppercase tracking-wider text-lateral-titulo-seccion">
             {{ enProyecto ? 'Proyecto' : 'Espacio Global' }}
           </p>
-          <p class="truncate text-sm text-texto-inverso">
+          <p class="truncate text-cp-xs font-medium text-texto-inverso">
             {{ currentProject?.name ?? 'Toda la organización' }}
           </p>
-          <p class="truncate text-xs text-lateral-texto-tenue">
+          <p class="truncate text-cp-micro text-lateral-texto-tenue">
             {{
               enProyecto
                 ? (department?.name ?? 'Sin departamento')
@@ -327,7 +311,7 @@ watch(() => route.fullPath, () => {
         <template v-for="section in sections" :key="section.title">
           <p
             v-if="!menuCompacto && sections.length > 1"
-            class="px-3 pb-1 pt-3 text-lateral-titulo-seccion text-[10px] uppercase tracking-wider"
+            class="px-3 pb-1 pt-3 text-cp-micro font-semibold uppercase tracking-wider text-lateral-titulo-seccion"
           >
             {{ section.title }}
           </p>
@@ -335,16 +319,16 @@ watch(() => route.fullPath, () => {
             v-for="item in section.items"
             :key="item.name"
             :to="linkFor(item)"
-            class="flex min-h-11 items-center gap-3 rounded-control border px-3 py-2 text-sm transition-colors"
+            class="flex min-h-11 items-center gap-2.5 rounded-control border px-3 py-2 text-cp-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
             :class="
               activeView === item.name
                 ? 'border-lateral-activo-borde/30 bg-lateral-activo-fondo/20 font-semibold text-lateral-activo-texto'
-                : 'border-transparent text-lateral-texto hover:bg-lateral-hover/60 hover:text-texto-inverso'
+                : 'border-transparent text-lateral-texto transition-colors hover:bg-lateral-hover/60 hover:text-texto-inverso'
             "
             :title="menuCompacto ? item.label : undefined"
           >
             <span
-              class="inline-flex h-5 w-5 shrink-0"
+              class="inline-flex h-4 w-4 shrink-0"
               :class="
                 activeView === item.name
                   ? 'text-lateral-activo-icono'
@@ -360,10 +344,10 @@ watch(() => route.fullPath, () => {
         <RouterLink
           v-if="enProyecto"
           :to="globalTarget"
-          class="flex min-h-11 items-center gap-3 rounded-control border border-transparent px-3 py-2 text-sm text-lateral-texto transition-colors hover:bg-lateral-hover hover:text-texto-inverso"
+          class="flex min-h-11 items-center gap-2.5 rounded-control border border-transparent px-3 py-2 text-cp-xs text-lateral-texto transition-colors hover:bg-lateral-hover hover:text-texto-inverso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="volver-global"
         >
-          <span class="inline-flex h-5 w-5 shrink-0 text-lateral-texto-tenue">
+          <span class="inline-flex h-4 w-4 shrink-0 text-lateral-texto-tenue">
             <AppIcon name="arrowLeft" />
           </span>
           <span v-if="!menuCompacto" class="flex-1 truncate">Volver a vista global</span>
@@ -373,22 +357,22 @@ watch(() => route.fullPath, () => {
       <div class="flex items-center gap-2 border-t border-lateral-borde p-3">
         <span
           data-testid="user-avatar"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-lateral-avatar text-xs font-semibold text-texto-inverso"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-avatar bg-lateral-avatar text-cp-xs font-semibold text-texto-inverso"
         >
           {{ initials }}
         </span>
         <span v-if="!menuCompacto" class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-medium text-texto-inverso">
+          <span class="block truncate text-cp-xs font-medium text-texto-inverso">
             {{ auth.user?.name }}
           </span>
-          <span class="block truncate text-xs text-lateral-texto-tenue">
+          <span class="block truncate text-cp-micro text-lateral-texto-tenue">
             {{ roleLabel || userDepartment?.name || 'Sin departamento' }}
           </span>
         </span>
         <button
           v-if="!menuCompacto"
           type="button"
-          class="flex h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue hover:bg-lateral-hover hover:text-texto-inverso"
+          class="flex h-11 w-11 items-center justify-center rounded-control text-lateral-texto-tenue transition-colors hover:bg-lateral-hover hover:text-texto-inverso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           title="Cerrar sesión"
           data-testid="logout"
           @click="logout"
@@ -407,12 +391,24 @@ watch(() => route.fullPath, () => {
       pagina ganaria un scroll que no debe existir.
     -->
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+      <!--
+        La barra superior es la cabecera de la vista. La vista publica aqui su
+        titulo, sus filtros y sus acciones con un Teleport; el shell solo pone
+        el boton de menu (movil), el hueco donde entra lo publicado y sus
+        acciones propias (estado del proyecto y "Nueva Tarea").
+
+        `relative z-30`: el lateral no tiene z-index, asi que la barra se pinta
+        encima de el; el cajon del movil (`z-50`) y el velo (`z-40`) siguen por
+        encima. El tooltip de la ayuda va dentro de esta barra, asi que no puede
+        salirse de su contexto de apilamiento.
+      -->
       <header
-        class="flex h-14 items-center justify-between gap-4 border-b border-borde bg-cabecera px-4 sm:px-6"
+        class="relative z-30 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-b border-borde bg-cabecera px-3 py-2 sm:px-6"
       >
+        <!-- Boton de menu: solo en movil, 44x44 -->
         <button
           type="button"
-          class="flex h-11 w-11 flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave sm:hidden"
+          class="flex h-11 w-11 flex-none items-center justify-center rounded-control border border-borde-fuerte bg-tarjeta text-texto-suave transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco sm:hidden"
           aria-label="Abrir el menú"
           :aria-expanded="menuAbierto"
           data-testid="menu-toggle"
@@ -422,51 +418,52 @@ watch(() => route.fullPath, () => {
             <AppIcon name="menu" />
           </span>
         </button>
-        <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Migas de pan">
-          <template v-if="enProyecto">
-            <span class="truncate text-texto-tenue">{{ department?.name ?? 'Sin departamento' }}</span>
-            <span class="text-texto-tenue">/</span>
-            <span class="truncate text-texto-tenue">{{ currentProjectName }}</span>
-            <span class="text-texto-tenue">/</span>
-            <span class="truncate font-medium text-texto">{{ currentViewLabel }}</span>
-          </template>
-          <span v-else class="truncate text-texto-tenue">{{ currentViewLabel }}</span>
-        </nav>
 
-        <div class="flex shrink-0 items-center gap-3">
+        <!--
+          Destino del Teleport de la cabecera de la vista. Es `flex-1 min-w-0`:
+          crece con el contenido y deja que la barra crezca en alto cuando los
+          filtros no caben en una linea.
+        -->
+        <div
+          id="cp-barra-vista"
+          class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+          data-testid="vista-barra"
+        ></div>
+
+        <!-- Acciones propias del shell: estado del proyecto y nueva tarea -->
+        <div class="flex shrink-0 items-center gap-2">
           <template v-if="currentProject">
-            <div class="flex items-center gap-3">
-              <span
-                v-if="status.tone === 'active'"
-                class="rounded-pastilla bg-ok-fondo px-2.5 py-1 text-xs font-medium text-ok-texto"
-              >
-                {{ status.label }}
-              </span>
-              <span
-                v-else-if="status.tone === 'paused'"
-                class="rounded-pastilla bg-aviso-fondo px-2.5 py-1 text-xs font-medium text-aviso-texto"
-              >
-                {{ status.label }}
-              </span>
-              <span
-                v-else
-                class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs font-medium text-neutro-texto"
-              >
-                {{ status.label }}
-              </span>
-              <span
-                v-if="!canEdit"
-                class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-xs font-medium text-neutro-texto"
-                title="No tienes permiso de escritura en este proyecto"
-              >
-                Solo lectura
-              </span>
-            </div>
+            <span
+              v-if="status.tone === 'active'"
+              class="rounded-pastilla bg-ok-fondo px-2.5 py-1 text-cp-xs font-medium text-ok-texto"
+            >
+              {{ status.label }}
+            </span>
+            <span
+              v-else-if="status.tone === 'paused'"
+              class="rounded-pastilla bg-aviso-fondo px-2.5 py-1 text-cp-xs font-medium text-aviso-texto"
+            >
+              {{ status.label }}
+            </span>
+            <span
+              v-else
+              class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-cp-xs font-medium text-neutro-texto"
+            >
+              {{ status.label }}
+            </span>
+
+            <span
+              v-if="!canEdit"
+              class="rounded-pastilla bg-neutro-fondo px-2.5 py-1 text-cp-xs font-medium text-neutro-texto"
+              title="No tienes permiso de escritura en este proyecto"
+            >
+              Solo lectura
+            </span>
 
             <button
               v-if="canEdit"
               type="button"
-              class="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded bg-primario-fuerte px-3 py-2 text-sm font-medium text-sobre-primario hover:bg-primario-medio"
+              class="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-control bg-primario-fuerte px-3 py-2 text-cp-sm font-medium text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="new-task"
               @click="openNewTask"
             >

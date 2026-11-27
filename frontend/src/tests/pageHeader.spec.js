@@ -33,7 +33,7 @@ describe('PageHeader', () => {
   it('sin acciones no sale el hueco', () => {
     const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
 
-    expect(wrapper.find('header button').exists()).toBe(false)
+    expect(wrapper.find('button').exists()).toBe(false)
   })
 
   it('el titulo lleva su aspecto', () => {
@@ -59,6 +59,6 @@ describe('PageHeader', () => {
     const wrapper = mount(PageHeader, { props: { title: 'Panel' } })
 
     expect(wrapper.find('[data-testid="gantt-filters"]').exists()).toBe(false)
-    expect(wrapper.find('header span[aria-hidden="true"]').exists()).toBe(false)
+    expect(wrapper.find('span[aria-hidden="true"]').exists()).toBe(false)
   })
 })

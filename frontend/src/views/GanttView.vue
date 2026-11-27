@@ -1851,7 +1851,7 @@ useTaskReload(load)
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" title="Gantt" ayuda="Planificación temporal de las tareas del proyecto. Agrupa por proyecto, persona o departamento y resalta la ruta crítica." filters-testid="gantt-filters">
+    <PageHeader class="shrink-0" :en-barra="!ampliado" title="Gantt" ayuda="Planificación temporal de las tareas del proyecto. Agrupa por proyecto, persona o departamento y resalta la ruta crítica." filters-testid="gantt-filters">
       <template #filters>
         <FilterField
           label="Departamento"

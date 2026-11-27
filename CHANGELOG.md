@@ -49,6 +49,27 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Changed
 
+- **frontend**: el armazon y la barra de vista adoptan las medidas del boceto. El lateral
+  baja de 256 a 240 px, la fila de marca mide 56 px con el nombre del producto a 14 px y
+  la version a 11 px en mono, y los controles de la barra se ven de 26 a 32 px (antes
+  40). La zona tactil no baja de 40 px: se amplia con un pseudo-elemento transparente de
+  10 px por lado sobre un contenedor `relative`; en `<select>` e `<input>` el pseudo no
+  se pinta (son elementos reemplazados), asi que va en el `<span>` que los envuelve y
+  el clic en la franja sigue activando el control.
+- **frontend**: las acciones de la cabecera quedan al extremo derecho. El `PageHeader`
+  pasa a dos grupos (el titulo con sus filtros a la izquierda, las acciones a la
+  derecha) con `justify-between`, como el boceto: en una linea las acciones se pegan al
+  borde y, cuando no caben y bajan a su propia linea, quedan a la izquierda. El grupo
+  de acciones del shell (estado del proyecto y "Nueva Tarea") solo existe en el espacio
+  de proyecto, para que la cabecera global no se lleve un hueco vacio.
+- **frontend**: la cabecera del Gantt se reparte como la del boceto: la escala temporal
+  baja del grupo de filtros al de acciones y abre la segunda linea, y el rango que se
+  esta viendo pasa de `sr-only` a una insignia mono visible entre los botones de
+  anterior y "Hoy".
+- **frontend**: el buscador de proyectos baja a 32 px, con `w-60` y el texto del boceto
+  ("Buscar por codigo, cliente o proyecto..."), y la etiqueta del dia de la bitacora
+  lleva el relativo delante de la fecha ("Ayer · 25 nov 2026").
+
 - **frontend**: la cabecera de vista vive en la barra superior de la aplicacion. El shell
   la pinta y cada vista publica en ella su titulo, su insignia, su ayuda, sus filtros y
   sus acciones; las vistas ya no pintan una cabecera dentro del contenido. Las migas de
@@ -302,6 +323,14 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ### Fixed
 
+- **frontend**: la insignia de "Solo lectura" del calendario salia cortada por el medio
+  ("Solo lectu"): el contenido del slot de contexto se pintaba con margenes negativos
+  que descuadraban el ancho. La insignia de contexto de la cabecera tiene ahora tono
+  (`ok`, `aviso`, `peligro`, `info`, `neutro`), con la misma convencion que los `TONOS`
+  de `KpiCard`, y el calendario la pide con el suyo. El slot sigue existiendo para el
+  contenido rico y ahora corta por el final.
+- **frontend**: Mi trabajo duplicaba la unidad de las horas libres ("40 h h libres"):
+  `formatHours` ya devuelve la unidad y la plantilla le anadia otra.
 - **frontend**: la etiqueta de una barra del diagrama de Gantt se recorta al ancho de la
   barra. Un titulo largo se salia de la barra y su cola quedaba blanca sobre el fondo:
   ilegible. Ahora cada barra lleva su propio recorte.

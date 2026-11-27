@@ -30,7 +30,7 @@ import {
   formatHours,
   statusPill,
 } from '../utils/kanban'
-import { loadAspect, loadBarWidth, loadLabel, loadRatio, loadState } from '../utils/load'
+import { loadAspect, loadBarWidth, loadFree, loadLabel, loadRatio, loadState } from '../utils/load'
 import { weekRangeLabel, weekNumber, weekTitle } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
@@ -131,14 +131,16 @@ const card = computed(() => {
   const state = loadState(cell.hours, cell.capacity)
   const aspect = loadAspect(state)
   const ratio = loadRatio(cell.hours, cell.capacity)
+  const libre = loadFree(cell.hours, cell.capacity)
   return {
     state,
     ratio,
     ratioText: ratio === null ? 'sin capacidad' : `${ratio} %`,
     barWidth: loadBarWidth(cell.hours, cell.capacity),
     barClass: aspect.bar,
-    pillClass: [aspect.cell, aspect.text].filter(Boolean).join(' '),
     label: loadLabel(state),
+    /** Horas que quedan de la capacidad: null si no se conoce la capacidad. */
+    free: libre === null ? null : `${formatHours(libre)} h libres`,
   }
 })
 
@@ -260,10 +262,18 @@ useTaskReload(load)
         </BaseCard>
 
         <BaseCard aria-label="Resumen de esta semana" title="Esta semana">
+          <template #header-extra>
+            <span
+              v-if="currentWeek"
+              class="rounded-pastilla bg-primario-fuerte px-2 py-0.5 text-cp-micro font-bold uppercase text-sobre-primario"
+              data-testid="my-work-week-badge"
+            >
+              Sem {{ weekNumber(currentWeek.week) }}
+            </span>
+          </template>
           <template v-if="card">
             <p class="mt-0.5 text-cp-xs text-texto-tenue">
-              Semana {{ weekTitle(currentWeek.week) }} ·
-              {{ weekRangeLabel(currentWeek.week) }}
+              {{ weekTitle(currentWeek.week) }} · {{ weekRangeLabel(currentWeek.week) }}
             </p>
             <div class="mt-3 flex items-baseline gap-2">
               <span class="font-mono text-cp-display font-bold tabular-nums text-texto-marca">
@@ -282,11 +292,17 @@ useTaskReload(load)
             </span>
             <div class="mt-2.5 flex items-center gap-2">
               <span
-                class="rounded-pastilla px-2.5 py-0.5 text-cp-xs font-semibold"
-                :class="card.pillClass"
+                class="rounded-pastilla bg-neutro-fondo px-2.5 py-0.5 text-cp-xs font-semibold text-neutro-texto"
                 data-testid="my-work-card-state"
               >
                 {{ card.label }} · {{ card.ratioText }}
+              </span>
+              <span
+                v-if="card.free"
+                class="font-mono text-cp-xs text-texto-tenue"
+                data-testid="my-work-card-free"
+              >
+                {{ card.free }}
               </span>
             </div>
             <div class="mt-4 space-y-1.5 border-t border-borde-suave pt-3 text-cp-xs text-texto-suave">
@@ -294,19 +310,16 @@ useTaskReload(load)
                 <span>{{ weekTasks.length }} {{ weekTasks.length === 1 ? 'tarea' : 'tareas' }}</span>
                 <span>{{ weekProjects }} {{ weekProjects === 1 ? 'proyecto' : 'proyectos' }}</span>
               </p>
-              <p
+              <span
                 v-if="nextHoliday"
-                class="flex items-center justify-between gap-2"
+                class="rounded-control border border-aviso-borde bg-aviso-fondo px-2 py-0.5 font-mono text-cp-xs font-medium text-aviso-texto"
                 data-testid="my-work-next-holiday"
               >
-                <span>Próximo festivo</span>
-                <span class="inline-flex items-center gap-1.5 font-mono">
-                  {{ nextHoliday.date }}
-                  <span v-if="nextHoliday.perdida">
-                    (−{{ formatHours(nextHoliday.perdida) }} de capacidad)
-                  </span>
-                </span>
-              </p>
+                {{ nextHoliday.date }}
+                <template v-if="nextHoliday.perdida">
+                  · −{{ formatHours(nextHoliday.perdida) }} h
+                </template>
+              </span>
             </div>
           </template>
           <p v-else class="text-cp-sm text-texto-tenue">

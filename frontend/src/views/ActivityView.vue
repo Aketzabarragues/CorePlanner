@@ -22,7 +22,15 @@ import PageHeader from '../components/common/PageHeader.vue'
 import { useProyectoFiltro } from '../composables/useProyectoFiltro'
 import { useAuthStore } from '../stores/auth'
 import { useTaskStatusesStore } from '../stores/taskStatuses'
-import { actionLabel, fullDate, relativeTime } from '../utils/activity'
+import {
+  actionLabel,
+  diaRelativo,
+  fullDate,
+  proyectoCortado,
+  relativeTime,
+  repeticionesConsecutivas,
+  tipoDeAccion,
+} from '../utils/activity'
 import { DEFAULT_TASK_STATUSES } from '../utils/kanban'
 import { luminancia } from '../utils/statusColor'
 
@@ -86,13 +94,14 @@ const quedan = computed(() => entries.value.length < total.value)
  * (dd/mm/aaaa): la cabecera y el globo dicen la misma fecha.
  */
 const dias = computed(() => {
+  const repetidos = repeticionesConsecutivas(entries.value)
   const porDia = new Map()
-  for (const entrada of entries.value) {
+  entries.value.forEach((entrada, indice) => {
     const clave = claveDeDia(entrada.created_at)
     const grupo = porDia.get(clave) ?? { clave, etiqueta: etiquetaDeDia(entrada.created_at), items: [] }
-    grupo.items.push(entrada)
+    grupo.items.push({ ...entrada, repetidas: repetidos[indice] })
     porDia.set(clave, grupo)
-  }
+  })
   return [...porDia.values()]
 })
 
@@ -102,13 +111,17 @@ function claveDeDia(fecha) {
   return `${momento.getFullYear()}-${momento.getMonth()}-${momento.getDate()}`
 }
 
-/** Etiqueta del dia: dd/mm/aaaa, como el inicio del title de la entrada. */
+/** Etiqueta del dia: el relativo delante cuando toca, y la fecha detras. */
 function etiquetaDeDia(fecha) {
   const momento = new Date(fecha)
   const dia = String(momento.getDate()).padStart(2, '0')
   const mes = String(momento.getMonth() + 1).padStart(2, '0')
-  return `${dia}/${mes}/${momento.getFullYear()}`
+  const fechaCorta = `${dia}/${mes}/${momento.getFullYear()}`
+  const relativo = diaRelativo(fecha)
+  return relativo ? `${relativo} · ${fechaCorta}` : fechaCorta
 }
+
+
 
 /**
  * Color de cada actor: el color de su departamento (dato del backend),
@@ -345,16 +358,35 @@ watch(
 
               <div class="min-w-0 flex-1">
                 <p class="text-cp-sm">
-                  <span class="font-semibold text-texto">{{ entrada.actor_name }}</span>
-                  <span class="text-texto-suave">
-                    {{ actionLabel(entrada, estadosDe(entrada.project_id)) }}
-                  </span>
+                  <span class="font-semibold text-texto">{{ entrada.actor_name }}</span
+                  ><span class="text-texto-suave"
+                    >{{ actionLabel(entrada, estadosDe(entrada.project_id)) }}</span
+                  ><span
+                    v-if="entrada.repetidas > 1"
+                    class="ml-1.5 inline-flex rounded-control border border-borde bg-tarjeta-suave px-1.5 py-px font-mono text-cp-micro font-semibold text-texto-suave"
+                    title="Cambios consecutivos agrupados"
+                    data-testid="activity-repeat"
+                    >x{{ entrada.repetidas }}</span
+                  >
                 </p>
-                <p v-if="!projectFilter" class="text-cp-xs text-texto-tenue">
-                  {{ entrada.project_name }}
+                <p v-if="!projectFilter" class="flex items-center gap-1.5 text-cp-xs text-texto-tenue">
+                  <span
+                    v-if="proyectoCortado(entrada.project_name).codigo"
+                    class="rounded-control bg-tarjeta-suave px-1.5 py-0.5 font-mono text-texto-suave"
+                    data-testid="activity-project-code"
+                    >{{ proyectoCortado(entrada.project_name).codigo }}</span
+                  >
+                  <span>{{ proyectoCortado(entrada.project_name).nombre }}</span>
                 </p>
               </div>
 
+              <span
+                class="shrink-0 rounded-control border px-2 py-0.5 text-cp-micro font-semibold"
+                :class="tipoDeAccion(entrada).clases"
+                data-testid="activity-type"
+              >
+                {{ tipoDeAccion(entrada).label }}
+              </span>
               <span
                 class="shrink-0 font-mono text-cp-xs text-texto-tenue"
                 :title="fullDate(entrada.created_at)"

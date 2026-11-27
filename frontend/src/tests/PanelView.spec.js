@@ -231,9 +231,8 @@ describe('PanelView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="panel-utilization"]').text()).toContain('88 %')
-    expect(wrapper.text()).toContain('70 h planificadas')
-    expect(wrapper.text()).toContain('80 h de capacidad')
-    expect(wrapper.text()).toContain('Media del periodo: 69 %')
+    expect(wrapper.text()).toContain('70 h / 80 h')
+    expect(wrapper.text()).toContain('Media 69 %')
   })
 
   it('los cuatro indicadores llevan a la pantalla de origen', async () => {

@@ -83,13 +83,13 @@ const puntoInsignia = computed(() =>
     <div class="mt-2 flex items-baseline gap-2">
       <slot name="valor">
         <span
-          class="font-mono text-cp-kpi font-bold tabular-nums"
+          class="whitespace-nowrap font-mono text-cp-kpi font-bold tabular-nums"
           :class="sinCapacidad ? 'text-texto-tenue' : 'text-texto-marca'"
         >
           {{ valor }}
         </span>
       </slot>
-      <span v-if="detalle" class="font-mono text-cp-sm text-texto-tenue">{{ detalle }}</span>
+      <span v-if="detalle" class="truncate font-mono text-cp-sm text-texto-tenue" :title="detalle">{{ detalle }}</span>
     </div>
 
     <div

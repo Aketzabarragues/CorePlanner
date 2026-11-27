@@ -50,6 +50,9 @@ export function fullDate(fecha) {
  * como una linea de diario y no como una tabla de campos. El estado de un
  * movimiento se etiqueta con los estados que se pasan; sin lista, los cuatro
  * por defecto.
+ *
+ * La frase lleva la inicial en espacio: la vista la pega tras el nombre del
+ * actor, y el hueco entre los dos va ahi, no en la plantilla.
  */
 export function actionLabel(entrada, estados = DEFAULT_TASK_STATUSES) {
   const payload = entrada?.payload ?? {}
@@ -57,34 +60,112 @@ export function actionLabel(entrada, estados = DEFAULT_TASK_STATUSES) {
   const etiqueta = payload.label ?? ''
   switch (entrada?.action) {
     case 'task.created':
-      return `creó la tarea «${titulo}»`
+      return ` creó la tarea «${titulo}»`
     case 'task.updated':
-      return `editó la tarea «${titulo}»`
+      return ` editó la tarea «${titulo}»`
     case 'task.moved':
-      return `movió «${titulo}» de ${columnLabel(payload.from, estados)} a ${columnLabel(payload.to, estados)}`
+      return ` movió «${titulo}» de ${columnLabel(payload.from, estados)} a ${columnLabel(payload.to, estados)}`
     case 'task.deleted':
-      return `eliminó la tarea «${titulo}»`
+      return ` eliminó la tarea «${titulo}»`
     case 'task.commented':
-      return `comentó la tarea «${titulo}»`
+      return ` comentó la tarea «${titulo}»`
     case 'task.checklist_item_added':
-      return `añadió «${etiqueta}» al checklist de «${titulo}»`
+      return ` añadió «${etiqueta}» al checklist de «${titulo}»`
     case 'task.checklist_item_done':
       return payload.done
-        ? `marcó «${etiqueta}» como hecho en «${titulo}»`
-        : `desmarcó «${etiqueta}» en «${titulo}»`
+        ? ` marcó «${etiqueta}» como hecho en «${titulo}»`
+        : ` desmarcó «${etiqueta}» en «${titulo}»`
     case 'task.checklist_item_updated':
-      return `cambió el texto de «${etiqueta}» en «${titulo}»`
+      return ` cambió el texto de «${etiqueta}» en «${titulo}»`
     case 'task.checklist_item_removed':
-      return `quitó «${etiqueta}» del checklist de «${titulo}»`
+      return ` quitó «${etiqueta}» del checklist de «${titulo}»`
     case 'member.added':
-      return `añadió a ${payload.name ?? 'alguien'} al proyecto`
+      return ` añadió a ${payload.name ?? 'alguien'} al proyecto`
     case 'member.removed':
-      return `quitó a ${payload.name ?? 'alguien'} del proyecto`
+      return ` quitó a ${payload.name ?? 'alguien'} del proyecto`
     case 'member.role_changed':
-      return `cambió el rol de ${payload.name ?? 'alguien'}`
+      return ` cambió el rol de ${payload.name ?? 'alguien'}`
     case 'project.updated':
-      return 'cambió los ajustes del proyecto'
+      return ' cambió los ajustes del proyecto'
     default:
-      return 'hizo un cambio'
+      return ' hizo un cambio'
   }
+}
+
+/**
+ * Tipo de evento de una entrada, para la insignia de cada linea.
+ *
+ * Se deduce de la accion: el checklist son cuatro acciones distintas que
+ * comparten el prefijo `task.checklist_item`, y el resto son uno a uno. Lo
+ * que no esta en el mapa cae al tipo neutro, que es el de "un cambio".
+ */
+export function tipoDeAccion(entrada) {
+  const accion = entrada?.action ?? ''
+  if (accion.startsWith('task.checklist_item')) {
+    return { label: 'Checklist', clases: 'border-aviso-borde bg-aviso-fondo text-aviso-texto' }
+  }
+  switch (accion) {
+    case 'task.created':
+      return { label: 'Alta', clases: 'border-ok-borde bg-ok-fondo text-ok-texto' }
+    case 'task.moved':
+      return { label: 'Estado', clases: 'border-info-borde bg-info-fondo text-info-texto' }
+    case 'task.updated':
+      return { label: 'Edición', clases: 'border-borde bg-neutro-fondo text-neutro-texto' }
+    case 'task.commented':
+      return { label: 'Comentario', clases: 'border-borde bg-neutro-fondo text-neutro-texto' }
+    default:
+      return { label: 'Cambio', clases: 'border-borde bg-neutro-fondo text-neutro-texto' }
+  }
+}
+
+/**
+ * Repeticiones de cambios consecutivos, en el mismo orden que `entradas`.
+ *
+ * Consecutivos es lo que la vista tiene: entradas contiguas que son la misma
+ * accion sobre la misma entidad. Cada entrada lleva el largo de su racha, y la
+ * insignia solo se pinta cuando hay dos o mas.
+ */
+export function repeticionesConsecutivas(entradas) {
+  const cuenta = entradas.map(() => 1)
+  for (let i = entradas.length - 2; i >= 0; i -= 1) {
+    const anterior = entradas[i]
+    const siguiente = entradas[i + 1]
+    if (anterior.action === siguiente.action && anterior.entity_id === siguiente.entity_id) {
+      cuenta[i] += cuenta[i + 1]
+    }
+  }
+  return cuenta
+}
+
+/**
+ * Codigo de proyecto y nombre, para el chip mono junto al nombre.
+ *
+ * El nombre del proyecto empieza por el codigo y un guion
+ * ("26009 - FLUID SYSTEM - Pasteurizador"): el chip lleva el codigo y el
+ * nombre se queda sin el. Sin ese formato, no hay chip.
+ */
+export function proyectoCortado(nombre) {
+  const limpio = String(nombre ?? '')
+  const separador = limpio.indexOf(' - ')
+  if (separador > 0 && /^\d+$/.test(limpio.slice(0, separador))) {
+    return { codigo: limpio.slice(0, separador), nombre: limpio.slice(separador + 3) }
+  }
+  return { codigo: null, nombre: limpio }
+}
+
+/**
+ * Rotulo relativo del dia, para delante de la fecha de la cabecera.
+ *
+ * "Hoy" o "Ayer" si el dia es el actual o el anterior; sin rotulo si no, que
+ * es como ya estaba.
+ */
+export function diaRelativo(fecha, ahora = new Date()) {
+  const momento = new Date(fecha)
+  if (Number.isNaN(momento.getTime())) return ''
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+  const dia = new Date(momento.getFullYear(), momento.getMonth(), momento.getDate())
+  const diferencia = Math.round((hoy - dia) / (24 * 60 * 60 * 1000))
+  if (diferencia === 0) return 'Hoy'
+  if (diferencia === 1) return 'Ayer'
+  return ''
 }

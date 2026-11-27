@@ -26,7 +26,7 @@ import { useTaskStatusesStore } from '../stores/taskStatuses'
 import { columnLabel, formatHours } from '../utils/kanban'
 import { loadRatio } from '../utils/load'
 import { projectStatus } from '../utils/navigation'
-import { weekNumber } from '../utils/weeks'
+import { weekLabel, weekNumber } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
@@ -157,6 +157,14 @@ const averageUtilization = computed(() => {
   return Math.round(total / values.length)
 })
 
+/** Rango del periodo en el slot de contexto: "S48 – S03". */
+const rangoPeriodo = computed(() => {
+  if (!weeks.value.length) return ''
+  const primera = weekLabel(weeks.value[0].week)
+  const ultima = weekLabel(weeks.value[weeks.value.length - 1].week)
+  return primera === ultima ? primera : `${primera} – ${ultima}`
+})
+
 /**
  * Personas que se pasan de capacidad, agrupadas por persona.
  *
@@ -273,6 +281,10 @@ useTaskReload(load)
       title="Panel"
       ayuda="Resumen del uso del equipo, la carga por semana, los proyectos con más carga y la planificación incompleta del periodo activo."
     >
+      <template v-if="rangoPeriodo" #contexto>
+        Periodo activo ·
+        <span class="font-mono" data-testid="panel-period-range">{{ rangoPeriodo }}</span>
+      </template>
       <template #actions>
         <RouterLink
           to="/capacity"
@@ -300,16 +312,15 @@ useTaskReload(load)
         <KpiCard
           etiqueta="Uso del equipo"
           :valor="panel.utilization === null ? 'sin capacidad' : `${panel.utilization} %`"
-          :insignia="{ tono: 'info', texto: `Semana ${panel.week ? weekNumber(panel.week) : '—'}` }"
-          :barra="panel.utilization === null ? null : panel.utilization"
-          :detalle="`Media del periodo: ${averageUtilization === null ? '—' : averageUtilization + ' %'}`"
-          :nota="`${formatHours(panel.planned_hours)} planificadas de ${formatHours(panel.capacity_hours)} de capacidad`"
+          :insignia="{ tono: 'info', texto: `Media ${averageUtilization === null ? '—' : averageUtilization + ' %'}` }"
+          :barra="panel.utilization === null || panel.utilization === 0 ? null : panel.utilization"
+          :detalle="`${formatHours(panel.planned_hours)} / ${formatHours(panel.capacity_hours)}`"
           to="/capacity"
           test-id="panel-card-usage"
         >
           <template #valor>
             <span
-              class="font-mono text-cp-kpi font-bold tabular-nums"
+              class="whitespace-nowrap font-mono text-cp-kpi font-bold tabular-nums"
               :class="panel.utilization === null ? 'text-texto-tenue' : 'text-texto-marca'"
               data-testid="panel-utilization"
             >
@@ -332,7 +343,7 @@ useTaskReload(load)
         >
           <template #valor>
             <span
-              class="font-mono text-cp-kpi font-bold tabular-nums"
+              class="whitespace-nowrap font-mono text-cp-kpi font-bold tabular-nums"
               :class="overloaded.length ? 'text-peligro-texto' : 'text-texto-marca'"
               data-testid="panel-overloaded-count"
             >
@@ -364,7 +375,7 @@ useTaskReload(load)
         >
           <template #valor>
             <span
-              class="font-mono text-cp-kpi font-bold tabular-nums"
+              class="whitespace-nowrap font-mono text-cp-kpi font-bold tabular-nums"
               :class="pending.length ? 'text-aviso-texto' : 'text-texto-marca'"
               data-testid="panel-pending-count"
             >
@@ -566,7 +577,7 @@ useTaskReload(load)
               data-testid="panel-overloaded-empty"
             >
               <span
-                class="mx-auto flex h-8 w-8 items-center justify-center rounded-pastilla bg-ok-fondo text-ok-texto"
+                class="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-ok-fondo text-ok-texto"
               >
                 <span class="inline-flex h-4 w-4">
                   <AppIcon name="check" />
@@ -574,7 +585,7 @@ useTaskReload(load)
               </span>
               <p class="mt-2 text-cp-sm font-semibold text-texto">Equipo equilibrado</p>
               <p class="mt-0.5 text-cp-xs text-texto-tenue">
-                Nadie supera su capacidad en el período.
+                Nadie supera su capacidad semanal en el periodo.
               </p>
             </div>
           </div>
@@ -605,7 +616,7 @@ useTaskReload(load)
                   </span>
                 </div>
                 <span class="shrink-0 font-mono text-cp-xs text-texto-suave">
-                  {{ formatHours(project.estimated_hours) }} h ·
+                  {{ formatHours(project.estimated_hours) }} ·
                   {{ plural(project.people_count, 'persona', 'personas') }}
                 </span>
               </div>

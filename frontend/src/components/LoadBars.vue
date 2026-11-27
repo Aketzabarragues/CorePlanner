@@ -155,7 +155,7 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
       </span>
       <span
         v-if="item.festivo"
-        class="rounded-pastilla border border-borde bg-tarjeta-suave px-1.5 py-px text-[10px] font-medium text-texto-suave"
+        class="max-w-[112px] truncate rounded-pastilla border border-borde bg-tarjeta-suave px-1.5 py-px text-[10px] font-medium text-texto-suave"
         :title="item.tituloFestivo"
         data-testid="holiday-badge"
       >

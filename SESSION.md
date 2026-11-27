@@ -45,8 +45,24 @@ cierre de la fila `h-8` → suelo tactil de 40 px.
 
 ## Pendientes / Siguiente paso inmediato
 
-1. **Commit pendiente de aprobacion explicita del usuario** (tandas de
-   cabecera + specs; el arbol trae tambien las tandas anteriores por aprobar
-   por separado, incluida la correccion del calendario).
-2. Sin tema oscuro, sin boton de ayuda en las vistas que no lo tienen y sin
+1. **Cerrar el likeness con el boceto** (comparativa en
+   `/root/proyectos/_informes/16_comparativa_boceto.md`, 77 hallazgos). Dos sesiones:
+   - **Cabeceras**: filtros de Actividad (persona, proyecto, tipo) y buscador de
+     Personas (lo unico que falta de funcion); quitar el subtitulo truncado de
+     la cabecera; subir los `max-w` de los filtros (190/200 px) para que no se
+     recorten; subir el segmentado de escala del Gantt a la primera linea y
+     compactar el zoom; llevar la tira de pestanas de Configuracion y los
+     filtros de la Lista de tareas al slot de la cabecera; anclar el tooltip de
+     ayuda al otro lado para que no tape los filtros; insignia de "solo
+     lectura" en el calendario.
+   - **Cuerpo**: los 30 puntos de piel (insignias y pastillas que faltan, avatar
+     en la columna de personas de Capacidad, punto del departamento en
+     Calendario y Personas, leyenda de carga arriba, filas de proyecto de
+     Departamentos, insignia del tipo de evento en Actividad, pie con los
+     miembros en Departamentos, barra vacia del Panel, chip de festivo de Mi
+     trabajo, espacios y etiqueta de estado en Actividad, tablas que se cortan
+     en Personas y Lista, "Semana Sem 48" duplicado).
+2. Cambios de las sesiones anteriores que siguen en el arbol, por aprobar por
+   separado (incluida la correccion del calendario).
+3. Sin tema oscuro, sin boton de ayuda en las vistas que no lo tienen y sin
    `.ics` (planificado, fuera de v1).

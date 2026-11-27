@@ -37,6 +37,13 @@ async def activity(
     entity_id: int | None = Query(
         default=None, description="Limita la bitacora a una entidad concreta"
     ),
+    actor_id: int | None = Query(
+        default=None, description="Limita la bitacora a quien hizo el cambio"
+    ),
+    action: str | None = Query(
+        default=None,
+        description="Limita la bitacora al prefijo de una accion, por ejemplo task.checklist_item",
+    ),
     limit: int = Query(default=PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     offset: int = Query(default=0, ge=0),
 ) -> ActivityPageOut:
@@ -49,6 +56,10 @@ async def activity(
     Con entity_type y entity_id sale solo el historico de una entidad, que es
     lo que necesita el detalle de una tarea. El permiso es el del proyecto de
     esa entidad: si no se ve, tampoco se ve su historico.
+
+    actor_id y action son opcionales y se combinan con el resto en AND. actor_id
+    es la persona que hizo el cambio; action es el prefijo de la accion, porque
+    el checklist son cuatro acciones que comparten `task.checklist_item`.
     """
     projects = await list_accessible_projects(session, user)
     if project_id is not None:
@@ -70,12 +81,16 @@ async def activity(
         offset=offset,
         entity_type=entity_type,
         entity_id=entity_id,
+        actor_id=actor_id,
+        action=action,
     )
     total = await count_activity(
         session,
         project_ids,
         entity_type=entity_type,
         entity_id=entity_id,
+        actor_id=actor_id,
+        action=action,
     )
     items = await activity_items(session, entries)
     return ActivityPageOut(

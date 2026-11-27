@@ -323,6 +323,138 @@ async def test_el_filtro_de_proyecto_acota_la_bitacora(client: AsyncClient):
     assert entradas[0]["project_id"] == client.ids["primera"]
 
 
+async def test_el_filtro_por_actor_acota_la_bitacora(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    await client.post("/api/projects/1/tasks", json=NEW_TASK, headers=headers)
+    await client.post("/api/projects/2/tasks", json=NEW_TASK, headers=headers)
+
+    headers = await _auth(client, "manager@example.com")
+    await client.patch(
+        f"/api/tasks/{client.ids['task']}",
+        json={"status": "in_progress"},
+        headers=headers,
+    )
+
+    entradas = await _entradas(client, "gerente@example.com", actor_id=client.ids["gerente"])
+    assert len(entradas) == 2
+    assert all(entrada["actor_id"] == client.ids["gerente"] for entrada in entradas)
+    assert {entrada["project_id"] for entrada in entradas} == {
+        client.ids["primera"],
+        client.ids["segunda"],
+    }
+
+    entradas = await _entradas(client, "gerente@example.com", actor_id=client.ids["manager"])
+    assert len(entradas) == 1
+    assert entradas[0]["action"] == "task.moved"
+
+
+async def test_el_filtro_por_accion_acota_al_prefijo(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+    await client.post("/api/projects/1/tasks", json=NEW_TASK, headers=headers)
+    await client.patch(
+        f"/api/tasks/{client.ids['task']}",
+        json={"status": "in_progress"},
+        headers=headers,
+    )
+    await client.patch(
+        f"/api/tasks/{client.ids['task']}",
+        json={"title": "Programacion final"},
+        headers=headers,
+    )
+
+    entradas = await _entradas(client, "manager@example.com", action="task.created")
+    assert len(entradas) == 1
+    assert entradas[0]["action"] == "task.created"
+
+    entradas = await _entradas(client, "manager@example.com", action="task.moved")
+    assert len(entradas) == 1
+    assert entradas[0]["action"] == "task.moved"
+
+    entradas = await _entradas(client, "manager@example.com", action="task.updated")
+    assert len(entradas) == 1
+    assert entradas[0]["action"] == "task.updated"
+
+
+async def test_el_prefijo_del_checklist_trae_las_cuatro_acciones(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+    task_id = client.ids["task"]
+    item = await client.post(
+        f"/api/tasks/{task_id}/checklist", json={"label": "Revisar"}, headers=headers
+    )
+    item_id = item.json()["id"]
+    await client.patch(
+        f"/api/tasks/{task_id}/checklist/{item_id}",
+        json={"label": "Revisar en planta"},
+        headers=headers,
+    )
+    await client.patch(
+        f"/api/tasks/{task_id}/checklist/{item_id}",
+        json={"done": True},
+        headers=headers,
+    )
+    await client.delete(
+        f"/api/tasks/{task_id}/checklist/{item_id}", headers=headers
+    )
+
+    entradas = await _entradas(
+        client, "manager@example.com", action="task.checklist_item"
+    )
+    assert [entrada["action"] for entrada in entradas] == [
+        "task.checklist_item_removed",
+        "task.checklist_item_done",
+        "task.checklist_item_updated",
+        "task.checklist_item_added",
+    ]
+    assert all(
+        entrada["action"].startswith("task.checklist_item") for entrada in entradas
+    )
+
+
+async def test_el_filtro_por_accion_trae_el_comentario(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+    await client.post(
+        f"/api/tasks/{client.ids['task']}/comments",
+        json={"body": "Listo para revisar"},
+        headers=headers,
+    )
+
+    entradas = await _entradas(client, "manager@example.com", action="task.commented")
+    assert len(entradas) == 1
+    assert entradas[0]["action"] == "task.commented"
+
+
+async def test_los_filtros_se_combinan_con_el_de_proyecto(client: AsyncClient):
+    headers = await _auth(client, "gerente@example.com")
+    await client.post("/api/projects/1/tasks", json=NEW_TASK, headers=headers)
+    await client.post("/api/projects/2/tasks", json=NEW_TASK, headers=headers)
+
+    # Solo el de la primera linea: el de la segunda no entra.
+    entradas = await _entradas(
+        client,
+        "manager@example.com",
+        actor_id=client.ids["gerente"],
+        action="task.created",
+        project_id=client.ids["primera"],
+    )
+    assert len(entradas) == 1
+    assert entradas[0]["project_id"] == client.ids["primera"]
+
+
+async def test_un_actor_desconocido_devuelve_vacio_sin_error(client: AsyncClient):
+    headers = await _auth(client, "manager@example.com")
+    await client.post("/api/projects/1/tasks", json=NEW_TASK, headers=headers)
+
+    response = await client.get(
+        "/api/activity",
+        params={"actor_id": 999999},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    pagina = response.json()
+    assert pagina["items"] == []
+    assert pagina["total"] == 0
+
+
 async def test_las_entradas_van_de_la_mas_nueva_a_la_mas_vieja(client: AsyncClient):
     headers = await _auth(client, "manager@example.com")
     await client.post(

@@ -246,6 +246,54 @@ describe('PeopleView', () => {
     expect(filas[0].text()).toContain('Jorge')
   })
 
+  it('el buscador de la cabecera filtra por nombre', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('ana')
+    await flushPromises()
+
+    const filas = wrapper.findAll('[data-testid="person-row"]')
+    expect(filas).toHaveLength(1)
+    expect(filas[0].text()).toContain('Ana')
+  })
+
+  it('el buscador filtra por el puesto, sin tildes', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="filter-search"]').setValue('ingeniero plc')
+    await flushPromises()
+
+    const filas = wrapper.findAll('[data-testid="person-row"]')
+    expect(filas).toHaveLength(1)
+    expect(filas[0].text()).toContain('Sebastián')
+  })
+
+  it('el buscador se combina con el filtro de departamento', async () => {
+    setupFetch({
+      people: [
+        ...people,
+        {
+          ...people[1],
+          id: 3,
+          name: 'Jorge',
+          job_title: 'Ingeniero de procesos',
+          department_id: 2,
+          department_name: 'Oficina Técnica / EPLAN',
+        },
+      ],
+    })
+
+    const wrapper = await mountView()
+    await wrapper.find('[data-testid="filter-search"]').setValue('ingeniero')
+    await flushPromises()
+    await wrapper.find('[data-testid="filter-department"]').setValue('2')
+    await flushPromises()
+
+    const filas = wrapper.findAll('[data-testid="person-row"]')
+    expect(filas).toHaveLength(1)
+    expect(filas[0].text()).toContain('Jorge')
+  })
+
   it('el filtro de departamento usa el campo comun de la app', async () => {
     const wrapper = await mountView()
 

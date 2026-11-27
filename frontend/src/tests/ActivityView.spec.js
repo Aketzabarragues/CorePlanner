@@ -52,7 +52,7 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch({ payload = entradas, error = false } = {}) {
+function setupFetch({ payload = entradas, error = false, personas = [] } = {}) {
   const calls = []
   global.fetch = vi.fn(async (url) => {
     calls.push({ url })
@@ -67,6 +67,7 @@ function setupFetch({ payload = entradas, error = false } = {}) {
       if (error) return jsonResponse({ detail: 'fallo' }, false, 500)
       return jsonResponse(payload)
     }
+    if (url.includes('/people')) return jsonResponse(personas)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
   return calls
@@ -175,6 +176,93 @@ describe('ActivityView', () => {
     const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="activity-error"]').exists()).toBe(true)
+  })
+
+  it('los filtros de la cabecera van en la peticion', async () => {
+    const calls = setupFetch()
+
+    await mountView({ persona: '3', tipo: 'task.created', project: '1' })
+
+    const llamada = calls.find((call) => call.url.includes('/activity'))
+    expect(llamada.url).toContain('actor_id=3')
+    expect(llamada.url).toContain('action=task.created')
+    expect(llamada.url).toContain('project_id=1')
+  })
+
+  it('la cabecera tiene los filtros de persona, proyecto y tipo', async () => {
+    const { wrapper } = await mountView()
+
+    const persona = wrapper.find('[data-testid="filter-person"]')
+    const proyecto = wrapper.find('[data-testid="filter-project"]')
+    const tipo = wrapper.find('[data-testid="filter-type"]')
+    expect(persona.exists()).toBe(true)
+    expect(proyecto.exists()).toBe(true)
+    expect(tipo.exists()).toBe(true)
+
+    const opcionesTipo = tipo.findAll('option')
+    expect(opcionesTipo.map((option) => option.text())).toEqual([
+      'Todos los tipos',
+      'Alta',
+      'Edición',
+      'Cambio de estado',
+      'Checklist',
+      'Comentario',
+    ])
+  })
+
+  it('el tipo de evento manda el prefijo de la accion', async () => {
+    const calls = setupFetch()
+
+    const { wrapper } = await mountView()
+    await wrapper.find('[data-testid="filter-type"]').setValue('task.checklist_item')
+    await flushPromises()
+
+    const llamadas = calls.filter((call) => call.url.includes('/activity'))
+    expect(llamadas).toHaveLength(2)
+    expect(llamadas[1].url).toContain('action=task.checklist_item')
+  })
+
+  it('el filtro de persona manda el actor y no la persona asignada', async () => {
+    const calls = setupFetch({
+      personas: [
+        { id: 3, name: 'Ana Ruiz', department_name: 'Automatización' },
+      ],
+    })
+
+    const { wrapper } = await mountView()
+    await wrapper.find('[data-testid="filter-person"]').setValue('3')
+    await flushPromises()
+
+    const llamadas = calls.filter((call) => call.url.includes('/activity'))
+    expect(llamadas).toHaveLength(2)
+    expect(llamadas[1].url).toContain('actor_id=3')
+    expect(llamadas[1].url).not.toContain('assigned')
+  })
+
+  it('cambiar un filtro lo escribe en la URL', async () => {
+    setupFetch({
+      personas: [{ id: 3, name: 'Ana Ruiz' }],
+    })
+
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('[data-testid="filter-person"]').setValue('3')
+    await flushPromises()
+    await wrapper.find('[data-testid="filter-type"]').setValue('task.moved')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.persona).toBe('3')
+    expect(router.currentRoute.value.query.tipo).toBe('task.moved')
+  })
+
+  it('quitar un filtro lo quita de la URL', async () => {
+    const { wrapper } = await mountView({ persona: '3' })
+    const router = wrapper.vm.$router
+
+    await wrapper.find('[data-testid="filter-person"]').setValue('')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.persona).toBeUndefined()
   })
 
   it('el boton de ver mas pide la pagina siguiente', async () => {

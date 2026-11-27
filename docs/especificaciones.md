@@ -1306,6 +1306,13 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
 - Admite `?project_id=`: sin el, sale lo de **todos los proyectos visibles**;
   con el, solo ese, y si no esta entre los que se ven responde **404**, igual
   que `/api/capacity`.
+- Admite `?actor_id=` (la persona que hizo el cambio) y `?action=` (el prefijo
+  de la accion). Ambos se combinan con el filtro de proyecto en **AND** y se
+  filtran en el servidor, porque la bitacora esta paginada: filtrar en el
+  cliente solo filtraria la pagina cargada. `action` es prefijo, no igualdad:
+  el checklist son cuatro acciones que comparten `task.checklist_item`
+  (`_added`, `_updated`, `_done`, `_removed`), y el prefijo las trae a las
+  cuatro. Un `actor_id` que no existe no da error: devuelve la lista vacia.
 - `limit` es 50 por defecto y 200 como maximo; la paginacion va por `offset`.
 
 **La vista**
@@ -1320,6 +1327,15 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
   completa va en el `title`.
 - En la vista global cada entrada lleva el nombre de su proyecto; con filtro o
   en el espacio del proyecto no lo lleva, porque es redundante.
+- **Tres filtros en la cabecera**, en la URL, que se combinan en AND:
+  - `?persona=`: la persona que **hizo** el cambio (`actor_id`), no la que
+    lleva la tarea.
+  - `?project=`: el proyecto, que ya vivia en la ruta o en la URL.
+  - `?tipo=`: el tipo de evento, que va a la API como `action` con el prefijo
+    (`task.created`, `task.updated`, `task.moved`, `task.checklist_item`,
+    `task.commented`).
+  El estado de los filtros es la URL, como en las demas vistas: volver atras
+  del navegador desanda el filtro.
 - El menu tiene la entrada en los dos arboles: en el **global**, en el grupo
   *Organizacion*; en el **de proyecto**, en el grupo *Gestion y equipo*, con
   `projectIn: 'params'`, como Capacidad, Gantt y Calendario: el proyecto va en
@@ -1328,7 +1344,6 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
 ### Que no entra
 
 - **Revertir o deshacer** una accion desde la bitacora.
-- **Filtros adicionales**: por persona o por tipo de accion.
 - **La exportacion** de la bitacora.
 - **Instrumentar las lecturas**: abrir una pantalla no deja rastro.
 - **El alta de proyecto**, que no estaba en la lista de puntos de registro.
@@ -1358,6 +1373,10 @@ nulo. La tabla se crea sola con `create_all`: es nueva, no hace falta migracion.
    el total sale en la misma respuesta.
 7. **Una sola vista** para las dos lecturas: la diferencia entre global y de
    proyecto es el filtro de la URL y el nombre del proyecto en cada entrada.
+8. **Los filtros se aplican en el servidor**: la bitacora esta paginada, asi
+   que `actor_id` y `action` son condiciones de la consulta, no recorte en el
+   cliente. `action` es prefijo para que las cuatro acciones del checklist
+   caigan bajo una sola opcion del filtro.
 
 ## 26. Detalle de una tarea: descripcion, comentarios y checklist
 

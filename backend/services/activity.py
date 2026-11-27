@@ -54,12 +54,18 @@ async def count_activity(
     project_ids: Sequence[int],
     entity_type: str | None = None,
     entity_id: int | None = None,
+    actor_id: int | None = None,
+    action: str | None = None,
 ) -> int:
-    """Cuantas entradas tienen los proyectos indicados."""
+    """Cuantas entradas tienen los proyectos indicados.
+
+    actor_id y action son opcionales y se combinan con el resto en AND.
+    """
     if not project_ids:
         return 0
     conditions = [ActivityLog.project_id.in_(set(project_ids))]
     conditions.extend(_entity_conditions(entity_type, entity_id))
+    conditions.extend(_actor_conditions(actor_id, action))
     total = await session.scalar(
         select(func.count()).select_from(ActivityLog).where(*conditions)
     )
@@ -84,6 +90,20 @@ def _entity_conditions(
     ]
 
 
+def _actor_conditions(actor_id: int | None, action: str | None) -> list:
+    """Filtro por quien actuo y por el prefijo de la accion, si hay.
+
+    La accion es por prefijo: el checklist son cuatro acciones distintas que
+    comparten `task.checklist_item`, y el prefijo las trae a las cuatro.
+    """
+    conditions: list = []
+    if actor_id is not None:
+        conditions.append(ActivityLog.actor_id == actor_id)
+    if action is not None:
+        conditions.append(ActivityLog.action.startswith(action))
+    return conditions
+
+
 async def list_activity(
     session: AsyncSession,
     project_ids: Sequence[int],
@@ -91,10 +111,13 @@ async def list_activity(
     offset: int = 0,
     entity_type: str | None = None,
     entity_id: int | None = None,
+    actor_id: int | None = None,
+    action: str | None = None,
 ) -> list[ActivityLog]:
     """Entradas de la bitacora de los proyectos indicados, de la mas nueva a la mas vieja.
 
-    El orden es por fecha descendente y, a igualdad de fecha, por identificador
+    actor_id y action son opcionales y se combinan con el resto en AND. El
+    orden es por fecha descendente y, a igualdad de fecha, por identificador
     descendente: dos acciones del mismo instante salen en el mismo orden en que
     se registraron.
     """
@@ -102,6 +125,7 @@ async def list_activity(
         return []
     conditions = [ActivityLog.project_id.in_(set(project_ids))]
     conditions.extend(_entity_conditions(entity_type, entity_id))
+    conditions.extend(_actor_conditions(actor_id, action))
     result = await session.execute(
         select(ActivityLog)
         .where(*conditions)

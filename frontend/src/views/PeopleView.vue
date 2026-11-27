@@ -39,8 +39,17 @@ const skills = ref([])
 const departments = ref([])
 const selectedId = ref(null)
 
-/** Filtro de presentacion del directorio: acota lo ya cargado. */
+/** Filtros de presentacion del directorio: acotan lo ya cargado. */
 const filtroDepartamento = ref('')
+const buscador = ref('')
+
+/** Texto en minusculas y sin acentos, para buscar sin tildes. */
+function sinAcentos(texto) {
+  return String(texto ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
 
 const currentTab = computed(() => TABS.find((item) => item.name === tab.value) ?? TABS[0])
 const selected = computed(() => people.value.find((item) => item.id === selectedId.value) ?? null)
@@ -57,12 +66,30 @@ const opcionesDepartamento = computed(() => [
 /** Etiqueta central del navegador de semana: "S46 · 2026-W46". */
 const etiquetaSemana = computed(() => `${weekLabel(week.value)} · ${week.value}`)
 
-/** Personas del directorio que quedan con el filtro de departamento. */
+/**
+ * Personas del directorio que quedan con los filtros.
+ *
+ * El buscador mira el nombre o el puesto, sin tildes: "ana" encuentra
+ * "Sebastián" como a "Ana", como en el resto de la app.
+ */
 const personasVisibles = computed(() => {
-  if (!filtroDepartamento.value) return people.value
-  return people.value.filter(
-    (person) => String(person.department_id ?? '') === filtroDepartamento.value,
-  )
+  const texto = sinAcentos(buscador.value.trim())
+  return people.value.filter((person) => {
+    if (
+      filtroDepartamento.value &&
+      String(person.department_id ?? '') !== filtroDepartamento.value
+    ) {
+      return false
+    }
+    if (
+      texto &&
+      !sinAcentos(person.name).includes(texto) &&
+      !sinAcentos(person.job_title).includes(texto)
+    ) {
+      return false
+    }
+    return true
+  })
 })
 
 async function load() {
@@ -107,6 +134,23 @@ onMounted(load)
       ayuda="Perfiles, horarios vigentes y competencias técnicas del equipo para la semana seleccionada."
     >
       <template #filters>
+        <!-- Buscador: con la lupa a la izquierda, como el de Proyectos. -->
+        <label class="inline-flex min-w-0 items-center gap-1.5">
+          <span class="sr-only">Buscar</span>
+          <span class="relative inline-flex min-w-0 items-center">
+            <span class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue">
+              <AppIcon name="search" />
+            </span>
+            <input
+              v-model="buscador"
+              type="search"
+              placeholder="Filtrar por nombre o puesto..."
+              class="min-h-10 w-64 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              data-testid="filter-search"
+            />
+          </span>
+        </label>
+
         <FilterField
           v-if="departments.length > 1"
           label="Departamento"

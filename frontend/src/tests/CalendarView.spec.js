@@ -2544,9 +2544,9 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(wrapper.find('[data-testid="day-readonly-note"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="modal-footer"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('Solo lectura')
-    expect(
-      wrapper.find('[title*="Elige un proyecto en el filtro"]').exists(),
-    ).toBe(true)
+    // La insignia de la cabecera toma su tono del prop: sin proyecto, aviso.
+    const insignia = wrapper.find('.rounded-pastilla.bg-aviso-fondo')
+    expect(insignia.text()).toBe('Solo lectura')
     expect(
       calls.find((call) => call.method === 'POST' && call.url.endsWith('/tasks')),
     ).toBeUndefined()

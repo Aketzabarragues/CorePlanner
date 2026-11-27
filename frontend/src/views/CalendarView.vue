@@ -741,25 +741,17 @@ watch(
     class="flex h-full min-h-0 flex-col"
     :class="ampliado ? 'fixed inset-0 z-40 overflow-auto bg-lienzo p-3 sm:p-6' : ''"
   >
-    <PageHeader class="shrink-0" :en-barra="!ampliado" title="Calendario" ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable.">
-      <template #contexto>
-        <!-- Rellena el envoltorio de la cabecera: el fondo de aviso es el de la insignia. -->
-        <span
-          class="-mx-2.5 -my-1 rounded-pastilla"
-          :class="
-            projectFilter
-              ? 'bg-ok-fondo text-ok-texto'
-              : 'bg-aviso-fondo text-aviso-texto'
-          "
-          :title="
-            projectFilter
-              ? 'Puedes crear tareas sobre un día laborable de este proyecto'
-              : 'Elige un proyecto en el filtro para poder crear tareas sobre un día laborable'
-          "
-        >
-          {{ projectFilter ? 'Creable' : 'Solo lectura' }}
-        </span>
-      </template>
+    <PageHeader
+      class="shrink-0"
+      :en-barra="!ampliado"
+      title="Calendario"
+      ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable."
+      :contexto="{
+        texto: projectFilter ? 'Creable' : 'Solo lectura',
+        tono: projectFilter ? 'ok' : 'aviso',
+        punto: true,
+      }"
+    >
       <template #filters>
         <FilterField
           label="Departamento"

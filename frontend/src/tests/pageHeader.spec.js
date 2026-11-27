@@ -104,4 +104,72 @@ describe('PageHeader', () => {
     expect(wrapper.find('[data-testid="gantt-filters"]').exists()).toBe(false)
     expect(wrapper.find('span[aria-hidden="true"]').exists()).toBe(false)
   })
+
+  it('la insignia sin tono se queda con su aspecto neutro por defecto', () => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Panel', contexto: { texto: 'Sin departamento' } },
+    })
+
+    const insignia = wrapper.find('.rounded-pastilla')
+    expect(insignia.text()).toBe('Sin departamento')
+    expect(insignia.classes()).toEqual(
+      expect.arrayContaining(['border-borde', 'bg-tarjeta-suave', 'text-texto-suave']),
+    )
+    // Sin punto no sale el punto.
+    expect(insignia.find('span[aria-hidden="true"]').exists()).toBe(false)
+  })
+
+  it('la insignia toma fondo, borde y texto del tono y el punto su color', () => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Calendario', contexto: { texto: 'Solo lectura', tono: 'aviso', punto: true } },
+    })
+
+    const insignia = wrapper.find('.rounded-pastilla')
+    expect(insignia.text()).toBe('Solo lectura')
+    expect(insignia.classes()).toEqual(
+      expect.arrayContaining(['border-aviso-borde', 'bg-aviso-fondo', 'text-aviso-texto']),
+    )
+    expect(insignia.find('span[aria-hidden="true"]').classes()).toContain('bg-aviso-punto')
+  })
+
+  it('cada tono da su clase al fondo, al borde y al punto', () => {
+    for (const tono of ['ok', 'peligro', 'info', 'neutro']) {
+      const wrapper = mount(PageHeader, {
+        props: { title: 'Panel', contexto: { texto: 'x', tono, punto: true } },
+      })
+
+      const insignia = wrapper.find('.rounded-pastilla')
+      expect(insignia.classes()).toEqual(
+        expect.arrayContaining([`border-${tono}-borde`, `bg-${tono}-fondo`, `text-${tono}-texto`]),
+      )
+      expect(insignia.find('span[aria-hidden="true"]').classes()).toContain(`bg-${tono}-punto`)
+    }
+  })
+
+  it('un punto sin tono toma el color neutro', () => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Panel', contexto: { texto: 'x', punto: true } },
+    })
+
+    expect(wrapper.find('.rounded-pastilla').find('span[aria-hidden="true"]').classes()).toContain(
+      'bg-neutro-punto',
+    )
+  })
+
+  it('el slot de contexto sigue pintandose dentro de la insignia, sin tonos propios', () => {
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Panel' },
+      slots: {
+        contexto:
+          'Periodo activo · <span data-testid="panel-period-range">S48 – S03</span>',
+      },
+    })
+
+    const insignia = wrapper.find('.rounded-pastilla')
+    expect(insignia.text()).toContain('Periodo activo ·')
+    expect(insignia.text()).toContain('S48 – S03')
+    expect(
+      insignia.classes(),
+    ).toEqual(expect.arrayContaining(['border-borde', 'bg-tarjeta-suave', 'text-texto-suave']))
+  })
 })

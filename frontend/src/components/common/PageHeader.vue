@@ -17,13 +17,13 @@
  *
  * Los slots `filters` y `actions` son aditivos.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import HelpTip from './HelpTip.vue'
 
 const props = defineProps({
   title: { type: String, required: true },
-  /** Insignia de contexto: { texto: String, punto: clase de color o null }. */
+  /** Insignia de contexto: { texto: String, tono: 'ok' | 'aviso' | 'peligro' | 'info' | 'neutro', punto: Boolean }. */
   contexto: { type: Object, default: null },
   /** Texto del boton de ayuda; sin el, no se pinta el boton. */
   ayuda: { type: String, default: '' },
@@ -32,6 +32,36 @@ const props = defineProps({
   /** En false no se publica en la barra: el contenido se dibuja en su sitio. */
   enBarra: { type: Boolean, default: true },
 })
+
+/**
+ * Aspecto de la insignia de contexto por tono: fondo, borde y texto.
+ * Misma convencion que los `TONOS` de KpiCard, con el borde de tono que
+ * lleva la insignia de la cabecera.
+ */
+const TONOS = {
+  ok: 'border-ok-borde bg-ok-fondo text-ok-texto',
+  aviso: 'border-aviso-borde bg-aviso-fondo text-aviso-texto',
+  peligro: 'border-peligro-borde bg-peligro-fondo text-peligro-texto',
+  info: 'border-info-borde bg-info-fondo text-info-texto',
+  neutro: 'border-neutro-borde bg-neutro-fondo text-neutro-texto',
+}
+const PUNTOS = {
+  ok: 'bg-ok-punto',
+  aviso: 'bg-aviso-punto',
+  peligro: 'bg-peligro-punto',
+  info: 'bg-info-punto',
+  neutro: 'bg-neutro-punto',
+}
+
+/** Sin tono la insignia se queda con su aspecto neutro por defecto. */
+const claseInsignia = computed(
+  () =>
+    TONOS[props.contexto?.tono] ??
+    'border-borde bg-tarjeta-suave text-texto-suave',
+)
+const puntoClase = computed(
+  () => (props.contexto?.punto ? PUNTOS[props.contexto.tono] ?? PUNTOS.neutro : ''),
+)
 
 /**
  * Destino del Teleport.
@@ -72,14 +102,21 @@ onMounted(() => {
             {{ title }}
           </h1>
 
+          <!--
+            El slot sustituye el texto pero no el aspecto: el fondo, el borde
+            y el texto salen del tono del prop `contexto`. El texto se corta
+            por el final con puntos suspensivos (`truncate` en el span de
+            dentro), nunca por el medio.
+          -->
           <span
             v-if="contexto || $slots.contexto"
-            class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
+            class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border px-2.5 py-1 text-cp-xs font-medium"
+            :class="claseInsignia"
           >
             <span
-              v-if="contexto?.punto"
+              v-if="puntoClase"
               class="h-1.5 w-1.5 flex-none rounded-full"
-              :class="contexto.punto"
+              :class="puntoClase"
               aria-hidden="true"
             ></span>
             <span class="truncate"><slot name="contexto">{{ contexto?.texto }}</slot></span>

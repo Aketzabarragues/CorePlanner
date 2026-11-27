@@ -140,7 +140,7 @@ const card = computed(() => {
     barClass: aspect.bar,
     label: loadLabel(state),
     /** Horas que quedan de la capacidad: null si no se conoce la capacidad. */
-    free: libre === null ? null : `${formatHours(libre)} h libres`,
+    free: libre === null ? null : `${formatHours(libre)} libres`,
   }
 })
 

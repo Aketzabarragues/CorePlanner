@@ -225,4 +225,14 @@ describe('MyWorkView', () => {
 
     expect(wrapper.find('[data-testid="my-work-error"]').text()).toContain('Fallo del servidor')
   })
+
+  it('las horas libres de la semana salen con una sola unidad', async () => {
+    setupFetch()
+
+    const wrapper = await mountView()
+
+    // W45 del informe: 30 h de carga y 40 h de capacidad, 10 h libres.
+    // `formatHours` ya lleva la unidad: no puede salir "10 h h libres".
+    expect(wrapper.find('[data-testid="my-work-card-free"]').text()).toBe('10 h libres')
+  })
 })

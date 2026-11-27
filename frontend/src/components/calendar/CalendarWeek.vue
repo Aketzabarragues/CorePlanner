@@ -213,6 +213,17 @@ const colorPorDepartamento = computed(() => {
   return mapa
 })
 
+/**
+ * Color del punto del departamento de la fila: el dato del backend o el
+ * punto neutro por token si el departamento no trae color.
+ */
+function colorDeDepartamento(fila) {
+  const color = fila.department_name
+    ? colorPorDepartamento.value.get(fila.department_name)
+    : null
+  return color ?? 'rgb(var(--cp-neutro-punto))'
+}
+
 /** Texto legible sobre un hex de fondo: blanco u oscuro por luminancia. */
 function contrasteSobre(hex) {
   const limpio = (hex ?? '').replace('#', '')
@@ -282,8 +293,16 @@ function alCrearHueco(event) {
             </span>
             <span class="min-w-0">
               <span class="block truncate text-cp-xs font-semibold text-texto">{{ fila.name }}</span>
-              <span v-if="fila.department_name" class="block truncate text-cp-micro text-texto-tenue">
-                {{ fila.department_name }}
+              <span
+                v-if="fila.department_name"
+                class="flex min-w-0 items-center gap-1 text-cp-micro text-texto-tenue"
+              >
+                <span
+                  class="h-1.5 w-1.5 flex-none rounded-full"
+                  :style="{ backgroundColor: colorDeDepartamento(fila) }"
+                  aria-hidden="true"
+                ></span>
+                <span class="truncate">{{ fila.department_name }}</span>
               </span>
             </span>
           </div>

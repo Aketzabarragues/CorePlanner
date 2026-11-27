@@ -224,6 +224,7 @@ onMounted(load)
         v-if="currentTab.name === 'directory'"
         :people="personasVisibles"
         :week="week"
+        :departments="departments"
         @open="selectedId = $event"
       />
       <SkillsMatrix

@@ -12,6 +12,8 @@ import { initials } from '../../utils/people'
 const props = defineProps({
   people: { type: Array, required: true },
   week: { type: String, required: true },
+  /** Departamentos (id, nombre, color): para el punto de color de la fila. */
+  departments: { type: Array, default: () => [] },
 })
 
 defineEmits(['open'])
@@ -29,11 +31,18 @@ function weekdayChips(schedule) {
 }
 
 const hasLoad = computed(() => props.people.some((person) => person.hours !== null))
+
+/** Color del departamento por id (dato del backend); sin color, punto neutro. */
+function colorDepartamento(id) {
+  const dep = props.departments.find((item) => String(item.id) === String(id))
+  return dep?.color ?? 'rgb(var(--cp-neutro-punto))'
+}
 </script>
 
 <template>
   <div class="overflow-x-auto rounded-tarjeta border border-borde bg-tarjeta">
-    <table class="w-full text-sm">
+    <!-- Ancho minimo: la tabla se desplaza horizontal en vez de cortarse. -->
+    <table class="w-full min-w-[960px] text-sm">
       <thead class="bg-tarjeta-suave text-left text-xs uppercase tracking-wide text-texto-tenue">
         <tr>
           <th class="px-2 py-2 font-medium">Persona</th>
@@ -64,8 +73,24 @@ const hasLoad = computed(() => props.people.some((person) => person.hours !== nu
             </div>
           </td>
           <td class="px-2 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
-          <td class="px-2 py-2 text-texto-suave">{{ person.department_name ?? '—' }}</td>
-          <td class="px-2 py-2 text-texto-suave">{{ person.employment_type_label }}</td>
+          <td class="px-2 py-2 text-texto-suave">
+            <span class="flex items-center gap-1.5">
+              <span
+                v-if="person.department_id"
+                class="h-1.5 w-1.5 flex-none rounded-full"
+                :style="{ backgroundColor: colorDepartamento(person.department_id) }"
+                aria-hidden="true"
+              ></span>
+              {{ person.department_name ?? '—' }}
+            </span>
+          </td>
+          <td class="px-2 py-2">
+            <span
+              class="whitespace-nowrap rounded-control bg-neutro-fondo px-2 py-0.5 text-cp-xs font-semibold text-neutro-texto"
+            >
+              {{ person.employment_type_label }}
+            </span>
+          </td>
           <td class="px-2 py-2">
             <div v-if="person.schedule" class="flex items-center gap-1">
               <span

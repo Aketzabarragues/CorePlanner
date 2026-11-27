@@ -39,6 +39,16 @@ const buscador = ref('')
 const filtroDepartamento = ref('')
 const filtroEstado = ref('')
 
+/**
+ * Codigo del proyecto, si el nombre empieza por "123 - ...": el codigo y el
+ * resto del nombre. Sin el patron, null: se pinta el nombre completo.
+ */
+function codigoDe(name) {
+  const match = /^(\d+)\s*[-–—]\s*/.exec(String(name ?? ''))
+  if (!match) return null
+  return { codigo: match[1], resto: String(name).slice(match[0].length) }
+}
+
 /** Resumen de cada proyecto: equipo, avance de tareas y carga de la semana. */
 const resumenes = ref([])
 
@@ -195,6 +205,18 @@ function contrasteSobre(hex) {
   return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
 }
 
+/** Punto de la pastilla del estado: el punto de color del estado. */
+function puntoEstadoProyecto(status) {
+  switch (status) {
+    case 'active':
+      return 'bg-ok-punto'
+    case 'on_hold':
+      return 'bg-aviso-punto'
+    default:
+      return 'bg-neutro-punto'
+  }
+}
+
 /** Clases de la pastilla del estado del proyecto, por estado. */
 function pildoraEstadoProyecto(status) {
   switch (status) {
@@ -257,6 +279,15 @@ onMounted(load)
       title="Proyectos"
       ayuda="Los proyectos visibles agrupados por el departamento que los gestiona, con el avance de tareas y la carga de la semana."
     >
+      <template #actions>
+        <span
+          class="inline-flex items-center gap-1.5 rounded-control border border-borde bg-tarjeta-suave px-3 py-1.5 text-cp-sm font-medium text-texto-suave"
+          data-testid="projects-count"
+        >
+          <span class="font-mono text-texto-marca">{{ store.projects.length }}</span>
+          {{ store.projects.length === 1 ? 'proyecto visible' : 'proyectos visibles' }}
+        </span>
+      </template>
       <template #filters>
         <!-- Buscador: el primero del grupo, con la lupa a la izquierda. -->
         <label class="inline-flex min-w-0 items-center gap-1.5">
@@ -379,7 +410,15 @@ onMounted(load)
                     class="font-semibold text-texto-marca hover:underline"
                     @click.stop
                   >
-                    {{ project.name }}
+                    <template v-if="codigoDe(project.name)">
+                      <span class="font-mono text-cp-sm font-bold text-texto-marca">
+                        {{ codigoDe(project.name).codigo }}
+                      </span>
+                      <span class="text-cp-sm font-semibold text-texto">
+                        · {{ codigoDe(project.name).resto }}
+                      </span>
+                    </template>
+                    <template v-else>{{ project.name }}</template>
                   </RouterLink>
                 </td>
 
@@ -426,7 +465,7 @@ onMounted(load)
                   <!-- la sobrecarga lleva triangulo, que el color no es el unico medio -->
                   <span
                     v-if="cargaDe(project).tipo === 'sobrecarga'"
-                    class="inline-flex items-center gap-1 whitespace-nowrap rounded-pastilla bg-peligro-fondo px-2 py-0.5 text-cp-xs font-semibold text-peligro-texto"
+                    class="inline-flex items-center gap-1 whitespace-nowrap rounded-control bg-peligro-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-peligro-texto"
                     data-testid="project-overloaded"
                   >
                     <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -436,14 +475,14 @@ onMounted(load)
                   </span>
                   <span
                     v-else-if="cargaDe(project).tipo === 'porcentaje'"
-                    class="font-mono text-cp-xs text-texto-suave"
+                    class="inline-flex items-center whitespace-nowrap rounded-control bg-carga-optimo-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-carga-optimo-texto"
                     data-testid="project-load"
                   >
                     {{ cargaDe(project).texto }}
                   </span>
                   <span
                     v-else-if="cargaDe(project).tipo === 'sin-capacidad'"
-                    class="text-cp-xs text-texto-tenue"
+                    class="inline-flex items-center whitespace-nowrap rounded-control bg-carga-capacidad-desconocida-fondo px-2 py-0.5 font-mono text-cp-xs font-semibold text-carga-capacidad-desconocida-texto"
                     data-testid="project-load-unknown"
                   >
                     Sin capacidad
@@ -453,9 +492,14 @@ onMounted(load)
 
                 <td class="px-3 py-2">
                   <span
-                    class="rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
+                    class="inline-flex items-center gap-1.5 rounded-pastilla px-2 py-0.5 text-cp-xs font-semibold"
                     :class="pildoraEstadoProyecto(project.status)"
                   >
+                    <span
+                      class="h-1.5 w-1.5 flex-none rounded-full"
+                      :class="puntoEstadoProyecto(project.status)"
+                      aria-hidden="true"
+                    ></span>
                     {{ projectStatus(project.status).label }}
                   </span>
                 </td>

@@ -25,6 +25,7 @@ import { plural } from '../utils/plural'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { useToastStore } from '../stores/toast'
+import { luminancia } from '../utils/statusColor'
 import {
   LOAD_STATE,
   isOverloaded,
@@ -557,13 +558,41 @@ const summary = computed(() => {
 /** Franja de la persona que no tiene departamento: gris neutro por token. */
 const DEPARTMENT_COLOR_NONE = 'rgb(var(--cp-neutro-punto))'
 
-/** Color de la franja de una persona: el que tiene guardado su departamento. */
+/** Color del avatar de una persona: el que tiene guardado su departamento. */
 function departmentColor(departmentId) {
   if (departmentId === null || departmentId === undefined) return DEPARTMENT_COLOR_NONE
   const encontrado = store.departments.find(
     (item) => String(item.id) === String(departmentId),
   )
   return encontrado?.color ?? DEPARTMENT_COLOR_NONE
+}
+
+/** Inicial del avatar de la fila: la primera letra del nombre, en mayuscula. */
+function inicialDe(fila) {
+  const nombre = (fila.name ?? '').trim()
+  return nombre ? nombre[0].toUpperCase() : ''
+}
+
+/**
+ * Estilo en linea del avatar de la fila: el color del departamento (dato del
+ * backend) con el texto calculado contra el fondo, el mismo criterio que el
+ * avatar del calendario. Sin color de departamento, el punto neutro por token.
+ */
+function estiloAvatar(fila) {
+  const color = departmentColor(fila.department_id)
+  if (color === DEPARTMENT_COLOR_NONE) {
+    return {
+      backgroundColor: DEPARTMENT_COLOR_NONE,
+      color: 'rgb(var(--cp-sobre-primario))',
+    }
+  }
+  return { backgroundColor: color, color: contrasteSobre(color) }
+}
+
+/** Texto legible sobre un hex de fondo: oscuro o claro por luminancia. */
+function contrasteSobre(hex) {
+  const brillo = luminancia(hex) ?? 0
+  return brillo >= 0.5 ? 'rgb(var(--cp-texto))' : 'rgb(var(--cp-sobre-primario))'
 }
 
 /** La matriz con cada celda ya resuelta. */
@@ -1365,6 +1394,16 @@ watch(
         >
           Uso medio del equipo: {{ summary.medio ?? '—' }} %
         </span>
+
+        <!-- Leyenda de la escala: arriba, junto a los chips, para no bajar a buscarla. -->
+        <span
+          v-for="item in LEGEND"
+          :key="item.state"
+          class="flex items-center gap-1.5 text-texto-suave"
+        >
+          <span class="h-3 w-3 rounded-control border" :class="legendSwatch(item.state)"></span>
+          {{ item.label }}
+        </span>
       </div>
 
       <div class="max-h-[70vh] overflow-auto rounded-tarjeta border border-borde bg-tarjeta">
@@ -1413,10 +1452,13 @@ watch(
               >
                 <div class="flex items-stretch gap-2 px-3 py-2">
                   <span
-                    class="w-1 shrink-0 rounded-full"
-                    :style="{ backgroundColor: departmentColor(entrada.fila.department_id) }"
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-avatar text-cp-xs font-bold"
+                    :style="estiloAvatar(entrada.fila)"
                     :data-testid="`department-stripe-${entrada.fila.user_id}`"
-                  ></span>
+                    aria-hidden="true"
+                  >
+                    {{ inicialDe(entrada.fila) }}
+                  </span>
                   <span class="min-w-0 flex-1">
                     {{ entrada.fila.name }}
                     <span class="block text-xs font-normal text-texto-tenue">
@@ -1572,13 +1614,6 @@ watch(
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-texto-suave">
-        <span v-for="item in LEGEND" :key="item.state" class="flex items-center gap-1.5">
-          <span class="h-3 w-3 rounded-control border" :class="legendSwatch(item.state)"></span>
-          {{ item.label }}
-        </span>
       </div>
     </AsyncState>
 

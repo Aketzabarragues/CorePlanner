@@ -11,9 +11,21 @@ const departments = [
 ]
 
 const projects = [
-  { id: 1, name: 'Linea Pasteurizadora SIVE', status: 'active', department_id: 1 },
+  {
+    id: 1,
+    name: '26009 - FLUID SYSTEM - Pasteurizador',
+    status: 'active',
+    department_id: 1,
+    color: '#0e7490',
+  },
   { id: 2, name: 'Red de tuberias linea 2', status: 'on_hold', department_id: 2 },
   { id: 3, name: 'Ampliacion linea 3', status: 'active', department_id: null },
+]
+
+const people = [
+  { id: 1, name: 'Ana', email: 'ana@example.com', department_id: 1 },
+  { id: 2, name: 'Sebastian', email: 'sebastian@example.com', department_id: 1 },
+  { id: 3, name: 'Jorge', email: 'jorge@example.com', department_id: 2 },
 ]
 
 function jsonResponse(payload, ok = true, status = 200) {
@@ -31,6 +43,7 @@ function setupFetch() {
     }
     if (url.endsWith('/departments')) return jsonResponse(departments)
     if (url.endsWith('/projects')) return jsonResponse(projects)
+    if (url.endsWith('/people')) return jsonResponse(people)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
   })
 }
@@ -69,7 +82,7 @@ describe('DepartmentsView', () => {
   it('coloca bajo cada departamento sus proyectos', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Linea Pasteurizadora SIVE')
+    expect(wrapper.text()).toContain('FLUID SYSTEM - Pasteurizador')
     expect(wrapper.text()).toContain('Red de tuberias linea 2')
     expect(wrapper.text()).toContain('Activo')
     expect(wrapper.text()).toContain('Pausado')
@@ -85,7 +98,7 @@ describe('DepartmentsView', () => {
   it('enlaza cada proyecto con su resumen', async () => {
     const wrapper = await mountView()
 
-    const enlace = wrapper.findAll('a').find((a) => a.text().includes('Linea Pasteurizadora'))
+    const enlace = wrapper.findAll('a').find((a) => a.text().includes('Pasteurizador'))
     expect(enlace.attributes('href')).toBe('/projects/1')
   })
 
@@ -97,5 +110,54 @@ describe('DepartmentsView', () => {
     // Tinte claro del color para el fondo y el color oscurecido para el trazo.
     expect(icono.attributes('style')).toContain('background-color: rgb(217, 230, 232)')
     expect(icono.attributes('style')).toContain('color: rgb(0, 55, 66)')
+  })
+
+  it('la cabecera cuenta areas operativas y proyectos activos', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="departments-context"]').text()).toBe(
+      '2 áreas operativas · 2 proyectos activos',
+    )
+  })
+
+  it('la tarjeta cuenta sus proyectos y etiqueta la lista', async () => {
+    const wrapper = await mountView()
+
+    const seccion = wrapper.findAll('section')[0]
+    expect(seccion.find('[data-testid="department-projects-count"]').text()).toBe('1 proy.')
+    // La etiqueta va en versal por CSS: el texto sigue en su forma natural.
+    const etiqueta = seccion.findAll('p').find((elemento) =>
+      elemento.classes().includes('uppercase'),
+    )
+    expect(etiqueta.text()).toBe('Proyectos gestionados')
+  })
+
+  it('la fila de proyecto lleva franja de color, codigo en mono y estado con punto', async () => {
+    const wrapper = await mountView()
+
+    const seccion = wrapper.findAll('section')[0]
+    const enlace = seccion.find('a[href="/projects/1"]')
+    expect(enlace.text()).toContain('26009')
+    expect(enlace.text()).toContain('FLUID SYSTEM - Pasteurizador')
+    // La franja usa el color del proyecto (dato del backend) en estilo en linea.
+    const franja = enlace.find('span[style]')
+    expect(franja.attributes('style')).toContain('background-color: rgb(14, 116, 144)')
+    // La pastilla de estado va con el punto de color.
+    const pastilla = seccion.find('a[href="/projects/1"] ~ *')
+    expect(pastilla.text()).toBe('Activo')
+  })
+
+  it('el pie de la tarjeta cuenta miembros y apila avatares con el color del area', async () => {
+    const wrapper = await mountView()
+
+    const seccion = wrapper.findAll('section')[0]
+    expect(seccion.find('[data-testid="department-members"]').text()).toBe('2 miembros en el area')
+    const avatares = seccion.findAll('[data-testid="department-member"]')
+    expect(avatares).toHaveLength(2)
+    expect(avatares[0].attributes('title')).toBe('Ana')
+    // El color del area (dato del backend) en estilo en linea, con texto legible.
+    expect(avatares[0].attributes('style')).toContain('background-color: rgb(0, 85, 102)')
+    // El avatar del responsable va antes del nombre.
+    expect(seccion.text()).toContain('Responsable: Ana')
   })
 })

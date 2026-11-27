@@ -82,8 +82,8 @@ const days = [
 ]
 
 const departments = [
-  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana' },
-  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge' },
+  { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana', color: '#005566' },
+  { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge', color: '#1f6feb' },
 ]
 
 function jsonResponse(payload, ok = true, status = 200) {
@@ -325,6 +325,25 @@ describe('PeopleView', () => {
     expect(avatar.exists()).toBe(true)
     // "Ana" es una sola palabra: su inicial es la unica que hay.
     expect(avatar.text()).toBe('A')
+  })
+
+  it('la fila lleva el punto del departamento con su color en linea', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="person-row"]')[0]
+    const celda = fila.findAll('td')[2]
+    const punto = celda.find('span[style]')
+    expect(punto.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
+  })
+
+  it('el contrato se dibuja como pastilla neutra', async () => {
+    const wrapper = await mountView()
+
+    const fila = wrapper.findAll('[data-testid="person-row"]')[0]
+    const celda = fila.findAll('td')[3]
+    expect(celda.text()).toBe('Objetivo')
+    expect(celda.find('span').classes()).toContain('rounded-control')
+    expect(celda.find('span').classes()).toContain('bg-neutro-fondo')
   })
 
   it('la ficha permite corregir una version de horario', async () => {

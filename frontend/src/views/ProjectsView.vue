@@ -298,15 +298,17 @@ onMounted(load)
         <!-- Buscador: el primero del grupo, con la lupa a la izquierda. -->
         <label class="inline-flex min-w-0 items-center gap-1.5">
           <span class="sr-only">Buscar</span>
-          <span class="relative inline-flex min-w-0 items-center">
+          <span
+            class="relative inline-flex min-w-0 items-center after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+          >
             <span class="pointer-events-none absolute left-2.5 inline-flex h-3.5 w-3.5 text-texto-tenue">
               <AppIcon name="search" />
             </span>
             <input
               v-model="buscador"
               type="search"
-              placeholder="Nombre del proyecto"
-              class="min-h-10 w-64 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              placeholder="Buscar por código, cliente o proyecto..."
+              class="w-60 rounded-control border border-borde-fuerte bg-tarjeta-suave py-1.5 pl-8 pr-3 text-cp-sm text-texto transition-colors placeholder:text-texto-tenue hover:border-foco hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
               data-testid="filter-search"
             />
           </span>
@@ -333,7 +335,7 @@ onMounted(load)
         <button
           v-if="hayFiltros"
           type="button"
-          class="inline-flex min-h-10 items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          class="inline-flex items-center rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
           data-testid="clear-filters"
           @click="limpiarFiltros"
         >

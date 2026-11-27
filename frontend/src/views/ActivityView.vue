@@ -90,8 +90,9 @@ const quedan = computed(() => entries.value.length < total.value)
 /**
  * Entradas agrupadas por dia local, de lo mas reciente a lo mas antiguo.
  *
- * El dia se etiqueta con el mismo formato que el title de la entrada
- * (dd/mm/aaaa): la cabecera y el globo dicen la misma fecha.
+ * El dia se etiqueta con el relativo ("Hoy", "Ayer") delante y la fecha
+ * corta detras (dia, mes en tres letras, ano), como el boceto. El title de
+ * cada entrada sigue llevando la fecha completa (dd/mm/aaaa hh:mm).
  */
 const dias = computed(() => {
   const repetidos = repeticionesConsecutivas(entries.value)
@@ -111,12 +112,16 @@ function claveDeDia(fecha) {
   return `${momento.getFullYear()}-${momento.getMonth()}-${momento.getDate()}`
 }
 
-/** Etiqueta del dia: el relativo delante cuando toca, y la fecha detras. */
+/** Mes en tres letras, como el boceto: "nov" para noviembre. */
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/**
+ * Etiqueta del dia: el relativo delante cuando toca, y la fecha detras
+ * (dia, mes en tres letras, ano), como el boceto: "Ayer · 25 nov 2026".
+ */
 function etiquetaDeDia(fecha) {
   const momento = new Date(fecha)
-  const dia = String(momento.getDate()).padStart(2, '0')
-  const mes = String(momento.getMonth() + 1).padStart(2, '0')
-  const fechaCorta = `${dia}/${mes}/${momento.getFullYear()}`
+  const fechaCorta = `${momento.getDate()} ${MESES_CORTOS[momento.getMonth()]} ${momento.getFullYear()}`
   const relativo = diaRelativo(fecha)
   return relativo ? `${relativo} · ${fechaCorta}` : fechaCorta
 }

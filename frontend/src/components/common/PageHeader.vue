@@ -52,51 +52,63 @@ onMounted(() => {
 <template>
   <Teleport :to="destino" :disabled="!props.enBarra || !destino">
     <div
-      class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+      class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-2"
       :data-testid="'vista-cabecera'"
     >
-      <!-- Titulo + insignia + ayuda -->
-      <div class="flex min-w-0 shrink items-center gap-2">
-        <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
-          {{ title }}
-        </h1>
+      <!--
+        Grupo izquierdo: titulo, insignia, ayuda, separador y filtros. Es un
+        solo elemento flex con `flex-wrap`: cuando no cabe, los filtros bajan
+        de linea dentro del grupo, no se encogen.
 
-        <span
-          v-if="contexto || $slots.contexto"
-          class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
-        >
+        El grupo no lleva `flex-1`: si se estirara, las acciones nunca bajarian
+        de linea. El salto lo decide el ancho natural frente al hueco, y
+        `justify-between` en la raiz es lo que pega las acciones al borde
+        derecho cuando los dos grupos caben en la linea.
+      -->
+      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <!-- Titulo + insignia + ayuda -->
+        <div class="flex min-w-0 shrink items-center gap-2">
+          <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
+            {{ title }}
+          </h1>
+
           <span
-            v-if="contexto?.punto"
-            class="h-1.5 w-1.5 flex-none rounded-full"
-            :class="contexto.punto"
-            aria-hidden="true"
-          ></span>
-          <span class="truncate"><slot name="contexto">{{ contexto?.texto }}</slot></span>
-        </span>
+            v-if="contexto || $slots.contexto"
+            class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border border-borde bg-tarjeta-suave px-2.5 py-1 text-cp-xs font-medium text-texto-suave"
+          >
+            <span
+              v-if="contexto?.punto"
+              class="h-1.5 w-1.5 flex-none rounded-full"
+              :class="contexto.punto"
+              aria-hidden="true"
+            ></span>
+            <span class="truncate"><slot name="contexto">{{ contexto?.texto }}</slot></span>
+          </span>
 
-        <HelpTip v-if="ayuda" :texto="ayuda" />
+          <HelpTip v-if="ayuda" :texto="ayuda" />
+        </div>
+
+        <!-- Separador vertical: solo cuando los filtros van en linea -->
+        <span
+          v-if="$slots.filters"
+          class="hidden h-6 w-px flex-none bg-borde xl:block"
+          aria-hidden="true"
+        ></span>
+
+        <!-- Filtros -->
+        <div
+          v-if="$slots.filters"
+          class="flex min-w-0 flex-wrap items-center gap-2"
+          :data-testid="filtersTestid || undefined"
+        >
+          <slot name="filters" />
+        </div>
       </div>
 
-      <!-- Separador vertical: solo cuando los filtros van en linea -->
-      <span
-        v-if="$slots.filters"
-        class="hidden h-6 w-px flex-none bg-borde xl:block"
-        aria-hidden="true"
-      ></span>
-
-      <!-- Filtros -->
-      <div
-        v-if="$slots.filters"
-        class="flex min-w-0 flex-wrap items-center gap-2 max-xl:order-3 max-xl:w-full xl:order-2"
-        :data-testid="filtersTestid || undefined"
-      >
-        <slot name="filters" />
-      </div>
-
-      <!-- Acciones -->
+      <!-- Grupo derecho: las acciones. A la izquierda si baja de linea. -->
       <div
         v-if="$slots.actions"
-        class="flex shrink-0 flex-wrap items-center justify-end gap-2 max-xl:order-2 xl:order-3"
+        class="flex shrink-0 flex-wrap items-center justify-end gap-2"
       >
         <slot name="actions" />
       </div>

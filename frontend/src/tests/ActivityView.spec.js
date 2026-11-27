@@ -123,6 +123,30 @@ describe('ActivityView', () => {
     expect(entrada.text()).toContain('En Desarrollo')
   })
 
+  it('la cabecera de dia lleva el relativo y la fecha del boceto', async () => {
+    // Una entrada de hoy y otra de ayer: dos cabeceras, "Hoy" y "Ayer"
+    // delante de la fecha (dia, mes en tres letras, ano).
+    setupFetch({
+      payload: {
+        items: [
+          { ...entradas.items[0], id: 10, created_at: haceMinutos(10) },
+          { ...entradas.items[0], id: 11, created_at: haceMinutos(24 * 60 + 10) },
+        ],
+        total: 2,
+        limit: 50,
+        offset: 0,
+      },
+    })
+
+    const { wrapper } = await mountView()
+
+    const cabeceras = wrapper.findAll('[data-testid="activity-list"] h2')
+    expect(cabeceras.map((cabecera) => cabecera.text())).toEqual([
+      'Hoy · 8 nov 2026',
+      'Ayer · 7 nov 2026',
+    ])
+  })
+
   it('el tiempo va en relativo y la fecha completa en el title', async () => {
     const { wrapper } = await mountView()
 

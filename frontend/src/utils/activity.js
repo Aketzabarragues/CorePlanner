@@ -6,7 +6,7 @@
  * pintarlo.
  */
 
-import { columnLabel, DEFAULT_TASK_STATUSES } from './kanban'
+import { DEFAULT_TASK_STATUSES } from './kanban'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -44,6 +44,28 @@ export function fullDate(fecha) {
 }
 
 /**
+ * Etiqueta legible de una clave de estado para la frase de la bitacora.
+ *
+ * El payload del movimiento solo trae la clave: la etiqueta se resuelve con
+ * los estados del proyecto que se pasan, y si la lista no la trae, la clave
+ * humanizada ("en_revision" -> "En revision"), nunca la clave cruda.
+ */
+export function estadoLegible(clave, estados = DEFAULT_TASK_STATUSES) {
+  const estado = estados.find((item) => item.key === clave)
+  if (estado) return estado.label
+  return claveHumanizada(clave)
+}
+
+/** Clave de estado en texto legible: "en_revision" -> "En revision". */
+export function claveHumanizada(clave) {
+  return String(clave ?? '')
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((palabra) => palabra.charAt(0).toUpperCase() + palabra.slice(1))
+    .join(' ')
+}
+
+/**
  * Que hizo el actor, en una frase.
  *
  * El nombre de la entidad va dentro de la frase, de modo que la lista se lee
@@ -64,7 +86,7 @@ export function actionLabel(entrada, estados = DEFAULT_TASK_STATUSES) {
     case 'task.updated':
       return ` editó la tarea «${titulo}»`
     case 'task.moved':
-      return ` movió «${titulo}» de ${columnLabel(payload.from, estados)} a ${columnLabel(payload.to, estados)}`
+      return ` movió «${titulo}» de ${estadoLegible(payload.from, estados)} a ${estadoLegible(payload.to, estados)}`
     case 'task.deleted':
       return ` eliminó la tarea «${titulo}»`
     case 'task.commented':

@@ -52,7 +52,7 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch({ payload = entradas, error = false, personas = [] } = {}) {
+function setupFetch({ payload = entradas, error = false, personas = [], taskStatuses = null } = {}) {
   const calls = []
   global.fetch = vi.fn(async (url) => {
     calls.push({ url })
@@ -66,6 +66,11 @@ function setupFetch({ payload = entradas, error = false, personas = [] } = {}) {
     if (url.includes('/activity')) {
       if (error) return jsonResponse({ detail: 'fallo' }, false, 500)
       return jsonResponse(payload)
+    }
+    if (url.includes('/task-statuses')) {
+      return taskStatuses === null
+        ? jsonResponse({ detail: 'no encontrado' }, false, 404)
+        : jsonResponse(taskStatuses)
     }
     if (url.includes('/people')) return jsonResponse(personas)
     return jsonResponse({ detail: 'no encontrado' }, false, 404)
@@ -123,6 +128,65 @@ describe('ActivityView', () => {
     expect(entrada.text()).toContain('En Desarrollo')
   })
 
+  it('el movimiento muestra la etiqueta del estado del proyecto, no la clave', async () => {
+    setupFetch({
+      payload: {
+        ...entradas,
+        items: [
+          {
+            ...entradas.items[0],
+            payload: {
+              title: 'Cableado de campo',
+              from: 'backlog',
+              to: 'en_revision',
+              changes: {},
+            },
+          },
+        ],
+        total: 1,
+      },
+      taskStatuses: {
+        '1': [
+          { key: 'backlog', label: 'Backlog', order_index: 0 },
+          { key: 'en_revision', label: 'En revisión', order_index: 1 },
+        ],
+      },
+    })
+
+    const { wrapper } = await mountView()
+
+    const entrada = wrapper.find('[data-testid="activity-entry"]')
+    expect(entrada.text()).toContain('de Backlog a En revisión')
+    expect(entrada.text()).not.toContain('en_revision')
+  })
+
+  it('sin la lista del proyecto la clave del estado sale humanizada', async () => {
+    setupFetch({
+      payload: {
+        ...entradas,
+        items: [
+          {
+            ...entradas.items[0],
+            payload: {
+              title: 'Cableado de campo',
+              from: 'en_revision',
+              to: 'a_probacion',
+              changes: {},
+            },
+          },
+        ],
+        total: 1,
+      },
+      // Sin taskStatuses el store no carga nada: cae a la clave humanizada.
+    })
+
+    const { wrapper } = await mountView()
+
+    const entrada = wrapper.find('[data-testid="activity-entry"]')
+    expect(entrada.text()).toContain('de En Revision a A Probacion')
+    expect(entrada.text()).not.toContain('a_probacion')
+  })
+
   it('la cabecera de dia lleva el relativo y la fecha del boceto', async () => {
     // Una entrada de hoy y otra de ayer: dos cabeceras, "Hoy" y "Ayer"
     // delante de la fecha (dia, mes en tres letras, ano).
@@ -140,11 +204,32 @@ describe('ActivityView', () => {
 
     const { wrapper } = await mountView()
 
-    const cabeceras = wrapper.findAll('[data-testid="activity-list"] h2')
+    const cabeceras = wrapper.findAll('[data-testid="activity-day"] h2')
     expect(cabeceras.map((cabecera) => cabecera.text())).toEqual([
       'Hoy · 8 nov 2026',
       'Ayer · 7 nov 2026',
     ])
+    // Mayusculas pequenas y tracking-wider por CSS, sin contador en la franja.
+    const cabecera = wrapper.find('[data-testid="activity-day"]')
+    expect(cabecera.find('h2').classes()).toContain('uppercase')
+    expect(cabecera.find('h2').classes()).toContain('tracking-wider')
+    expect(cabecera.find('h2').classes()).toContain('text-cp-xs')
+    expect(cabecera.text()).not.toMatch(/\d+\s+event/)
+  })
+
+  it('la cabecera lleva la pildora de eventos recientes', async () => {
+    const { wrapper } = await mountView()
+
+    const pildora = wrapper.find('[data-testid="activity-count"]')
+    expect(pildora.exists()).toBe(true)
+    expect(pildora.text()).toContain('2')
+    expect(pildora.text()).toContain('eventos recientes')
+
+    setupFetch({
+      payload: { ...entradas, items: [entradas.items[0]], total: 1 },
+    })
+    const { wrapper: wrapperUno } = await mountView()
+    expect(wrapperUno.find('[data-testid="activity-count"]').text()).toContain('evento reciente')
   })
 
   it('el tiempo va en relativo y la fecha completa en el title', async () => {
@@ -289,7 +374,7 @@ describe('ActivityView', () => {
     expect(router.currentRoute.value.query.persona).toBeUndefined()
   })
 
-  it('el boton de ver mas pide la pagina siguiente', async () => {
+  it('el boton de ver mas pide la pagina siguiente y lleva el total de restantes', async () => {
     // La primera pagina trae las 50 entradas del limite: hay mas de las que
     // se ven, asi que el boton aparece.
     const muchas = Array.from({ length: 50 }, (_, index) => ({
@@ -299,11 +384,20 @@ describe('ActivityView', () => {
     const calls = setupFetch({ payload: { ...entradas, items: muchas, total: 120 } })
 
     const { wrapper } = await mountView()
-    await wrapper.find('[data-testid="activity-more"]').trigger('click')
+
+    const boton = wrapper.find('[data-testid="activity-more"]')
+    expect(boton.text()).toBe('Ver más actividad (70 restantes)')
+    await boton.trigger('click')
     await flushPromises()
 
     const llamadas = calls.filter((call) => call.url.includes('/activity'))
     expect(llamadas).toHaveLength(2)
     expect(llamadas[1].url).toContain('offset=50')
+  })
+
+  it('sin paginacion no hay boton de ver mas', async () => {
+    const { wrapper } = await mountView()
+
+    expect(wrapper.find('[data-testid="activity-more"]').exists()).toBe(false)
   })
 })

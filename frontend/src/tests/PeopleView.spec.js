@@ -150,6 +150,33 @@ describe('PeopleView', () => {
     expect(wrapper.text()).not.toContain('Días no laborables')
   })
 
+  it('las pestanas viven en la cabecera, tras el titulo', async () => {
+    const wrapper = await mountView()
+
+    const cabecera = wrapper.find('[data-testid="vista-cabecera"]')
+    expect(cabecera.find('[data-testid="tab-directory"]').exists()).toBe(true)
+    expect(cabecera.find('[data-testid="tab-skills"]').exists()).toBe(true)
+    // El grupo segmentado conserva la semantica ARIA de antes.
+    expect(cabecera.find('[role="group"]').exists()).toBe(true)
+    expect(cabecera.find('[data-testid="tab-directory"]').attributes('aria-pressed')).toBe('true')
+    expect(cabecera.find('[data-testid="tab-skills"]').attributes('aria-pressed')).toBe('false')
+  })
+
+  it('las pestanas de la cabecera siguen cambiando de vista', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="person-row"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="person-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="skill-row"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="tab-directory"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="person-row"]').exists()).toBe(true)
+  })
+
   it('lista el directorio con el horario vigente y la capacidad', async () => {
     const wrapper = await mountView()
 
@@ -387,19 +414,14 @@ describe('PeopleView', () => {
     expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
   })
 
-  it('el directorio gana la columna de habilidades con el nivel en texto', async () => {
+  it('el directorio no lleva la columna de habilidades, que vive en Competencias', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Habilidades')
-    // Ana lleva TIA Portal a nivel 3.
-    const pastilla = wrapper.findAll('[data-testid="person-skill"]')[0]
-    expect(pastilla.text()).toContain('3')
-    expect(pastilla.text()).toContain('Experto')
-    // Sebastian no tiene competencias: guion, no pastilla.
-    const filaSinSkills = wrapper.findAll('[data-testid="person-row"]')[1]
-    const celda = filaSinSkills.find('[data-testid="person-skills"]')
-    expect(celda.text()).toBe('—')
-    expect(celda.find('[data-testid="person-skill"]').exists()).toBe(false)
+    // La columna de habilidades se quito del directorio: la informacion vive
+    // en la pestana de Competencias (SkillsMatrix), no en la tabla.
+    expect(wrapper.text()).not.toContain('Habilidades')
+    expect(wrapper.find('[data-testid="person-skills"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="person-skill"]')).toHaveLength(0)
   })
 
   it('la fila lleva el punto del departamento con su color en linea', async () => {
@@ -419,6 +441,70 @@ describe('PeopleView', () => {
     expect(celda.text()).toBe('Objetivo')
     expect(celda.find('span').classes()).toContain('rounded-control')
     expect(celda.find('span').classes()).toContain('bg-neutro-fondo')
+  })
+
+  it('el contrato Techo lleva el tono azul, no el neutro', async () => {
+    setupFetch({
+      people: [{ ...people[0], employment_type: 'techo', employment_type_label: 'Techo' }],
+    })
+
+    const wrapper = await mountView()
+
+    const celda = wrapper.findAll('[data-testid="person-row"]')[0].findAll('td')[3]
+    const pildora = celda.find('span')
+    expect(pildora.text()).toBe('Techo')
+    expect(pildora.classes()).toContain('bg-info-fondo')
+    expect(pildora.classes()).toContain('text-info-texto')
+  })
+
+  it('el estado de la fila es una pildora de tono, sin partirse', async () => {
+    setupFetch({
+      people: [
+        // Sin horario: ambar.
+        { ...people[0], id: 1, schedule: null, capacity: null, hours: null, is_overloaded: null },
+        // Sin capacidad resuelta: neutra.
+        { ...people[1], id: 2, capacity: null, hours: null, is_overloaded: null },
+        // Sobrecargada: roja.
+        { ...people[0], id: 3, name: 'Sara', is_overloaded: true, hours: 48, capacity: 40 },
+        // Sin horas imputadas: verde Disponible.
+        { ...people[0], id: 4, name: 'Pau', is_overloaded: false, hours: null, capacity: 40 },
+        // Con horas dentro de la capacidad: gris-azul Con margen.
+        { ...people[0], id: 5, name: 'Lena', is_overloaded: false, hours: 20, capacity: 40 },
+      ],
+    })
+
+    const wrapper = await mountView()
+    const filas = wrapper.findAll('[data-testid="person-row"]')
+
+    const pildoras = filas.map((fila) => fila.findAll('td')[8].find('span'))
+    expect(pildoras.map((p) => p.text())).toEqual([
+      'Sin horario',
+      'Sin capacidad',
+      'Sobrecargada',
+      'Disponible',
+      'Con margen',
+    ])
+    expect(pildoras[0].classes()).toContain('bg-aviso-fondo')
+    expect(pildoras[2].classes()).toContain('bg-peligro-fondo')
+    expect(pildoras[3].classes()).toContain('bg-ok-fondo')
+    expect(pildoras[4].classes()).toContain('bg-neutro-fondo')
+    // La pildora no parte en dos lineas.
+    for (const pildora of pildoras) {
+      expect(pildora.classes()).toContain('whitespace-nowrap')
+    }
+  })
+
+  it('el boton Perfil abre la ficha de la persona', async () => {
+    const wrapper = await mountView()
+
+    const boton = wrapper.find('[data-testid="open-profile-1"]')
+    expect(boton.text()).toBe('Perfil')
+    expect(boton.classes()).toContain('border')
+
+    await boton.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="person-drawer"]').exists()).toBe(true)
   })
 
   it('la ficha permite corregir una version de horario', async () => {

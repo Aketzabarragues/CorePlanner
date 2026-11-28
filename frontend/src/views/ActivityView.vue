@@ -87,6 +87,9 @@ const tipoFilter = computed(() => route.query.tipo ?? '')
 /** Quedan entradas por pedir. */
 const quedan = computed(() => entries.value.length < total.value)
 
+/** Entradas por pedir: total menos las que ya hay cargadas. */
+const restantes = computed(() => Math.max(0, total.value - entries.value.length))
+
 /**
  * Entradas agrupadas por dia local, de lo mas reciente a lo mas antiguo.
  *
@@ -290,6 +293,16 @@ watch(
           @update:model-value="cambiarFiltro({ tipo: $event })"
         />
       </template>
+
+      <template #actions>
+        <span
+          class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-control border border-borde bg-tarjeta-suave px-3 py-1.5 text-cp-sm font-medium text-texto-suave"
+          data-testid="activity-count"
+        >
+          <strong class="font-mono text-texto-marca">{{ total }}</strong>
+          {{ total === 1 ? 'evento reciente' : 'eventos recientes' }}
+        </span>
+      </template>
     </PageHeader>
 
     <AsyncState
@@ -307,18 +320,18 @@ watch(
         Todavía no hay nada registrado.
       </p>
 
+      <!-- Contenido centrado con ancho maximo, como el boceto. -->
+      <div v-else class="mx-auto max-w-4xl">
       <div
-        v-else
         class="divide-y divide-borde rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta"
         data-testid="activity-list"
       >
         <template v-for="dia in dias" :key="dia.clave">
-          <!-- cabecera de dia -->
-          <div class="flex items-center gap-3 border-b border-borde bg-tarjeta-suave px-4 py-2.5">
-            <h2 class="font-titulo text-cp-sm font-bold text-texto-marca">{{ dia.etiqueta }}</h2>
-            <span class="text-cp-xs text-texto-tenue">
-              {{ dia.items.length }} {{ dia.items.length === 1 ? 'evento' : 'eventos' }}
-            </span>
+          <!-- cabecera de dia: la fecha en mayusculas pequenas, sin contador -->
+          <div class="border-b border-borde bg-tarjeta-suave px-4 py-2" data-testid="activity-day">
+            <h2 class="text-cp-xs font-bold uppercase tracking-wider text-texto-suave">
+              {{ dia.etiqueta }}
+            </h2>
           </div>
 
           <ul class="divide-y divide-borde-suave">
@@ -383,8 +396,9 @@ watch(
           data-testid="activity-more"
           @click="pedirMas"
         >
-          Ver más
+          Ver más actividad ({{ restantes }} restantes)
         </button>
+      </div>
       </div>
     </AsyncState>
   </div>

@@ -16,15 +16,17 @@ import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import FilterField from '../components/common/FilterField.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import SegmentedControl from '../components/common/SegmentedControl.vue'
 import PeopleDirectory from '../components/people/PeopleDirectory.vue'
 import PersonDialog from '../components/people/PersonDialog.vue'
 import SkillsMatrix from '../components/people/SkillsMatrix.vue'
 import { useAuthStore } from '../stores/auth'
 import { currentWeekKey, shiftWeek, weekLabel } from '../utils/weeks'
 
-const TABS = [
-  { name: 'directory', label: 'Directorio' },
-  { name: 'skills', label: 'Competencias' },
+/** Pestañas de la cabecera: el grupo segmentado las pinta tras el titulo. */
+const OPCIONES_TABS = [
+  { value: 'directory', label: 'Directorio' },
+  { value: 'skills', label: 'Competencias' },
 ]
 
 const auth = useAuthStore()
@@ -51,7 +53,7 @@ function sinAcentos(texto) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-const currentTab = computed(() => TABS.find((item) => item.name === tab.value) ?? TABS[0])
+const currentTab = computed(() => OPCIONES_TABS.find((item) => item.value === tab.value) ?? OPCIONES_TABS[0])
 const selected = computed(() => people.value.find((item) => item.id === selectedId.value) ?? null)
 
 /** Opciones del filtro de departamento: todo, mas cada departamento cargado. */
@@ -134,6 +136,14 @@ onMounted(load)
       ayuda="Perfiles, horarios vigentes y competencias técnicas del equipo para la semana seleccionada."
     >
       <template #filters>
+        <SegmentedControl
+          :options="OPCIONES_TABS"
+          :model-value="tab"
+          label="Secciones de personas"
+          testid-prefix="tab"
+          @update:model-value="tab = $event"
+        />
+
         <!-- Buscador: con la lupa a la izquierda, como el de Proyectos. -->
         <label class="inline-flex min-w-0 items-center gap-1.5">
           <span class="sr-only">Buscar</span>
@@ -200,30 +210,8 @@ onMounted(load)
       loading-label="Cargando las personas"
       @retry="reintentar"
     >
-      <nav
-        class="mb-4 inline-flex items-center gap-0.5 rounded-control bg-tarjeta-suave p-1"
-        aria-label="Secciones de personas"
-      >
-        <button
-          v-for="item in TABS"
-          :key="item.name"
-          type="button"
-          class="min-h-9 rounded-control px-3 py-1.5 text-cp-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-          :class="
-            tab === item.name
-              ? 'bg-tarjeta text-texto-marca font-semibold shadow-control'
-              : 'text-texto-suave hover:bg-tarjeta/70 hover:text-texto'
-          "
-          :aria-pressed="tab === item.name"
-          :data-testid="`tab-${item.name}`"
-          @click="tab = item.name"
-        >
-          {{ item.label }}
-        </button>
-      </nav>
-
       <PeopleDirectory
-        v-if="currentTab.name === 'directory'"
+        v-if="currentTab.value === 'directory'"
         :people="personasVisibles"
         :week="week"
         :departments="departments"

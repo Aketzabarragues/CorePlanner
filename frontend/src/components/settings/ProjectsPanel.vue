@@ -4,10 +4,14 @@
  *
  * Cada proyecto tiene el departamento que lo gestiona y una persona
  * responsable, que no tienen por que coincidir.
+ *
+ * La accion primaria ("Nuevo proyecto") no vive en el panel: la expone a la
+ * vista, que la pinta en la cabecera compartida.
  */
 import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
+import { useConfigAccion } from '../../composables/useConfigAccion'
 import { useAuthStore } from '../../stores/auth'
 import { PROJECT_STATUSES, projectStatus } from '../../utils/navigation'
 import { PALETTE } from '../../utils/palette'
@@ -121,67 +125,56 @@ async function save() {
     saving.value = false
   }
 }
+
+/** La accion primaria de la pestana: la pinta la vista en la cabecera. */
+useConfigAccion({ etiqueta: '+ Nuevo proyecto', onClick: openCreate })
 </script>
 
 <template>
   <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
-    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
-      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Proyectos</h2>
-      <button
-        type="button"
-        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-        data-testid="new-project"
-        @click="openCreate"
-      >
-        Nuevo proyecto
-      </button>
-    </header>
-
-    <div class="p-4">
-      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
-        <table class="w-full text-cp-sm" data-testid="projects-table">
-          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
-            <tr>
-              <th class="px-3 py-2.5 font-semibold">Proyecto</th>
-              <th class="px-3 py-2.5 font-semibold">Departamento</th>
-              <th class="px-3 py-2.5 font-semibold">Responsable</th>
-              <th class="px-3 py-2.5 font-semibold">Estado</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-borde-suave">
-            <tr v-for="project in props.projects" :key="project.id">
-              <td class="px-3 py-2 font-medium text-texto">
-                <span
-                  class="mr-2 inline-block h-3 w-3 rounded-full align-middle bg-borde-fuerte"
-                  :style="project.color ? { backgroundColor: project.color } : undefined"
-                  :data-testid="`project-color-${project.id}`"
-                ></span>
-                {{ project.name }}
-                <span
-                  v-if="project.is_provisional"
-                  class="ml-1 text-cp-micro font-medium text-texto-tenue"
-                  data-testid="project-provisional-label"
-                >
-                  Provisional
-                </span>
-              </td>
-              <td class="px-3 py-2 text-texto-suave">{{ departmentName(project.department_id) }}</td>
-              <td class="px-3 py-2 text-texto-suave">{{ personName(project.owner_id) }}</td>
-              <td class="px-3 py-2 text-texto-suave">{{ projectStatus(project.status).label }}</td>
-              <td class="px-3 py-2 text-right">
-                <button
-                  type="button"
-                  class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-                  @click="edit(project)"
-                >
-                  Editar
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-cp-sm" data-testid="projects-table">
+        <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+          <tr>
+            <th class="px-3 py-2.5 font-semibold">Proyecto</th>
+            <th class="px-3 py-2.5 font-semibold">Departamento</th>
+            <th class="px-3 py-2.5 font-semibold">Responsable</th>
+            <th class="px-3 py-2.5 font-semibold">Estado</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-borde-suave">
+          <tr v-for="project in props.projects" :key="project.id">
+            <td class="px-3 py-2 font-medium text-texto">
+              <span
+                class="mr-2 inline-block h-3 w-3 rounded-full align-middle bg-borde-fuerte"
+                :style="project.color ? { backgroundColor: project.color } : undefined"
+                :data-testid="`project-color-${project.id}`"
+              ></span>
+              {{ project.name }}
+              <span
+                v-if="project.is_provisional"
+                class="ml-1 text-cp-micro font-medium text-texto-tenue"
+                data-testid="project-provisional-label"
+              >
+                Provisional
+              </span>
+            </td>
+            <td class="px-3 py-2 text-texto-suave">{{ departmentName(project.department_id) }}</td>
+            <td class="px-3 py-2 text-texto-suave">{{ personName(project.owner_id) }}</td>
+            <td class="px-3 py-2 text-texto-suave">{{ projectStatus(project.status).label }}</td>
+            <td class="px-3 py-2 text-right">
+              <button
+                type="button"
+                class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                @click="edit(project)"
+              >
+                Editar
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <ModalDialog

@@ -45,7 +45,7 @@ const TABS = [
   { name: 'members', label: 'Miembros' },
   { name: 'roles', label: 'Roles' },
   { name: 'skills', label: 'Competencias' },
-  { name: 'policies', label: 'Politica de capacidad' },
+  { name: 'policies', label: 'Política de capacidad' },
 ]
 
 /** El calendario laboral se lee desde cualquier rol; el resto es del gerente. */
@@ -77,11 +77,10 @@ const currentTab = computed(
 )
 
 /**
- * Accion primaria de la pestana activa ("+ Nueva persona").
+ * Accion primaria de la pestana activa ("+ Nueva persona", ...).
  *
  * El panel montado la registra al montar y la retira al desmontar; sin
- * accion no pinta nada. Las demas pestanas anadiran su boton aqui cuando
- * lo definan (hoy llevan su boton dentro del panel).
+ * accion no pinta nada.
  */
 const accionPestana = ref(null)
 provide(CONFIG_ACCION_KEY, accionPestana)

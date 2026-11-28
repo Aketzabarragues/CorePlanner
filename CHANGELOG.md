@@ -5,6 +5,21 @@ Versionado segun [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Changed
+
+- **frontend**: rediseno de todas las vistas segun el boceto `docs/diseno_nuevo.html`.
+  Un unico `PersonAvatar` sustituye a ocho avatares escritos a mano; Gantt (barras
+  pastel, filas 40/36 px, barra de herramientas), Capacidad, Calendario, Personas,
+  Actividad, Departamentos (rejilla), Proyectos (tabla por departamento), Mi trabajo y
+  Configuracion (accion primaria en la cabecera con `useConfigAccion`) toman su aspecto.
+  El directorio de Personas pierde la columna Habilidades, que vive en Competencias.
+
+### Fixed
+
+- **frontend**: el proximo festivo de Mi trabajo salia como `2027-01-04 · -8 h h`; ahora
+  `04 ene · -8 h`. La bitacora mostraba la clave cruda del estado (`en_revision`) en
+  vez de su etiqueta.
+
 ### Added
 
 - **frontend**: la bitacora tiene filtros de persona, de proyecto y de tipo de evento, y

@@ -268,7 +268,7 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="tab-calendar"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="new-skill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="header-action"]').exists()).toBe(false)
   })
 
   it('al elegir un dia se ve su detalle con el impacto en la capacidad', async () => {
@@ -535,10 +535,23 @@ describe('SettingsView', () => {
 
     await wrapper.find('[data-testid="tab-departments"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-testid="new-department"]').trigger('click')
+    await wrapper.get('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="color-picker"]').exists()).toBe(false)
+  })
+
+  it('la accion de la cabecera abre el alta de departamento sin boton duplicado en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-departments"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="header-action"]').text()).toBe('+ Nuevo departamento')
+    expect(
+      wrapper.findAll('button').filter((b) => b.text().trim() === 'Nuevo departamento').length,
+    ).toBe(0)
+    expect(wrapper.findAll('h2').map((h) => h.text())).not.toContain('Departamentos')
   })
 
   it('el proyecto tambien ofrece la paleta al editarlo', async () => {
@@ -573,7 +586,7 @@ describe('SettingsView', () => {
 
     await wrapper.find('[data-testid="tab-projects"]').trigger('click')
     await flushPromises()
-    await wrapper.find('[data-testid="new-project"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     await wrapper.find('#form-proyecto input').setValue('Linea nueva')
@@ -589,6 +602,19 @@ describe('SettingsView', () => {
       name: 'Linea nueva',
       is_provisional: true,
     })
+  })
+
+  it('la accion de la cabecera abre el alta de proyecto sin boton duplicado en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-projects"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="header-action"]').text()).toBe('+ Nuevo proyecto')
+    expect(
+      wrapper.findAll('button').filter((b) => b.text().trim() === 'Nuevo proyecto').length,
+    ).toBe(0)
+    expect(wrapper.findAll('h2').map((h) => h.text())).not.toContain('Proyectos')
   })
 
   it('la edicion de proyecto guarda el interruptor provisional', async () => {
@@ -619,7 +645,7 @@ describe('SettingsView', () => {
 
     await wrapper.find('[data-testid="tab-members"]').trigger('click')
     await flushPromises()
-    await wrapper.find('[data-testid="new-member"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     const selects = wrapper.findAll('#form-miembro select')
@@ -637,6 +663,19 @@ describe('SettingsView', () => {
     expect(useToastStore().items.map((item) => item.message)).toContain(
       'Persona añadida al proyecto.',
     )
+  })
+
+  it('la accion de la cabecera abre el alta de miembro sin boton duplicado en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-members"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="header-action"]').text()).toBe('+ Añadir persona')
+    expect(
+      wrapper.findAll('button').filter((b) => b.text().trim() === 'Añadir persona').length,
+    ).toBe(0)
+    expect(wrapper.findAll('h2').map((h) => h.text())).not.toContain('Miembros por proyecto')
   })
 
   it('el catalogo de roles explica el alcance de cada rol', async () => {
@@ -726,7 +765,7 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="tab-skills"]').trigger('click')
     await flushPromises()
 
-    await wrapper.find('[data-testid="new-skill"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     await wrapper.find('[data-testid="new-skill-name"]').setValue('Robotica')
@@ -741,6 +780,19 @@ describe('SettingsView', () => {
     expect(useToastStore().items.map((item) => item.message)).toContain(
       'Competencia añadida al catálogo.',
     )
+  })
+
+  it('la accion de la cabecera abre el alta de competencia sin boton duplicado en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-skills"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="header-action"]').text()).toBe('+ Nueva competencia')
+    expect(
+      wrapper.findAll('button').filter((b) => b.text().trim() === 'Nueva competencia').length,
+    ).toBe(0)
+    expect(wrapper.findAll('h2').map((h) => h.text())).not.toContain('Competencias')
   })
 
   it('renombra una competencia del catalogo', async () => {
@@ -856,7 +908,7 @@ describe('SettingsView', () => {
     setupFetch({ manager: false })
     const tecnico = await mountView()
     expect(tecnico.find('[data-testid="tab-policies"]').exists()).toBe(false)
-    expect(tecnico.text()).not.toContain('Politica de capacidad')
+    expect(tecnico.text()).not.toContain('Política de capacidad')
   })
 
   it('la lista de politicas muestra el ambito, a quien aplica y los umbrales', async () => {
@@ -882,7 +934,7 @@ describe('SettingsView', () => {
 
     await wrapper.find('[data-testid="tab-policies"]').trigger('click')
     await flushPromises()
-    await wrapper.find('[data-testid="new-capacity-policy"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     await wrapper.find('[data-testid="policy-scope-type"]').setValue('departamento')
@@ -905,6 +957,19 @@ describe('SettingsView', () => {
     })
   })
 
+  it('la accion de la cabecera abre el alta de politica sin boton duplicado en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="tab-policies"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="header-action"]').text()).toBe('+ Nueva política')
+    expect(
+      wrapper.findAll('button').filter((b) => b.text().trim() === 'Nueva política').length,
+    ).toBe(0)
+    expect(wrapper.findAll('h2').map((h) => h.text())).not.toContain('Politicas de capacidad')
+  })
+
   it('el 422 de la alta se muestra en el banner del formulario', async () => {
     const base = global.fetch
     global.fetch = vi.fn(async (url, options = {}) => {
@@ -922,7 +987,7 @@ describe('SettingsView', () => {
 
     await wrapper.find('[data-testid="tab-policies"]').trigger('click')
     await flushPromises()
-    await wrapper.find('[data-testid="new-capacity-policy"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     await wrapper.find('[data-testid="policy-scope"]').setValue('2')

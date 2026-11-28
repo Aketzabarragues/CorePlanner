@@ -4,10 +4,14 @@
  *
  * Es la lista de habilidades que se pueden asignar a la gente. Se anade, se
  * renombra y se quita mientras nadie la tenga asignada.
+ *
+ * La accion primaria ("Nueva competencia") no vive en el panel: la expone a
+ * la vista, que la pinta en la cabecera compartida.
  */
 import { ref } from 'vue'
 
 import { skillsApi } from '../../api/client'
+import { useConfigAccion } from '../../composables/useConfigAccion'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toast'
 import ModalDialog from '../ModalDialog.vue'
@@ -84,110 +88,99 @@ async function removeSkill(skill) {
     error.value = err.message
   }
 }
+
+/** La accion primaria de la pestana: la pinta la vista en la cabecera. */
+useConfigAccion({ etiqueta: '+ Nueva competencia', onClick: openCreate })
 </script>
 
 <template>
   <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
-    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
-      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Competencias</h2>
-      <button
-        type="button"
-        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-        data-testid="new-skill"
-        @click="openCreate"
-      >
-        Nueva competencia
-      </button>
-    </header>
+    <AlertBanner v-if="error" variant="error" class="p-4" data-testid="skill-catalog-error">
+      {{ error }}
+    </AlertBanner>
 
-    <div class="p-4">
-      <AlertBanner v-if="error" variant="error" class="mb-3" data-testid="skill-catalog-error">
-        {{ error }}
-      </AlertBanner>
-
-      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
-        <table class="w-full text-cp-sm">
-          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
-            <tr>
-              <th class="px-3 py-2.5 font-semibold">Competencia</th>
-              <th class="px-3 py-2.5 font-semibold">Personas</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-borde-suave">
-            <tr
-              v-for="skill in skills"
-              :key="skill.id"
-              data-testid="skill-catalog-row"
-            >
-              <td class="px-3 py-2">
+    <div class="overflow-x-auto">
+      <table class="w-full text-cp-sm">
+        <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+          <tr>
+            <th class="px-3 py-2.5 font-semibold">Competencia</th>
+            <th class="px-3 py-2.5 font-semibold">Personas</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-borde-suave">
+          <tr
+            v-for="skill in skills"
+            :key="skill.id"
+            data-testid="skill-catalog-row"
+          >
+            <td class="px-3 py-2">
+              <template v-if="editingId === skill.id">
+                <input
+                  v-model="editingName"
+                  type="text"
+                  maxlength="100"
+                  class="w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                  data-testid="rename-skill-input"
+                  @keyup.enter="saveRename"
+                  @keyup.esc="editingId = null"
+                />
+              </template>
+              <template v-else>
+                <span class="font-medium text-texto">{{ skill.name }}</span>
+              </template>
+            </td>
+            <td class="px-3 py-2 text-texto-suave">
+              {{ skill.person_count }} persona{{ skill.person_count === 1 ? '' : 's' }}
+            </td>
+            <td class="px-3 py-2 text-right">
+              <span class="flex justify-end gap-3">
                 <template v-if="editingId === skill.id">
-                  <input
-                    v-model="editingName"
-                    type="text"
-                    maxlength="100"
-                    class="w-full rounded-control border border-borde-fuerte bg-tarjeta-suave px-3 py-1.5 text-cp-sm text-texto transition-colors hover:bg-tarjeta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-                    data-testid="rename-skill-input"
-                    @keyup.enter="saveRename"
-                    @keyup.esc="editingId = null"
-                  />
+                  <button
+                    type="button"
+                    class="text-cp-sm font-medium text-primario-medio hover:underline"
+                    data-testid="save-skill-name"
+                    @click="saveRename"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    class="text-cp-sm text-texto-tenue hover:underline"
+                    data-testid="cancel-skill-name"
+                    @click="editingId = null"
+                  >
+                    Cancelar
+                  </button>
                 </template>
                 <template v-else>
-                  <span class="font-medium text-texto">{{ skill.name }}</span>
+                  <button
+                    type="button"
+                    class="text-cp-sm font-medium text-primario-medio hover:underline"
+                    :data-testid="`rename-skill-${skill.id}`"
+                    @click="startRename(skill)"
+                  >
+                    Renombrar
+                  </button>
+                  <button
+                    type="button"
+                    class="text-cp-sm font-medium text-peligro-texto hover:underline"
+                    :data-testid="`remove-skill-${skill.id}`"
+                    @click="removeSkill(skill)"
+                  >
+                    Quitar
+                  </button>
                 </template>
-              </td>
-              <td class="px-3 py-2 text-texto-suave">
-                {{ skill.person_count }} persona{{ skill.person_count === 1 ? '' : 's' }}
-              </td>
-              <td class="px-3 py-2 text-right">
-                <span class="flex justify-end gap-3">
-                  <template v-if="editingId === skill.id">
-                    <button
-                      type="button"
-                      class="text-cp-sm font-medium text-primario-medio hover:underline"
-                      data-testid="save-skill-name"
-                      @click="saveRename"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      type="button"
-                      class="text-cp-sm text-texto-tenue hover:underline"
-                      data-testid="cancel-skill-name"
-                      @click="editingId = null"
-                    >
-                      Cancelar
-                    </button>
-                  </template>
-                  <template v-else>
-                    <button
-                      type="button"
-                      class="text-cp-sm font-medium text-primario-medio hover:underline"
-                      :data-testid="`rename-skill-${skill.id}`"
-                      @click="startRename(skill)"
-                    >
-                      Renombrar
-                    </button>
-                    <button
-                      type="button"
-                      class="text-cp-sm font-medium text-peligro-texto hover:underline"
-                      :data-testid="`remove-skill-${skill.id}`"
-                      @click="removeSkill(skill)"
-                    >
-                      Quitar
-                    </button>
-                  </template>
-                </span>
-              </td>
-            </tr>
-            <tr v-if="!skills.length">
-              <td colspan="3" class="px-3 py-4 text-cp-sm text-texto-tenue">
-                Todavía no hay competencias en el catálogo.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </span>
+            </td>
+          </tr>
+          <tr v-if="!skills.length">
+            <td colspan="3" class="px-3 py-4 text-cp-sm text-texto-tenue">
+              Todavía no hay competencias en el catálogo.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <ModalDialog :open="formOpen" title="Nueva competencia" size="sm" @close="closeForm">

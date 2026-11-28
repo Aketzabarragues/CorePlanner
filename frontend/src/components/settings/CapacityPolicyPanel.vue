@@ -6,10 +6,14 @@
  * persona: a partir del umbral de aviso la celda sale en aviso, y a partir
  * del de aprobacion, en aprobacion. El ambito es una persona o un
  * departamento, nunca un proyecto.
+ *
+ * La accion primaria ("Nueva politica") no vive en el panel: la expone a la
+ * vista, que la pinta en la cabecera compartida.
  */
 import { computed, ref } from 'vue'
 
 import { capacityPoliciesApi } from '../../api/client'
+import { useConfigAccion } from '../../composables/useConfigAccion'
 import { useAuthStore } from '../../stores/auth'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
@@ -109,81 +113,73 @@ async function save() {
     saving.value = false
   }
 }
+
+/** La accion primaria de la pestana: la pinta la vista en la cabecera. */
+useConfigAccion({ etiqueta: '+ Nueva política', onClick: openCreate })
 </script>
 
 <template>
   <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
-    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
-      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Politicas de capacidad</h2>
-      <button
-        type="button"
-        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-        data-testid="new-capacity-policy"
-        @click="openCreate"
-      >
-        Nueva politica
-      </button>
-    </header>
+    <table class="w-full text-cp-sm" data-testid="capacity-policies-table">
+      <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+        <tr>
+          <th class="px-3 py-2.5 font-semibold">Ambito</th>
+          <th class="px-3 py-2.5 font-semibold">Aplica a</th>
+          <th class="px-3 py-2.5 font-semibold">Aviso</th>
+          <th class="px-3 py-2.5 font-semibold">Aprobacion</th>
+          <th class="px-3 py-2.5 font-semibold">Activa</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-borde-suave">
+        <tr
+          v-for="policy in props.policies"
+          :key="policy.id"
+          :data-testid="`policy-row-${policy.id}`"
+        >
+          <td class="px-3 py-2 font-medium text-primario-fuerte">
+            {{ policy.scope_type === 'persona' ? 'Persona' : 'Departamento' }}
+          </td>
+          <td class="px-3 py-2 text-texto-suave">{{ scopeName(policy) }}</td>
+          <td class="px-3 py-2 text-texto-suave">{{ policy.warn_percent }} %</td>
+          <td class="px-3 py-2 text-texto-suave">{{ policy.requires_approval_percent }} %</td>
+          <td class="px-3 py-2">
+            <span
+              :data-testid="`policy-active-${policy.id}`"
+              class="inline-block rounded-pastilla px-2 py-0.5 text-cp-xs font-medium"
+              :class="
+                policy.active
+                  ? 'border border-ok-borde bg-ok-fondo text-ok-texto'
+                  : 'border border-borde-fuerte bg-tarjeta-suave text-texto-tenue'
+              "
+            >
+              {{ policy.active ? 'Activa' : 'Inactiva' }}
+            </span>
+          </td>
+          <td class="px-3 py-2 text-right">
+            <button
+              type="button"
+              class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+              :data-testid="`edit-policy-${policy.id}`"
+              @click="edit(policy)"
+            >
+              Editar
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-    <div class="p-4">
-      <table class="w-full text-cp-sm" data-testid="capacity-policies-table">
-        <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
-          <tr>
-            <th class="px-3 py-2.5 font-semibold">Ambito</th>
-            <th class="px-3 py-2.5 font-semibold">Aplica a</th>
-            <th class="px-3 py-2.5 font-semibold">Aviso</th>
-            <th class="px-3 py-2.5 font-semibold">Aprobacion</th>
-            <th class="px-3 py-2.5 font-semibold">Activa</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-borde-suave">
-          <tr
-            v-for="policy in props.policies"
-            :key="policy.id"
-            :data-testid="`policy-row-${policy.id}`"
-          >
-            <td class="px-3 py-2 font-medium text-primario-fuerte">
-              {{ policy.scope_type === 'persona' ? 'Persona' : 'Departamento' }}
-            </td>
-            <td class="px-3 py-2 text-texto-suave">{{ scopeName(policy) }}</td>
-            <td class="px-3 py-2 text-texto-suave">{{ policy.warn_percent }} %</td>
-            <td class="px-3 py-2 text-texto-suave">{{ policy.requires_approval_percent }} %</td>
-            <td class="px-3 py-2">
-              <span
-                :data-testid="`policy-active-${policy.id}`"
-                class="inline-block rounded-pastilla px-2 py-0.5 text-cp-xs font-medium"
-                :class="
-                  policy.active
-                    ? 'border border-ok-borde bg-ok-fondo text-ok-texto'
-                    : 'border border-borde-fuerte bg-tarjeta-suave text-texto-tenue'
-                "
-              >
-                {{ policy.active ? 'Activa' : 'Inactiva' }}
-              </span>
-            </td>
-            <td class="px-3 py-2 text-right">
-              <button
-                type="button"
-                class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-                :data-testid="`edit-policy-${policy.id}`"
-                @click="edit(policy)"
-              >
-                Editar
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <p v-if="props.policies.length === 0" class="text-cp-sm text-texto-tenue">
-        Sin politicas de capacidad: las celdas no llevan veredicto.
-      </p>
-    </div>
+    <p
+      v-if="props.policies.length === 0"
+      class="px-3 py-4 text-center text-cp-sm text-texto-tenue"
+    >
+      Sin politicas de capacidad: las celdas no llevan veredicto.
+    </p>
 
     <ModalDialog
       :open="formOpen"
-      :title="editing ? 'Modificar politica' : 'Nueva politica'"
+      :title="editing ? 'Modificar política' : 'Nueva política'"
       @close="closeForm"
     >
       <form id="form-politica-capacidad" @submit.prevent="save">

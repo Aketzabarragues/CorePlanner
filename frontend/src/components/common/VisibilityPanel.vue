@@ -24,6 +24,8 @@ const props = defineProps({
   departamentosOcultos: { type: Array, required: true },
   /** Cuantas personas hay escondidas. */
   ocultosCount: { type: Number, default: 0 },
+  /** Etiqueta del boton; sin ella, el texto se esconde hasta 2xl como antes. */
+  etiqueta: { type: String, default: '' },
 })
 
 const emit = defineEmits(['alternar-persona', 'alternar-departamento', 'mostrar-todos'])
@@ -73,18 +75,26 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
     <button
       type="button"
       class="relative inline-flex items-center justify-center rounded-control border bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco 2xl:w-auto 2xl:gap-2 2xl:px-3"
-      :class="
+      :class="[
         ocultosCount
           ? 'border-primario-fuerte text-primario-fuerte'
-          : 'border-borde-fuerte'
-      "
+          : 'border-borde-fuerte',
+        etiqueta ? 'gap-2 px-3' : '',
+      ]"
       :aria-expanded="abierto"
       :aria-pressed="ocultosCount > 0"
       data-testid="toggle-visibility"
       @click="abierto = !abierto"
     >
-      <span class="inline-flex h-4 w-4 2xl:hidden"><AppIcon name="users" /></span>
-      <span class="hidden text-cp-sm font-medium 2xl:inline">Mostrar/ocultar</span>
+      <span class="inline-flex h-4 w-4" :class="etiqueta ? '' : '2xl:hidden'">
+        <AppIcon name="users" />
+      </span>
+      <span
+        class="text-cp-sm font-medium"
+        :class="etiqueta ? '' : 'hidden 2xl:inline'"
+      >
+        {{ etiqueta || 'Mostrar/ocultar' }}
+      </span>
       <span
         v-if="ocultosCount"
         class="rounded-pastilla bg-primario-fuerte px-1.5 text-[10px] font-semibold text-texto-inverso"

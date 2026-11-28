@@ -81,20 +81,18 @@ onMounted(() => {
 
 <template>
   <Teleport :to="destino" :disabled="!props.enBarra || !destino">
+    <!--
+      Sin fila 2: una sola fila. Grupo izquierdo (titulo, insignia, ayuda,
+      separador y filtros) y grupo derecho (acciones), con `justify-between`
+      en la raiz: las acciones van al extremo derecho cuando caben y a la
+      izquierda si bajan de linea. El grupo izquierdo no lleva `flex-1`: si se
+      estirara, las acciones nunca bajarian de linea.
+    -->
     <div
+      v-if="!$slots.fila2"
       class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-2"
       :data-testid="'vista-cabecera'"
     >
-      <!--
-        Grupo izquierdo: titulo, insignia, ayuda, separador y filtros. Es un
-        solo elemento flex con `flex-wrap`: cuando no cabe, los filtros bajan
-        de linea dentro del grupo, no se encogen.
-
-        El grupo no lleva `flex-1`: si se estirara, las acciones nunca bajarian
-        de linea. El salto lo decide el ancho natural frente al hueco, y
-        `justify-between` en la raiz es lo que pega las acciones al borde
-        derecho cuando los dos grupos caben en la linea.
-      -->
       <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <!-- Titulo + insignia + ayuda -->
         <div class="flex min-w-0 shrink items-center gap-2">
@@ -148,6 +146,64 @@ onMounted(() => {
         class="flex shrink-0 flex-wrap items-center justify-end gap-2"
       >
         <slot name="actions" />
+      </div>
+    </div>
+
+    <!--
+      Con fila 2 (la cabecera del calendario): dos lineas. En la primera van
+      titulo, ayuda, filtros y la insignia de contexto al extremo derecho; en
+      la segunda, el slot `fila2` (los controles de la vista) pegado a la
+      izquierda, con espacio para que quien lo use pinte su accion al extremo
+      derecho (un elemento `flex-1` despues de los controles lo empuja).
+    -->
+    <div
+      v-else
+      class="flex min-w-0 flex-1 flex-col gap-y-2"
+      :data-testid="'vista-cabecera'"
+    >
+      <div class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+          <div class="flex min-w-0 shrink items-center gap-2">
+            <h1 class="truncate font-titulo text-cp-titulo font-bold tracking-tight text-texto-marca">
+              {{ title }}
+            </h1>
+
+            <HelpTip v-if="ayuda" :texto="ayuda" />
+          </div>
+
+          <span
+            v-if="$slots.filters"
+            class="hidden h-6 w-px flex-none bg-borde xl:block"
+            aria-hidden="true"
+          ></span>
+
+          <div
+            v-if="$slots.filters"
+            class="flex min-w-0 flex-wrap items-center gap-2"
+            :data-testid="filtersTestid || undefined"
+          >
+            <slot name="filters" />
+          </div>
+        </div>
+
+        <!-- Insignia de contexto al extremo derecho de la primera linea. -->
+        <span
+          v-if="contexto || $slots.contexto"
+          class="inline-flex min-w-0 max-w-[280px] flex-none items-center gap-1.5 rounded-pastilla border px-2.5 py-1 text-cp-xs font-medium"
+          :class="claseInsignia"
+        >
+          <span
+            v-if="puntoClase"
+            class="h-1.5 w-1.5 flex-none rounded-full"
+            :class="puntoClase"
+            aria-hidden="true"
+          ></span>
+          <span class="truncate"><slot name="contexto">{{ contexto?.texto }}</slot></span>
+        </span>
+      </div>
+
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <slot name="fila2" />
       </div>
     </div>
   </Teleport>

@@ -272,17 +272,18 @@ function alCrearHueco(event) {
             fila.id === null ? 'week-lane-unassigned-name' : `week-lane-name-${fila.id}`
           "
         >
-          <div class="flex items-center gap-2">
+          <!-- Alto de la fila: 34 px de contenido + el relleno de la celda da 46 px. -->
+          <div class="flex min-h-[34px] items-center gap-2">
             <PersonAvatar
               :nombre="fila.id === null ? '' : fila.name"
               :color="colorAvatar(fila)"
-              tamano="sm"
+              tamano="md"
             />
             <span class="min-w-0">
               <span class="block truncate text-cp-xs font-semibold text-texto">{{ fila.name }}</span>
               <span
                 v-if="fila.department_name"
-                class="flex min-w-0 items-center gap-1 text-cp-micro text-texto-tenue"
+                class="flex min-w-0 items-center gap-1 text-cp-xs text-texto-tenue"
               >
                 <span
                   class="h-1.5 w-1.5 flex-none rounded-full"

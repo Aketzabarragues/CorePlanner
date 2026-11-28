@@ -9,9 +9,9 @@
  * celda, `data-inicio` y `data-columnas`. El color es el del proyecto,
  * nunca la paleta por persona.
  *
- * El texto de la barra (titulo y nombre de proyecto) va en el token de texto
- * (`--cp-texto`): sobre el relleno claro el contraste es holgado. Sin color
- * de proyecto se queda el blanco de la clase.
+ * El texto de la barra va en el color que da `pildora` (el color del
+ * proyecto oscurecido hasta el contraste de 4.5:1 contra el pastel), como en
+ * la barra del Gantt. Sin color de proyecto se queda el texto de la clase.
  *
  * La barra se agarra con `mousedown` (boton izquierdo, fuera de controles):
  * el cuerpo emite `drag-start` con `zona: 'body'` y cada asa de redimension
@@ -33,7 +33,7 @@
  * es la descripcion completa de la tarea; sin permiso de escritura la barra
  * se anuncia deshabilitada, pero sigue enfocable para leerse.
  */
-import { conBlanco } from '../../utils/statusColor'
+import { conBlanco, pildora } from '../../utils/statusColor'
 
 const props = defineProps({
   /** Barra con su celda: {tarea, inicio, fin, carril, span}. */
@@ -95,8 +95,8 @@ function alMenuContexto(event) {
  * Estilo en linea de la barra: el color del proyecto al 12 % de relleno
  * (claro, para que un titulo largo se lea), ese mismo color tal cual como
  * borde izquierdo de 3 px (sobre el relleno claro el color se lee) y el
- * token de texto como color de texto (sobre el relleno claro el contraste
- * es holgado). En linea porque el color llega en hex del backend.
+ * color de `pildora` como texto (contraste 4.5:1 contra el pastel, como en
+ * el Gantt). En linea porque el color llega en hex del backend.
  *
  * La barra provisional no lleva relleno ni borde de color: el fondo `bg-tarjeta`
  * y el contorno punteado lo da la clase; un estilo en linea del proyecto
@@ -109,7 +109,7 @@ function estiloBarra(tarea) {
   return {
     backgroundColor: conBlanco(color, 0.12),
     borderLeftColor: color,
-    color: 'rgb(var(--cp-texto))',
+    color: pildora(color).color,
   }
 }
 </script>
@@ -143,10 +143,15 @@ function estiloBarra(tarea) {
     @mouseenter="emit('entrar', $event)"
     @mouseleave="emit('salir')"
   >
-    <span class="truncate text-cp-xs font-medium leading-tight">
-      {{ barra.tarea.title }}
+    <span class="flex min-w-0 items-center justify-between gap-2">
+      <span class="min-w-0 truncate text-cp-xs font-semibold leading-tight">
+        {{ barra.tarea.title }}
+      </span>
+      <span class="shrink-0 font-mono text-cp-micro font-medium leading-tight opacity-75">
+        {{ barra.tarea.progress }} %
+      </span>
     </span>
-    <span class="truncate text-cp-micro leading-tight opacity-80">
+    <span class="truncate font-mono text-cp-micro leading-tight opacity-80">
       {{ barra.tarea.project_name }}
     </span>
 

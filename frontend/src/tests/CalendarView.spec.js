@@ -12,7 +12,7 @@ import CalendarWeek from '../components/calendar/CalendarWeek.vue'
 import CalendarView from '../views/CalendarView.vue'
 import { useToastStore } from '../stores/toast'
 import { buildWeekLayout } from '../utils/calendarLayout'
-import { conBlanco } from '../utils/statusColor'
+import { conBlanco, pildora } from '../utils/statusColor'
 import { weekDays } from '../utils/weeks'
 
 const feed = {
@@ -366,13 +366,20 @@ describe('CalendarView', () => {
     expect(wrapper.findAll('[data-testid="week-lanes"]')).toHaveLength(6)
   })
 
-  it('cada semana lleva su rango y su clave', async () => {
+  it('cada semana lleva su rango en negrita y su clave en mono', async () => {
     const { wrapper } = await mountView()
 
     const rangos = wrapper.findAll('[data-testid="week-lane-range"]')
     expect(rangos).toHaveLength(6)
     expect(rangos[1].text()).toBe('2 - 8 nov')
     expect(rangos[2].text()).toBe('9 - 15 nov')
+    // El rango va en negrita sin mono; la clave ISO, en mono atenuada.
+    expect(rangos[1].classes()).toContain('font-bold')
+    expect(rangos[1].classes()).not.toContain('font-mono')
+    const celda = rangos[1].element.closest('th')
+    const clave = celda.children[1]
+    expect(clave.textContent).toBe('2026-W45')
+    expect([...clave.classList]).toContain('font-mono')
     expect(wrapper.findAll('[data-testid="week-lanes"]')[2].text()).toContain('2026-W46')
   })
 
@@ -428,16 +435,33 @@ describe('CalendarView', () => {
     esperaBarraProyecto(semanas[2].find('[data-testid="week-task"]'), '#0a3d91')
   })
 
-  it('el texto de la barra va en el token de texto: el relleno claro aguanta el contraste', async () => {
+  it('el texto de la barra va en el color de pildora: el pastel aguanta el contraste', async () => {
     const { wrapper } = await mountView()
 
-    const semanas = wrapper.findAll('[data-testid="week-lanes"]')
-    expect(semanas[1].find('[data-testid="week-task"]').attributes('style')).toContain(
-      'color: rgb(var(--cp-texto))',
-    )
-    expect(semanas[2].find('[data-testid="week-task"]').attributes('style')).toContain(
-      'color: rgb(var(--cp-texto))',
-    )
+    // El texto llega oscurecido hasta el contraste de 4.5:1, como en el Gantt.
+    const aRgb = (hex) => hex.slice(1).match(/.{2}/g).map((par) => parseInt(par, 16)).join(', ')
+    for (const [indice, color] of [[1, '#1f6feb'], [2, '#0a3d91']]) {
+      const estilo = wrapper
+        .findAll('[data-testid="week-lanes"]')
+        [indice].find('[data-testid="week-task"]')
+        .attributes('style')
+      expect(estilo).toContain(`color: rgb(${aRgb(pildora(color).color)})`)
+    }
+  })
+
+  it('la barra lleva su avance a la derecha y el proyecto en la segunda linea', async () => {
+    const { wrapper } = await mountView()
+
+    const primera = wrapper.findAll('[data-testid="week-lanes"]')[1].find('[data-testid="week-task"]')
+    const lineas = [...primera.element.children]
+    expect(lineas[0].textContent).toContain('50 %')
+    // El avance va a la derecha: es el segundo elemento de la primera linea.
+    expect(lineas[0].children[1].textContent.trim()).toBe('50 %')
+    expect([...lineas[0].children[1].classList]).toContain('font-mono')
+    // Segunda linea: el nombre del proyecto, mono y atenuado.
+    expect(lineas[1].textContent).toBe('Linea Pasteurizadora SIVE')
+    expect([...lineas[1].classList]).toContain('font-mono')
+    expect([...lineas[1].classList]).toContain('opacity-80')
   })
 
   it('marca el dia de hoy en la cabecera', async () => {
@@ -461,27 +485,24 @@ describe('CalendarView', () => {
     expect(marcados[1].text()).toBe('Fiesta local')
   })
 
-  it('la celda de cada dia lleva nombre, numero y eventos en tres filas', async () => {
+  it('la celda de cada dia lleva nombre y festivo arriba, numero y hoy debajo', async () => {
     const { wrapper } = await mountView()
 
-    // El lunes 2 es festivo global: nombre, numero y la fila de eventos, en orden.
+    // El lunes 2 es festivo global: dos filas, con el festivo a la derecha del
+    // nombre del dia y el numero abajo.
     const lunes = wrapper.find('[data-testid="week-lane-head-2026-11-02"]')
-    const hijos = lunes.element.children
-    expect(hijos).toHaveLength(3)
-    expect(hijos[0].tagName).toBe('SPAN')
-    expect(hijos[0].textContent?.trim()).toBe('Lun')
-    expect(hijos[1].tagName).toBe('BUTTON')
-    expect(hijos[1].textContent?.trim()).toBe('2')
-    // El festivo no va pegado al numero: esta en la tercera fila.
-    expect(hijos[1].textContent).not.toContain('Puente')
-    expect(hijos[2].tagName).toBe('SPAN')
-    const festivo = hijos[2].querySelector('[data-testid="week-lane-holiday"]')
+    const [arriba, debajo] = lunes.element.children
+    expect(lunes.element.children).toHaveLength(2)
+    // El nombre del dia va primero; el festivo no se le pega: esta en su span.
+    expect(arriba.firstElementChild.textContent.trim()).toBe('Lun')
+    const festivo = arriba.querySelector('[data-testid="week-lane-holiday"]')
     expect(festivo?.textContent?.trim()).toBe('Puente')
+    expect(debajo.querySelector('button').textContent.trim()).toBe('2')
 
-    // Hoy (viernes 6): la pilora "Hoy" tambien esta en la tercera fila.
+    // Hoy (viernes 6): la pill "Hoy" va en la segunda fila, junto al numero.
     const hoy = wrapper.find('[data-testid="week-lane-head-2026-11-06"]')
-    const pilora = hoy.element.children[2].querySelector('[data-testid="week-lane-today"]')
-    expect(pilora?.textContent?.trim()).toBe('Hoy')
+    const pill = hoy.element.children[1].querySelector('[data-testid="week-lane-today"]')
+    expect(pill?.textContent?.trim()).toBe('Hoy')
   })
 
   it('la fila de sin asignar sale solo donde hay tareas sin persona', async () => {
@@ -1268,6 +1289,48 @@ describe('CalendarView con filtros', () => {
     expect(wrapper.find('[data-testid="toggle-visibility"]').exists()).toBe(true)
   })
 
+  it('sin proyecto la insignia de solo lectura va al extremo derecho de la primera linea', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView()
+
+    const raiz = wrapper.get('[data-testid="vista-cabecera"]')
+    expect(raiz.element.children).toHaveLength(2)
+    const [filaUno, filaDos] = raiz.element.children
+    // La insignia es hija de la primera linea, con tono de aviso y su punto.
+    const insignia = filaUno.querySelector('.rounded-pastilla.bg-aviso-fondo')
+    expect(insignia.textContent).toBe('Solo lectura (elige proyecto para crear)')
+    expect([...insignia.classList]).toEqual(
+      expect.arrayContaining(['border-aviso-borde', 'bg-aviso-fondo', 'text-aviso-texto']),
+    )
+    expect(insignia.querySelector('span[aria-hidden="true"]').classList).toContain('bg-aviso-punto')
+    // Los controles de la vista van en la segunda linea, no en la del titulo.
+    expect(filaUno.querySelector('[data-testid="calendar-today"]')).toBeNull()
+    expect(filaDos.querySelector('[data-testid="calendar-today"]')).not.toBeNull()
+    expect(filaDos.querySelector('[data-testid="calendar-fullscreen"]')).not.toBeNull()
+  })
+
+  it('con proyecto la insignia pasa a creable', async () => {
+    setupFetch({
+      ambito: AMBITO,
+      directorio: DIRECTORIO,
+      proyectos: PROYECTOS,
+      departamentos: DEPARTAMENTOS,
+    })
+    const { wrapper } = await mountView({ project: '2' })
+
+    const raiz = wrapper.get('[data-testid="vista-cabecera"]')
+    const insignia = raiz.element.children[0].querySelector('.rounded-pastilla.bg-ok-fondo')
+    expect(insignia.textContent).toBe('Creable')
+    expect([...insignia.classList]).toEqual(
+      expect.arrayContaining(['border-ok-borde', 'bg-ok-fondo', 'text-ok-texto']),
+    )
+  })
+
   it('los filtros usan el formato cuadrado de las demas vistas', async () => {
     setupFetch({
       ambito: AMBITO,
@@ -1353,17 +1416,17 @@ describe('CalendarView con el panel de visibilidad', () => {
     vi.useRealTimers()
   })
 
-  it('el panel de visibilidad se abre con su boton', async () => {
+  it('el boton lleva la etiqueta "Ocultar libres" con su icono y abre el panel', async () => {
     setupFetch({ payload: feedVisibilidad, directorio: DIRECTORIO_VISIBILIDAD })
     const { wrapper } = await mountView()
 
+    const boton = wrapper.get('[data-testid="toggle-visibility"]')
+    expect(boton.text()).toContain('Ocultar libres')
+    expect(boton.find('svg').exists()).toBe(true)
+
     expect(wrapper.find('[data-testid="visibility-panel"]').exists()).toBe(false)
-
-    await wrapper.find('[data-testid="toggle-visibility"]').trigger('click')
-
+    await boton.trigger('click')
     expect(wrapper.find('[data-testid="visibility-panel"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="hide-person-2"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="hide-department-1"]').exists()).toBe(true)
   })
 
   it('esconder una persona quita sus tareas y su fila', async () => {
@@ -2546,7 +2609,7 @@ describe('CalendarView: arrastrar a otro dia, crear y editar', () => {
     expect(wrapper.text()).toContain('Solo lectura')
     // La insignia de la cabecera toma su tono del prop: sin proyecto, aviso.
     const insignia = wrapper.find('.rounded-pastilla.bg-aviso-fondo')
-    expect(insignia.text()).toBe('Solo lectura')
+    expect(insignia.text()).toBe('Solo lectura (elige proyecto para crear)')
     expect(
       calls.find((call) => call.method === 'POST' && call.url.endsWith('/tasks')),
     ).toBeUndefined()

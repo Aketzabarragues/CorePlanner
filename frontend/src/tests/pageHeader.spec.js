@@ -146,6 +146,33 @@ describe('PageHeader', () => {
     }
   })
 
+  it('con fila2: la insignia va al extremo derecho de la primera linea y la fila2 en la segunda', () => {
+    const wrapper = mount(PageHeader, {
+      props: {
+        title: 'Calendario',
+        contexto: { texto: 'Solo lectura', tono: 'aviso', punto: true },
+      },
+      slots: {
+        filters: '<select data-testid="filtro"></select>',
+        fila2: '<button type="button" data-testid="fila2">Mes</button>',
+      },
+    })
+
+    const raiz = wrapper.get('[data-testid="vista-cabecera"]')
+    expect(raiz.element.children).toHaveLength(2)
+    const [filaUno, filaDos] = raiz.element.children
+    // Titulo y filtros en la primera linea...
+    expect(filaUno.querySelector('h1').textContent).toBe('Calendario')
+    expect(filaUno.querySelector('[data-testid="filtro"]')).not.toBeNull()
+    // ...la insignia al extremo derecho de la primera linea, no en la segunda.
+    const insignia = filaUno.querySelector('.rounded-pastilla')
+    expect(insignia.textContent).toContain('Solo lectura')
+    expect(filaDos.querySelector('.rounded-pastilla')).toBeNull()
+    // La fila2 va en la segunda linea.
+    expect(filaDos.querySelector('[data-testid="fila2"]').textContent).toBe('Mes')
+    expect(filaUno.querySelector('[data-testid="fila2"]')).toBeNull()
+  })
+
   it('un punto sin tono toma el color neutro', () => {
     const wrapper = mount(PageHeader, {
       props: { title: 'Panel', contexto: { texto: 'x', punto: true } },

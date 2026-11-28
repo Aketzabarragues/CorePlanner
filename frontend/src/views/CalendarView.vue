@@ -747,7 +747,9 @@ watch(
       title="Calendario"
       ayuda="Las tareas de los proyectos visibles, día a día. Elige un proyecto concreto en el filtro para poder crear tareas sobre un día laborable."
       :contexto="{
-        texto: projectFilter ? 'Creable' : 'Solo lectura',
+        texto: projectFilter
+          ? 'Creable'
+          : 'Solo lectura (elige proyecto para crear)',
         tono: projectFilter ? 'ok' : 'aviso',
         punto: true,
       }"
@@ -774,6 +776,7 @@ watch(
         />
 
         <VisibilityPanel
+          etiqueta="Ocultar libres"
           :personas="personasVisibilidad"
           :ids-ocultos="idsOcultos"
           :departamentos-ocultos="departamentosOcultos"
@@ -783,80 +786,83 @@ watch(
           @mostrar-todos="mostrarTodos"
         />
       </template>
-      <template #actions>
-          <SegmentedControl
-            :model-value="view"
-            :options="VISTAS"
-            label="Vista del calendario"
-            testid-prefix="calendar-view"
-            @update:model-value="setView"
-          />
+      <template #fila2>
+        <SegmentedControl
+          :model-value="view"
+          :options="VISTAS"
+          label="Vista del calendario"
+          testid-prefix="calendar-view"
+          @update:model-value="setView"
+        />
 
-          <!-- Navegador de periodo: anterior / etiqueta central / siguiente. -->
-          <div
-            class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control"
-          >
-            <button
-              type="button"
-              class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
-              aria-label="Periodo anterior"
-              data-testid="calendar-prev"
-              @click="step(-1)"
-            >
-              <span class="inline-flex h-3.5 w-3.5">
-                <AppIcon name="chevronLeft" />
-              </span>
-            </button>
-
-            <span class="min-w-[112px] px-2.5 text-center text-cp-sm font-semibold text-texto-marca">
-              <span v-if="view === 'month'" data-testid="calendar-month">{{ monthLabel(month) }}</span>
-              <span v-else-if="view === 'week'" data-testid="calendar-week">
-                {{ weekRangeLabel(week) }}
-                <span class="font-normal text-texto-tenue">{{ week }}</span>
-              </span>
-              <span v-else data-testid="calendar-day">{{ longDateLabel(day) }}</span>
-            </span>
-
-            <button
-              type="button"
-              class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
-              aria-label="Periodo siguiente"
-              data-testid="calendar-next"
-              @click="step(1)"
-            >
-              <span class="inline-flex h-3.5 w-3.5">
-                <AppIcon name="chevronRight" />
-              </span>
-            </button>
-          </div>
+        <!-- Navegador de periodo: anterior / etiqueta central / siguiente. -->
+        <div
+          class="inline-flex items-center gap-0.5 rounded-control border border-borde bg-tarjeta p-0.5 shadow-control"
+        >
           <button
             type="button"
-            class="relative inline-flex items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
-            data-testid="calendar-today"
-            @click="goToday"
+            class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+            aria-label="Periodo anterior"
+            data-testid="calendar-prev"
+            @click="step(-1)"
           >
-            Hoy
-          </button>
-
-          <!--
-            Modo ampliado: el calendario a pantalla completa, por encima del
-            armazon. El boton es el mismo al entrar y al salir, de modo que
-            el foco no se pierde en ninguno de los dos momentos.
-          -->
-          <button
-            type="button"
-            class="relative flex items-center justify-center rounded-control border border-borde bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-            :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
-            :aria-pressed="ampliado"
-            :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
-            data-testid="calendar-fullscreen"
-            @click="alternarAmpliado"
-          >
-            <span class="inline-flex h-4 w-4">
-              <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+            <span class="inline-flex h-3.5 w-3.5">
+              <AppIcon name="chevronLeft" />
             </span>
           </button>
 
+          <span class="min-w-[112px] px-2.5 text-center text-cp-sm font-semibold text-texto-marca">
+            <span v-if="view === 'month'" data-testid="calendar-month">{{ monthLabel(month) }}</span>
+            <span v-else-if="view === 'week'" data-testid="calendar-week">
+              {{ weekRangeLabel(week) }}
+              <span class="font-normal text-texto-tenue">{{ week }}</span>
+            </span>
+            <span v-else data-testid="calendar-day">{{ longDateLabel(day) }}</span>
+          </span>
+
+          <button
+            type="button"
+            class="relative p-1.5 rounded-control text-texto-tenue transition-colors hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+            aria-label="Periodo siguiente"
+            data-testid="calendar-next"
+            @click="step(1)"
+          >
+            <span class="inline-flex h-3.5 w-3.5">
+              <AppIcon name="chevronRight" />
+            </span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="relative inline-flex items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-['']"
+          data-testid="calendar-today"
+          @click="goToday"
+        >
+          Hoy
+        </button>
+
+        <!-- Espaciador: el boton de pantalla completa va al extremo derecho. -->
+        <span class="flex-1" aria-hidden="true"></span>
+
+        <!--
+          Modo ampliado: el calendario a pantalla completa, por encima del
+          armazon. El boton es el mismo al entrar y al salir, de modo que
+          el foco no se pierde en ninguno de los dos momentos.
+        -->
+        <button
+          type="button"
+          class="relative flex items-center justify-center rounded-control border border-borde bg-tarjeta p-1.5 text-texto-suave transition-colors after:absolute after:-inset-y-2.5 after:left-0 after:right-0 after:content-[''] hover:bg-tarjeta-suave hover:text-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          :aria-label="ampliado ? 'Salir de la vista ampliada' : 'Ampliar a pantalla completa'"
+          :aria-pressed="ampliado"
+          :title="ampliado ? 'Salir de la vista ampliada (Escape)' : 'Ampliar a pantalla completa'"
+          data-testid="calendar-fullscreen"
+          @click="alternarAmpliado"
+        >
+          <span class="inline-flex h-4 w-4">
+            <AppIcon :name="ampliado ? 'compress' : 'expand'" />
+          </span>
+        </button>
       </template>
     </PageHeader>
 
@@ -901,7 +907,7 @@ watch(
       <div class="flex min-h-[200px] flex-1 flex-col">
         <div
           v-if="view === 'month'"
-          class="flex min-h-0 flex-1 flex-col rounded-tarjeta border border-borde bg-tarjeta"
+          class="flex min-h-0 flex-1 flex-col"
           data-testid="calendar-month-view"
         >
           <!--
@@ -960,7 +966,7 @@ watch(
 
           <div
             v-else
-            class="min-h-0 flex-1 overflow-auto rounded-tarjeta border border-borde bg-tarjeta"
+            class="min-h-0 flex-1 overflow-auto"
             data-testid="week-grid"
           >
             <CalendarGrid

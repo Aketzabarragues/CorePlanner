@@ -81,9 +81,11 @@ const items = computed(() =>
       horas: Number(semana.hours ?? 0),
       ratio,
       sobrecargada: Boolean(semana.is_overloaded),
-      // La barra lleva el color de la escala; sin estado (imposible en la
-      // practica) la pista de la barra vacia.
-      clases: aspect.bar || 'bg-carga-vacio-barra',
+      // La barra es el pastel de la escala con su borde; sin estado
+      // (imposible en la practica) la pista de la barra vacia.
+      clases: `${aspect.cell || 'bg-carga-vacio-fondo'} ${
+        aspect.border || 'border-carga-vacio-borde'
+      }`,
       altura: `${Math.max(MIN_BAR, (alto / MAX_SCALE) * 100)}%`,
       texto: cifra,
       festivo: festivoEtiqueta(semana.holidays),
@@ -130,7 +132,7 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
           :style="{ bottom: alturaLinea }"
         />
         <div
-          class="absolute inset-x-0 bottom-0 rounded-t-control"
+          class="absolute inset-x-0 bottom-0 rounded-t-control border"
           :class="item.clases"
           :style="{ height: item.altura }"
           :data-testid="`${testId}-bar`"
@@ -149,13 +151,13 @@ const alturaLinea = `${(LINE / MAX_SCALE) * 100}%`
       <span class="text-cp-xs text-texto-tenue">{{ weekTitle(item.week) }}</span>
       <span
         v-if="item.week === hoy"
-        class="rounded-pastilla bg-primario-fuerte px-1.5 py-px text-[10px] font-semibold text-sobre-primario"
+        class="rounded-pastilla bg-primario-fuerte px-1.5 py-px text-[10px] font-semibold uppercase text-sobre-primario"
       >
         Hoy
       </span>
       <span
         v-if="item.festivo"
-        class="max-w-[112px] truncate rounded-pastilla border border-borde bg-tarjeta-suave px-1.5 py-px text-[10px] font-medium text-texto-suave"
+        class="max-w-[96px] truncate rounded-pastilla border border-aviso-borde bg-aviso-fondo px-1.5 py-px text-[10px] font-medium text-aviso-texto"
         :title="item.tituloFestivo"
         data-testid="holiday-badge"
       >

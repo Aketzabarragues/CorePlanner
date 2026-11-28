@@ -87,14 +87,13 @@ function jsonResponse(payload, ok = true, status = 200) {
   return { ok, status, json: async () => payload }
 }
 
-function setupFetch(payload = informe) {
+function setupFetch(payload = informe, user = { id: 3, name: 'Sebastian', department_id: 5 }) {
   global.fetch = vi.fn(async (url) => {
     if (url.endsWith('/auth/login')) {
-      return jsonResponse({
-        access_token: 'tok',
-        token_type: 'bearer',
-        user: { id: 3, name: 'Sebastian' },
-      })
+      return jsonResponse({ access_token: 'tok', token_type: 'bearer', user })
+    }
+    if (url.endsWith('/departments')) {
+      return jsonResponse([{ id: 5, name: 'Alimentación' }])
     }
     if (url.endsWith('/my-work')) return jsonResponse(payload)
     if (url.includes('/tasks/')) return jsonResponse({ id: 1, status: 'done' })
@@ -156,13 +155,66 @@ describe('MyWorkView', () => {
     expect(wrapper.text()).toContain('30 h')
   })
 
-  it('avisa del proximo festivo y de lo que quita de capacidad', async () => {
+  it('avisa del proximo festivo con fecha corta y la perdida con una sola unidad', async () => {
     const wrapper = await mountView()
 
     const festivo = wrapper.find('[data-testid="my-work-next-holiday"]')
     expect(festivo.exists()).toBe(true)
-    expect(festivo.text()).toContain('2026-12-08')
-    expect(festivo.text()).toContain('8 h')
+    expect(festivo.text()).toContain('08 dic')
+    // `formatHours` ya lleva la unidad: no puede salir "8 h h".
+    expect(festivo.text()).toContain('−8 h')
+    expect(festivo.text()).not.toContain('h h')
+    expect(festivo.text()).not.toContain('2026-12-08')
+  })
+
+  it('pone el subtitulo de la carga bajo el titulo con el rango de semanas', async () => {
+    const wrapper = await mountView()
+
+    const tarjeta = wrapper.find('[aria-label="Carga de las próximas semanas"]')
+    const titulo = tarjeta.find('h2')
+    const subtitulo = tarjeta.find('p')
+    expect(titulo.text()).toBe('Mi carga, próximas semanas')
+    expect(subtitulo.text()).toBe('La línea discontinua marca el 100 % de tu capacidad semanal')
+    // El subtitulo esta bajo el titulo, no en la misma linea.
+    expect(
+      titulo.element.compareDocumentPosition(subtitulo.element) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(wrapper.find('[data-testid="my-work-weeks-range"]').text()).toBe('Sem 45 → Sem 50')
+  })
+
+  it('separa la asignacion activa y el proximo festivo en dos filas', async () => {
+    const wrapper = await mountView()
+
+    const texto = wrapper.find('[data-testid="my-work-card-free"]').element.closest('section').textContent
+    expect(texto).toContain('Asignación activa')
+    // Las dos tareas del informe tocan la semana W45, en un solo proyecto.
+    expect(texto).toContain('2 tareas en 1 proyecto')
+    expect(texto).toContain('Próximo festivo')
+  })
+
+  it('muestra la insignia de contexto con persona y departamento', async () => {
+    const wrapper = await mountView()
+
+    const insignia = wrapper.find('[data-testid="vista-cabecera"] span.truncate')
+    expect(insignia.text()).toBe('Sebastian · Alimentación')
+  })
+
+  it('muestra el contador de tareas de la pestana abierta', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="my-work-task-count"]').text()).toBe('1')
+    await wrapper.find('[data-testid="my-work-tab-done"]').trigger('click')
+    expect(wrapper.find('[data-testid="my-work-task-count"]').text()).toBe('1')
+    setupFetch({
+      ...informe,
+      tasks: [],
+      total_hours: 0,
+      has_overload: false,
+      weeks: informe.weeks.map((semana) => ({ ...semana, is_overloaded: false })),
+    })
+    const vacia = await mountView()
+    expect(vacia.find('[data-testid="my-work-task-count"]').text()).toBe('0')
   })
 
   it('reparte las tareas en las tres pestanas', async () => {

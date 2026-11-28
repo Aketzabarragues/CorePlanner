@@ -13,7 +13,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 
-import { myWorkApi, tasksApi } from '../api/client'
+import { departmentsApi, myWorkApi, tasksApi } from '../api/client'
 import { useTaskReload } from '../composables/useTaskReload'
 import AlertBanner from '../components/common/AlertBanner.vue'
 import AsyncState from '../components/common/AsyncState.vue'
@@ -31,7 +31,8 @@ import {
   statusPill,
 } from '../utils/kanban'
 import { loadAspect, loadBarWidth, loadFree, loadLabel, loadRatio, loadState } from '../utils/load'
-import { weekRangeLabel, weekNumber, weekTitle } from '../utils/weeks'
+import { shortMonthName } from '../utils/month'
+import { weekRangeLabel, weekNumber } from '../utils/weeks'
 import { plural } from '../utils/plural'
 
 const auth = useAuthStore()
@@ -56,6 +57,26 @@ const error = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const tab = ref('now')
+const departamentos = ref([])
+
+/**
+ * Insignia de contexto de la cabecera: la persona y su departamento.
+ *
+ * Sin nombre de usuario no hay persona que mostrar; sin departamento, solo el
+ * nombre.
+ */
+const contextoPersona = computed(() => {
+  const nombre = auth.user?.name
+  if (!nombre) return null
+  const departamento = departamentos.value.find(
+    (item) => item.id === auth.user.department_id,
+  )?.name
+  return {
+    texto: departamento ? `${nombre} · ${departamento}` : nombre,
+    tono: 'aviso',
+    punto: true,
+  }
+})
 
 const TABS = [
   { name: 'now', label: 'Esta semana' },
@@ -147,13 +168,17 @@ const card = computed(() => {
 async function load() {
   try {
     const token = await auth.ensureSession()
-    const [informe] = await Promise.all([
+    const [informe, , listaDepartamentos] = await Promise.all([
       myWorkApi.list(token),
       // Vista multiproyecto: los estados de todos los proyectos visibles.
       // Si no llegan, cada tarea cae en los estados por defecto.
       statusStore.loadAll(token).catch(() => null),
+      // Solo el nombre del departamento del usuario, para la insignia de la
+      // cabecera. Sin esta lista la insignia se queda en el nombre.
+      departmentsApi.list(token).catch(() => []),
     ])
     report.value = informe
+    departamentos.value = listaDepartamentos
     error.value = null
   } catch (err) {
     error.value = err.message
@@ -199,6 +224,12 @@ function taskDates(task) {
   return `${task.start_date} → ${task.end_date}`
 }
 
+/** Fecha corta en español: "2027-01-04" va a "04 ene". */
+function fechaCorta(iso) {
+  const [year, month, day] = iso.split('-').map(Number)
+  return `${String(day).padStart(2, '0')} ${shortMonthName(month)}`
+}
+
 onMounted(load)
 useTaskReload(load)
 </script>
@@ -207,6 +238,7 @@ useTaskReload(load)
   <div>
     <PageHeader
       title="Mi trabajo"
+      :contexto="contextoPersona"
       ayuda="Tu carga por semana, los días que vienen y las tareas que tienes asignadas."
     >
       <template #actions>
@@ -251,9 +283,18 @@ useTaskReload(load)
         <BaseCard
           aria-label="Carga de las próximas semanas"
           title="Mi carga, próximas semanas"
-          nota="La línea discontinua marca el 100 % de tu capacidad"
+          nota="La línea discontinua marca el 100 % de tu capacidad semanal"
           class="lg:col-span-2"
         >
+          <template #header-extra>
+            <span
+              v-if="weeks.length > 1"
+              class="rounded-control border border-borde bg-tarjeta-suave px-2.5 py-1 font-mono text-cp-micro text-texto-suave"
+              data-testid="my-work-weeks-range"
+            >
+              Sem {{ weekNumber(weeks[0].week) }} → Sem {{ weekNumber(weeks.at(-1).week) }}
+            </span>
+          </template>
           <LoadBars
             :weeks="weeks"
             title="Carga de las próximas semanas"
@@ -273,7 +314,7 @@ useTaskReload(load)
           </template>
           <template v-if="card">
             <p class="mt-0.5 text-cp-xs text-texto-tenue">
-              {{ weekTitle(currentWeek.week) }} · {{ weekRangeLabel(currentWeek.week) }}
+              {{ weekRangeLabel(currentWeek.week) }}
             </p>
             <div class="mt-3 flex items-baseline gap-2">
               <span class="font-mono text-cp-display font-bold tabular-nums text-texto-marca">
@@ -306,20 +347,28 @@ useTaskReload(load)
               </span>
             </div>
             <div class="mt-4 space-y-1.5 border-t border-borde-suave pt-3 text-cp-xs text-texto-suave">
-              <p class="flex items-center justify-between gap-2">
-                <span>{{ weekTasks.length }} {{ weekTasks.length === 1 ? 'tarea' : 'tareas' }}</span>
-                <span>{{ weekProjects }} {{ weekProjects === 1 ? 'proyecto' : 'proyectos' }}</span>
-              </p>
-              <span
+              <div class="flex items-center justify-between gap-2">
+                <span>Asignación activa</span>
+                <strong class="font-medium text-texto">
+                  {{ plural(weekTasks.length, 'tarea', 'tareas') }} en
+                  {{ plural(weekProjects, 'proyecto', 'proyectos') }}
+                </strong>
+              </div>
+              <div
                 v-if="nextHoliday"
-                class="rounded-control border border-aviso-borde bg-aviso-fondo px-2 py-0.5 font-mono text-cp-xs font-medium text-aviso-texto"
-                data-testid="my-work-next-holiday"
+                class="flex items-center justify-between gap-2"
               >
-                {{ nextHoliday.date }}
-                <template v-if="nextHoliday.perdida">
-                  · −{{ formatHours(nextHoliday.perdida) }} h
-                </template>
-              </span>
+                <span>Próximo festivo</span>
+                <span
+                  class="rounded-control border border-aviso-borde bg-aviso-fondo px-2 py-0.5 font-mono text-cp-micro font-medium text-aviso-texto"
+                  data-testid="my-work-next-holiday"
+                >
+                  {{ fechaCorta(nextHoliday.date) }}
+                  <template v-if="nextHoliday.perdida">
+                    · −{{ formatHours(nextHoliday.perdida) }}
+                  </template>
+                </span>
+              </div>
             </div>
           </template>
           <p v-else class="text-cp-sm text-texto-tenue">
@@ -330,6 +379,12 @@ useTaskReload(load)
 
       <BaseCard aria-label="Mis tareas" title="Mis tareas">
         <template #header-extra>
+          <span
+            class="rounded-pastilla bg-tarjeta-suave px-2 py-0.5 font-mono text-cp-micro font-semibold text-texto-suave"
+            data-testid="my-work-task-count"
+          >
+            {{ visibleTasks.length }}
+          </span>
           <div
             role="group"
             aria-label="Filtrar tareas"

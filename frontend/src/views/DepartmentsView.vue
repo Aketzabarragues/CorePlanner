@@ -13,11 +13,12 @@ import { peopleApi } from '../api/client'
 import AppIcon from '../components/AppIcon.vue'
 import AsyncState from '../components/common/AsyncState.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import PersonAvatar from '../components/common/PersonAvatar.vue'
 import { useAuthStore } from '../stores/auth'
 import { useProjectsStore } from '../stores/projects'
 import { projectStatus } from '../utils/navigation'
 import { plural } from '../utils/plural'
-import { textoSobre } from '../utils/statusColor'
+import { conBlanco } from '../utils/statusColor'
 
 const auth = useAuthStore()
 const store = useProjectsStore()
@@ -92,32 +93,10 @@ function codigoDe(name) {
  * (dato del backend) sobre un tinte claro del mismo color. Sin color,
  * tarjeta suave con texto suave.
  */
-function estiloDepartamento(department) {
-  const color = department.color ?? null
-  if (!color) {
-    return {
-      backgroundColor: 'rgb(var(--cp-tarjeta-suave))',
-      color: 'rgb(var(--cp-texto-suave))',
-    }
-  }
-  return { backgroundColor: conBlanco(color, 0.15), color: conNegro(color, 0.35) }
-}
-
 function canalDe(hex) {
   const limpio = String(hex ?? '').trim().replace(/^#/, '')
   if (!/^[0-9a-fA-F]{6}$/.test(limpio)) return null
   return parseInt(limpio, 16)
-}
-
-/** Mezcla un hex con blanco: `fraccion` del color y el resto blanco. */
-function conBlanco(hex, fraccion) {
-  const color = canalDe(hex)
-  if (color === null) return hex
-  const canal = (n) =>
-    Math.round(((color >> n) & 0xff) * fraccion + 0xff * (1 - fraccion))
-      .toString(16)
-      .padStart(2, '0')
-  return `#${canal(16)}${canal(8)}${canal(0)}`
 }
 
 /** Mezcla un hex con negro: `fraccion` de negro y el resto del color. */
@@ -131,12 +110,7 @@ function conNegro(hex, fraccion) {
   return `#${canal(16)}${canal(8)}${canal(0)}`
 }
 
-/**
- * Estilo en linea del avatar del responsable o de los miembros: el color del
- * departamento (dato del backend) con el texto calculado para el contraste.
- * Sin color, tarjeta suave con texto suave.
- */
-function estiloAvatar(department) {
+function estiloDepartamento(department) {
   const color = department.color ?? null
   if (!color) {
     return {
@@ -144,7 +118,7 @@ function estiloAvatar(department) {
       color: 'rgb(var(--cp-texto-suave))',
     }
   }
-  return { backgroundColor: color, color: textoSobre(color) }
+  return { backgroundColor: conBlanco(color, 0.15), color: conNegro(color, 0.35) }
 }
 
 /** Clases de la pastilla del estado del proyecto, por estado. */
@@ -236,51 +210,62 @@ onMounted(load)
       @empty-action="irAConfiguracion"
     >
       <div class="space-y-4">
-        <section
-          v-for="department in departments"
-          :key="department.id"
-          class="rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
+        <div
+          data-testid="departments-grid"
+          class="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
-          <div class="flex items-start gap-3">
-            <span
-              class="flex h-9 w-9 flex-none items-center justify-center rounded-control"
-              :style="estiloDepartamento(department)"
-              aria-hidden="true"
-            >
-              <span class="inline-flex h-4 w-4"><AppIcon name="building" /></span>
-            </span>
+          <section
+            v-for="department in departments"
+            :key="department.id"
+            class="flex flex-col rounded-tarjeta border border-borde bg-tarjeta p-4 shadow-tarjeta"
+          >
+            <!-- Cabecera: icono, nombre, responsable y contador de proyectos. -->
+            <div class="flex items-start gap-3">
+              <span
+                class="flex h-10 w-10 flex-none items-center justify-center rounded-control border border-borde-suave"
+                :style="estiloDepartamento(department)"
+                aria-hidden="true"
+              >
+                <span class="inline-flex h-5 w-5"><AppIcon name="building" /></span>
+              </span>
 
-            <div class="min-w-0 flex-1">
-              <div class="flex items-start justify-between gap-3">
-                <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">
+              <div class="min-w-0 flex-1">
+                <h2 class="truncate font-titulo text-cp-titulo font-bold text-texto-marca">
                   {{ department.name }}
                 </h2>
-                <span
-                  class="rounded-control bg-tarjeta-suave px-2 py-1 font-mono text-cp-xs font-semibold text-texto-suave"
-                  data-testid="department-projects-count"
-                >
-                  {{ department.projects.length }} proy.
-                </span>
+                <p class="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-cp-xs text-texto-tenue">
+                  <span class="shrink-0">Responsable:</span>
+                  <span
+                    v-if="department.manager_name"
+                    class="inline-flex min-w-0 items-center gap-1.5 font-semibold text-texto"
+                  >
+                    <PersonAvatar
+                      :nombre="department.manager_name"
+                      :color="department.color ?? ''"
+                      tamano="xs"
+                    />
+                    <span class="truncate">{{ department.manager_name }}</span>
+                  </span>
+                  <span v-else>Sin responsable</span>
+                </p>
               </div>
-              <p class="flex items-center gap-1.5 text-cp-xs text-texto-tenue">
-                <span
-                  v-if="department.manager_name"
-                  class="flex h-4 w-4 flex-none items-center justify-center rounded-avatar text-[9px] font-bold"
-                  :style="estiloAvatar(department)"
-                  aria-hidden="true"
-                >
-                  {{ department.manager_name.slice(0, 1) }}
-                </span>
-                Responsable: {{ department.manager_name ?? 'Sin responsable' }}
-              </p>
 
+              <span
+                class="shrink-0 rounded-control bg-tarjeta-suave px-2 py-1 font-mono text-cp-xs font-semibold text-texto-suave"
+                data-testid="department-projects-count"
+              >
+                {{ department.projects.length }} proy.
+              </span>
+            </div>
+
+            <div class="mb-4 mt-3 border-t border-borde-suave pt-3">
               <p
                 v-if="department.projects.length"
-                class="mt-3 text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue"
+                class="text-cp-micro font-semibold uppercase tracking-wider text-texto-tenue"
               >
                 Proyectos gestionados
               </p>
-              <ul v-if="department.projects.length" class="mt-1 space-y-1">
+              <ul v-if="department.projects.length" class="mt-1.5 space-y-1.5">
                 <li
                   v-for="project in department.projects"
                   :key="project.id"
@@ -318,39 +303,40 @@ onMounted(load)
                   </span>
                 </li>
               </ul>
-              <p v-else class="mt-3 text-cp-sm text-texto-tenue">Sin proyectos asignados.</p>
-
-              <div
-                v-if="miembrosDe(department).length"
-                class="mt-3 flex items-center justify-between gap-3 border-t border-borde-suave pt-3"
-              >
-                <span class="text-cp-xs text-texto-tenue" data-testid="department-members">
-                  {{ plural(miembrosDe(department).length, 'miembro en el area', 'miembros en el area') }}
-                </span>
-                <span class="flex items-center">
-                  <span
-                    v-for="(member, index) in avataresDe(department)"
-                    :key="member.id"
-                    class="flex h-6 w-6 flex-none items-center justify-center rounded-avatar text-cp-micro font-bold ring-2 ring-tarjeta"
-                    :class="index > 0 ? '-ml-1.5' : ''"
-                    :style="estiloAvatar(department)"
-                    :title="member.name"
-                    data-testid="department-member"
-                  >
-                    {{ member.name.slice(0, 1) }}
-                  </span>
-                  <span
-                    v-if="restoDe(department)"
-                    class="ml-1.5 text-cp-xs text-texto-tenue"
-                    data-testid="department-members-rest"
-                  >
-                    +{{ restoDe(department) }}
-                  </span>
-                </span>
-              </div>
+              <p v-else class="text-cp-sm text-texto-tenue">Sin proyectos asignados.</p>
             </div>
-          </div>
-        </section>
+
+            <!-- Pie: equipo del area, abajo por `mt-auto` cuando la fila se estira. -->
+            <div
+              v-if="miembrosDe(department).length"
+              class="mt-auto flex items-center justify-between gap-3 border-t border-borde-suave pt-3"
+            >
+              <span class="text-cp-xs text-texto-tenue" data-testid="department-members">
+                {{ plural(miembrosDe(department).length, 'miembro en el area', 'miembros en el area') }}
+              </span>
+              <span class="flex flex-none items-center">
+                <PersonAvatar
+                  v-for="(member, index) in avataresDe(department)"
+                  :key="member.id"
+                  class="ring-2 ring-tarjeta"
+                  :class="index > 0 ? '-ml-1.5' : ''"
+                  :nombre="member.name"
+                  :color="department.color ?? ''"
+                  :title="member.name"
+                  data-testid="department-member"
+                  tamano="sm"
+                />
+                <span
+                  v-if="restoDe(department)"
+                  class="ml-1.5 text-cp-xs text-texto-tenue"
+                  data-testid="department-members-rest"
+                >
+                  +{{ restoDe(department) }}
+                </span>
+              </span>
+            </div>
+          </section>
+        </div>
 
         <section
           v-if="looseProjects.length"

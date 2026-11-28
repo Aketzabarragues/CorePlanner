@@ -8,6 +8,7 @@ import DepartmentsView from '../views/DepartmentsView.vue'
 const departments = [
   { id: 1, name: 'Automatización & SCADA', manager_id: 1, manager_name: 'Ana', color: '#005566' },
   { id: 2, name: 'Oficina Técnica / EPLAN', manager_id: 3, manager_name: 'Jorge', color: '#1f6feb' },
+  { id: 3, name: 'Energía', manager_id: 2, manager_name: 'Sebastian', color: '#f59e0b' },
 ]
 
 const projects = [
@@ -70,13 +71,37 @@ describe('DepartmentsView', () => {
     setupFetch()
   })
 
-  it('lista los departamentos con su responsable', async () => {
+  it('dibuja una tarjeta por departamento en la rejilla', async () => {
     const wrapper = await mountView()
 
-    expect(wrapper.text()).toContain('Automatización & SCADA')
-    expect(wrapper.text()).toContain('Oficina Técnica / EPLAN')
-    expect(wrapper.text()).toContain('Responsable: Ana')
-    expect(wrapper.text()).toContain('Responsable: Jorge')
+    const rejilla = wrapper.find('[data-testid="departments-grid"]')
+    expect(rejilla.classes()).toEqual(
+      expect.arrayContaining(['grid', 'items-stretch', 'gap-4', 'xl:grid-cols-3']),
+    )
+    const tarjetas = rejilla.findAll('section')
+    expect(tarjetas).toHaveLength(3)
+    expect(tarjetas[0].text()).toContain('Automatización & SCADA')
+    expect(tarjetas[1].text()).toContain('Oficina Técnica / EPLAN')
+    expect(tarjetas[2].text()).toContain('Energía')
+  })
+
+  it('muestra el responsable con avatar y nombre en negrita', async () => {
+    const wrapper = await mountView()
+
+    const cabeceras = wrapper
+      .findAll('section')
+      .map((seccion) => seccion.findAll('.min-w-0.flex-1 p'))
+      .map((lista) => lista[0])
+    // Etiqueta "Responsable:" y nombre de cada area.
+    expect(cabeceras[0].text()).toContain('Responsable:')
+    expect(cabeceras[1].text()).toContain('Jorge')
+    expect(cabeceras[2].text()).toContain('Sebastian')
+    // PersonAvatar xs: iniciales y pastel del color del area, texto legible.
+    const avatar = cabeceras[0].find('span[style]')
+    expect(avatar.text()).toBe('AN')
+    expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
+    // El nombre va en negrita junto al avatar.
+    expect(cabeceras[0].find('.font-semibold').find('span.truncate').text()).toBe('Ana')
   })
 
   it('coloca bajo cada departamento sus proyectos', async () => {
@@ -116,7 +141,7 @@ describe('DepartmentsView', () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('[data-testid="departments-context"]').text()).toBe(
-      '2 áreas operativas · 2 proyectos activos',
+      '3 áreas operativas · 2 proyectos activos',
     )
   })
 
@@ -154,10 +179,10 @@ describe('DepartmentsView', () => {
     expect(seccion.find('[data-testid="department-members"]').text()).toBe('2 miembros en el area')
     const avatares = seccion.findAll('[data-testid="department-member"]')
     expect(avatares).toHaveLength(2)
-    expect(avatares[0].attributes('title')).toBe('Ana')
-    // El color del area (dato del backend) en estilo en linea, con texto legible.
-    expect(avatares[0].attributes('style')).toContain('background-color: rgb(0, 85, 102)')
-    // El avatar del responsable va antes del nombre.
-    expect(seccion.text()).toContain('Responsable: Ana')
+    // PersonAvatar sm: el pastel del color del area (dato del backend).
+    expect(avatares[0].attributes('style')).toContain('background-color: rgb(224, 235, 237)')
+    // Apilados: anillo de tarjeta y solapamiento de un token.
+    expect(avatares[0].classes()).toContain('ring-2')
+    expect(avatares[1].classes()).toContain('-ml-1.5')
   })
 })

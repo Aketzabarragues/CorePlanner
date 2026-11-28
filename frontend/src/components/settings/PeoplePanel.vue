@@ -5,10 +5,14 @@
  * El formulario sirve para las dos cosas: vacio da de alta, y relleno con una
  * persona modifica sus campos. El correo se puede cambiar, la contrasena solo
  * se pide al dar de alta.
+ *
+ * La accion primaria ("Nueva persona") no vive en el panel: la expone a la
+ * vista, que la pinta en la cabecera compartida con las demas pestañas.
  */
 import { computed, ref } from 'vue'
 
 import { configApi } from '../../api/client'
+import { useConfigAccion } from '../../composables/useConfigAccion'
 import { useAuthStore } from '../../stores/auth'
 import ModalDialog from '../ModalDialog.vue'
 import AlertBanner from '../common/AlertBanner.vue'
@@ -108,72 +112,116 @@ async function save() {
     saving.value = false
   }
 }
+
+/**
+ * Tono de la pildora de rol: tecnico, neutro; jefe, azul; gerente, marca
+ * oscura (no hay violeta en los tokens).
+ */
+function claseRol(person) {
+  if (person.company_role === 'jefe_departamento') {
+    return 'border-info-borde bg-info-fondo text-info-texto'
+  }
+  if (person.company_role === 'gerente') {
+    return 'border-primario-medio bg-primario-suave text-texto-marca'
+  }
+  return 'border-borde bg-neutro-fondo text-neutro-texto'
+}
+
+/** Tono de la pildora de contrato: Techo, azul; el resto, neutro. */
+function claseContrato(person) {
+  return person.employment_type === 'techo'
+    ? 'border-info-borde bg-info-fondo text-info-texto'
+    : 'border-borde bg-neutro-fondo text-neutro-texto'
+}
+
+/** La accion primaria de la pestana: la pinta la vista en la cabecera. */
+useConfigAccion({ etiqueta: '+ Nueva persona', onClick: openCreate })
 </script>
 
 <template>
   <section class="rounded-tarjeta border border-borde bg-tarjeta shadow-tarjeta">
-    <header class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-borde-suave px-4 py-3">
-      <h2 class="font-titulo text-cp-titulo font-bold text-texto-marca">Personas</h2>
-      <button
-        type="button"
-        class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-        data-testid="new-person"
-        @click="openCreate"
-      >
-        Nueva persona
-      </button>
-    </header>
-
-    <div class="p-4">
-      <div class="overflow-x-auto rounded-control border border-borde bg-tarjeta">
-        <table class="w-full text-cp-sm">
-          <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
-            <tr>
-              <th class="px-3 py-2.5 font-semibold">Nombre</th>
-              <th class="px-3 py-2.5 font-semibold">Rol</th>
-              <th class="px-3 py-2.5 font-semibold">Puesto</th>
-              <th class="px-3 py-2.5 font-semibold">Departamento</th>
-              <th class="px-3 py-2.5 font-semibold">Contrato</th>
-              <th class="px-3 py-2.5 font-semibold">Horas</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-borde-suave">
-            <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <PersonAvatar :nombre="person.name" />
-                  <span class="min-w-0">
-                    <span class="block truncate font-medium text-texto">{{ person.name }}</span>
-                    <span class="block truncate text-cp-xs text-texto-tenue">{{ person.email }}</span>
+    <div class="overflow-x-auto">
+      <table class="w-full text-cp-sm">
+        <thead class="bg-tarjeta-suave text-left text-cp-micro uppercase tracking-wider text-texto-tenue">
+          <tr>
+            <th class="px-3 py-2.5 font-semibold">Nombre</th>
+            <th class="px-3 py-2.5 font-semibold">Rol</th>
+            <th class="px-3 py-2.5 font-semibold">Puesto</th>
+            <th class="px-3 py-2.5 font-semibold">Departamento</th>
+            <th class="px-3 py-2.5 font-semibold">Contrato</th>
+            <th class="px-3 py-2.5 text-right font-semibold">Horas</th>
+            <th class="px-3 py-2.5" />
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-borde-suave">
+          <tr v-for="person in props.people" :key="person.id" data-testid="person-row">
+            <td class="px-3 py-3">
+              <div class="flex items-center gap-2.5">
+                <PersonAvatar :nombre="person.name" />
+                <span class="min-w-0 leading-tight">
+                  <span class="block truncate text-cp-sm font-bold text-texto">{{ person.name }}</span>
+                  <span
+                    class="block truncate whitespace-nowrap font-mono text-cp-xs text-texto-tenue"
+                  >
+                    {{ person.email }}
                   </span>
-                </div>
-              </td>
-              <td class="px-3 py-2 text-texto-suave">{{ person.company_role_label }}</td>
-              <td class="px-3 py-2 text-texto-suave">{{ person.job_title ?? '—' }}</td>
-              <td class="px-3 py-2 text-texto-suave">
-                {{ person.department_name ?? 'Sin departamento' }}
-              </td>
-              <td class="px-3 py-2 text-texto-suave">{{ person.employment_type_label }}</td>
-              <td class="px-3 py-2 text-texto-suave">{{ person.weekly_base_hours }} h</td>
-              <td class="px-3 py-2 text-right">
-                <button
-                  type="button"
-                  class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
-                  @click="edit(person)"
-                >
-                  Editar
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!props.people.length">
-              <td colspan="7" class="px-3 py-6 text-center text-cp-sm text-texto-tenue">
-                No hay personas en la organización.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </span>
+              </div>
+            </td>
+            <td class="px-3 py-3">
+              <span
+                data-testid="person-role-pill"
+                class="whitespace-nowrap rounded-pastilla border px-2.5 py-0.5 text-cp-xs font-semibold"
+                :class="claseRol(person)"
+              >
+                {{ person.company_role_label }}
+              </span>
+            </td>
+            <td class="px-3 py-3 text-cp-sm text-texto-suave">{{ person.job_title ?? '—' }}</td>
+            <td
+              class="px-3 py-3 text-cp-sm"
+              :class="
+                person.department_name
+                  ? 'font-medium text-texto-suave'
+                  : 'italic text-texto-tenue'
+              "
+            >
+              {{ person.department_name ?? 'Sin departamento' }}
+            </td>
+            <td class="px-3 py-3">
+              <span
+                class="whitespace-nowrap rounded-control border px-2 py-0.5 text-cp-xs font-medium"
+                :class="claseContrato(person)"
+              >
+                {{ person.employment_type_label }}
+              </span>
+            </td>
+            <td
+              class="px-3 py-3 text-right font-mono text-cp-sm font-bold"
+              :class="
+                Number(person.weekly_base_hours) === 0 ? 'text-peligro-texto' : 'text-texto-marca'
+              "
+            >
+              {{ person.weekly_base_hours }} h
+            </td>
+            <td class="px-3 py-3 text-right">
+              <button
+                type="button"
+                data-testid="edit-person"
+                class="rounded-control border border-borde-fuerte bg-tarjeta px-3 py-1.5 text-cp-sm font-medium text-texto-marca transition-colors hover:bg-tarjeta-suave focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+                @click="edit(person)"
+              >
+                Editar
+              </button>
+            </td>
+          </tr>
+          <tr v-if="!props.people.length">
+            <td colspan="7" class="px-3 py-6 text-center text-cp-sm text-texto-tenue">
+              No hay personas en la organización.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <ModalDialog

@@ -29,6 +29,20 @@ const people = [
     weekly_base_hours: 40,
     is_global_admin: false,
   },
+  {
+    id: 3,
+    name: 'Iván',
+    email: 'ivan@example.com',
+    company_role: 'gerente',
+    company_role_label: 'Gerente',
+    department_id: null,
+    department_name: null,
+    weekly_base_hours: 0,
+    job_title: 'Dirección',
+    employment_type: 'techo',
+    employment_type_label: 'Techo',
+    is_global_admin: true,
+  },
 ]
 
 const departments = [
@@ -356,20 +370,21 @@ describe('SettingsView', () => {
     expect(wrapper.text()).toContain('Automatización & SCADA')
   })
 
-  it('la lista de personas comparte el lenguaje visual del directorio', async () => {
+  it('la tabla de personas va directa en una tarjeta, sin caja interior ni titulo', async () => {
     const wrapper = await mountView()
 
     await wrapper.find('[data-testid="tab-people"]').trigger('click')
     await flushPromises()
 
+    const tarjeta = wrapper.find('section')
+    expect(tarjeta.classes()).toContain('rounded-tarjeta')
+    expect(tarjeta.classes()).toContain('border-borde')
+    expect(tarjeta.classes()).toContain('bg-tarjeta')
+    // La tabla va en la tarjeta, no en una caja con borde dentro de ella.
+    expect(tarjeta.element.querySelector(':scope > div > table')).toBeTruthy()
+    expect(tarjeta.find('h2').exists()).toBe(false)
+
     const tabla = wrapper.find('table')
-    expect(tabla.exists()).toBe(true)
-
-    // Mismo contenedor, misma cabecera y mismos separadores que el directorio.
-    const contenedor = tabla.element.closest('div')
-    expect(contenedor.className).toContain('border-borde')
-    expect(contenedor.className).toContain('bg-tarjeta')
-
     const cabecera = tabla.find('thead')
     expect(cabecera.classes()).toContain('bg-tarjeta-suave')
     expect(cabecera.classes()).toContain('uppercase')
@@ -382,6 +397,95 @@ describe('SettingsView', () => {
     expect(avatar.exists()).toBe(true)
     expect(avatar.attributes('style')).toContain('rgb(var(--cp-neutro-fondo))')
     expect(avatar.text()).not.toBe('')
+  })
+
+  it('la accion de la pestana va en la cabecera y no hay titulo de persona en el cuerpo', async () => {
+    const wrapper = await mountView()
+
+    // El boton "Nueva persona" vive en la cabecera compartida, no en el panel.
+    const boton = wrapper.find('[data-testid="header-action"]')
+    expect(boton.exists()).toBe(true)
+    expect(boton.text()).toContain('Nueva persona')
+    expect(boton.element.closest('[data-testid="vista-cabecera"]')).toBeTruthy()
+
+    // La vista entera solo lo menciona una vez: la cabecera, sin titulo
+    // "Personas" repetido en el cuerpo.
+    const textos = wrapper.text().split('Nueva persona')
+    expect(textos).toHaveLength(2)
+
+    await boton.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
+  })
+
+  it('el rol sale como pildora de tono', async () => {
+    const wrapper = await mountView()
+
+    const pildoras = wrapper.findAll('[data-testid="person-row"] [data-testid="person-role-pill"]')
+    expect(pildoras).toHaveLength(3)
+    expect(pildoras[0].text()).toBe('Jefe de departamento')
+    expect(pildoras[0].classes()).toContain('bg-info-fondo')
+    expect(pildoras[0].classes()).toContain('rounded-pastilla')
+    expect(pildoras[1].text()).toBe('Técnico')
+    expect(pildoras[1].classes()).toContain('bg-neutro-fondo')
+    expect(pildoras[2].text()).toBe('Gerente')
+    expect(pildoras[2].classes()).toContain('bg-primario-suave')
+    expect(pildoras[2].classes()).toContain('text-texto-marca')
+  })
+
+  it('las horas base salen en mono a la derecha y en peligro cuando son cero', async () => {
+    const wrapper = await mountView()
+
+    const celdasHoras = wrapper.findAll(
+      '[data-testid="person-row"] td:nth-last-child(2)',
+    )
+    expect(celdasHoras[0].classes()).toContain('font-mono')
+    expect(celdasHoras[0].classes()).toContain('text-texto-marca')
+    expect(celdasHoras[0].text()).toBe('40 h')
+    expect(celdasHoras[2].text()).toBe('0 h')
+    expect(celdasHoras[2].classes()).toContain('text-peligro-texto')
+  })
+
+  it('el contrato Techo lleva el tono azul y el Objetivo el neutro', async () => {
+    const wrapper = await mountView()
+
+    const filaObjetivo = wrapper.findAll('[data-testid="person-row"]')[0]
+    const pildoraObjetivo = filaObjetivo.findAll('td')[4].find('span')
+    expect(pildoraObjetivo.classes()).toContain('bg-neutro-fondo')
+
+    const filaTecho = wrapper.findAll('[data-testid="person-row"]')[2]
+    const pildoraTecho = filaTecho.findAll('td')[4].find('span')
+    expect(pildoraTecho.text()).toBe('Techo')
+    expect(pildoraTecho.classes()).toContain('bg-info-fondo')
+  })
+
+  it('la persona sin departamento sale en cursiva tenue', async () => {
+    const wrapper = await mountView()
+
+    const celdasDepartamento = wrapper.findAll(
+      '[data-testid="person-row"] td:nth-child(4)',
+    )
+    expect(celdasDepartamento[2].text()).toBe('Sin departamento')
+    expect(celdasDepartamento[2].classes()).toContain('italic')
+    expect(celdasDepartamento[2].classes()).toContain('text-texto-tenue')
+    expect(celdasDepartamento[0].text()).toBe('Automatización & SCADA')
+    expect(celdasDepartamento[0].classes()).not.toContain('italic')
+  })
+
+  it('Editar abre el dialogo con la persona rellena', async () => {
+    const wrapper = await mountView()
+
+    const botones = wrapper.findAll('[data-testid="person-row"] [data-testid="edit-person"]')
+    expect(botones).toHaveLength(3)
+    await botones[2].trigger('click')
+    await flushPromises()
+
+    const inputs = wrapper.findAll('form input')
+    expect(inputs[0].element.value).toBe('Iván')
+    expect(inputs[1].element.value).toBe('ivan@example.com')
+    expect(wrapper.find('[data-testid="person-job-title"]').element.value).toBe('Dirección')
+    // En modo edicion no se pide contrasena.
+    expect(wrapper.find('input[type="password"]').exists()).toBe(false)
   })
 
   it('cambia de pestana y muestra los departamentos', async () => {
@@ -551,7 +655,7 @@ describe('SettingsView', () => {
 
     expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(false)
 
-    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
@@ -560,7 +664,7 @@ describe('SettingsView', () => {
   it('el modal se cierra con ESC', async () => {
     const wrapper = await mountView()
 
-    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)
 
@@ -573,7 +677,7 @@ describe('SettingsView', () => {
   it('da de alta una persona', async () => {
     const wrapper = await mountView()
 
-    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     const form = wrapper.find('form')
@@ -597,7 +701,7 @@ describe('SettingsView', () => {
   it('el formulario de personas lleva puesto, nivel y tipo de contrato', async () => {
     const wrapper = await mountView()
 
-    await wrapper.find('[data-testid="new-person"]').trigger('click')
+    await wrapper.find('[data-testid="header-action"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="person-job-title"]').exists()).toBe(true)

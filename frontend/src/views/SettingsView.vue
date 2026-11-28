@@ -13,7 +13,7 @@
  * La pestaña abierta vive en la URL, de modo que recargar la pagina no cambia
  * de sección.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import {
@@ -34,6 +34,7 @@ import ProjectsPanel from '../components/settings/ProjectsPanel.vue'
 import RolesPanel from '../components/settings/RolesPanel.vue'
 import SkillsPanel from '../components/settings/SkillsPanel.vue'
 import PageHeader from '../components/common/PageHeader.vue'
+import { CONFIG_ACCION_KEY } from '../composables/useConfigAccion'
 import { useAuthStore } from '../stores/auth'
 
 const TABS = [
@@ -74,6 +75,16 @@ const visibleTabs = computed(() => (isManager.value ? TABS : READER_TABS))
 const currentTab = computed(
   () => visibleTabs.value.find((item) => item.name === tab.value) ?? visibleTabs.value[0],
 )
+
+/**
+ * Accion primaria de la pestana activa ("+ Nueva persona").
+ *
+ * El panel montado la registra al montar y la retira al desmontar; sin
+ * accion no pinta nada. Las demas pestanas anadiran su boton aqui cuando
+ * lo definan (hoy llevan su boton dentro del panel).
+ */
+const accionPestana = ref(null)
+provide(CONFIG_ACCION_KEY, accionPestana)
 
 /** Titulo: el gerente ve la configuracion entera. */
 const pageTitle = computed(() => (isManager.value ? 'Configuración' : 'Calendario laboral'))
@@ -190,6 +201,16 @@ watch(
             {{ item.label }}
           </button>
         </nav>
+      </template>
+      <template v-if="accionPestana" #actions>
+        <button
+          type="button"
+          data-testid="header-action"
+          class="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primario-fuerte px-3 py-1.5 text-cp-sm font-semibold text-sobre-primario shadow-primaria transition-colors hover:bg-primario-medio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foco"
+          @click="accionPestana.onClick"
+        >
+          {{ accionPestana.etiqueta }}
+        </button>
       </template>
     </PageHeader>
 

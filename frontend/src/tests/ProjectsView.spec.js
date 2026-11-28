@@ -126,14 +126,14 @@ async function mountView() {
   return wrapper
 }
 
-/** Cards de proyecto que se ven ahora mismo, en el orden de la rejilla. */
-function cards(wrapper) {
-  return wrapper.findAll('[data-testid="project-card"]')
+/** Filas de proyecto que se ven ahora mismo, en el orden de las tablas. */
+function filas(wrapper) {
+  return wrapper.findAll('[data-testid="project-row"]')
 }
 
 /** Nombres de los proyectos que se ven ahora mismo. */
 function nombres(wrapper) {
-  return cards(wrapper).map((card) => card.find('h3').text())
+  return filas(wrapper).map((fila) => fila.attributes('aria-label').replace('. Abrir proyecto', ''))
 }
 
 describe('ProjectsView', () => {
@@ -154,59 +154,83 @@ describe('ProjectsView', () => {
     expect(wrapper.text()).toContain('Red de tuberias')
   })
 
-  it('la cabecera del grupo dice cuantos proyectos tiene y quien los lleva', async () => {
+  it('la cabecera del grupo dice cuantos proyectos tiene, quien los lleva y las horas', async () => {
     const wrapper = await mountView()
 
     const cabeceras = wrapper.findAll('[data-testid="projects-group-summary"]')
     expect(cabeceras[0].text()).toContain('2 proyectos')
-    expect(cabeceras[0].text()).toContain('responsable Ana')
+    expect(cabeceras[0].text()).toContain('responsable')
+    expect(cabeceras[0].text()).toContain('Ana')
     expect(cabeceras[1].text()).toContain('1 proyecto')
-    expect(cabeceras[1].text()).toContain('responsable Jorge')
+    expect(cabeceras[1].text()).toContain('responsable')
+    expect(cabeceras[1].text()).toContain('Jorge')
+
+    const horas = wrapper.findAll('[data-testid="projects-group-hours"]')
+    expect(horas[0].text()).toContain('80')
+    expect(horas[0].text()).toContain('h planificadas')
+    expect(horas[1].text()).toContain('0')
+    expect(horas[1].text()).toContain('h planificadas')
   })
 
-  it('cada proyecto es una card con nombre, responsable, estado, tareas y carga', async () => {
+  it('cada grupo de departamento es un bloque con su tabla', async () => {
     const wrapper = await mountView()
 
-    expect(cards(wrapper)).toHaveLength(3)
-    const card = cards(wrapper)[0]
-    expect(card.element.tagName).toBe('ARTICLE')
-    expect(card.find('h3').text()).toBe('Línea Pasteurizadora SIVE')
-    expect(card.text()).toContain('Ana')
-    expect(card.text()).toContain('Activo')
-    expect(card.find('[data-testid="project-tasks"]').text()).toContain('1/4')
-    expect(card.find('[data-testid="project-load"]').text()).toBe('75 %')
+    const grupos = wrapper.findAll('[data-testid="projects-group"]')
+    expect(grupos).toHaveLength(2)
+    expect(grupos[0].findAll('table')).toHaveLength(1)
+    expect(grupos[1].findAll('table')).toHaveLength(1)
+
+    const filasPrimerGrupo = grupos[0].findAll('[data-testid="project-row"]')
+    expect(filasPrimerGrupo).toHaveLength(2)
+    expect(filas(wrapper)).toHaveLength(3)
+
+    // Cabeceras de columna reales: una por columna, en cada tabla.
+    expect(wrapper.findAll('th[scope="col"]')).toHaveLength(12)
   })
 
-  it('la card no lleva enlaces ni botones por dentro', async () => {
+  it('cada proyecto es una fila con nombre, responsable, estado, tareas y carga', async () => {
+    const wrapper = await mountView()
+
+    expect(filas(wrapper)).toHaveLength(3)
+    const fila = filas(wrapper)[0]
+    expect(fila.element.tagName).toBe('TR')
+    expect(fila.text()).toContain('Línea Pasteurizadora SIVE')
+    expect(fila.text()).toContain('Ana')
+    expect(fila.text()).toContain('Activo')
+    expect(fila.find('[data-testid="project-tasks"]').text()).toBe('1/4')
+    expect(fila.find('[data-testid="project-load"]').text()).toBe('75 %')
+  })
+
+  it('la fila no lleva enlaces ni botones por dentro', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.text()).not.toContain('Capacidad')
     expect(wrapper.text()).not.toContain('Gantt')
     expect(wrapper.text()).not.toContain('Kanban')
-    const card = cards(wrapper)[0]
-    expect(card.findAll('a')).toHaveLength(0)
-    expect(card.findAll('button')).toHaveLength(0)
+    const fila = filas(wrapper)[0]
+    expect(fila.findAll('a')).toHaveLength(0)
+    expect(fila.findAll('button')).toHaveLength(0)
   })
 
-  it('pinchar en cualquier parte de la card lleva al proyecto', async () => {
+  it('pinchar en cualquier parte de la fila lleva al proyecto', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[1]
-    await card.trigger('click')
+    const fila = filas(wrapper)[1]
+    await fila.trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('project')
     expect(router.currentRoute.value.params.id).toBe('2')
   })
 
-  it('la card se activa con el teclado', async () => {
+  it('la fila se activa con el teclado', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[0]
-    expect(card.attributes('tabindex')).toBe('0')
-    expect(card.attributes('role')).toBe('button')
+    const fila = filas(wrapper)[0]
+    expect(fila.attributes('tabindex')).toBe('0')
+    expect(fila.attributes('role')).toBe('button')
 
-    await card.trigger('keydown.enter')
+    await fila.trigger('keydown.enter')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('project')
@@ -270,61 +294,46 @@ describe('ProjectsView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="projects-no-match"]').exists()).toBe(true)
-    expect(cards(wrapper)).toHaveLength(0)
+    expect(filas(wrapper)).toHaveLength(0)
 
     await wrapper.find('[data-testid="clear-filters"]').trigger('click')
     await flushPromises()
 
-    expect(cards(wrapper)).toHaveLength(3)
-  })
-
-  it('cada seccion de area es una rejilla de cards, una por proyecto', async () => {
-    const wrapper = await mountView()
-
-    // Una card por proyecto: la tabla de filas desaparecio.
-    expect(wrapper.findAll('table')).toHaveLength(0)
-    expect(cards(wrapper)).toHaveLength(3)
-    expect(wrapper.findAll('[data-testid="projects-group"]')).toHaveLength(2)
-
-    // Rejilla: 1 columna en estrecha, 2 en mediana, 3 en ancha.
-    const rejilla = wrapper.find('[data-testid="projects-group"]').find('.grid')
-    expect(rejilla.classes()).toContain('grid-cols-1')
-    expect(rejilla.classes()).toContain('sm:grid-cols-2')
-    expect(rejilla.classes()).toContain('xl:grid-cols-3')
-    const cardsPrimerGrupo = wrapper.find('[data-testid="projects-group"]').findAll('[data-testid="project-card"]')
-    expect(cardsPrimerGrupo).toHaveLength(2)
+    expect(filas(wrapper)).toHaveLength(3)
   })
 
   it('el equipo, las tareas y la carga salen del resumen', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[0]
-    const avatares = card.findAll('[data-testid="project-member"]')
+    const fila = filas(wrapper)[0]
+    const avatares = fila.findAll('[data-testid="project-member"]')
     expect(avatares).toHaveLength(2)
     expect(avatares[0].text()).toBe('AK')
     expect(avatares[0].attributes('title')).toBe('Aketza')
-    expect(card.find('[data-testid="project-tasks"]').text()).toContain('1/4')
-    expect(card.find('[data-testid="project-load"]').text()).toBe('75 %')
-    expect(card.find('[data-testid="project-overloaded"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-tasks"]').text()).toBe('1/4')
+    expect(fila.find('[data-testid="project-load"]').text()).toBe('75 %')
+    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(false)
   })
 
-  it('un proyecto cuya carga supera la capacidad avisa', async () => {
+  it('un proyecto cuya carga supera la capacidad avisa con la escala', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[1]
+    const fila = filas(wrapper)[1]
 
-    expect(card.find('[data-testid="project-overloaded"]').exists()).toBe(true)
-    expect(card.find('[data-testid="project-overloaded"]').text()).toBe('Sobrecargado')
+    expect(fila.find('[data-testid="project-overloaded"]').exists()).toBe(true)
+    // 50 h sobre 40 de capacidad: sobrecarga alta, con triangulo en el chip.
+    expect(fila.find('[data-testid="project-overloaded"]').text()).toBe('Sobrecarga alta')
+    expect(fila.find('[data-testid="project-load"]').text()).toBe('125 %')
   })
 
-  it('un proyecto sin equipo ni tareas muestra cero y sin capacidad', async () => {
+  it('un proyecto sin equipo ni horas planificadas muestra guiones', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[2]
+    const fila = filas(wrapper)[2]
 
-    expect(card.find('[data-testid="project-member"]').exists()).toBe(false)
-    expect(card.find('[data-testid="project-tasks"]').text()).toContain('0/0')
-    expect(card.find('[data-testid="project-load-unknown"]').text()).toBe('Sin capacidad')
+    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-load"]').exists()).toBe(false)
+    expect(fila.text()).toContain('—')
   })
 
   it('si el resumen no llega, el listado sigue en pie', async () => {
@@ -332,10 +341,11 @@ describe('ProjectsView', () => {
 
     const wrapper = await mountView()
 
-    expect(cards(wrapper)).toHaveLength(3)
-    const card = cards(wrapper)[0]
-    expect(card.find('[data-testid="project-member"]').exists()).toBe(false)
-    expect(card.find('[data-testid="project-tasks"]').text()).toContain('0/0')
+    expect(filas(wrapper)).toHaveLength(3)
+    const fila = filas(wrapper)[0]
+    expect(fila.find('[data-testid="project-member"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-tasks"]').exists()).toBe(false)
+    expect(fila.find('[data-testid="project-load"]').exists()).toBe(false)
   })
 
   it('los avatares del equipo se apilan y resumen los que sobran', async () => {
@@ -356,20 +366,20 @@ describe('ProjectsView', () => {
 
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[0]
-    expect(card.findAll('[data-testid="project-member"]')).toHaveLength(4)
-    expect(card.find('[data-testid="project-members-rest"]').text()).toBe('+1')
+    const fila = filas(wrapper)[0]
+    expect(fila.findAll('[data-testid="project-member"]')).toHaveLength(4)
+    expect(fila.find('[data-testid="project-members-rest"]').text()).toBe('+1')
   })
 
-  it('la franja de la card y los avatares salen con el color del departamento en linea', async () => {
+  it('la barrita del proyecto y los avatares salen con el color del departamento en linea', async () => {
     const wrapper = await mountView()
 
-    const card = cards(wrapper)[0]
-    const franja = card.find('.rounded-pastilla')
-    expect(franja.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
+    const fila = filas(wrapper)[0]
+    const barrita = fila.find('.rounded-pastilla')
+    expect(barrita.attributes('style')).toContain('background-color: rgb(0, 85, 102)')
 
     // El avatar del equipo sale con el color del grupo mezclado: la pildora.
-    const avatar = card.find('[data-testid="project-member"]')
+    const avatar = fila.find('[data-testid="project-member"]')
     expect(avatar.attributes('style')).toContain('background-color: rgb(224, 235, 237)')
   })
 })
